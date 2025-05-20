@@ -5,8 +5,36 @@
 
 \begin{document}
 
+\section{Last Time}
 
-\section{First and Last visitations by labels / locations}
+\subsection{Concentrate on the answer they choose}
+\begin{figure}[H]
+  \centering
+  % First row of images
+  \begin{subcaptionbox}{Answered A\label{fig:A_dt_g}}[0.45\textwidth]
+    {\centering\includegraphics[width=\linewidth]{plots/matrix_plots/matrix_mean_dwell_time_A_gatherers.png}}
+  \end{subcaptionbox}
+  \hfill
+  \begin{subcaptionbox}{Answered B\label{fig:B_dt_g}}[0.45\textwidth]
+    {\centering\includegraphics[width=\linewidth]{plots/matrix_plots/matrix_mean_dwell_time_B_gatherers.png}}
+  \end{subcaptionbox}
+    \vspace{1em} % Vertical spacing between rows
+    
+      % Second row of images
+      \begin{subcaptionbox}{Answered C\label{fig:C_dt_g}}[0.45\textwidth]
+        {\centering\includegraphics[width=\linewidth]{plots/matrix_plots/matrix_mean_dwell_time_C_gatherers.png}}
+      \end{subcaptionbox}
+      \hfill
+      \begin{subcaptionbox}{Answered D\label{fig:D_dt_g}}[0.45\textwidth]
+        {\centering\includegraphics[width=\linewidth]{plots/matrix_plots/matrix_mean_dwell_time_D_gatherers.png}}
+      \end{subcaptionbox}
+      
+      \caption{Mean Dwell Time by selected answer}
+  \label{fig:fourimages4}
+\end{figure}
+\newpage
+
+\subsection{First and Last visitations by labels / locations}
 
 Last Time - no separation into ABCD, no last visits. 
 \\
@@ -69,8 +97,6 @@ Last Time - no separation into ABCD, no last visits.
 
 
 
-
-
 \newpage
 \textbf{Last Visits}
 
@@ -130,11 +156,22 @@ Last Time - no separation into ABCD, no last visits.
   \label{fig:fourimages4}
 \end{figure}
 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots/sequence_freq/simpl_fix_by_label.png}
+    \caption{Simple Sequence Length}
+    \label{fig:length}
+\end{figure}
+Clockwise pattern of last visits is spillover of short sequences 
+
+
+
 \newpage
-\section{Histograms of frequencies (first/last visits}
+\section{Histograms of frequencies (first/last visits)}
 
 
-
+\textbf{First Visits}
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{plots/visits_hists/hist_first_visits_area_label_top-35_hunters_answered_A.png}
@@ -153,6 +190,8 @@ Last Time - no separation into ABCD, no last visits.
 \end{figure}
 
 
+\newpage
+\textbf{Last Visits}
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{plots/visits_hists/hist_last_visits_area_label_top-35_hunters_answered_A.png}
@@ -169,6 +208,87 @@ Last Time - no separation into ABCD, no last visits.
     \caption{Last Visits by Location (answ - A)}
     \label{fig:sl_h}
 \end{figure}
+
+
+\newpage
+\section{Random participant (first) strategies}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots/visits_hists/rand_participant_l6_70.png}
+    \caption{Random Gatherer}
+    \label{fig:sl_h}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{{plots/visits_hists/rand_participant_l47_144}}
+    \caption{Random Hunter}
+    \label{fig:sl_h}
+\end{figure}
+
+\newpage
+\section{Strategy dominance analysis}
+
+\textbf{Hunters}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\linewidth]{{plots/strategies/dominant_prop_first_visits_area_screen_loc_h.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_h.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\linewidth]{{plots/strategies/dom_str_counts_first_visits_area_screen_loc_h.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+\newpage
+\textbf{Gatherers}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\linewidth]{{plots/strategies/dominant_prop_first_visits_area_screen_loc_g.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_g.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.70\linewidth]{{plots/strategies/dom_str_counts_first_visits_area_screen_loc_g.png}}
+    \label{fig:sl_h}
+\end{figure}
+
+
+\section{Distance Measure}
+
+\begin{itemize}
+    \item Levenshtein
+    \item Scasim - works now, but needs to be seriously modified to use for this case
+    \item 2D Levenshtein attempts: -mismatch, -euclidean.
+    Each point is (location, label) pair - 
+
+
+    \item Still need better way to integrate sequences
+    
+    
+\end{itemize}
+
+
+\section{Sequence Manipulations}
 
 
 \end{document}
