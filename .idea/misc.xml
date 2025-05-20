@@ -3,4 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="default_env" />
   </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="QA_eyetracking_env" project-jdk-type="Python SDK" />
 </project>
