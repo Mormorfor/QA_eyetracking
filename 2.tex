@@ -226,8 +226,12 @@ Clockwise pattern of last visits is spillover of short sequences
     \label{fig:sl_h}
 \end{figure}
 
+Have the beginning and the end - what's in the middle?
+
 \newpage
 \section{Strategy dominance analysis}
+
+Do people remain consistent in their approach?
 
 \textbf{Hunters}
 
@@ -239,7 +243,7 @@ Clockwise pattern of last visits is spillover of short sequences
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_h.png}}
+    \includegraphics[width=0.9\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_h.png}}
     \label{fig:sl_h}
 \end{figure}
 
@@ -261,7 +265,7 @@ Clockwise pattern of last visits is spillover of short sequences
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_g.png}}
+    \includegraphics[width=0.9\linewidth]{{plots/strategies/dominance_gap_first_visits_area_screen_loc_g.png}}
     \label{fig:sl_h}
 \end{figure}
 
@@ -271,6 +275,8 @@ Clockwise pattern of last visits is spillover of short sequences
     \includegraphics[width=0.70\linewidth]{{plots/strategies/dom_str_counts_first_visits_area_screen_loc_g.png}}
     \label{fig:sl_h}
 \end{figure}
+
+Is there a dominant strategy here that is not location based? (shortest text, etc)
 
 
 \section{Distance Measure}
@@ -290,5 +296,44 @@ Clockwise pattern of last visits is spillover of short sequences
 
 \section{Sequence Manipulations}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots/etc/dumb_mix.PNG}
+    \caption{First 4 - loc, rest - label}
+    \label{fig:enter-label}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots/etc/trim_top_and_bottom.PNG}
+    \caption{Trimmed Beginning and End}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{plots/etc/clock.PNG}
+    \caption{Transition Types}
+    \label{fig:enter-label}
+\end{figure}
+Haven't done anything with this yet, but think it is promising
+
+\section{Clustering}
+
+Working on simplified (collapsed) sequences, otherwise unlikely to find any meaningful patterns across different texts.
+
+\begin{itemize}
+    \item KMEANS - over MDS fit space from distance matrix
+    \item Agglomerative
+    \item DBSAN
+    \item HDBSAN - no need for n clusters!
+\end{itemize}
+
+Attempted some (small subset) hyperparameter tuning, though, no proper extensive runs have been made yet.
+
+No results yet, though some sequence-distance-clustering combinations might have not been tested at all yet.
+
+Not sure there are clusters at all in the space in which we look right now, might still need better representations. 
 
 \end{document}
