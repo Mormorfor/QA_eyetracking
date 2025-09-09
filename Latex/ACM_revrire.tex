@@ -260,7 +260,7 @@
 
     In reading specifically, most eye‐tracking research has concentrated on how readers allocate attention to continuous text. Such studies typically track regressions, skip rates, and fixation durations as participants move through paragraphs or passages. By contrast, far fewer inquiries have been made into what happens once readers finish a text and are presented with post‐reading questions. In standardized testing or comprehension experiments, the moment when a reader encounters a multiple‐choice question represents a qualitatively different task: instead of parsing new textual information, they must compare discrete answer options and decide which best matches their understanding of the passage. By emphasizing the post‐reading question phase, our study fills this gap, revealing how examinees shift from reading‐based processing to choice‐based scanning. 
     
-    In the present study, we analyze eye‐tracking data from the OneStop Eye Movements dataset published by \citet{berzak2025onestop}, which contains 360 native English speaking participants answering multiple‐choice reading‐comprehension questions. After excluding repeated readings, we analyze page 4 of each trial—where four answer options appear in a diamond shape and participants select them via a gamepad.
+    In the present study, we analyze eye‐tracking data from the OneStop Eye Movements dataset published by Berzak et. al. [2025] \cite{berzak2025onestop}, which contains 360 native English speaking participants answering multiple‐choice reading‐comprehension questions. After excluding repeated readings, we analyze page 4 of each trial—where four answer options appear in a diamond shape and participants select them via a gamepad.
 
     We address three core questions. First, do participants follow a systematic scan path—such as a location-based clockwise sweep—when initially exploring the four answer regions? Second, once a particular scan order emerges, does each reader reliably repeat it across multiple items? Third, regardless of whether the question appears before (“Hunting”) or after (“Gathering”) reading the passage, do the final fixation and total dwell time consistently favor the chosen answer?
 
@@ -272,7 +272,7 @@
 
 \section{Methods}
     \subsection{OneStop Dataset}
-    This research utilizes the OneStop Eye Movements dataset  \citet{berzak2025onestop}, a large-scale corpus of eye-tracking data collected from participants reading English texts and answering corresponding reading comprehension questions.
+    This research utilizes the OneStop Eye Movements dataset  \cite{berzak2025onestop}, a large-scale corpus of eye-tracking data collected from participants reading English texts and answering corresponding reading comprehension questions.
 
     The data collection experiment incorporates a number of experimental manipulations, of which one is incorporated into our exploration:
 
@@ -297,7 +297,7 @@
     
     Throughout the run of the experiment, the participants control the transition between pages, as well as select their answers, using a Logitech Gamepad F310 controller with a standard diamond shaped four-button layout of the directional pad. The questions are displayed on the screen in the correspondent diamond arrangement.  
 
-    The multiple choice answer options follow a consistent answer structure described in STRAC annotation guidelines \citet{berzak2020starc}, where:\\
+    The multiple choice answer options follow a consistent answer structure described in STRAC annotation guidelines \cite{berzak2020starc}, where:\\
     \textbf{A} is a correct answer, based on the critical span of the text.\\
     \textbf{B} is a distractor, representing a plausible miscomprehension of the correct critical span. \\
     \textbf{C} is a distractor, based on an additional span in the text, different from the critical span. \\
@@ -328,7 +328,7 @@
 
     Figure~\ref{fig:hunt_first_loc} showcases the result of this examination from the location perspective in Hunting regime subjects. From each trial the order of area visits was extracted, these (up to) five long sequences were enumerated, and frequency of appearance for each Screen Location at each ordered position was counted. In every answer-selected subgroup, and in both Hunting and Gathering regimes, we see the same most-commonly encountered order position (only Hunting subjects are shown; Gatherers exhibit the same pattern): answer 0 is most commonly visited first, answer 2 is most commonly visited second, then answer 3, followed by answer 1 (questions are most commonly visited last, and often not visited at all). This sequence corresponds to a clock-wise scan from the top, in the diamond shaped displayed answers.
 
-    To strengthen our conclusion we perform a Lag-sequential analysis, testing wether certain from $\to$ to fixations occur more often than chance \citet{bakeman1995log}.
+    To strengthen our conclusion we perform a Lag-sequential analysis, testing wether certain from $\to$ to fixations occur more often than chance \cite{bakeman1995log}.
 
     Screen-location codes (answer\_0 -- answer\_3): The lag-1 Z-matrix revealed extremely large positive Z-scores (e.g. Z  $\approx$ 437 for answer\_0 $\to$ answer\_2, Z $\approx$ 550 for answer\_2 $\to$ answer\_3, Z  $\approx$ 393 for answer\_3 $\to$ answer\_1), confirming a highly significant “clockwise” scan order (top to right to bottom to left). See Appendix~\ref{app:lsa_location} for the full Z-scores table.
 
@@ -507,7 +507,7 @@
 
     We next examine whether participants spend disproportionately more time dwelling on the answer they ultimately choose, regardless of its screen location or correctness. For each experimental trial, we aggregate the IA dwell time for each of the five segments. We aim to access the dependency, or lack there of, between the attention given to the area and its Location or Label assignment, hoping to capture some inherent pattern in how participants distribute their attention between segments. 
  
-    As indicated in Figure~\ref{fig:hun_dwell} (Hunters) and Figure~\ref{fig:gath_dwell} (Gatherers), both Hunting and Gathering regime participants showcase clear preference for an answer they end up selecting, with no dependence on the answers location or its objective correctness. \textcolor{orange}{(TODO - STATISTICS!).} This conclusion aligns with the research by Linder et. al. claiming gaze bias towards subjectively preferred answer options in multiple choice decision making \citet{lindner2014tracking} as well as Tsai et. al. research claiming students pay more attention to chosen options rather then rejected ones \citet{tsai2012visual}. We conclude no significant difference between Hunting and Gathering regimes.
+    As indicated in Figure~\ref{fig:hun_dwell} (Hunters) and Figure~\ref{fig:gath_dwell} (Gatherers), both Hunting and Gathering regime participants showcase clear preference for an answer they end up selecting, with no dependence on the answers location or its objective correctness. \textcolor{orange}{(TODO - STATISTICS!).} This conclusion aligns with the research by Linder et. al. claiming gaze bias towards subjectively preferred answer options in multiple choice decision making \cite{lindner2014tracking} as well as Tsai et. al. research claiming students pay more attention to chosen options rather then rejected ones \cite{tsai2012visual}. We conclude no significant difference between Hunting and Gathering regimes.
 
         
         \begin{figure}[htbp]
@@ -578,7 +578,7 @@
 
 
     \subsection*{Dwell Time Across Answer Regions}
-    Beyond the final fixation, our aggregated dwell‐time matrices (Figure~\ref{fig:gath_dwell} and Figure~\ref{fig:hun_dwell}) show a clear preference: regardless of regime or answer correctness, participants devote longer total fixation time to the option they will ultimately choose. In both Hunters and Gatherers, the mean dwell time on the chosen segment is on average \textcolor{orange}{(TODO - \%)} higher than on the most‐visited distractor. This dwell‐time preference is consistent with earlier studies \citet{lindner2014tracking} \citet{tsai2012visual}.
+    Beyond the final fixation, our aggregated dwell‐time matrices (Figure~\ref{fig:gath_dwell} and Figure~\ref{fig:hun_dwell}) show a clear preference: regardless of regime or answer correctness, participants devote longer total fixation time to the option they will ultimately choose. In both Hunters and Gatherers, the mean dwell time on the chosen segment is on average \textcolor{orange}{(TODO - \%)} higher than on the most‐visited distractor. This dwell‐time preference is consistent with earlier studies \cite{lindner2014tracking, tsai2012visual}.
 
 
 \section{Limitations}
