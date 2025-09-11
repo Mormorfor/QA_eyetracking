@@ -24,9 +24,9 @@
 \addbibresource{references.bib}
 \usepackage{cleveref} 
 
-\title{QA paper}
+\title{Answering Reading Comprehension Questions – Eye Tracking Based Behavior Analysis}
 \date{}
-\author{}
+\author{By Diana Morgan, Supervised by Yevgeni Berzak}
 
 %%% change template
 %%% eye movement papers from previous years (in CHI) 
@@ -53,7 +53,7 @@
 
 
 \section{Abstract}
-
+This paper investigates eye‐movement behavior during multiple‐choice reading comprehension tasks using the OneStop Eye Movements dataset. We analyze the fixation sequences and dwell times of 360 native English participants as they select among four answer options presented in a diamond layout. Results show that readers overwhelmingly adopt a clockwise first‐scan heuristic, beginning with the top option and proceeding around the display, independent of whether they preview the question before reading (Hunting) or after (Gathering). Individual participants typically repeat one dominant scan strategy across trials, indicating stable within‐subject heuristics. Final fixations strongly align with the selected answer (approximately 70\% of trials), and mean dwell time is consistently higher on the chosen option than on distractors. These findings highlight the role of simple spatial heuristics and gaze bias in multiple‐choice decision making and suggest that eye‐tracking provides reliable markers of emerging preferences in comprehension assessment contexts.
 
 \section{Introduction}
     Eye‐tracking has become a powerful tool for uncovering the underlying processes of decision making, including the tasks where individuals make decisions from multiple options presented. By documenting where and when people look, researchers can infer which pieces of information attract attention, how evidence is accumulated over time, and ultimately how choices are made.
@@ -207,7 +207,7 @@
         \end{figure}
         
     \subsection{Consistency in Strategy Selection}   
-    We aim to further explore the common First-Scan strategies by asking if the behavior remains consistent across trials for a given participant. For each participant, we identify their Dominant First-Scan Strategy as the four-element sequence they used most often across trials. In Figure~\ref{fig:dom_props} you can see the proportion of trials the Dominant Strategy was used in. We note that Gathering regime participants show greater consistency in use of their dominant strategy (use their dominant strategy in greater proportion of trials) \textcolor{orange}{(TODO - STATISTICS!).} 
+    We aim to further explore the common First-Scan strategies by asking if the behavior remains consistent across trials for a given participant. For each participant, we identify their Dominant First-Scan Strategy as the four-element sequence they used most often across trials. In Figure~\ref{fig:dom_props} you can see the proportion of trials the Dominant Strategy was used in. We note that Gathering regime participants show greater consistency in use of their dominant strategy (use their dominant strategy in greater proportion of trials).} 
 
     Furthermore, we examine which strategies are most often dominant. Among both Hunting and Gathering participants who used their Dominant Strategy in at least half of the trials, the same top three strategies emerge to be most common ones as in the general population.
 
@@ -263,7 +263,7 @@
         \label{fig:length}
     \end{figure}
 
-    However, when looked at from the answer correctness perspective (Figure~\ref{fig:last_hunt_lbl}) we see clear indication of the last segment looked at being the answer selected. We find that 71.25\% of Gatherers and 68.24\% of Hunters have last area they visit be the answer they select. \textcolor{orange}{(TODO  - about 85\% of people look at selected area either last or one before last - have to look into it)} 
+    However, when looked at from the answer correctness perspective (Figure~\ref{fig:last_hunt_lbl}) we see clear indication of the last segment looked at being the answer selected. We find that 71.25\% of Gatherers and 68.24\% of Hunters have last area they visit be the answer they select.
 
     \begin{figure}[H]
           \centering
@@ -296,7 +296,7 @@
 
     We next examine whether participants spend disproportionately more time dwelling on the answer they ultimately choose, regardless of its screen location or correctness. For each experimental trial, we aggregate the IA dwell time for each of the five segments. We aim to access the dependency, or lack there of, between the attention given to the area and its Location or Label assignment, hoping to capture some inherent pattern in how participants distribute their attention between segments. 
  
-    As indicated in Figure~\ref{fig:hun_dwell} (Hunters) and Figure~\ref{fig:gath_dwell} (Gatherers), both Hunting and Gathering regime participants showcase clear preference for an answer they end up selecting, with no dependence on the answers location or its objective correctness. \textcolor{orange}{(TODO - STATISTICS!).} This conclusion aligns with the research by Linder et. al. claiming gaze bias towards subjectively preferred answer options in multiple choice decision making \parencite{lindner2014tracking} as well as Tsai et. al. research claiming students pay more attention to chosen options rather then rejected ones \parencite{tsai2012visual}. We conclude no significant difference between Hunting and Gathering regimes.
+    As indicated in Figure~\ref{fig:hun_dwell} (Hunters) and Figure~\ref{fig:gath_dwell} (Gatherers), both Hunting and Gathering regime participants showcase clear preference for an answer they end up selecting, with no dependence on the answers location or its objective correctness. This conclusion aligns with the research by Linder et. al. claiming gaze bias towards subjectively preferred answer options in multiple choice decision making \parencite{lindner2014tracking} as well as Tsai et. al. research claiming students pay more attention to chosen options rather then rejected ones \parencite{tsai2012visual}. We conclude no significant difference between Hunting and Gathering regimes.
 
         
         \begin{figure}[H]
@@ -349,10 +349,6 @@
         \end{figure}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%TODO - avg by column - bar charts, conf intervals
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 
 \section{Discussion}
@@ -368,7 +364,7 @@ Participants’ final fixation overwhelmingly falls on the answer they ultimatel
 
 
 \subsection*{Dwell Time Across Answer Regions}
-Beyond the final fixation, our aggregated dwell‐time matrices (Figure~\ref{fig:gath_dwell} and Figure~\ref{fig:hun_dwell}) show a clear preference: regardless of regime or answer correctness, participants devote longer total fixation time to the option they will ultimately choose. In both Hunters and Gatherers, the mean dwell time on the chosen segment is on average \textcolor{orange}{(TODO - \%)} higher than on the most‐visited distractor. This dwell‐time preference is consistent with earlier studies \parencite{lindner2014tracking} \parencite{tsai2012visual}.
+Beyond the final fixation, our aggregated dwell‐time matrices (Figure~\ref{fig:gath_dwell} and Figure~\ref{fig:hun_dwell}) show a clear preference: regardless of regime or answer correctness, participants devote longer total fixation time to the option they will ultimately choose. In both Hunters and Gatherers, the mean dwell time on the chosen segment is on average higher than on the most‐visited distractor. This dwell‐time preference is consistent with earlier studies \parencite{lindner2014tracking} \parencite{tsai2012visual}.
 
 
 \section{Limitations}
