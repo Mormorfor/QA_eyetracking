@@ -28,4 +28,5 @@
 /full/ia_T.csv
 /IA reports/ia_T.tsv
 
-*.csv
+df_with_features_g.csv
+df_with_features_h.csv
