@@ -27,3 +27,5 @@
 /IA reports/ia_QA.tsv
 /full/ia_T.csv
 /IA reports/ia_T.tsv
+
+*.csv
