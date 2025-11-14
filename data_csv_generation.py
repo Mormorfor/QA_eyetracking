@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
 import ast
+import os
+
+
 from itertools import combinations
 import itertools
 
@@ -452,6 +455,10 @@ def main(
     verbose : bool, optional
         If True, print progress information.
     """
+
+    os.makedirs(os.path.dirname(hunters_output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(gatherers_output_path), exist_ok=True)
+
     if verbose:
         print(f"Loading raw answers from: {ia_answers_path}")
 
