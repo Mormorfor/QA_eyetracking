@@ -1,32 +1,10 @@
-/full/fixations_A.csv
-/Fixations reports/fixations_A.tsv
-/full/fixations_F.csv
-/Fixations reports/fixations_F.tsv
-/full/fixations_P.csv
-/Fixations reports/fixations_P.tsv
-/full/fixations_Q.csv
-/Fixations reports/fixations_Q.tsv
-/full/fixations_Q_preview.csv
-/Fixations reports/fixations_Q_preview.tsv
-/full/fixations_QA.csv
-/Fixations reports/fixations_QA.tsv
-/full/fixations_T.csv
-/Fixations reports/fixations_T.tsv
-/full/ia_A.csv
-/ia_A/ia_A.csv
-/IA reports/ia_A.tsv
-/full/ia_F.csv
-/IA reports/ia_F.tsv
-/full/ia_P.csv
-/IA reports/ia_P.tsv
-/full/ia_Q.csv
-/IA reports/ia_Q.tsv
-/full/ia_Q_preview.csv
-/IA reports/ia_Q_preview.tsv
-/full/ia_QA.csv
-/IA reports/ia_QA.tsv
-/full/ia_T.csv
-/IA reports/ia_T.tsv
 
-df_with_features_g.csv
-df_with_features_h.csv
+old_pre_rewrite/df_with_features_g.csv
+old_pre_rewrite/df_with_features_h.csv
+
+old_pre_rewrite/merged_gatherers.csv
+old_pre_rewrite/merged_hunters.csv
+
+/unused_data/
+/output_data/
+/full/

@@ -1,4 +1,0 @@
-,kmeans,agglomerative,dbscan,hdbscan
-0,"{'n_clusters': 5, 'mds_components': 5}","{'linkage': 'average', 'n_clusters': 2}","{'eps': 0.3, 'min_samples': 2}","{'min_cluster_size': 35, 'min_samples': 5, 'cluster_selection_method': 'eom', 'cluster_selection_epsilon': nan}"
-1,"{'n_clusters': 4, 'mds_components': 10}","{'linkage': 'single', 'n_clusters': 2}","{'eps': 0.5, 'min_samples': 2}","{'min_cluster_size': 35, 'min_samples': 5, 'cluster_selection_method': 'eom', 'cluster_selection_epsilon': 0.1}"
-2,"{'n_clusters': 8, 'mds_components': 5}","{'linkage': 'single', 'n_clusters': 4}","{'eps': 0.7, 'min_samples': 2}","{'min_cluster_size': 35, 'min_samples': 10, 'cluster_selection_method': 'eom', 'cluster_selection_epsilon': nan}"
