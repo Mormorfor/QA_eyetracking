@@ -2,91 +2,115 @@ import pandas as pd
 import numpy as np
 import ast
 import os
-
-
-from itertools import combinations
 import itertools
-
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
-from scipy.stats import mannwhitneyu
-
-import statsmodels.formula.api as smf
-from statsmodels.tools.sm_exceptions import ConvergenceWarning
-import warnings
-
-import networkx as nx
-from matplotlib.lines import Line2D
-import math
+import constants as C
 
 
+# ===========================================================================
+# HOW TO ADD A NEW FEATURE FUNCTION
+# ===========================================================================
+# There are two kinds of feature functions:
+#
+# 1. Base per-row features
+#    - operate on raw IA data
+#    - return a full DataFrame with the same “grain” (one row per IA)
+#
+# 2. Group-level features
+#    - aggregate per TRIAL/PARTICIPANT/(AREA (sometimes))
+#    - return a *smaller* DataFrame that is later merged back on join columns
+#
+# Both kinds are registered in FUNCTION_REGISTRY (see below). If you do NOT
+# pass base_function_names / group_function_names to main(), then:
+#   - all "base" functions in FUNCTION_REGISTRY are run in registry order
+#   - all "group" functions in FUNCTION_REGISTRY are run in registry order
+#
 # ---------------------------------------------------------------------------
-# Pre-existing column name constants
+# To add a NEW BASE FEATURE
 # ---------------------------------------------------------------------------
-
-ARTICLE_COLUMN = 'article_id'
-DIFFICULTY_COLUMN = 'difficulty_level'
-BATCH_COLUMN = 'article_batch'
-PARAGRAPH_COLUMN = 'paragraph_id'
-
-REPEATED_TRIAL_COLUMN = "repeated_reading_trial"
-PRACTICE_TRIAL_COLUMN = "practice_trial"
-QUESTION_PREVIEW_COLUMN = "question_preview"
-
-SELECTED_ANSWER_POSITION_COLUMN = "selected_answer_position"
-CORRECT_ANSWER_POSITION_COLUMN = "correct_answer_position"
-ANSWERS_ORDER_COLUMN = "answers_order"
-
-INTEREST_AREA_ID = "IA_ID"
-TRIAL_ID = 'TRIAL_INDEX'
-PARTICIPANT_ID = 'participant_id'
-
-IA_DWELL_TIME = "IA_DWELL_TIME"
-IA_FIXATIONS_COUNT = "IA_FIXATION_COUNT"
-IA_FIRST_FIXATION_DURATION = "IA_FIRST_FIXATION_DURATION"
-IA_LAST_FIXATION_TIME = "IA_LAST_FIXATION_TIME"
-
-INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
-
+# 1. (Optional) Add any NEW column name to constants.py, e.g.:
+#       NEW_FEATURE_COLUMN = "my_new_feature"
+#
+# 2. Implement the function here with the signature:
+#       def add_my_new_feature(df: pd.DataFrame) -> pd.DataFrame:
+#           df = df.copy()
+#           # ... compute feature ...
+#           df[C.NEW_FEATURE_COLUMN] = ...
+#           return df
+#
+# 3. Register it in FUNCTION_REGISTRY with kind="base":
+#       "add_my_new_feature": {
+#           "callable": add_my_new_feature,
+#           "default_kwargs": {},
+#           "kind": "base",
+#       }
+#
+#   After this, it will automatically be included in the base pipeline
+#   whenever main() is called without base_function_names.
+#
 # ---------------------------------------------------------------------------
-# Created column name constants
+# To add a NEW GROUP-LEVEL METRIC
 # ---------------------------------------------------------------------------
-
-TEXT_ID_COLUMN = "text_id"
-IS_CORRECT_COLUMN = "is_correct"
-
-AREA_SCREEN_LOCATION = "area_screen_loc"
-AREA_LABEL_COLUMN = "area_label"
-SELECTED_ANSWER_LABEL_COLUMN = "selected_answer_label"
-
-AREA_SKIPPED = "area_skipped"
-TOTAL_IA_DWELL_TIME = "total_area_dwell_time"
-TOTAL_TRIAL_DWELL_TIME = "total_dwell_time"
-AREA_DWELL_PROPORTION = "area_dwell_proportion"
-
-LAST_VISITED_LABEL = "last_area_visited_lbl"
-LAST_VISITED_LOCATION = "last_area_visited_loc"
-
-FIX_SEQUENCE_BY_LABEL = "fix_by_label"
-FIX_SEQUENCE_BY_LOCATION = "fix_by_loc"
-
-SIMPLIFIED_FIX_SEQ_BY_LABEL = "simpl_fix_by_label"
-SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
-
+# 1. Add a new metric constant to constants.py, e.g.:
+#       NEW_METRIC = "my_metric"
+#
+# 2. (Optional, if it’s a standard area-level metric) add it to
+#    AREA_METRIC_COLUMNS in constants.py:
+#       AREA_METRIC_COLUMNS = [
+#           ...,
+#           NEW_METRIC,
+#       ]
+#
+# 3. Implement the function here with signature:
+#       def create_my_metric(df: pd.DataFrame) -> pd.DataFrame:
+#           df = df.copy()
+#           # ... any preprocessing ...
+#           return (
+#               df.groupby(
+#                   [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN],
+#                   as_index=False
+#               ).agg(**{
+#                   C.NEW_METRIC: (C.SOME_SOURCE_COLUMN, "mean")
+#               })
+#           )
+#
+#    The function must return a DataFrame that contains all join columns
+#    plus the new metric column(s).
+#
+# 4. Register it in FUNCTION_REGISTRY with kind="group":
+#       "create_my_metric": {
+#           "callable": create_my_metric,
+#           "default_kwargs": {
+#               "join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
+#               # or any other set of columns you want to merge on
+#           },
+#           "kind": "group",
+#       }
+#
+#   After this, it will automatically be included in the group pipeline
+#   whenever main() is called without group_function_names.
+#
 # ---------------------------------------------------------------------------
-# Helper Constants
+# Overriding which functions run
 # ---------------------------------------------------------------------------
+# In main(), you can still override what runs:
+#
+#   main(
+#       base_function_names=["add_text_id", "add_is_correct"],
+#       group_function_names=[
+#           "create_mean_area_dwell_time",
+#           ("create_my_metric", {"join_columns": [C.TRIAL_ID]})
+#       ],
+#   )
+#
+# - For base_function_names, pass a list of function names (strings).
+# - For group_function_names, each item can be:
+#     * "func_name"
+#     * ("func_name", {override_kwargs})
+#
+# Any unknown name will raise a ValueError.
+# ===========================================================================
 
-ANSWER_PREFIX = "answer_"
-ANSWER_LABELS = ["A", "B", "C", "D"]
 
-#AREA_LABEL_CHOICES = ['question', 'answer_0', 'answer_1', 'answer_2', 'answer_3']
-AREA_LABEL_CHOICES = ['question', 'top', 'left', 'right', 'bottom']
-
-#DO NOT CHANGE
-ANSWER_LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +122,6 @@ def load_raw_answers_data(ia_a_path = "full/ia_A.csv"):
     Load raw interest area level answers data from CSV file.
     """
     return pd.read_csv(ia_a_path)
-
 
 
 def load_raw_paragraphs_data(ia_p_path = "full/ia_P.csv"):
@@ -133,15 +156,14 @@ def split_hunters_and_gatherers(df, remove_repeats = True, remove_practice = Tru
     """
     df_filtered = df.copy()
     if remove_repeats:
-        df_filtered = df_filtered[df_filtered[REPEATED_TRIAL_COLUMN] == False].copy()
+        df_filtered = df_filtered[df_filtered[C.REPEATED_TRIAL_COLUMN] == False].copy()
     if remove_practice:
-        df_filtered = df_filtered[df_filtered[PRACTICE_TRIAL_COLUMN] == False].copy()
+        df_filtered = df_filtered[df_filtered[C.PRACTICE_TRIAL_COLUMN] == False].copy()
 
-    df_hunters = df_filtered[df_filtered[QUESTION_PREVIEW_COLUMN] == True].copy()
-    df_gatherers = df_filtered[df_filtered[QUESTION_PREVIEW_COLUMN] == False].copy()
+    df_hunters = df_filtered[df_filtered[C.QUESTION_PREVIEW_COLUMN] == True].copy()
+    df_gatherers = df_filtered[df_filtered[C.QUESTION_PREVIEW_COLUMN] == False].copy()
 
     return df_hunters, df_gatherers
-
 
 
 # ---------------------------------------------------------------------------
@@ -167,11 +189,11 @@ def add_text_id(df):
         Copy of the input DataFrame with an additional TEXT_ID_COLUMN.
     """
     out = df.copy()
-    out[TEXT_ID_COLUMN] = (
-            out[ARTICLE_COLUMN].astype(str) + '_' +
-            out[DIFFICULTY_COLUMN].astype(str) + '_' +
-            out[BATCH_COLUMN].astype(str) + '_' +
-            out[PARAGRAPH_COLUMN].astype(str)
+    out[C.TEXT_ID_COLUMN] = (
+            out[C.ARTICLE_COLUMN].astype(str) + '_' +
+            out[C.DIFFICULTY_COLUMN].astype(str) + '_' +
+            out[C.BATCH_COLUMN].astype(str) + '_' +
+            out[C.PARAGRAPH_COLUMN].astype(str)
     )
     return out
 
@@ -193,12 +215,11 @@ def add_is_correct(df):
         (1 if selected == correct, 0 otherwise).
     """
     out = df.copy()
-    out[IS_CORRECT_COLUMN] = (
-            out[SELECTED_ANSWER_POSITION_COLUMN]
-            == out[CORRECT_ANSWER_POSITION_COLUMN]
+    out[C.IS_CORRECT_COLUMN] = (
+            out[C.SELECTED_ANSWER_POSITION_COLUMN]
+            == out[C.CORRECT_ANSWER_POSITION_COLUMN]
     ).astype(int)
     return out
-
 
 
 def add_answer_text_columns(df):
@@ -227,17 +248,16 @@ def add_answer_text_columns(df):
     df_out = df.copy()
 
     def get_answer_by_label(row, label):
-        order = ast.literal_eval(row[ANSWERS_ORDER_COLUMN])
+        order = ast.literal_eval(row[C.ANSWERS_ORDER_COLUMN])
         answer_idx = order.index(label)
-        return row[f"{ANSWER_PREFIX}{answer_idx + 1}"]
+        return row[f"{C.ANSWER_PREFIX}{answer_idx + 1}"]
 
-    for label in ANSWER_LABELS:
+    for label in C.ANSWER_LABELS:
         df_out[f"answer_{label}"] = df_out.apply(
             lambda row, lab=label: get_answer_by_label(row, lab),
             axis=1,
         )
     return df_out
-
 
 
 def add_IA_screen_location(df):
@@ -291,7 +311,7 @@ def add_IA_screen_location(df):
         third_end = q_len + first_len + second_len + third_len - 1
         fourth_end = q_len + first_len + second_len + third_len + fourth_len - 1
 
-        index_id = group[INTEREST_AREA_ID] - 1
+        index_id = group[C.INTEREST_AREA_ID] - 1
 
         conditions = [
             (index_id <= q_end),
@@ -301,13 +321,12 @@ def add_IA_screen_location(df):
             (index_id > third_end) & (index_id <= fourth_end)
         ]
 
-        choices = AREA_LABEL_CHOICES
-        group[AREA_SCREEN_LOCATION] = np.select(conditions, choices, default='unknown')
+        choices = C.AREA_LABEL_CHOICES
+        group[C.AREA_SCREEN_LOCATION] = np.select(conditions, choices, default='unknown')
         return group
 
-    df_area_split = df.set_index([TRIAL_ID, PARTICIPANT_ID]).groupby([TRIAL_ID, PARTICIPANT_ID], group_keys=False).apply(assign_area)
+    df_area_split = df.set_index([C.TRIAL_ID, C.PARTICIPANT_ID]).groupby([C.TRIAL_ID, C.PARTICIPANT_ID], group_keys=False).apply(assign_area)
     return df_area_split
-
 
 
 def add_IA_answer_label(df):
@@ -347,16 +366,16 @@ def add_IA_answer_label(df):
     }
 
     def get_area_label(row):
-        loc = row[AREA_SCREEN_LOCATION]
+        loc = row[C.AREA_SCREEN_LOCATION]
 
-        if loc == AREA_LABEL_CHOICES[0]:
+        if loc == C.AREA_LABEL_CHOICES[0]:
             return "question"
 
-        if loc in AREA_LABEL_CHOICES[1:]:
+        if loc in C.AREA_LABEL_CHOICES[1:]:
             try:
                 # position index: 0..3 for answers
-                pos_index = AREA_LABEL_CHOICES.index(loc) - 1
-                answers_order = ast.literal_eval(row[ANSWERS_ORDER_COLUMN])
+                pos_index = C.AREA_LABEL_CHOICES.index(loc) - 1
+                answers_order = ast.literal_eval(row[C.ANSWERS_ORDER_COLUMN])
                 letter = answers_order[pos_index]
                 return letter_to_label.get(letter, None)
             except Exception:
@@ -364,7 +383,7 @@ def add_IA_answer_label(df):
 
         return None
 
-    df_out[AREA_LABEL_COLUMN] = df_out.apply(get_area_label, axis=1)
+    df_out[C.AREA_LABEL_COLUMN] = df_out.apply(get_area_label, axis=1)
     return df_out
 
 
@@ -404,8 +423,9 @@ def add_selected_answer_label(df):
         SELECTED_ANSWER_LABEL_COLUMN containing 'A', 'B', 'C', or 'D'.
     """
     df = df.copy()
-    df[ANSWERS_ORDER_COLUMN] = df[ANSWERS_ORDER_COLUMN].apply(ast.literal_eval)
-    df[SELECTED_ANSWER_LABEL_COLUMN] = df.apply(lambda row: row[ANSWERS_ORDER_COLUMN][row[SELECTED_ANSWER_POSITION_COLUMN]], axis=1)
+    df[C.ANSWERS_ORDER_COLUMN] = df[C.ANSWERS_ORDER_COLUMN].apply(ast.literal_eval)
+    df[C.SELECTED_ANSWER_LABEL_COLUMN] = (
+        df.apply(lambda row: row[C.ANSWERS_ORDER_COLUMN][row[C.SELECTED_ANSWER_POSITION_COLUMN]], axis=1))
     return df
 
 # ---------------------------------------------------------------------------
@@ -446,8 +466,10 @@ def create_mean_area_dwell_time(df):
        - AREA_LABEL_COLUMN
        - mean_dwell_time  (float)
    """
-    return (df.groupby([TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN], as_index=False)
-            .agg(mean_dwell_time=(IA_DWELL_TIME, "mean")))
+    return (
+        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")})
+    )
 
 
 def create_mean_area_fix_count(df):
@@ -484,9 +506,10 @@ def create_mean_area_fix_count(df):
         - AREA_LABEL_COLUMN
         - mean_fixations_count (float)
     """
-    return (df.groupby([TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN], as_index=False)
-            .agg(mean_fixations_count=(IA_FIXATIONS_COUNT, "mean")))
-
+    return (
+        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{C.MEAN_FIXATIONS_COUNT: (C.IA_FIXATIONS_COUNT, "mean")})
+    )
 
 def create_mean_first_fix_duration(df):
     """
@@ -516,9 +539,11 @@ def create_mean_first_fix_duration(df):
 
         One row per area per trial per participant.
     """
-    df[IA_FIRST_FIXATION_DURATION] = df[IA_FIRST_FIXATION_DURATION].replace('.', 0).astype(int)
-    return (df.groupby([TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN], as_index=False)
-            .agg(mean_first_fixation_duration=(IA_FIRST_FIXATION_DURATION, "mean")))
+    df[C.IA_FIRST_FIXATION_DURATION] = df[C.IA_FIRST_FIXATION_DURATION].replace('.', 0).astype(int)
+    return (
+        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{C.MEAN_FIRST_FIXATION_DURATION: (C.IA_FIRST_FIXATION_DURATION, "mean")})
+    )
 
 
 def create_skip_rate(df):
@@ -555,9 +580,11 @@ def create_skip_rate(df):
         - AREA_LABEL_COLUMN
         - skip_rate (float in [0, 1])
     """
-    df[AREA_SKIPPED] = (df[IA_DWELL_TIME] == 0).astype(int)
-    return (df.groupby([TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN], as_index=False)
-            .agg(skip_rate=(AREA_SKIPPED, "mean")))
+    df[C.AREA_SKIPPED] = (df[C.IA_DWELL_TIME] == 0).astype(int)
+    return (
+        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{C.SKIP_RATE: (C.AREA_SKIPPED, "mean")})
+    )
 
 
 def create_dwell_proportions(df):
@@ -594,12 +621,13 @@ def create_dwell_proportions(df):
         - AREA_DWELL_PROPORTION
     """
     aggregated_df = (
-        df.groupby([TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN], as_index=False)
-        .agg({IA_DWELL_TIME: 'sum'})
-        .rename(columns={IA_DWELL_TIME: TOTAL_IA_DWELL_TIME})
+        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg({C.IA_DWELL_TIME: 'sum'})
+        .rename(columns={C.IA_DWELL_TIME: C.TOTAL_IA_DWELL_TIME})
     )
-    aggregated_df[TOTAL_TRIAL_DWELL_TIME] = aggregated_df.groupby([TRIAL_ID, PARTICIPANT_ID])[TOTAL_IA_DWELL_TIME].transform('sum')
-    aggregated_df[AREA_DWELL_PROPORTION] = aggregated_df[TOTAL_IA_DWELL_TIME] / aggregated_df[TOTAL_TRIAL_DWELL_TIME]
+    aggregated_df[C.TOTAL_TRIAL_DWELL_TIME] = (
+        aggregated_df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[C.TOTAL_IA_DWELL_TIME].transform('sum'))
+    aggregated_df[C.AREA_DWELL_PROPORTION] = aggregated_df[C.TOTAL_IA_DWELL_TIME] / aggregated_df[C.TOTAL_TRIAL_DWELL_TIME]
     aggregated_df = aggregated_df.fillna(0)
 
     return aggregated_df
@@ -656,28 +684,27 @@ def create_last_area_and_location_visited(df):
 
        One row per (trial, participant).
    """
-    df[IA_LAST_FIXATION_TIME] = df[IA_LAST_FIXATION_TIME].replace('.', 0).astype(int)
-    df_sorted = df.sort_values(by=[TRIAL_ID, PARTICIPANT_ID, IA_LAST_FIXATION_TIME], ascending=[True, True, False])
-    top_fixations = df_sorted.groupby([TRIAL_ID, PARTICIPANT_ID]).head(5)
+    df[C.IA_LAST_FIXATION_TIME] = df[C.IA_LAST_FIXATION_TIME].replace('.', 0).astype(int)
+    df_sorted = df.sort_values(by=[C.TRIAL_ID, C.PARTICIPANT_ID,C.IA_LAST_FIXATION_TIME], ascending=[True, True, False])
+    top_fixations = df_sorted.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]).head(5)
 
     last_area = (
-        top_fixations.groupby([TRIAL_ID, PARTICIPANT_ID])[AREA_LABEL_COLUMN]
+        top_fixations.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[C.AREA_LABEL_COLUMN]
         .agg(lambda x: x.value_counts().idxmax())
         .reset_index()
-        .rename(columns={AREA_LABEL_COLUMN: LAST_VISITED_LABEL})
+        .rename(columns={C.AREA_LABEL_COLUMN: C.LAST_VISITED_LABEL})
     )
 
     last_location = (
-        top_fixations.groupby([TRIAL_ID, PARTICIPANT_ID])[AREA_SCREEN_LOCATION]
+        top_fixations.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[C.AREA_SCREEN_LOCATION]
         .agg(lambda x: x.value_counts().idxmax())
         .reset_index()
-        .rename(columns={AREA_SCREEN_LOCATION: LAST_VISITED_LOCATION})
+        .rename(columns={C.AREA_SCREEN_LOCATION: C.LAST_VISITED_LOCATION})
     )
 
-    result = pd.merge(last_area, last_location, on=[TRIAL_ID, PARTICIPANT_ID])
+    result = pd.merge(last_area, last_location, on=[C.TRIAL_ID, C.PARTICIPANT_ID])
 
     return result
-
 
 
 def create_fixation_sequence_tags(df):
@@ -719,13 +746,13 @@ def create_fixation_sequence_tags(df):
         - FIX_SEQUENCE_BY_LOCATION (list of locations)
     """
     result = []
-    for (trial_index, participant_id), group in df.groupby([TRIAL_ID, PARTICIPANT_ID]):
-        group_ids = set(group[INTEREST_AREA_ID].unique())
+    for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
+        group_ids = set(group[C.INTEREST_AREA_ID].unique())
 
-        id_to_label = dict(zip(group[INTEREST_AREA_ID], group[AREA_LABEL_COLUMN]))
-        id_to_location = dict(zip(group[INTEREST_AREA_ID], group[AREA_SCREEN_LOCATION]))
+        id_to_label = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_LABEL_COLUMN]))
+        id_to_location = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_SCREEN_LOCATION]))
 
-        sequence_str = group[INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
+        sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
         sequence = eval(sequence_str)
 
         label_sequence = []
@@ -736,14 +763,13 @@ def create_fixation_sequence_tags(df):
                 label_sequence.append(id_to_label[ia_id])
                 location_sequence.append(id_to_location[ia_id])
         result.append({
-            TRIAL_ID: trial_index,
-            PARTICIPANT_ID: participant_id,
-            FIX_SEQUENCE_BY_LABEL: label_sequence[1:],
-            FIX_SEQUENCE_BY_LOCATION: location_sequence[1:]
+            C.TRIAL_ID: trial_index,
+            C.PARTICIPANT_ID: participant_id,
+            C.FIX_SEQUENCE_BY_LABEL: label_sequence[1:],
+            C.FIX_SEQUENCE_BY_LOCATION: location_sequence[1:]
         })
 
     return pd.DataFrame(result)
-
 
 
 def create_simplified_fixation_tags(df):
@@ -792,13 +818,13 @@ def create_simplified_fixation_tags(df):
         - SIMPLIFIED_FIX_SEQ_BY_LOCATION (tuple of locations)
     """
     result = []
-    for (trial_index, participant_id), group in df.groupby([TRIAL_ID, PARTICIPANT_ID]):
-        group_ids = set(group[INTEREST_AREA_ID].unique())
+    for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
+        group_ids = set(group[C.INTEREST_AREA_ID].unique())
 
-        id_to_label = dict(zip(group[INTEREST_AREA_ID], group[AREA_LABEL_COLUMN]))
-        id_to_location = dict(zip(group[INTEREST_AREA_ID], group[AREA_SCREEN_LOCATION]))
+        id_to_label = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_LABEL_COLUMN]))
+        id_to_location = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_SCREEN_LOCATION]))
 
-        sequence_str = group[INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
+        sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
         sequence = eval(sequence_str)
 
         valid_fixations = []
@@ -819,10 +845,10 @@ def create_simplified_fixation_tags(df):
             simpl_locations.append(run_list[0][2])
 
         result.append({
-            TRIAL_ID :       trial_index,
-            PARTICIPANT_ID:    participant_id,
-            SIMPLIFIED_FIX_SEQ_BY_LABEL:    tuple(simpl_labels[:]),
-            SIMPLIFIED_FIX_SEQ_BY_LOCATION:      tuple(simpl_locations[:]),
+            C.TRIAL_ID :       trial_index,
+            C.PARTICIPANT_ID:    participant_id,
+            C.SIMPLIFIED_FIX_SEQ_BY_LABEL:    tuple(simpl_labels[:]),
+            C.SIMPLIFIED_FIX_SEQ_BY_LOCATION:      tuple(simpl_locations[:]),
         })
     return pd.DataFrame(result)
 
@@ -835,109 +861,157 @@ FUNCTION_REGISTRY = {
     # Base features
     "add_text_id": {
         "callable": add_text_id,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
     "add_is_correct": {
         "callable": add_is_correct,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
     "add_answer_text_columns": {
         "callable": add_answer_text_columns,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
     "add_IA_screen_location": {
         "callable": add_IA_screen_location,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
     "add_IA_answer_label": {
         "callable": add_IA_answer_label,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
     "add_selected_answer_label": {
         "callable": add_selected_answer_label,
-        "default_kwargs": {}
+        "default_kwargs": {},
+        "kind": "base",
     },
-
 
     # Group-level functions
     "create_mean_area_dwell_time": {
         "callable": create_mean_area_dwell_time,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
     },
     "create_mean_area_fix_count": {
         "callable": create_mean_area_fix_count,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
     },
     "create_mean_first_fix_duration": {
         "callable": create_mean_first_fix_duration,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
     },
     "create_skip_rate": {
         "callable": create_skip_rate,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
     },
     "create_dwell_proportions": {
         "callable": create_dwell_proportions,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
     },
     "create_last_area_and_location_visited": {
         "callable": create_last_area_and_location_visited,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
+        "kind": "group",
     },
     "create_fixation_sequence_tags": {
         "callable": create_fixation_sequence_tags,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
+        "kind": "group",
     },
     "create_simplified_fixation_tags": {
         "callable": create_simplified_fixation_tags,
-        "default_kwargs": {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
+        "kind": "group",
     },
 }
 
 
-def resolve_base_functions(name_list, default_list):
+
+def resolve_base_functions(name_list=None):
+    """
+    Resolve base feature functions.
+
+    If name_list is None, return ALL base functions from FUNCTION_REGISTRY
+    in registry insertion order. Otherwise, return only the named ones.
+    """
+    # Case 1: no explicit list → use all base functions
     if name_list is None:
-        return default_list
+        return [
+            entry["callable"]
+            for name, entry in FUNCTION_REGISTRY.items()
+            if entry.get("kind") == "base"
+        ]
+
+    # Case 2: explicit list → validate and return only those
     resolved = []
     for name in name_list:
         if name not in FUNCTION_REGISTRY:
             raise ValueError(f"Unknown base function: {name}")
-        resolved.append(FUNCTION_REGISTRY[name]["callable"])
+        entry = FUNCTION_REGISTRY[name]
+        if entry.get("kind") != "base":
+            raise ValueError(f"Function '{name}' is not registered as a base feature.")
+        resolved.append(entry["callable"])
     return resolved
 
 
-def resolve_group_functions(name_list, default_list):
+
+def resolve_group_functions(name_list=None):
+    """
+    Resolve group-level feature functions.
+
+    If name_list is None, return ALL group functions from FUNCTION_REGISTRY
+    (with their default kwargs). Otherwise, name_list can contain:
+        - "func_name"
+        - ("func_name", {override_kwargs})
+    """
+    # Case 1: no explicit list → all group functions with their defaults
     if name_list is None:
-        return default_list
+        return [
+            (entry["callable"], entry.get("default_kwargs", {}))
+            for name, entry in FUNCTION_REGISTRY.items()
+            if entry.get("kind") == "group"
+        ]
+
+    # Case 2: explicit list
     resolved = []
     for item in name_list:
-        # --- Case 1: user provides only a function name ---
+        # Simple string: just a function name
         if isinstance(item, str):
-            if item not in FUNCTION_REGISTRY:
-                raise ValueError(f"Unknown group function: {item}")
-            entry = FUNCTION_REGISTRY[item]
-            resolved.append((entry["callable"], entry["default_kwargs"]))
-            continue
-
-        # --- Case 2: user provides (function_name, user_kwargs) ---
-        if isinstance(item, tuple) and len(item) == 2:
-            name, user_kwargs = item
-
+            name = item
             if name not in FUNCTION_REGISTRY:
                 raise ValueError(f"Unknown group function: {name}")
-
             entry = FUNCTION_REGISTRY[name]
+            if entry.get("kind") != "group":
+                raise ValueError(f"Function '{name}' is not registered as a group feature.")
+            resolved.append((entry["callable"], entry.get("default_kwargs", {})))
+            continue
 
-            # Merge defaults and user overrides (user wins)
-            merged_kwargs = {**entry["default_kwargs"], **user_kwargs}
+        # Tuple: (function_name, user_kwargs)
+        if isinstance(item, tuple) and len(item) == 2:
+            name, user_kwargs = item
+            if name not in FUNCTION_REGISTRY:
+                raise ValueError(f"Unknown group function: {name}")
+            entry = FUNCTION_REGISTRY[name]
+            if entry.get("kind") != "group":
+                raise ValueError(f"Function '{name}' is not registered as a group feature.")
+
+            merged_kwargs = {**entry.get("default_kwargs", {}), **user_kwargs}
             resolved.append((entry["callable"], merged_kwargs))
             continue
 
-        # --- Otherwise: input format invalid ---
         raise ValueError(
             f"Invalid group function specification: {item}. "
             "Must be 'name' or ('name', {kwargs})."
         )
+
     return resolved
 
 
@@ -1018,7 +1092,7 @@ def generate_new_row_features(functions, df, default_join_columns=None,
         by the functions in `functions`.
     """
     if default_join_columns is None:
-        default_join_columns = [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]
+        default_join_columns = [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
 
     result_df = df.copy()
 
@@ -1036,18 +1110,6 @@ def generate_new_row_features(functions, df, default_join_columns=None,
 # ---------------------------------------------------------------------------
 #  Main
 # ---------------------------------------------------------------------------
-
-per_row_feature_generators = [
-    (create_mean_area_dwell_time, {}),
-    (create_mean_area_fix_count, {}),
-    (create_mean_first_fix_duration, {}),
-    (create_skip_rate, {}),
-    (create_dwell_proportions, {}),
-    (create_last_area_and_location_visited, {'join_columns': [TRIAL_ID, PARTICIPANT_ID]}),
-    (create_fixation_sequence_tags, {'join_columns': [TRIAL_ID, PARTICIPANT_ID]}),
-    (create_simplified_fixation_tags, {'join_columns': [TRIAL_ID, PARTICIPANT_ID]}),
-]
-
 
 def main(
     ia_answers_path: str = "full/ia_A.csv",
@@ -1091,6 +1153,7 @@ def main(
         print(f"\nLoading raw answers from: {ia_answers_path}")
 
     df_answers = load_raw_answers_data(ia_answers_path)
+
     if verbose:
         print("Splitting into hunters and gatherers…")
 
@@ -1099,59 +1162,33 @@ def main(
     if verbose:
         print("\nResolving processing function lists…")
 
-    default_base_functions = [
-        add_text_id,
-        add_is_correct,
-        add_answer_text_columns,
-        add_IA_screen_location,
-        add_IA_answer_label,
-        add_selected_answer_label,
-    ]
+    base_funcs = resolve_base_functions(base_function_names)
+    group_funcs = resolve_group_functions(group_function_names)
 
-    default_group_functions = [
-        (create_mean_area_dwell_time, {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}),
-        (create_mean_area_fix_count, {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}),
-        (create_mean_first_fix_duration, {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}),
-        (create_skip_rate, {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}),
-        (create_dwell_proportions, {"join_columns": [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN]}),
-        (create_last_area_and_location_visited, {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}),
-        (create_fixation_sequence_tags, {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}),
-        (create_simplified_fixation_tags, {"join_columns": [TRIAL_ID, PARTICIPANT_ID]}),
-    ]
-
-    base_funcs = resolve_base_functions(base_function_names, default_base_functions)
-    group_funcs = resolve_group_functions(group_function_names, default_group_functions)
-
-
+    # Hunters
     if verbose:
         print("\nProcessing hunters (row-level)…")
-
     df_h = add_base_features(df_hunters, base_funcs, verbose=verbose)
 
     if verbose:
         print("Applying group-level features for hunters…")
-
     df_h = generate_new_row_features(group_funcs, df_h)
 
     if verbose:
         print(f"Saving hunters features to: {hunters_output_path}")
-
     df_h.to_csv(hunters_output_path, index=False)
 
-
+    # Gatherers
     if verbose:
         print("\nProcessing gatherers (row-level)…")
-
     df_g = add_base_features(df_gatherers, base_funcs, verbose=verbose)
 
     if verbose:
         print("Applying group-level features for gatherers…")
-
     df_g = generate_new_row_features(group_funcs, df_g)
 
     if verbose:
         print(f"Saving gatherers features to: {gatherers_output_path}")
-
     df_g.to_csv(gatherers_output_path, index=False)
 
     if verbose:
