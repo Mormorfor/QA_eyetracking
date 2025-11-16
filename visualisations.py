@@ -206,264 +206,423 @@ def run_all_area_metric_plots(
             )
 
 
+
 # ---------------------------------------------------------------------------
-#  Base Statistics Bar-charts
+# Base Statistics Bar-charts + Mixed Models
 # ---------------------------------------------------------------------------
-#
-#
-# def plot_area_ci_bar(
-#     df: pd.DataFrame,
-#     stat_col: str = Con.AREA_METRIC_COLUMNS[0],
-#     trial_cols: tuple[str, ...] = (Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN, Con.TRIAL_ID),
-#     area_col: str = Con.AREA_LABEL_COLUMN,
-#     figsize: tuple[int, int] = (8, 5),
-#     h_or_g: str = "hunters",
-#     selected: str = "A",
-#     title: Optional[str] = None,
-#     output_root: str = "plots/basic_stats_barcharts",
-#     show: bool = True,
-#     save: bool = True,
-# ) -> tuple[plt.Figure, pd.DataFrame]:
-#     """
-#     Plot mean ± 95% CI of a metric per area (answer_A/B/C/D) as a bar chart.
-#
-#     Steps
-#     -----
-#     1. De-duplicate rows by (trial_cols + area_col) to avoid double-counting.
-#     2. Order areas using ANSWER_LABEL_CHOICES (excluding 'question').
-#     3. Draw a seaborn barplot with mean + 95% CI.
-#     4. Return the figure and a summary table (mean, sd, n per area).
-#
-#     Parameters
-#     ----------
-#     df : DataFrame
-#         Row-level data already filtered to the desired subset
-#         (e.g. only trials where selected_answer_label == 'A').
-#     stat_col : str
-#         Name of the metric column to plot (e.g. 'mean_dwell_time').
-#         Should be selected from C.AREA_METRIC_COLUMNS
-#     trial_cols : tuple of str
-#         Columns identifying a unique trial (participant, text, trial index).
-#     area_col : str
-#         Column containing logical area labels (e.g. 'answer_A', 'answer_B', ...).
-#     figsize : (int, int)
-#         Figure size passed to matplotlib.
-#     h_or_g : str
-#         'hunters' or 'gatherers' tag used in the saved filename.
-#     selected : str
-#         Selected answer label ('A', 'B', 'C', 'D').
-#     title : str or None
-#         Optional custom title; if None, a default title is constructed.
-#     output_root : str
-#         Root directory where plots will be saved.
-#     show : bool
-#         If True, show the plot.
-#     save : bool
-#         If True, save the plot as PNG to disk.
-#
-#     Returns
-#     -------
-#     (fig, summary_df_basic)
-#         fig : matplotlib Figure
-#         summary_df_basic : DataFrame with columns [area_col, mean, sd, n]
-#     """
-#
-#     dedup = (
-#         df[list(trial_cols) + [area_col, stat_col]]
-#         .drop_duplicates(subset=list(trial_cols) + [area_col])
-#         .dropna(subset=[stat_col])
-#         .copy()
-#     )
-#
-#     answer_areas = [
-#         lbl for lbl in Con.ANSWER_LABEL_CHOICES
-#         if lbl != "question" and lbl in dedup[area_col].unique()
-#     ]
-#
-#     fig, ax = plt.subplots(figsize=figsize)
-#     sns.barplot(
-#         data=dedup,
-#         x=area_col,
-#         y=stat_col,
-#         order=answer_areas if answer_areas else None,
-#         estimator=np.mean,
-#         errorbar=("ci", 95),
-#         capsize=0.1,
-#         ax=ax,
-#     )
-#
-#     ax.set_xlabel(area_col)
-#     ax.set_ylabel(stat_col)
-#
-#     ax.set_title(title or f"{stat_col}: mean ± 95% CI by {area_col} (selected {selected})")
-#     ax.margins(x=0.02)
-#
-#     summary_df_basic = (
-#         dedup.groupby(area_col)[stat_col]
-#         .agg(mean="mean", sd="std", n="count")
-#         .reset_index()
-#     )
-#     if answer_areas:
-#         summary_df_basic = (
-#             summary_df_basic
-#             .set_index(area_col)
-#             .loc[answer_areas]
-#             .reset_index()
-#         )
-#
-#     if save:
-#         out_dir = os.path.join(output_root, stat_col)
-#         os.makedirs(out_dir, exist_ok=True)
-#         fname = f"{h_or_g} - {selected}.png"
-#         plt.savefig(os.path.join(out_dir, fname))
-#
-#     if show:
-#         plt.show()
-#     else:
-#         plt.close(fig)
-#
-#     return fig, summary_df_basic
-#
-#
-#
-# def mixed_area_analysis(
-#     df: pd.DataFrame,
-#     stat_col: str = Con.AREA_METRIC_COLUMNS[0],
-#     trial_cols: tuple[str, ...] = (Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN, Con.TRIAL_ID),
-#     area_col: str = Con.AREA_LABEL_COLUMN,
-#     alpha: float = 0.05,
-# ):
-#     """
-#     Run a linear mixed-effects model (pymer4::Lmer) on an area-level metric and
-#     compute pairwise differences between areas (answer_A/B/C/D) with Holm-adjusted p-values.
-#
-#     Model (lme4-style formula)
-#     --------------------------
-#         stat_col ~ 0 + area_col + (1|participant_id) + (1|text_id)
-#
-#     i.e.:
-#       - one fixed-effect coefficient per area (no global intercept)
-#       - random intercept for participant_id
-#       - random intercept for text_id
-#
-#     Steps
-#     -----
-#     1. De-duplicate metric values.
-#     2. Set area_col as an ordered categorical (answer_A/B/C/D if present).
-#     3. Fit an Lmer model.
-#     4. Extract fixed-effect estimates + CIs.
-#     5. Use Lmer.post_hoc() to get pairwise contrasts and then add Holm-adjusted p.
-#
-#     Returns
-#     -------
-#     (model, fe_table, pairwise)
-#         model    : pymer4.models.Lmer (already fit)
-#         fe_table : DataFrame with columns
-#                    [area, estimate, ci_low, ci_high]
-#         pairwise : DataFrame with at least:
-#                    [contrast, estimate, SE, DF, T, p, p_adj_holm, ci_low, ci_high]
-#     """
-#
-#     dedup = (
-#         df[list(trial_cols) + [area_col, stat_col]]
-#         .drop_duplicates()
-#         .copy()
-#     )
-#
-#     area_order = [
-#         lbl for lbl in Con.ANSWER_LABEL_CHOICES
-#         if lbl != "question" and lbl in dedup[area_col].unique()
-#     ]
-#     if not area_order:
-#         area_order = sorted(dedup[area_col].unique())
-#
-#     dedup[area_col] = pd.Categorical(
-#         dedup[area_col],
-#         categories=area_order,
-#         ordered=True,
-#     )
-#
-#
-#     #    Example: "mean_dwell_time ~ 0 + area_label + (1|participant_id) + (1|text_id)"
-#     formula = (
-#         f"{stat_col} ~ 0 + {area_col} "
-#         f"+ (1|{Con.PARTICIPANT_ID}) "
-#         f"+ (1|{Con.TEXT_ID_COLUMN})"
-#     )
-#
-#     model = Lmer(formula, data=dedup)
-#     fit_res = model.fit(factors={area_col: area_order})
-#
-#     coefs = model.coefs.copy()
-#     fe_table = (
-#         coefs
-#         .reset_index()
-#         .rename(columns={"index": "term"})
-#     )
-#
-#     # Helper: extract area level from term name
-#     # pymer4 usually uses something like:
-#     #   term = f"{area_col}{level}"  e.g. "area_labelanswer_A"
-#     # or "area_label:answer_A" depending on version
-#     def extract_area(term: str) -> str:
-#         prefix = f"{area_col}"
-#         if term.startswith(prefix):
-#             lvl = term[len(prefix):]
-#             # strip a leading ':' if present: "area_label:answer_A"
-#             if lvl.startswith(":"):
-#                 lvl = lvl[1:]
-#             return lvl or None
-#
-#         # fallback: look for bracketed forms like "[answer_A]" if they ever occur
-#         m = re.search(r"\[(?:T\.)?([^\]]+)\]", term)
-#         if m:
-#             return m.group(1)
-#         return None
-#
-#     fe_table["area"] = fe_table["term"].apply(extract_area)
-#
-#     # Keep only rows that correspond to our area levels
-#     fe_table = fe_table[fe_table["area"].isin(area_order)].copy()
-#
-#     # Map pymer4 column names to our neutral names
-#     col_map = {
-#         "Estimate": "estimate",
-#         "2.5_ci": "ci_low",
-#         "97.5_ci": "ci_high",
-#     }
-#     for old, new in col_map.items():
-#         if old in fe_table.columns:
-#             fe_table[new] = fe_table[old]
-#
-#     fe_table = (
-#         fe_table[["area", "estimate", "ci_low", "ci_high"]]
-#         .set_index("area")
-#         .loc[area_order]  # <— now this should work
-#         .reset_index()
-#     )
-#
-#     ph = model.post_hoc(marginal_vars=area_col)
-#     pairwise = ph.copy()
-#
-#     rename_cols = {
-#         "Estimate": "estimate",
-#         "SE": "se",
-#         "T-stat": "t",
-#         "p": "p_unc",
-#         "lower": "ci_low",
-#         "upper": "ci_high",
-#     }
-#     pairwise.rename(columns={k: v for k, v in rename_cols.items() if k in pairwise.columns},
-#                     inplace=True)
-#
-#     if "p_unc" in pairwise.columns:
-#         pairwise["p_adj_holm"] = multipletests(pairwise["p_unc"], method="holm")[1]
-#         pairwise["sig"] = np.where(pairwise["p_adj_holm"] < alpha, "★", "")
-#     else:
-#         pairwise["p_adj_holm"] = np.nan
-#         pairwise["sig"] = ""
-#
-#     return model, fe_table, pairwise
+
+def plot_area_ci_bar(
+    df: pd.DataFrame,
+    stat_col: str = Con.MEAN_DWELL_TIME,
+    trial_cols=(Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN),
+    area_col: str = Con.AREA_LABEL_COLUMN,
+    figsize=(8, 5),
+    save: bool = False,
+    h_or_g: str = "hunters",
+    selected: str = "A",
+    title: Optional[str] = None,
+    output_root: str = "plots/basic_stats_barcharts",
+):
+    """
+    Plot mean ± 95% CI of a metric by area (answer_A/B/C/D).
+
+    Parameters
+    ----------
+    df : DataFrame
+        Row-level data (one row per IA) already filtered
+        to a subset (e.g. only selected_answer_label == 'A').
+    stat_col : str
+        Column with the metric to plot (e.g. Con.MEAN_DWELL_TIME).
+    trial_cols : tuple[str]
+        Columns that define a unique trial-level observation.
+        Defaults match constants: TRIAL_ID, PARTICIPANT_ID, TEXT_ID_COLUMN.
+    area_col : str
+        Area column to plot on the x-axis (typically Con.AREA_LABEL_COLUMN).
+    figsize : tuple
+        Figure size passed to matplotlib.
+    save : bool
+        If True, save PNG under output_root / stat_col / ...
+    h_or_g : {"hunters","gatherers"}
+        Tag used in filenames.
+    selected : {"A","B","C","D"}
+        Which answer label this subset represents (for filenames/titles).
+    title : str or None
+        Custom title; if None, a default is used.
+    output_root : str
+        Root directory for saving plots.
+    """
+
+    dedup = (
+        df[list(trial_cols) + [area_col, stat_col]]
+        .drop_duplicates(subset=list(trial_cols) + [area_col])
+    )
+
+    area_order = [
+        a for a in ["answer_A", "answer_B", "answer_C", "answer_D"]
+        if a in dedup[area_col].unique()
+    ]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    sns.barplot(
+        data=dedup,
+        x=area_col,
+        y=stat_col,
+        order=area_order if area_order else None,
+        estimator=np.mean,
+        errorbar=("ci", 95),
+        capsize=0.1,
+        ax=ax,
+    )
+
+    ax.set_xlabel(area_col)
+    ax.set_ylabel(stat_col)
+    ax.set_title(title or f"{stat_col}: mean ± 95% CI by {area_col}")
+    ax.margins(x=0.02)
+
+    summary_df_basic = (
+        dedup.groupby(area_col)[stat_col]
+        .agg(mean="mean", sd="std", n="count")
+        .reset_index()
+    )
+    if area_order:
+        summary_df_basic = (
+            summary_df_basic
+            .set_index(area_col)
+            .loc[area_order]
+            .reset_index()
+        )
+
+    if save:
+        out_dir = os.path.join(output_root, stat_col)
+        os.makedirs(out_dir, exist_ok=True)
+        fname = f"{h_or_g}__{selected}.png"
+        plt.savefig(os.path.join(out_dir, fname), dpi=300)
+
+    return fig, summary_df_basic
+
+
+
+## Would be ideal to transition to LMER, but I struggle with pairwise comparisons there.
+## So for now we keep using statsmodels MixedLM, even thought text ids are not treated exactly correctly
+def mixed_area_analysis(
+    df: pd.DataFrame,
+    stat_col: str = Con.MEAN_DWELL_TIME,
+    trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
+    area_col: str = Con.AREA_LABEL_COLUMN,
+    alpha: float = 0.05,
+):
+    """
+    Mixed-effects model: area effect on a given metric, with random intercepts
+    for participants and texts.
+
+    Model:
+        stat_col ~ 0 + C(area_col)
+        random intercept for participant_id
+        variance component for text_id
+
+        (approximately: stat ~ 0 + area + (1|participant) + (1|text) )
+
+    Parameters
+    ----------
+    df : DataFrame
+        Row-level data (one row per IA), already filtered to a subset
+        (e.g. selected_answer_label == 'A').
+    stat_col : str
+        Continuous outcome to model (e.g. Con.MEAN_DWELL_TIME).
+    trial_cols : tuple[str]
+        Columns that define a unique trial observation.
+        Not used directly in the formula, but dedup uses them to ensure
+        one row per (trial, area).
+    area_col : str
+        Area factor (e.g. Con.AREA_LABEL_COLUMN).
+    alpha : float
+        Significance level for CIs and Holm correction.
+
+    Returns
+    -------
+    result : statsmodels MixedLMResults
+    fe_table : DataFrame
+        Per-area fixed effect estimates and CIs.
+    pairwise : DataFrame
+        Pairwise comparisons (Holm-adjusted p-values).
+    """
+
+    dedup = (
+        df[list(trial_cols) + [area_col, stat_col]]
+        .drop_duplicates()
+        .copy()
+    )
+
+    area_order = [
+        a for a in ["answer_A", "answer_B", "answer_C", "answer_D"]
+        if a in dedup[area_col].unique()
+    ]
+    if not area_order:
+        area_order = sorted(dedup[area_col].unique())
+
+    dedup[area_col] = pd.Categorical(
+        dedup[area_col],
+        categories=area_order,
+        ordered=True,
+    )
+
+    formula = f"{stat_col} ~ 0 + C({area_col})"
+    model = smf.mixedlm(
+        formula,
+        data=dedup,
+        groups=dedup[Con.PARTICIPANT_ID],
+        re_formula="1",
+        vc_formula={"text": "0 + C(text_id)"},
+    )
+    result = model.fit(method="lbfgs", reml=True)
+
+    fe = result.fe_params.copy()
+    ci = result.conf_int(alpha=alpha).loc[fe.index]
+    fe_idx = fe.index.tolist()
+
+    def pname(level: str) -> str:
+        for nm in fe_idx:
+            if nm.endswith(f"[{level}]") or nm.endswith(f"[T.{level}]"):
+                return nm
+
+    fe_table = (
+        pd.DataFrame(
+            {
+                "term": fe.index,
+                "estimate": fe.values,
+                "ci_low": ci[0].values,
+                "ci_high": ci[1].values,
+            }
+        )
+        .assign(
+            area=lambda d: d["term"].str.extract(
+                r"\[(?:T\.)?([^\]]+)\]"
+            )
+        )
+        .set_index("area")
+        .loc[area_order]
+        .reset_index()
+    )
+
+    # Pairwise comparisons (Holm-adjusted)
+    pairs = []
+    k_fe = len(fe_idx)
+
+    for i in range(len(area_order)):
+        for j in range(i + 1, len(area_order)):
+            a, b = area_order[i], area_order[j]
+            L = np.zeros((1, k_fe))
+            L[0, fe_idx.index(pname(a))] = 1.0
+            L[0, fe_idx.index(pname(b))] = -1.0
+
+            t_res = result.t_test(L)
+            eff = float(np.asarray(t_res.effect).ravel()[0])
+            se = float(np.asarray(t_res.sd).ravel()[0])
+            tval = float(np.asarray(t_res.tvalue).ravel()[0])
+            pval = float(np.asarray(t_res.pvalue).ravel()[0])
+            ci_lo, ci_hi = np.asarray(
+                t_res.conf_int(alpha=alpha)
+            ).ravel()
+
+            pairs.append(
+                {
+                    "area_i": a,
+                    "area_j": b,
+                    "diff_i_minus_j": eff,
+                    "se": se,
+                    "t": tval,
+                    "p_unc": pval,
+                    "ci_low": ci_lo,
+                    "ci_high": ci_hi,
+                }
+            )
+
+    pairwise = pd.DataFrame(pairs)
+    pairwise["p_adj_holm"] = multipletests(
+        pairwise["p_unc"], method="holm"
+    )[1]
+    pairwise["sig"] = np.where(
+        pairwise["p_adj_holm"] < alpha, "★", ""
+    )
+
+    return result, fe_table, pairwise
+
+
+def run_all_area_barplots_and_models(
+    hunters: pd.DataFrame,
+    gatherers: pd.DataFrame,
+    metrics=None,
+    alpha: float = 0.05,
+    output_root: str = "plots/basic_stats_barcharts",
+    save_plots: bool = True,
+    save_tables: bool = True,
+    tables_root: str = "output_data/area_barplots",
+    print_summaries: bool = True,
+):
+    """
+    For each metric and each selected answer label (A–D), run area-level
+    barplots and mixed-effects models for hunters & gatherers.
+
+    All filtering happens inside this function:
+    - rows with area_label == "question" are removed
+    - data are split by selected_answer_label ('A', 'B', 'C', 'D')
+
+    For each (group, metric, selected_label) combination, this function:
+    - creates a bar plot (mean +/- 95% CI per area; saved as PNG if requested)
+    - fits a mixed-effects model with area as fixed effect
+    - computes pairwise contrasts between areas (Holm-corrected)
+    - optionally saves the fixed-effect table and pairwise table as CSV
+
+    Parameters
+    ----------
+    hunters : DataFrame
+        Row-level hunters data (output of the preprocessing pipeline).
+    gatherers : DataFrame
+        Row-level gatherers data (output of the preprocessing pipeline).
+    metrics : list[str] or None
+        List of metric column names to analyse (e.g. [Con.MEAN_DWELL_TIME]).
+        If None, uses Con.AREA_METRIC_COLUMNS.
+    alpha : float
+        Significance level used for confidence intervals and Holm correction.
+    output_root : str
+        Root directory for saving bar plots. Each metric will get its own
+        subfolder under this directory (handled by plot_area_ci_bar).
+    save_plots : bool
+        If True, save PNG barplots for each (group, selected_label) combo.
+    save_tables : bool
+        If True, save fixed-effect and pairwise tables as CSV under tables_root.
+    tables_root : str
+        Root directory for saving result tables. Files are stored as:
+        tables_root / <metric> / <group> /
+            <group>__<label>__fe.csv
+            <group>__<label>__pairwise.csv
+    print_summaries : bool
+        If True, print model summaries and pairwise comparison tables
+        to stdout (useful for interactive exploration in notebooks).
+
+    Returns
+    -------
+    results : dict
+        Nested dictionary with structure:
+        results[group][metric][selected_label] = {
+            "fig": matplotlib Figure,
+            "summary": DataFrame (descriptive stats per area),
+            "model": MixedLMResults,
+            "fe_table": DataFrame (fixed-effect estimates per area),
+            "pairwise": DataFrame (pairwise area comparisons)
+        }
+    """
+    if metrics is None:
+        metrics = Con.AREA_METRIC_COLUMNS
+
+    def _save_model_tables(
+        fe_table: pd.DataFrame,
+        pairwise: pd.DataFrame,
+        group_name: str,
+        metric: str,
+        selected_label: str,
+    ) -> None:
+        """
+        Save fe_table and pairwise tables as CSV under a structured directory:
+
+        tables_root / metric / group_name /
+            <group>__<label>__fe.csv
+            <group>__<label>__pairwise.csv
+        """
+        base_dir = os.path.join(tables_root, metric, group_name)
+        os.makedirs(base_dir, exist_ok=True)
+
+        fe_path = os.path.join(
+            base_dir, f"{group_name}__{selected_label}__fe.csv"
+        )
+        pw_path = os.path.join(
+            base_dir, f"{group_name}__{selected_label}__pairwise.csv"
+        )
+
+        fe_table.to_csv(fe_path, index=False)
+        pairwise.to_csv(pw_path, index=False)
+
+    def _run_for_group(df: pd.DataFrame, group_name: str) -> dict:
+        """
+        Run barplots + mixed models for one group (hunters/gatherers).
+        Returns a dict: metric -> selected_label -> results dict.
+        """
+        df_noq = df[df[Con.AREA_LABEL_COLUMN] != "question"].copy()
+
+        group_results: dict = {}
+
+        for metric in metrics:
+            metric_results: dict = {}
+
+            available_labels = [
+                lab
+                for lab in ["A", "B", "C", "D"]
+                if lab in df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
+            ]
+
+            if print_summaries:
+                print(f"\n=== {group_name.upper()} — metric: {metric} ===")
+
+            for ans in available_labels:
+                subset = df_noq[
+                    df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans
+                ].copy()
+
+                if subset.empty:
+                    continue
+
+                fig, summary = plot_area_ci_bar(
+                    subset,
+                    stat_col=metric,
+                    h_or_g=group_name,
+                    selected=ans,
+                    save=save_plots,
+                    output_root=output_root,
+                )
+
+                model, fe_table, pairwise = mixed_area_analysis(
+                    subset,
+                    stat_col=metric,
+                    alpha=alpha,
+                )
+
+                if save_tables:
+                    _save_model_tables(
+                        fe_table=fe_table,
+                        pairwise=pairwise,
+                        group_name=group_name,
+                        metric=metric,
+                        selected_label=ans,
+                    )
+
+                if print_summaries:
+                    print(f"\n--- {group_name.upper()}, selected = {ans} ---")
+                    print(model.summary())
+                    print("\nFixed effects (per area):")
+                    print(fe_table)
+                    print("\nPairwise comparisons (Holm-corrected):")
+                    print(pairwise.sort_values("p_adj_holm"))
+
+                metric_results[ans] = {
+                    "fig": fig,
+                    "summary": summary,
+                    "model": model,
+                    "fe_table": fe_table,
+                    "pairwise": pairwise,
+                }
+
+            group_results[metric] = metric_results
+
+        return group_results
+
+    results = {
+        "hunters": _run_for_group(hunters, "hunters"),
+        "gatherers": _run_for_group(gatherers, "gatherers"),
+    }
+
+    return results
+
+
 
 
 
