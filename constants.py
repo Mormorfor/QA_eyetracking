@@ -58,8 +58,8 @@ SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 ANSWER_PREFIX = "answer_"
 ANSWER_LABELS = ["A", "B", "C", "D"]
 
-AREA_LABEL_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
 #AREA_LABEL_CHOICES = ['question', 'top', 'left', 'right', 'bottom']
+AREA_LABEL_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
 
 #DO NOT CHANGE
 ANSWER_LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
