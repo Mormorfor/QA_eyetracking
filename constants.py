@@ -51,6 +51,8 @@ FIX_SEQUENCE_BY_LOCATION = "fix_by_loc"
 SIMPLIFIED_FIX_SEQ_BY_LABEL = "simpl_fix_by_label"
 SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 
+STRATEGY_COL = 'strategy'
+
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
