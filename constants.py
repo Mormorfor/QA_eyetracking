@@ -27,6 +27,7 @@ IA_LAST_FIXATION_TIME = "IA_LAST_FIXATION_TIME"
 
 INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
+AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
 # ---------------------------------------------------------------------------
 # Created column name constants
 # ---------------------------------------------------------------------------
@@ -53,6 +54,8 @@ SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 
 STRATEGY_COL = 'strategy'
 
+SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
+SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
