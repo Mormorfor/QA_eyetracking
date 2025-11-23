@@ -28,12 +28,16 @@ IA_LAST_FIXATION_TIME = "IA_LAST_FIXATION_TIME"
 INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
 AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
+SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
 # ---------------------------------------------------------------------------
 # Created column name constants
 # ---------------------------------------------------------------------------
 
 TEXT_ID_COLUMN = "text_id"
+TEXT_ID_WITH_Q_COLUMN = "text_id_with_q"
+
 IS_CORRECT_COLUMN = "is_correct"
+
 
 AREA_SCREEN_LOCATION = "area_screen_loc"
 AREA_LABEL_COLUMN = "area_label"

@@ -13,14 +13,14 @@ Expected inputs
    - gatherers_answers_path
    These files must contain (among others):
        TRIAL_ID, PARTICIPANT_ID,
-       TEXT_ID_COLUMN,
+       TEXT_ID_WITH_Q_COLUMN,
        AREA_LABEL_COLUMN,
        AREA_SCREEN_LOCATION,
        MEAN_DWELL_TIME,
        SELECTED_ANSWER_LABEL_COLUMN,
        SELECTED_ANSWER_POSITION_COLUMN.
 
-2) Raw paragraphs IA CSV: ia_paragraphs_path (usually "../full/ia_P.csv")
+2) Raw paragraphs IA CSV: ia_paragraphs_path (usually "full/ia_P.csv")
 
 Outputs
 -------
@@ -70,7 +70,7 @@ def create_mean_area_dwell_time_answers_from_processed(df: pd.DataFrame) -> pd.D
     The input is the *row-level* IA data with group features already merged
     in by data_csv_generation.generate_new_row_features(). We assume that:
     - C.MEAN_DWELL_TIME is already present and constant per
-      (TRIAL_ID, PARTICIPANT_ID, TEXT_ID_COLUMN, AREA_LABEL_COLUMN).
+      (TRIAL_ID, PARTICIPANT_ID, TEXT_ID_WITH_Q_COLUMN, AREA_LABEL_COLUMN).
     - C.AREA_SCREEN_LOCATION,
       C.SELECTED_ANSWER_LABEL_COLUMN,
       C.SELECTED_ANSWER_POSITION_COLUMN
@@ -84,7 +84,7 @@ def create_mean_area_dwell_time_answers_from_processed(df: pd.DataFrame) -> pd.D
     cols = [
         C.TRIAL_ID,
         C.PARTICIPANT_ID,
-        C.TEXT_ID_COLUMN,
+        C.TEXT_ID_WITH_Q_COLUMN,
         C.AREA_LABEL_COLUMN,
         C.AREA_SCREEN_LOCATION,
         C.MEAN_DWELL_TIME,
@@ -96,12 +96,31 @@ def create_mean_area_dwell_time_answers_from_processed(df: pd.DataFrame) -> pd.D
     key_cols = [
         C.TRIAL_ID,
         C.PARTICIPANT_ID,
-        C.TEXT_ID_COLUMN,
+        C.TEXT_ID_WITH_Q_COLUMN,
         C.AREA_LABEL_COLUMN,
     ]
 
     area_df = df[cols].drop_duplicates(subset=key_cols)
     return area_df
+
+def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add a 'text_id_with_q' column that matches the original answer-text logic:
+
+        text_id_with_q = text_id + '_' + same_critical_span
+
+    This mirrors the old:
+        article_id_difficulty_batch_paragraph_sameCriticalSpan
+    """
+    df = df.copy()
+
+    df[C.TEXT_ID_WITH_Q_COLUMN] = (
+        df[C.TEXT_ID_COLUMN].astype(str)
+        + "_"
+        + df[C.SAME_CRITICAL_SPAN_COLUMN].astype(str)
+    )
+
+    return df
 
 
 
@@ -109,22 +128,14 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
     """
     Wide-format answer-level table.
 
-    Input: output of create_mean_area_dwell_time_answers_from_processed(df),
-           i.e. one row per:
-               (TRIAL_ID, PARTICIPANT_ID, TEXT_ID_COLUMN, AREA_LABEL_COLUMN)
-           with columns:
-               MEAN_DWELL_TIME, AREA_SCREEN_LOCATION,
-               SELECTED_ANSWER_LABEL_COLUMN, SELECTED_ANSWER_POSITION_COLUMN
-
-    Output: one row per (TRIAL_ID, PARTICIPANT_ID, TEXT_ID_COLUMN) with:
-        - one column per area_label: mean dwell times (answer_A, answer_B, ...)
-        - one column per area_label: screen locations (loc_answer_A, ...)
-        - selected_answer_label, selected_answer_position
-        - dwell_selected, screenloc_selected
+    Uses TEXT_ID_WITH_Q_COLUMN as the text identifier,
+    matching the original text_id logic.
     """
+    idx_cols = [C.TRIAL_ID, C.PARTICIPANT_ID, C.TEXT_ID_WITH_Q_COLUMN]
+
     dwell_wide = (
         df.pivot(
-            index=[C.TRIAL_ID, C.PARTICIPANT_ID, C.TEXT_ID_COLUMN],
+            index=idx_cols,
             columns=C.AREA_LABEL_COLUMN,
             values=C.MEAN_DWELL_TIME,
         )
@@ -134,7 +145,7 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
 
     loc_wide = (
         df.pivot(
-            index=[C.TRIAL_ID, C.PARTICIPANT_ID, C.TEXT_ID_COLUMN],
+            index=idx_cols,
             columns=C.AREA_LABEL_COLUMN,
             values=C.AREA_SCREEN_LOCATION,
         )
@@ -145,10 +156,8 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
 
     sel = (
         df[
-            [
-                C.TRIAL_ID,
-                C.PARTICIPANT_ID,
-                C.TEXT_ID_COLUMN,
+            idx_cols
+            + [
                 C.SELECTED_ANSWER_LABEL_COLUMN,
                 C.SELECTED_ANSWER_POSITION_COLUMN,
             ]
@@ -158,8 +167,8 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
 
     ans_wide = (
         dwell_wide
-        .merge(loc_wide, on=[C.TRIAL_ID, C.PARTICIPANT_ID, C.TEXT_ID_COLUMN])
-        .merge(sel, on=[C.TRIAL_ID, C.PARTICIPANT_ID, C.TEXT_ID_COLUMN])
+        .merge(loc_wide, on=idx_cols)
+        .merge(sel, on=idx_cols)
     )
 
     def _get_dwell_selected(row):
@@ -172,8 +181,8 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
         col_name = f"loc_answer_{label}"
         return row.get(col_name, None)
 
-    ans_wide[C.SELECTED_DWELL_DURATION] = ans_wide.apply(_get_dwell_selected, axis=1)
-    ans_wide[C.SELECTED_SCREEN_LOCATION] = ans_wide.apply(_get_loc_selected, axis=1)
+    ans_wide["dwell_selected"] = ans_wide.apply(_get_dwell_selected, axis=1)
+    ans_wide["screenloc_selected"] = ans_wide.apply(_get_loc_selected, axis=1)
 
     return ans_wide
 
@@ -219,7 +228,7 @@ def pivot_texts(df: pd.DataFrame) -> pd.DataFrame:
 def build_merged_tables(
     hunters_answers_path: str = "output_data/hunters.csv",
     gatherers_answers_path: str = "output_data/gatherers.csv",
-    ia_paragraphs_path: str = "../full/ia_P.csv",
+    ia_paragraphs_path: str = "full/ia_P.csv",
 ):
     """
     The full pipeline:
@@ -240,6 +249,9 @@ def build_merged_tables(
         hunters_answers_path=hunters_answers_path,
         gatherers_answers_path=gatherers_answers_path,
     )
+
+    df_A_h_processed = add_text_id_with_q(df_A_h_processed)
+    df_A_g_processed = add_text_id_with_q(df_A_g_processed)
 
     print("Building area-level answers table (hunters)...")
     hunters_dwells_a = create_mean_area_dwell_time_answers_from_processed(
