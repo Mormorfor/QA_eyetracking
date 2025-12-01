@@ -60,6 +60,10 @@ STRATEGY_COL = 'strategy'
 
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
+
+SEGMENT_COLUMN = "time_segment"
+SEQUENCE_LENGTH_COLUMN = "sequence_length"
+SKIPPED_COLUMN = "skipped"
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
