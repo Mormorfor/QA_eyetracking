@@ -1632,9 +1632,11 @@ def _assign_time_segment(
       - area_col contains e.g. 'question', 'answer_A', 'answer_B', ...
       - selected_col contains 'A' / 'B' / 'C' / 'D'
       - 'before': all rows before first fixation on the selected answer
-      - 'during': from first fixation on selected answer until first fixation
-                  on any non-selected area afterwards
-      - 'after' : from that first non-selected area onwards
+      - 'during': all fixations on the selected answer from its first
+                  occurrence onwards
+      - 'after' : only NON-selected areas from the first non-selected
+                  fixation after the selected answer onwards
+                  (later revisits to the selected answer stay 'during')
     """
     area = group[area_col].astype(str).str.lower().to_numpy()
     selected = str(group[selected_col].iloc[0]).lower()
@@ -1648,19 +1650,25 @@ def _assign_time_segment(
     if not mask.any():
         return pd.Series(out, index=group.index, name=segment_col)
 
-    # Index of first fixation on selected answer
     first_pos = np.flatnonzero(mask)[0]
+
     out[first_pos:] = "during"
 
-    # First non-target after that -> 'after'
+    # Look for the first NON-target after that
     after_first = mask[first_pos + 1:]
     non_target_rel = np.flatnonzero(~after_first)
 
     if non_target_rel.size > 0:
         interruption = first_pos + 1 + non_target_rel[0]
-        out[interruption:] = "after"
+
+        # From interruption onwards, mark ONLY non-selected areas as "after".
+        # Any later visits to the selected answer remain "during".
+        after_range = np.arange(interruption, n)
+        non_target_after = after_range[~mask[interruption:]]
+        out[non_target_after] = "after"
 
     return pd.Series(out, index=group.index, name=segment_col)
+
 
 
 
@@ -1718,11 +1726,6 @@ def add_time_segment_column(
     return df_out
 
 
-
-# ---------------------------------------------------------------------------
-# Generic helper for time-segment barplots
-# ---------------------------------------------------------------------------
-
 def _plot_time_segment_bar(
     df: pd.DataFrame,
     value_col: Optional[str],
@@ -1731,7 +1734,7 @@ def _plot_time_segment_bar(
     id_col: str = Con.PARTICIPANT_ID,
     trial_index_col: str = Con.TRIAL_ID,
     segment_col: str = Con.SEGMENT_COLUMN,
-    transform=None,   # optional function: df -> df
+    transform=None,
     subdir: str = "",
     figsize=(8, 6),
     h_or_g: str = "hunters",
