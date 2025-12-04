@@ -634,77 +634,85 @@ def create_dwell_proportions(df):
 
 
 
-def create_last_area_and_location_visited(df):
+def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     """
-   Determine the last-visited area label and screen location per trial.
+    Determine the last-visited *answer* area label and screen location per trial,
+    using the most recent fixation on one of the answer areas.
 
-   This function identifies which areas the participant visited *last* during
-   each trial, based on IA_LAST_FIXATION_TIME.
-   Because individual interest areas may be noisy, the function considers the
-   **five latest** fixations (per trial/participant) and selects the most
-   frequent area and screen location among them.
+    Logic
+    -----
+    1. Clean IA_LAST_FIXATION_TIME:
+       - Replace '.' placeholder with 0
+       - Convert to numeric (int)
 
-   Steps
-   -----
-   1. Clean IA_LAST_FIXATION_TIME:
-      - Replace '.' placeholder with 0
-      - Convert to numeric
+    2. Sort by:
+       - TRIAL_ID ascending
+       - PARTICIPANT_ID ascending
+       - IA_LAST_FIXATION_TIME descending
+       (so the most recent fixation is first per group)
 
-   2. Sort the DataFrame by:
-      - TRIAL_ID ascending
-      - PARTICIPANT_ID ascending
-      - IA_LAST_FIXATION_TIME descending
-      (so the last fixations are on top)
+    3. Restrict to answer areas only
+       (exclude 'question' = ANSWER_LABEL_CHOICES[0])
 
-   3. Take the top 5 rows per (TRIAL_ID, PARTICIPANT_ID)
-      These represent the *five latest* visited interest areas.
+    4. Take the FIRST ROW per (TRIAL_ID, PARTICIPANT_ID)
+       This is the last fixation on an answer area.
 
-   4. Compute:
-      - LAST_VISITED_LABEL:      mode of AREA_LABEL_COLUMN in top-5 rows
-      - LAST_VISITED_LOCATION:   mode of AREA_SCREEN_LOCATION in top-5 rows
+    5. Extract:
+       - last_visited_label     (AREA_LABEL_COLUMN)
+       - last_visited_location  (AREA_SCREEN_LOCATION)
 
-   Parameters
-   ----------
-   df : DataFrame
-       Must contain:
-       - TRIAL_ID
-       - PARTICIPANT_ID
-       - IA_LAST_FIXATION_TIME
-       - AREA_LABEL_COLUMN
-       - AREA_SCREEN_LOCATION
+    Returns
+    -------
+    DataFrame with one row per trial and participant:
+        TRIAL_ID
+        PARTICIPANT_ID
+        last_visited_label
+        last_visited_location
 
-   Returns
-   -------
-   DataFrame
-       Columns:
-       - TRIAL_ID
-       - PARTICIPANT_ID
-       - last_visited_label
-       - last_visited_location
+    Note
+    ----
+    If a trial never fixates any answer area (only 'question'), that trial
+    will not appear in the result
+    """
+    df_local = df.copy()
 
-       One row per (trial, participant).
-   """
-    df[C.IA_LAST_FIXATION_TIME] = df[C.IA_LAST_FIXATION_TIME].replace('.', 0).astype(int)
-    df_sorted = df.sort_values(by=[C.TRIAL_ID, C.PARTICIPANT_ID,C.IA_LAST_FIXATION_TIME], ascending=[True, True, False])
-    top_fixations = df_sorted.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]).head(5)
-
-    last_area = (
-        top_fixations.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[C.AREA_LABEL_COLUMN]
-        .agg(lambda x: x.value_counts().idxmax())
-        .reset_index()
-        .rename(columns={C.AREA_LABEL_COLUMN: C.LAST_VISITED_LABEL})
+    # 1) Clean fixation times
+    df_local[C.IA_LAST_FIXATION_TIME] = (
+        df_local[C.IA_LAST_FIXATION_TIME]
+        .replace(".", 0)
+        .astype(int)
     )
 
-    last_location = (
-        top_fixations.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[C.AREA_SCREEN_LOCATION]
-        .agg(lambda x: x.value_counts().idxmax())
-        .reset_index()
-        .rename(columns={C.AREA_SCREEN_LOCATION: C.LAST_VISITED_LOCATION})
+    # 2) Sort by trial/participant + descending fixation time
+    df_sorted = df_local.sort_values(
+        by=[C.TRIAL_ID, C.PARTICIPANT_ID, C.IA_LAST_FIXATION_TIME],
+        ascending=[True, True, False],
     )
 
-    result = pd.merge(last_area, last_location, on=[C.TRIAL_ID, C.PARTICIPANT_ID])
+    # 3) Keep only answer areas (exclude 'question')
+    answer_labels = [lab for lab in C.ANSWER_LABEL_CHOICES if lab != "question"]
+    df_answers_only = df_sorted[df_sorted[C.AREA_LABEL_COLUMN].isin(answer_labels)]
 
-    return result
+    # 4) Take the most recent answer-fixation per trial/participant
+    last_fix = (
+        df_answers_only
+        .groupby([C.TRIAL_ID, C.PARTICIPANT_ID], as_index=False)
+        .head(1)
+    )
+
+    # 5) Rename to last-visited columns
+    result = last_fix[
+        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN, C.AREA_SCREEN_LOCATION]
+    ].rename(
+        columns={
+            C.AREA_LABEL_COLUMN: C.LAST_VISITED_LABEL,
+            C.AREA_SCREEN_LOCATION: C.LAST_VISITED_LOCATION,
+        }
+    )
+
+    return result.reset_index(drop=True)
+
+
 
 
 def create_fixation_sequence_tags(df):

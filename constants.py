@@ -38,7 +38,6 @@ TEXT_ID_WITH_Q_COLUMN = "text_id_with_q"
 
 IS_CORRECT_COLUMN = "is_correct"
 
-
 AREA_SCREEN_LOCATION = "area_screen_loc"
 AREA_LABEL_COLUMN = "area_label"
 SELECTED_ANSWER_LABEL_COLUMN = "selected_answer_label"
