@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from src import constants as Con
 
-from answer_loc_data import build_trial_level_location_table, simple_train_test_split
-from answer_loc_models import AnswerLocationModel
+from src.predictive_modeling.answer_loc.answer_loc_data import build_trial_level_location_table, simple_train_test_split
+from src.predictive_modeling.answer_loc.answer_loc_models import AnswerLocationModel
 
 
 @dataclass

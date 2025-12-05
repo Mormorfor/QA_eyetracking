@@ -1,9 +1,11 @@
-from typing import Tuple
+from typing import Tuple, Dict
 
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
+
+import os
 
 from src import constants as Con
 
@@ -137,3 +139,137 @@ def mixed_area_analysis(
     )
 
     return result, fe_table, pairwise
+
+
+
+# ---------------------------------------------------------------------------
+# High-level runners
+# ---------------------------------------------------------------------------
+
+def run_models_for_group(
+    df: pd.DataFrame,
+    group_name: str,
+    metrics=None,
+    alpha: float = 0.05,
+    save_tables: bool = False,
+    tables_root: str = "reports/report_data/area_mixed_models",
+    trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
+) -> Dict[str, Dict[str, dict]]:
+    """
+    Run mixed models for one group (hunters/gatherers).
+
+    Returns a nested dict:
+      results[metric][selected_answer] = {
+          "model": result_obj,
+          "fe_table": fe_table,
+          "pairwise": pairwise
+      }
+    """
+    if metrics is None:
+        metrics = Con.AREA_METRIC_COLUMNS
+
+    df_noq = df[df[Con.AREA_LABEL_COLUMN] != "question"].copy()
+
+    results: Dict[str, Dict[str, dict]] = {}
+
+    for metric in metrics:
+        metric_results: Dict[str, dict] = {}
+
+        available_labels = [
+            lab
+            for lab in ["A", "B", "C", "D"]
+            if lab in df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
+        ]
+
+        print(f"\n=== {group_name.upper()} — metric: {metric} ===")
+
+        for ans in available_labels:
+            subset = df_noq[
+                df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans
+            ].copy()
+
+            if subset.empty:
+                print(f"  Skipping answer {ans}: no trials.")
+                continue
+
+            print(f"\n--- {group_name.upper()}, selected = {ans} ---")
+            model_res, fe_table, pairwise = mixed_area_analysis(
+                subset,
+                stat_col=metric,
+                trial_cols=trial_cols,
+                area_col=Con.AREA_LABEL_COLUMN,
+                alpha=alpha,
+            )
+
+            print("\nFixed effects (per area):")
+            print(fe_table.to_string(index=False))
+
+            print("\nPairwise comparisons (Holm-corrected):")
+            print(pairwise.sort_values("p_adj_holm").to_string(index=False))
+
+            if save_tables:
+                base_dir = f"{tables_root}/{metric}/{group_name}"
+                os.makedirs(base_dir, exist_ok=True)
+
+                fe_path = f"{base_dir}/{group_name}__{ans}__fe.csv"
+                pw_path = f"{base_dir}/{group_name}__{ans}__pairwise.csv"
+
+                fe_table.to_csv(fe_path, index=False)
+                pairwise.to_csv(pw_path, index=False)
+
+                print(f"\nSaved fixed-effects to:  {fe_path}")
+                print(f"Saved pairwise table to: {pw_path}")
+
+            metric_results[ans] = {
+                "model": model_res,
+                "fe_table": fe_table,
+                "pairwise": pairwise,
+            }
+
+        results[metric] = metric_results
+
+    return results
+
+
+def run_all_area_mixed_models(
+    hunters: pd.DataFrame,
+    gatherers: pd.DataFrame,
+    metrics=None,
+    alpha: float = 0.05,
+    save_tables: bool = False,
+    tables_root: str = "reports/report_data/area_mixed_models",
+    trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
+) -> Dict[str, Dict[str, Dict[str, dict]]]:
+    """
+    Convenience wrapper to run models for both hunters and gatherers.
+
+    Returns:
+      {
+        "hunters":   <results dict from run_models_for_group>,
+        "gatherers": <results dict from run_models_for_group>,
+      }
+    """
+    hunters_res = run_models_for_group(
+        hunters,
+        group_name="hunters",
+        metrics=metrics,
+        alpha=alpha,
+        save_tables=save_tables,
+        tables_root=tables_root,
+        trial_cols=trial_cols,
+    )
+
+    gatherers_res = run_models_for_group(
+        gatherers,
+        group_name="gatherers",
+        metrics=metrics,
+        alpha=alpha,
+        save_tables=save_tables,
+        tables_root=tables_root,
+        trial_cols=trial_cols,
+    )
+
+    return {
+        "hunters": hunters_res,
+        "gatherers": gatherers_res,
+    }

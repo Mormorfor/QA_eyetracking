@@ -6,7 +6,7 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from answer_loc_eval import ModelEvaluationResult
+from src.predictive_modeling.answer_loc.answer_loc_eval import ModelEvaluationResult
 
 
 def show_model_results(
