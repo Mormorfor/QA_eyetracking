@@ -1,10 +1,9 @@
 
-old_pre_rewrite/df_with_features_g.csv
-old_pre_rewrite/df_with_features_h.csv
+archive/df_with_features_g.csv
+archive/df_with_features_h.csv
 
-old_pre_rewrite/merged_gatherers.csv
-old_pre_rewrite/merged_hunters.csv
+archive/merged_gatherers.csv
+archive/merged_hunters.csv
 
-/unused_data/
-/output_data/
-/full/
+/data/
+/data_raw/
