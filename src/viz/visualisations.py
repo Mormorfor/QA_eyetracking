@@ -54,6 +54,11 @@ from src.viz.visualisations_time_segments import (
     run_all_time_segment_plots,
 )
 
+from src.viz.visualisations_dominant_eye import (
+    build_dominant_strategy_by_eye,
+    plot_dominant_strategies_by_eye_sorted,
+    run_dominant_strategy_eye_analysis,
+)
 
 __all__ = [
     # area matrices
@@ -87,5 +92,9 @@ __all__ = [
     "plot_time_segment_fixation_count",
     "plot_time_segment_skip_rate",
     "run_all_time_segment_plots",
+    #eye dominance
+    "build_dominant_strategy_by_eye",
+    "plot_dominant_strategies_by_eye_sorted",
+    "run_dominant_strategy_eye_analysis",
 
 ]

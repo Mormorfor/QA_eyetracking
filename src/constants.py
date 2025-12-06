@@ -29,6 +29,8 @@ INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
 AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
 SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
+
+DOMINANT_EYE_COLUMN = 'EYE_TRACKED'
 # ---------------------------------------------------------------------------
 # Created column name constants
 # ---------------------------------------------------------------------------
