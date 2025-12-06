@@ -5,8 +5,12 @@ import numpy as np
 import pandas as pd
 from src import constants as Con
 
-from src.predictive_modeling.answer_loc.answer_loc_data import build_trial_level_location_table, simple_train_test_split
 from src.predictive_modeling.answer_loc.answer_loc_models import AnswerLocationModel
+
+from src.predictive_modeling.answer_loc.answer_loc_data import (
+    build_trial_level_location_table,
+    simple_train_test_split,
+)
 
 
 @dataclass
@@ -29,11 +33,12 @@ def evaluate_models_on_answer_location(
     test_size: float = 0.2,
     random_state: int = 42,
     split_fn: Callable = simple_train_test_split,
+    builder_fn: Callable = build_trial_level_location_table,
 ) -> Dict[str, ModelEvaluationResult]:
     """
     High-level evaluation pipeline for answer-location prediction.
     """
-    trial_df = build_trial_level_location_table(
+    trial_df = builder_fn(
         df,
         group_cols=group_cols,
         last_loc_col=last_loc_col,

@@ -103,26 +103,6 @@ def create_mean_area_dwell_time_answers_from_processed(df: pd.DataFrame) -> pd.D
     area_df = df[cols].drop_duplicates(subset=key_cols)
     return area_df
 
-def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a 'text_id_with_q' column that matches the original answer-text logic:
-
-        text_id_with_q = text_id + '_' + same_critical_span
-
-    This mirrors the old:
-        article_id_difficulty_batch_paragraph_sameCriticalSpan
-    """
-    df = df.copy()
-
-    df[C.TEXT_ID_WITH_Q_COLUMN] = (
-        df[C.TEXT_ID_COLUMN].astype(str)
-        + "_"
-        + df[C.SAME_CRITICAL_SPAN_COLUMN].astype(str)
-    )
-
-    return df
-
-
 
 def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -249,9 +229,6 @@ def build_merged_tables(
         hunters_answers_path=hunters_answers_path,
         gatherers_answers_path=gatherers_answers_path,
     )
-
-    df_A_h_processed = add_text_id_with_q(df_A_h_processed)
-    df_A_g_processed = add_text_id_with_q(df_A_g_processed)
 
     print("Building area-level answers table (hunters)...")
     hunters_dwells_a = create_mean_area_dwell_time_answers_from_processed(

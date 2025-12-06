@@ -198,6 +198,26 @@ def add_text_id(df):
     return out
 
 
+def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add a 'text_id_with_q' column that matches the original answer-text logic:
+
+        text_id_with_q = text_id + '_' + same_critical_span
+
+    This mirrors the old:
+        article_id_difficulty_batch_paragraph_sameCriticalSpan
+    """
+    df = df.copy()
+
+    df[C.TEXT_ID_WITH_Q_COLUMN] = (
+        df[C.TEXT_ID_COLUMN].astype(str)
+        + "_"
+        + df[C.SAME_CRITICAL_SPAN_COLUMN].astype(str)
+    )
+
+    return df
+
+
 def add_is_correct(df):
     """
     Adds IS_CORRECT_COLUMN to the dataframe based on comparison of selected and correct answer positions.
@@ -869,6 +889,11 @@ FUNCTION_REGISTRY = {
     # Base features
     "add_text_id": {
         "callable": add_text_id,
+        "default_kwargs": {},
+        "kind": "base",
+    },
+    "add_text_id_with_q": {
+        "callable": add_text_id_with_q,
         "default_kwargs": {},
         "kind": "base",
     },
