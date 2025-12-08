@@ -9,6 +9,7 @@ from src import constants as Con
 from sklearn.linear_model import LogisticRegression
 import statsmodels.formula.api as smf
 
+from src.predictive_modeling.common.features import map_last_location_to_position
 
 
 
@@ -23,26 +24,6 @@ class AnswerLocationModel(Protocol):
 
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         ...
-
-
-##################################################
-# Helpers
-##################################################
-
-def map_last_location_to_position(
-    series: pd.Series,
-    choices: Sequence[str] = Con.AREA_LABEL_CHOICES,
-) -> pd.Series:
-    """
-    Map last_area_visited_loc values to numeric positions 0–3.
-    index 1 → answer position 0, index 2 → 1, index 3 → 2, index 4 → 3.
-    """
-    mapping = {}
-    for idx, label in enumerate(choices):
-        if idx == 0:
-            continue
-        mapping[label] = idx - 1
-    return series.map(mapping)
 
 
 ##################################################
