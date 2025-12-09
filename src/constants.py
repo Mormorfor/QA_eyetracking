@@ -72,7 +72,7 @@ SKIPPED_COLUMN = "skipped"
 ANSWER_PREFIX = "answer_"
 ANSWER_LABELS = ["A", "B", "C", "D"]
 
-#AREA_LABEL_CHOICES = ['question', 'top', 'left', 'right', 'bottom']
+#must mantain consistent ordering + consistency with ANSWER_LABEL_CHOICES
 AREA_LABEL_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
 
 #DO NOT CHANGE
