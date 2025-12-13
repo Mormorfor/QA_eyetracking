@@ -15,7 +15,7 @@ from src import constants as Con
 # Constants / helpers
 # ---------------------------------------------------------------------------
 
-ANSWER_AREAS: List[str] = Con.ANSWER_LABEL_CHOICES[1:]  # ['answer_A', 'answer_B', ...]
+ANSWER_AREAS = Con.ANSWER_LABEL_CHOICES[1:]
 
 
 def _build_trial_area_table(
@@ -31,9 +31,8 @@ def _build_trial_area_table(
         trial_index
         selected_label
         <Con.IS_CORRECT_COLUMN>   (per trial)
-        answer_A, answer_B, answer_C, answer_D  (metric values, may be NaN)
+        answer_A, answer_B, answer_C, answer_D
     """
-    # area-level info for that metric
     area_level = (
         df[
             [
@@ -50,12 +49,10 @@ def _build_trial_area_table(
         .dropna(subset=[metric])
     )
 
-    # keep only answer_A..answer_D
     area_level = area_level[
         area_level[Con.AREA_LABEL_COLUMN].isin(ANSWER_AREAS)
     ].copy()
 
-    # pivot to wide: one column per answer_X
     wide = (
         area_level
         .pivot_table(
@@ -64,12 +61,11 @@ def _build_trial_area_table(
             values=metric,
             aggfunc="mean",
         )
-        .reindex(columns=ANSWER_AREAS)  # ensure consistent order / columns
+        .reindex(columns=ANSWER_AREAS)
     )
 
     wide.reset_index(inplace=True)
 
-    # add selected answer label (A/B/C/D) per (participant, trial)
     sel = (
         area_level[
             [Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.SELECTED_ANSWER_LABEL_COLUMN]
@@ -84,7 +80,6 @@ def _build_trial_area_table(
         how="left",
     )
 
-    # add trial-level correctness and keep its original column name
     if Con.IS_CORRECT_COLUMN in df.columns:
         corr = (
             df[
@@ -99,7 +94,6 @@ def _build_trial_area_table(
             how="left",
         )
 
-    # nicer names
     out.rename(
         columns={
             Con.PARTICIPANT_ID: "participant_id",
@@ -107,7 +101,6 @@ def _build_trial_area_table(
         },
         inplace=True,
     )
-
     return out
 
 
@@ -130,7 +123,6 @@ def compute_trial_preference_stats(
     df: pd.DataFrame,
     metric: str = Con.MEAN_DWELL_TIME,
     uniform_rel_range: float = 0.10,
-    min_pref_strength: float = 0.20,
 ) -> pd.DataFrame:
     """
     For each (participant, trial) compute:
@@ -175,7 +167,6 @@ def compute_trial_preference_stats(
             else:
                 rel_range = np.nan
 
-            # dominance: max vs second best
             if len(vals_arr) >= 2:
                 sorted_vals = np.sort(vals_arr)[::-1]
                 top = sorted_vals[0]
@@ -188,7 +179,6 @@ def compute_trial_preference_stats(
             else:
                 pref_strength = np.nan
 
-            # which area is max?
             max_idx = int(np.argmax(vals_arr))
             dom_area = cols[max_idx]
             dom_label = _label_from_area(dom_area)
@@ -207,22 +197,16 @@ def compute_trial_preference_stats(
 
     stats_df = pd.DataFrame(stats_rows)
 
-    # merge back with the wide metric table (to keep the per-answer values)
     out = trial_table.merge(
         stats_df,
         on=["participant_id", "trial_index", "selected_label"],
         how="left",
     )
 
-    # flags
-    out["is_uniform"] = out["rel_range"] <= uniform_rel_range
+    out = assign_pref_group(out, uniform_rel_range=uniform_rel_range)
 
-    out["mismatch_flag"] = (
-        out["dominant_metric_label"].notna()
-        & out["selected_label"].notna()
-        & (out["dominant_metric_label"] != out["selected_label"])
-        & (out["preference_strength"] >= min_pref_strength)
-    )
+    out["uniform_rel_range"] = uniform_rel_range
+    out["preference_metric"] = metric
 
     return out
 
@@ -232,7 +216,6 @@ def run_trial_preference_screening(
     gatherers: pd.DataFrame,
     metric: str = Con.MEAN_DWELL_TIME,
     uniform_rel_range: float = 0.10,
-    min_pref_strength: float = 0.20,
     output_root: str = "../reports/report_data/trial_prefs",
     save: bool = True,
 ) -> Dict[str, pd.DataFrame]:
@@ -254,15 +237,16 @@ def run_trial_preference_screening(
             df,
             metric=metric,
             uniform_rel_range=uniform_rel_range,
-            min_pref_strength=min_pref_strength,
         )
         results[name] = res
 
         if save:
+            fname = (
+                f"{name}_trial_prefs_{metric}"
+                f"_uniform{uniform_rel_range:.2f}.csv"
+            )
             res.to_csv(
-                os.path.join(
-                    output_root, f"{name}_trial_prefs_{metric}.csv"
-                ),
+                os.path.join(output_root, fname),
                 index=False,
             )
 
@@ -273,19 +257,41 @@ def run_trial_preference_screening(
 # Grouping + descriptive stats
 # ---------------------------------------------------------------------------
 
-def add_trial_preference_group(df: pd.DataFrame) -> pd.DataFrame:
+def assign_pref_group(
+    out: pd.DataFrame,
+    uniform_rel_range: float,
+) -> pd.DataFrame:
     """
-    Adds a new column 'pref_group' with values:
-        'uniform'
-        'mismatch'
-        'matching'
-    in that order of priority.
+    Ensures each trial falls into exactly one of:
+      - uniform
+      - matching
+      - mismatch
+    based on:
+      - rel_range
+      - dominant_metric_label
+      - selected_label
     """
-    df = df.copy()
-    df["pref_group"] = "matching"  # default
-    df.loc[df["is_uniform"], "pref_group"] = "uniform"
-    df.loc[df["mismatch_flag"], "pref_group"] = "mismatch"
-    return df
+    out = out.copy()
+
+    out["is_uniform"] = out["rel_range"] <= uniform_rel_range
+
+    out["pref_group"] = "matching"
+    out.loc[out["is_uniform"], "pref_group"] = "uniform"
+    out.loc[
+        (~out["is_uniform"]) & (out["dominant_metric_label"] != out["selected_label"]),
+        "pref_group",
+    ] = "mismatch"
+
+    out["mismatch_flag"] = out["pref_group"].eq("mismatch")
+
+    allowed = {"uniform", "matching", "mismatch"}
+    if not set(out["pref_group"].unique()).issubset(allowed):
+        raise ValueError(f"Unexpected pref_group values: {set(out['pref_group'].unique()) - allowed}")
+
+    if out["pref_group"].isna().any():
+        raise ValueError("Some trials have pref_group == NaN, partition failed.")
+
+    return out
 
 
 def compute_global_preference_stats(df: pd.DataFrame) -> pd.DataFrame:
