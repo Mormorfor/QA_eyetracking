@@ -1,15 +1,6 @@
 """
 Public plotting API.
 
-This module simply re-exports functions from the more focused modules:
-- visualisations_area_matrices
-- visualisations_area_bars_mixed
-- visualisations_simplified_visits
-- visualisations_strategies
-- visualisations_time_segments
-
-So existing imports like `from src import visualisations as V`
-keep working unchanged.
 """
 
 

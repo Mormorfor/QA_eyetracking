@@ -653,6 +653,74 @@ def create_dwell_proportions(df):
     return aggregated_df
 
 
+def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    df_local = df.copy()
+
+    cols = [
+        C.IA_MAX_FIX_PUPIL_SIZE,
+        C.IA_MIN_FIX_PUPIL_SIZE,
+        C.IA_AVERAGE_FIX_PUPIL_SIZE,
+    ]
+    for col in cols:
+        if col in df_local.columns:
+            df_local[col] = df_local[col].replace(".", np.nan).astype(float)
+
+    grouped = (
+        df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{
+            C.MEAN_MAX_FIX_PUPIL_SIZE: (C.IA_MAX_FIX_PUPIL_SIZE, "mean"),
+            C.MEAN_MIN_FIX_PUPIL_SIZE: (C.IA_MIN_FIX_PUPIL_SIZE, "mean"),
+            C.MEAN_AVG_FIX_PUPIL_SIZE: (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean"),
+        })
+    )
+
+    return grouped
+
+
+
+
+def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute pupil size at the FIRST encounter of each area
+    per (trial, participant, area_label).
+
+    Uses IA_AVERAGE_FIX_PUPIL_SIZE from the first fixation
+    on that area.
+    """
+    df_local = df.copy()
+
+    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = (
+        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE]
+        .replace(".", np.nan)
+        .astype(float)
+    )
+
+    df_local = df_local[df_local[C.IA_FIRST_FIXATION_DURATION] > 0]
+
+    df_local = df_local.sort_values(
+        by=[C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
+    )
+
+    first_fix = (
+        df_local
+        .groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .head(1)
+    )
+
+    return first_fix[
+        [
+            C.TRIAL_ID,
+            C.PARTICIPANT_ID,
+            C.AREA_LABEL_COLUMN,
+            C.IA_AVERAGE_FIX_PUPIL_SIZE,
+        ]
+    ].rename(
+        columns={
+            C.IA_AVERAGE_FIX_PUPIL_SIZE: "first_encounter_avg_pupil_size"
+        }
+    )
+
+
 
 def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -947,6 +1015,18 @@ FUNCTION_REGISTRY = {
     "create_dwell_proportions": {
         "callable": create_dwell_proportions,
         "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
+    },
+    "create_mean_pupil_size_metrics": {
+        "callable": create_mean_pupil_size_metrics,
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
+        "kind": "group",
+    },
+    "create_first_encounter_pupil_size": {
+        "callable": create_first_encounter_pupil_size,
+        "default_kwargs": {
+            "join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
+        },
         "kind": "group",
     },
     "create_last_area_and_location_visited": {

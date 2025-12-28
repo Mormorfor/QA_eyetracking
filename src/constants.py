@@ -31,6 +31,10 @@ AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
 SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
 
 DOMINANT_EYE_COLUMN = 'EYE_TRACKED'
+IA_AVERAGE_FIX_PUPIL_SIZE = "IA_AVERAGE_FIX_PUPIL_SIZE"
+IA_MAX_FIX_PUPIL_SIZE = "IA_MAX_FIX_PUPIL_SIZE"
+IA_MIN_FIX_PUPIL_SIZE = "IA_MIN_FIX_PUPIL_SIZE"
+
 # ---------------------------------------------------------------------------
 # Created column name constants
 # ---------------------------------------------------------------------------
@@ -65,6 +69,13 @@ SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 SEGMENT_COLUMN = "time_segment"
 SEQUENCE_LENGTH_COLUMN = "sequence_length"
 SKIPPED_COLUMN = "skipped"
+
+MEAN_AVG_FIX_PUPIL_SIZE = "mean_avg_fix_pupil_size"
+MEAN_MAX_FIX_PUPIL_SIZE = "mean_max_fix_pupil_size"
+MEAN_MIN_FIX_PUPIL_SIZE = "mean_min_fix_pupil_size"
+
+FIRST_ENCOUNTER_AVG_PUPIL_SIZE = "first_encounter_avg_pupil_size"
+
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
@@ -94,4 +105,8 @@ AREA_METRIC_COLUMNS = [
     MEAN_FIRST_FIXATION_DURATION,
     SKIP_RATE,
     AREA_DWELL_PROPORTION,
+    MEAN_AVG_FIX_PUPIL_SIZE,
+    MEAN_MAX_FIX_PUPIL_SIZE,
+    MEAN_MIN_FIX_PUPIL_SIZE,
+    FIRST_ENCOUNTER_AVG_PUPIL_SIZE
 ]

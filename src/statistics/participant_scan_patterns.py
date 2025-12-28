@@ -49,6 +49,16 @@ def _build_trial_area_table(
         .dropna(subset=[metric])
     )
 
+    area_level[metric] = (
+        area_level[metric]
+        .astype(str)
+        .str.strip()
+        .replace({".": np.nan, "": np.nan, "nan": np.nan, "None": np.nan})
+    )
+    area_level[metric] = pd.to_numeric(area_level[metric], errors="coerce")
+
+    area_level = area_level.dropna(subset=[metric])
+
     area_level = area_level[
         area_level[Con.AREA_LABEL_COLUMN].isin(ANSWER_AREAS)
     ].copy()
