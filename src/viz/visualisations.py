@@ -51,6 +51,12 @@ from src.viz.visualisations_dominant_eye import (
     run_dominant_strategy_eye_analysis,
 )
 
+from src.viz.visualisations_preference_correctness import (
+    plot_correctness_by_matching,
+    summarize_correctness_by_pref_group,
+    run_matching_correctness_plots,
+)
+
 __all__ = [
     # area matrices
     "matrix_plot_ABCD",
@@ -87,5 +93,9 @@ __all__ = [
     "build_dominant_strategy_by_eye",
     "plot_dominant_strategies_by_eye_sorted",
     "run_dominant_strategy_eye_analysis",
+    # preference correctness
+    "plot_correctness_by_matching",
+    "summarize_correctness_by_pref_group",
+    "run_matching_correctness_plots",
 
 ]

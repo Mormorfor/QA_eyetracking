@@ -128,7 +128,7 @@ def _label_from_area(area_name: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Core trial-level preference stats
 # ---------------------------------------------------------------------------
-
+#furtherst from median
 def compute_trial_preference_stats(
     df: pd.DataFrame,
     metric: str = Con.MEAN_DWELL_TIME,
@@ -217,7 +217,7 @@ def compute_trial_preference_stats(
 
     out["uniform_rel_range"] = uniform_rel_range
     out["preference_metric"] = metric
-
+    print(out)
     return out
 
 
