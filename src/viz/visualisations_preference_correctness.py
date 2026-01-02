@@ -31,6 +31,20 @@ import matplotlib.pyplot as plt
 
 from src import constants as C
 
+from src.statistics.preference_correctness_tests import correctness_by_pref_group_test
+
+
+def _p_to_stars(p: float) -> str:
+    if np.isnan(p):
+        return "n/a"
+    if p < 0.001:
+        return "***"
+    if p < 0.01:
+        return "**"
+    if p < 0.05:
+        return "*"
+    return "ns"
+
 
 @dataclass(frozen=True)
 class CorrectnessSummary:
@@ -123,11 +137,11 @@ def plot_correctness_by_matching(
     title: Optional[str] = None,
     save_path: Optional[str] = None,
     show_n: bool = True,
+    show_test: bool = True,
 ) -> pd.DataFrame:
     """
     Plot correctness rate (mean) ± 95% CI for matching vs not_matching.
-
-    Returns the summary dataframe used for the plot (handy for logging/tests).
+    Optionally annotates Fisher exact test (p-value + odds ratio).
     """
     summary = summarize_correctness_by_pref_group(
         df=df,
@@ -140,7 +154,6 @@ def plot_correctness_by_matching(
     acc = summary["acc"].to_numpy(dtype=float)
     lo = summary["ci_low"].to_numpy(dtype=float)
     hi = summary["ci_high"].to_numpy(dtype=float)
-
     yerr = np.vstack([acc - lo, hi - acc])
 
     fig, ax = plt.subplots(figsize=(7, 4))
@@ -153,9 +166,33 @@ def plot_correctness_by_matching(
         title = f"Correctness by matching group ({metric_name})"
     ax.set_title(title)
 
+    # n labels
     if show_n:
         for i, row in summary.iterrows():
-            ax.text(i, min(1.0, row["acc"] + 0.03), f"n={int(row['n_trials'])}", ha="center", va="bottom")
+            ax.text(
+                i,
+                min(1.0, row["acc"] + 0.03),
+                f"n={int(row['n_trials'])}",
+                ha="center",
+                va="bottom",
+            )
+
+    # ---- Statistical test annotation (Fisher exact) ----
+    if show_test:
+        test_res = correctness_by_pref_group_test(
+            df=df, pref_col=pref_col, correct_col=correct_col
+        )
+        p = test_res["p_value"]
+        or_ = test_res["odds_ratio"]
+        stars = _p_to_stars(p)
+
+        txt = f"Fisher p={p:.3g} {stars}  (OR={or_:.2f})"
+        ax.text(
+            0.5, 0.98, txt,
+            transform=ax.transAxes,
+            ha="center", va="top",
+            fontsize=10,
+        )
 
     fig.tight_layout()
 
@@ -165,6 +202,7 @@ def plot_correctness_by_matching(
         fig.savefig(save_path, dpi=200)
 
     return summary
+
 
 
 def run_matching_correctness_plots(
