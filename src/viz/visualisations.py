@@ -53,8 +53,8 @@ from src.viz.visualisations_dominant_eye import (
 
 from src.viz.visualisations_preference_correctness import (
     plot_correctness_by_matching,
-    summarize_correctness_by_pref_group,
-    run_matching_correctness_plots,
+    run_all_matching_correctness_plots,
+
 )
 
 __all__ = [
@@ -95,7 +95,6 @@ __all__ = [
     "run_dominant_strategy_eye_analysis",
     # preference correctness
     "plot_correctness_by_matching",
-    "summarize_correctness_by_pref_group",
-    "run_matching_correctness_plots",
+    "run_all_matching_correctness_plots",
 
 ]

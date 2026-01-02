@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import scipy.stats as st
 
@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 from src import constants as C
 
 from src.statistics.preference_correctness_tests import correctness_by_pref_group_test
+from src.derived import preference_matching as PM
 
 
 def _p_to_stars(p: float) -> str:
@@ -205,26 +206,119 @@ def plot_correctness_by_matching(
 
 
 
-def run_matching_correctness_plots(
-    trial_df: pd.DataFrame,
-    metric_name: str,
-    output_root: str = "reports/plots/matching_correctness",
-    save: bool = True,
-) -> dict:
-    """
-    Convenience wrapper: make and optionally save one plot + return summary.
-    """
-    out = {}
-    save_path = None
-    if save:
-        save_path = str(Path(output_root) / f"correctness_by_matching_{metric_name}.png")
+_DEFAULT_DIRECTION_BY_METRIC = {
+    C.MEAN_DWELL_TIME: "high",
+    C.MEAN_FIXATIONS_COUNT: "high",
+    C.MEAN_FIRST_FIXATION_DURATION: "high",
+    C.SKIP_RATE: "low",
+    C.AREA_DWELL_PROPORTION: "high",
+    C.MEAN_AVG_FIX_PUPIL_SIZE: "high",
+    C.MEAN_MAX_FIX_PUPIL_SIZE: "high",
+    C.MEAN_MIN_FIX_PUPIL_SIZE: "low",
+    C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE: "high"
+}
 
-    summary = plot_correctness_by_matching(
-        df=trial_df,
-        metric_name=metric_name,
-        save_path=save_path,
-    )
 
-    out["summary"] = summary
-    out["save_path"] = save_path
-    return out
+def run_all_matching_correctness_plots(
+    hunters: pd.DataFrame,
+    gatherers: pd.DataFrame,
+    metrics: List[str] = None,
+    output_root: str = "../reports/plots/matching_correctness",
+    save_plots: bool = True,
+    print_summaries: bool = False,
+) -> Dict:
+    """
+    For each metric in AREA_METRIC_COLUMNS, compute trial-level matching labels
+    and plot correctness by matching group, for both:
+      - extreme_mode="polarity" (direction chosen per metric)
+      - extreme_mode="relative" (direction ignored)
+
+    Runs for:
+      - hunters
+      - gatherers
+      - all_participants
+
+    Folder structure:
+      {output_root}/{mode}/{group}/correctness_by_matching__{metric}.png
+
+    Returns
+    -------
+    results[mode][group][metric] = {
+        "trial_df": DataFrame,
+        "summary": DataFrame,
+        "save_path": str|None,
+    }
+    """
+    if metrics is None:
+        metrics = list(C.AREA_METRIC_COLUMNS)
+
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
+    groups = {
+        "hunters": hunters,
+        "gatherers": gatherers,
+        "all_participants": all_participants,
+    }
+
+    modes = ["polarity", "relative"]
+    results: Dict = {}
+
+    for mode in modes:
+        mode_results: Dict = {}
+
+        for group_key, df in groups.items():
+            group_label = "all participants" if group_key == "all_participants" else group_key
+
+            group_results: Dict = {}
+
+            for metric in metrics:
+                # choose direction for polarity mode
+                direction = _DEFAULT_DIRECTION_BY_METRIC.get(metric, "high")
+
+                if mode == "polarity":
+                    trial_df = PM.compute_trial_matching(
+                        df,
+                        metric_col=metric,
+                        direction=direction,
+                        extreme_mode="polarity",
+                    )
+                    title = f"Correctness by matching ({metric}) — {group_label} — polarity ({direction})"
+                else:
+                    trial_df = PM.compute_trial_matching(
+                        df,
+                        metric_col=metric,
+                        extreme_mode="relative",
+                    )
+                    title = f"Correctness by matching ({metric}) — {group_label} — relative"
+
+                save_path = None
+                if save_plots:
+                    save_dir = Path(output_root) / mode / group_key
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    save_path = str(save_dir / f"correctness_by_matching__{metric}.png")
+
+                summary = plot_correctness_by_matching(
+                    df=trial_df,
+                    metric_name=metric,
+                    title=title,
+                    save_path=save_path,
+                    show_test=True,
+                )
+
+                if print_summaries:
+                    print(f"\n=== {mode.upper()} | {group_label.upper()} | {metric} ===")
+                    if mode == "polarity":
+                        print(f"direction: {direction}")
+                    print(summary)
+
+                group_results[metric] = {
+                    "trial_df": trial_df,
+                    "summary": summary,
+                    "save_path": save_path,
+                }
+
+            mode_results[group_key] = group_results
+
+        results[mode] = mode_results
+
+    return results

@@ -185,7 +185,7 @@ def matrix_plot_simplified_visits(
 def run_all_simplified_visit_matrices(
     hunters: pd.DataFrame,
     gatherers: pd.DataFrame,
-    drop_question: bool = True,
+    drop_question_variants: tuple = (True, False),
     kinds: tuple = ("label", "location"),
     which_list: tuple = ("first", "last"),
     answers: tuple = ("A", "B", "C", "D"),
@@ -195,66 +195,51 @@ def run_all_simplified_visit_matrices(
 ) -> None:
     """
     Generate visit-order heatmaps (first/last visits) for simplified sequences:
-    - hunters and gatherers,
-    - each selected answer (A–D),
-    - label-based and/or location-based sequences,
-    - optionally with 'question' included or excluded.
-
-    Parameters
-    ----------
-    hunters : DataFrame
-        Row-level hunters data.
-    gatherers : DataFrame
-        Row-level gatherers data.
-    drop_question : bool
-        If True, remove 'question' from the visit-order lists (4 positions max).
-        If False, include 'question' (5 positions max).
-    kinds : tuple of {"label", "location"}
-        Which sequence types to plot.
-    which_list : tuple of {"first", "last"}
-        Whether to plot first and/or last visit orders.
-    answers : tuple of str
-        Selected answer labels to loop over ('A', 'B', 'C', 'D').
-    output_root : str
-        Root directory for saving heatmaps.
-    save : bool
-        If True, save PNG files to disk.
-    show : bool
-        If True, display plots interactively.
+      - hunters, gatherers, and all participants
+      - each selected answer (A–D)
+      - label-based and/or location-based sequences
+      - with and without 'question'
     """
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
     groups = {
         "hunters": hunters,
         "gatherers": gatherers,
+        "all_participants": all_participants,
     }
 
-    for group_name, df in groups.items():
-        df_group = df.copy()
+    for drop_question in drop_question_variants:
+        dq_folder = "questions_removed" if drop_question else "questions_included"
 
-        for ans in answers:
-            subset = df_group[
-                df_group[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans
-            ].copy()
+        for group_key, df in groups.items():
+            group_label = "all participants" if group_key == "all_participants" else group_key
 
-            if subset.empty:
-                continue
+            group_out_root = os.path.join(output_root, dq_folder, group_key)
 
-            print(
-                f"\n{group_name.upper()} — participants who selected {ans} "
-                f"(drop_question={drop_question}):"
-            )
-            print("-" * 72)
+            for ans in answers:
+                subset = df[df[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
+                if subset.empty:
+                    continue
 
-            for which in which_list:
-                for kind in kinds:
-                    matrix_plot_simplified_visits(
-                        subset,
-                        kind=kind,
-                        which=which,
-                        drop_question=drop_question,
-                        h_or_g=group_name,
-                        selected=ans,
-                        figsize=(8, 5),
-                        save=save,
-                        output_root=output_root,
-                        show=show,
-                    )
+                print(
+                    f"\n{group_label.upper()} — selected {ans} "
+                    f"(drop_question={drop_question})"
+                )
+                print("-" * 72)
+
+                for which in which_list:
+                    for kind in kinds:
+                        matrix_plot_simplified_visits(
+                            subset,
+                            kind=kind,
+                            which=which,
+                            drop_question=drop_question,
+                            h_or_g=group_label,
+                            selected=ans,
+                            figsize=(8, 5),
+                            save=save,
+                            output_root=group_out_root,
+                            show=show,
+                        )
+
+

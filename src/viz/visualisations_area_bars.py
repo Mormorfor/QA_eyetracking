@@ -119,19 +119,6 @@ def run_all_area_barplots(
 
     No mixed models, no statistics beyond descriptive summaries.
 
-    Parameters
-    ----------
-    hunters, gatherers : DataFrame
-        Row-level data.
-    metrics : list[str] or None
-        Which metric columns to plot. If None: Con.AREA_METRIC_COLUMNS.
-    output_root : str
-        Where to save plots. Each metric gets its own subfolder.
-    save_plots : bool
-        Save PNGs using plot_area_ci_bar().
-    print_summaries : bool
-        Print the descriptive table (mean/sd/n).
-
     Returns
     -------
     results : dict
@@ -140,7 +127,6 @@ def run_all_area_barplots(
             "summary": DataFrame
         }
     """
-
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS
 
@@ -160,10 +146,7 @@ def run_all_area_barplots(
                 print(f"\n=== {group_name.upper()} — metric: {metric} ===")
 
             for ans in available_labels:
-                subset = df_noq[
-                    df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans
-                    ].copy()
-
+                subset = df_noq[df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
                 if subset.empty:
                     continue
 
@@ -180,18 +163,19 @@ def run_all_area_barplots(
                     print(f"\n--- {group_name.upper()}, selected = {ans} ---")
                     print(summary)
 
-                metric_results[ans] = {
-                    "fig": fig,
-                    "summary": summary,
-                }
+                metric_results[ans] = {"fig": fig, "summary": summary}
 
             group_results[metric] = metric_results
 
         return group_results
 
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
     results = {
         "hunters": _run_for_group(hunters, "hunters"),
         "gatherers": _run_for_group(gatherers, "gatherers"),
+        "all_participants": _run_for_group(all_participants, "all participants"),
     }
 
     return results
+

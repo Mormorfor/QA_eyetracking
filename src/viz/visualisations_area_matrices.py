@@ -92,9 +92,9 @@ def matrix_plot_ABCD(
     plt.tight_layout()
 
     if save:
-        out_dir = os.path.join(output_root, stat)
+        out_dir = os.path.join(output_root, h_or_g, stat)
         os.makedirs(out_dir, exist_ok=True)
-        filename = f"{h_or_g} - {selected} selected - (questions removed - {drop_questions}).png"
+        filename = f"{selected}_selected.png"
         plt.savefig(os.path.join(out_dir, filename), dpi=300)
 
     if show:
@@ -108,50 +108,37 @@ def label_vs_loc_mat(
     metric: str,
     dfh: pd.DataFrame,
     dfg: pd.DataFrame,
+    dfa: Optional[pd.DataFrame] = None,
     drop_questions: bool = False,
     **plot_kwargs,
 ) -> None:
     """
-    For a given metric, plot hunters/gatherers heatmaps
-    for each selected answer label (A, B, C, D).
+    For a given metric, plot heatmaps for each selected answer label (A–D).
 
-    Parameters
-    ----------
-    metric : str
-        Column name of the metric to visualize.
-    dfh : DataFrame
-        Hunters DataFrame.
-    dfg : DataFrame
-        Gatherers DataFrame.
-    drop_questions : bool, optional
-        Whether to drop question areas in the plots.
-    plot_kwargs : dict
-        Additional keyword arguments passed to matrix_plot_ABCD
-        (e.g. output_root, show, save).
+    Runs:
+      - hunters
+      - gatherers
+      - all participants (optional, if dfa is provided)
     """
-    print(f"HUNTERS (drop_questions={drop_questions})")
-    for ans in ["A", "B", "C", "D"]:
-        subset_h = dfh[dfh[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans]
-        matrix_plot_ABCD(
-            subset_h,
-            metric,
-            selected=ans,
-            h_or_g="hunters",
-            drop_questions=drop_questions,
-            **plot_kwargs,
-        )
+    def _run(df: pd.DataFrame, group_label: str) -> None:
+        print(f"{group_label.upper()} (drop_questions={drop_questions})")
+        for ans in ["A", "B", "C", "D"]:
+            subset = df[df[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans]
+            matrix_plot_ABCD(
+                subset,
+                metric,
+                selected=ans,
+                h_or_g=group_label,          # used in filename
+                drop_questions=drop_questions,
+                **plot_kwargs,
+            )
 
-    print(f"GATHERERS (drop_questions={drop_questions})")
-    for ans in ["A", "B", "C", "D"]:
-        subset_g = dfg[dfg[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans]
-        matrix_plot_ABCD(
-            subset_g,
-            metric,
-            selected=ans,
-            h_or_g="gatherers",
-            drop_questions=drop_questions,
-            **plot_kwargs,
-        )
+    _run(dfh, "hunters")
+    _run(dfg, "gatherers")
+
+    if dfa is not None:
+        _run(dfa, "all participants")
+
 
 
 
@@ -165,37 +152,28 @@ def run_all_area_metric_plots(
     save=True,
 ):
     """
-    Convenience wrapper: for every metric in metrics (or C.AREA_METRIC_COLUMNS),
-    generate label-vs-location matrices for hunters & gatherers,
-    with and without questions.
+    Convenience wrapper: for every metric, generate label-vs-location matrices
+    for hunters, gatherers, and all participants, with and without questions.
 
-    Parameters
-    ----------
-    hunters : DataFrame
-    gatherers : DataFrame
-    metrics : list[str] or None
-        If None, uses C.AREA_METRIC_COLUMNS.
-    drop_question_variants : iterable of bool
-        Which values of drop_questions to run (e.g. (False, True)).
-    output_root : str
-        Root directory for saving plots.
-    show : bool
-        Whether to show plots interactively.
-    save : bool
-        Whether to save plots to disk.
     """
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS
 
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
     for metric in metrics:
         for dq in drop_question_variants:
+            dq_folder = "questions_removed" if dq else "questions_included"
+
             print(f"\n=== {metric} (drop_questions={dq}) ===")
+
             label_vs_loc_mat(
                 metric,
                 hunters,
                 gatherers,
+                dfa=all_participants,
                 drop_questions=dq,
-                output_root=output_root,
+                output_root=os.path.join(output_root, dq_folder),
                 show=show,
                 save=save,
             )

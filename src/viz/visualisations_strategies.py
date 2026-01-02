@@ -131,7 +131,7 @@ def plot_dominant_strategy_hist(
         fig.savefig(
             os.path.join(
                 output_root,
-                f"dominant_prop_{strat_col}_{h_or_g}).png",
+                f"dominant_prop_{strat_col}_{h_or_g}.png",
             ),
             dpi=300,
         )

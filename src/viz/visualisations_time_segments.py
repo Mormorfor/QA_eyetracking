@@ -389,7 +389,7 @@ def run_all_time_segment_plots(
 ) -> dict:
     """
     Convenience wrapper:
-    - add SEGMENT_COLUMN to hunters & gatherers
+    - add SEGMENT_COLUMN to hunters, gatherers, and all participants
     - plot:
         * mean dwell time by segment
         * average sequence length by segment
@@ -399,7 +399,7 @@ def run_all_time_segment_plots(
     Returns
     -------
     results : dict
-        results["hunters"] / results["gatherers"] each contain:
+        results["hunters"] / results["gatherers"] / results["all_participants"] each contain:
             {
               "df": df_with_segment,
               "mean_dwell": (fig, summary_df),
@@ -410,7 +410,18 @@ def run_all_time_segment_plots(
     """
     results = {}
 
-    for group_name, df in {"hunters": hunters, "gatherers": gatherers}.items():
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
+    groups = {
+        "hunters": hunters,
+        "gatherers": gatherers,
+        "all_participants": all_participants,
+    }
+
+    for group_key, df in groups.items():
+        # Pretty label for titles/filenames
+        group_label = "all participants" if group_key == "all_participants" else group_key
+
         df_seg = add_time_segment_column(
             df,
             group_cols=group_cols,
@@ -419,15 +430,18 @@ def run_all_time_segment_plots(
             segment_col=segment_col,
         )
 
+        # Put each group in its own folder to prevent overwrites
+        group_out_root = os.path.join(output_root, group_key)
+
         md_fig, md_summary = plot_time_segment_mean_dwell(
             df_seg,
             dwell_col=dwell_col,
             id_col=group_cols[0],
             trial_index_col=group_cols[1],
             segment_col=segment_col,
-            h_or_g=group_name,
+            h_or_g=group_label,
             save=save,
-            output_root=output_root,
+            output_root=group_out_root,
         )
 
         sl_fig, sl_summary = plot_time_segment_sequence_length(
@@ -435,9 +449,9 @@ def run_all_time_segment_plots(
             id_col=group_cols[0],
             trial_index_col=group_cols[1],
             segment_col=segment_col,
-            h_or_g=group_name,
+            h_or_g=group_label,
             save=save,
-            output_root=output_root,
+            output_root=group_out_root,
         )
 
         fc_fig, fc_summary = plot_time_segment_fixation_count(
@@ -446,9 +460,9 @@ def run_all_time_segment_plots(
             id_col=group_cols[0],
             trial_index_col=group_cols[1],
             segment_col=segment_col,
-            h_or_g=group_name,
+            h_or_g=group_label,
             save=save,
-            output_root=output_root,
+            output_root=group_out_root,
         )
 
         sr_fig, sr_summary = plot_time_segment_skip_rate(
@@ -457,12 +471,12 @@ def run_all_time_segment_plots(
             id_col=group_cols[0],
             trial_index_col=group_cols[1],
             segment_col=segment_col,
-            h_or_g=group_name,
+            h_or_g=group_label,
             save=save,
-            output_root=output_root,
+            output_root=group_out_root,
         )
 
-        results[group_name] = {
+        results[group_key] = {
             "df": df_seg,
             "mean_dwell": (md_fig, md_summary),
             "sequence_length": (sl_fig, sl_summary),
@@ -471,3 +485,4 @@ def run_all_time_segment_plots(
         }
 
     return results
+

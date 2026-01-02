@@ -2,6 +2,7 @@ import os
 from typing import Dict
 
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -167,7 +168,7 @@ def run_dominant_strategy_eye_analysis(
     save: bool = True,
 ):
     """
-    For hunters and gatherers:
+    For hunters, gatherers, and all participants:
       - compute dominant strategy per participant (first `window_len` visits)
       - filter participants by dominant_prop if threshold > 0
       - produce sorted per-eye barplots
@@ -175,7 +176,18 @@ def run_dominant_strategy_eye_analysis(
     """
     results = {}
 
-    for group_name, df in {"hunters": hunters, "gatherers": gatherers}.items():
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
+    groups = {
+        "hunters": hunters,
+        "gatherers": gatherers,
+        "all_participants": all_participants,
+    }
+
+    for group_key, df in groups.items():
+        # Human label for titles/filenames
+        group_label = "all participants" if group_key == "all_participants" else group_key
+
         dom_df = build_dominant_strategy_by_eye(
             df,
             kind=kind,
@@ -188,21 +200,25 @@ def run_dominant_strategy_eye_analysis(
         if threshold > 0.0:
             dom_df = dom_df[dom_df["dominant_prop"] >= threshold].copy()
 
+        # Put each group into its own folder to avoid overwriting
+        group_out_root = os.path.join(output_root, group_key)
+
         crosstab = plot_dominant_strategies_by_eye_sorted(
             dom_df,
             eye_col=Con.DOMINANT_EYE_COLUMN,
             strat_col="dominant_strategy",
-            group_name=group_name,
-            output_root=output_root,
+            group_name=group_label,      # pretty label in plot title + filename
+            output_root=group_out_root,
             save=save,
         )
 
-        results[group_name] = {
+        results[group_key] = {
             "dominant_df": dom_df,
             "crosstab": crosstab,
         }
 
     return results
+
 
 
 
