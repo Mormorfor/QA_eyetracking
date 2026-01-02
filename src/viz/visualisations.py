@@ -57,6 +57,11 @@ from src.viz.visualisations_preference_correctness import (
 
 )
 
+from src.viz.visualisations_area_significance_heatmaps import (
+    plot_area_significance_heatmap,
+    run_all_area_significance_heatmaps,
+)
+
 __all__ = [
     # area matrices
     "matrix_plot_ABCD",
@@ -96,5 +101,8 @@ __all__ = [
     # preference correctness
     "plot_correctness_by_matching",
     "run_all_matching_correctness_plots",
+    # area significance heatmaps
+    "plot_area_significance_heatmap",
+    "run_all_area_significance_heatmaps",
 
 ]

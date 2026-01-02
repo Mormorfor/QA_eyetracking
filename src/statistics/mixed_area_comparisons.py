@@ -5,6 +5,8 @@ import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 
+from src.viz.visualisations_area_significance_heatmaps import plot_pairwise_significance_heatmap
+
 import os
 
 from src import constants as Con
@@ -58,6 +60,10 @@ def mixed_area_analysis(
         categories=area_order,
         ordered=True,
     )
+
+    dedup[stat_col] = pd.to_numeric(dedup[stat_col], errors="coerce")
+    dedup = dedup.dropna(subset=[stat_col, area_col, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN]).copy()
+    dedup = dedup.reset_index(drop=True)
 
     formula = f"{stat_col} ~ 0 + C({area_col})"
     model = smf.mixedlm(
@@ -152,19 +158,12 @@ def run_models_for_group(
     metrics=None,
     alpha: float = 0.05,
     save_tables: bool = False,
-    tables_root: str = "reports/report_data/area_mixed_models",
+    tables_root: str = "../reports/report_data/area_mixed_models",
+    graphs_root="../reports/plots/area_significance_heatmaps",
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
+    save_heatmaps: bool = True,
 ) -> Dict[str, Dict[str, dict]]:
-    """
-    Run mixed models for one group (hunters/gatherers).
 
-    Returns a nested dict:
-      results[metric][selected_answer] = {
-          "model": result_obj,
-          "fe_table": fe_table,
-          "pairwise": pairwise
-      }
-    """
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS
 
@@ -176,17 +175,14 @@ def run_models_for_group(
         metric_results: Dict[str, dict] = {}
 
         available_labels = [
-            lab
-            for lab in ["A", "B", "C", "D"]
+            lab for lab in ["A", "B", "C", "D"]
             if lab in df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
         ]
 
         print(f"\n=== {group_name.upper()} — metric: {metric} ===")
 
         for ans in available_labels:
-            subset = df_noq[
-                df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans
-            ].copy()
+            subset = df_noq[df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
 
             if subset.empty:
                 print(f"  Skipping answer {ans}: no trials.")
@@ -201,6 +197,24 @@ def run_models_for_group(
                 alpha=alpha,
             )
 
+
+            if save_heatmaps:
+                out_dir = os.path.join(graphs_root, metric, group_name)
+                out_path = os.path.join(
+                    out_dir,
+                    "{}__{}__sig_heatmap.png".format(group_name, ans),
+                )
+                plot_pairwise_significance_heatmap(
+                    pairwise=pairwise,
+                    title="{} — {} — selected={}\n(-log10 Holm-adjusted p)".format(
+                        group_name, metric, ans
+                    ),
+                    alpha=alpha,
+                    save_path=out_path,
+                    areas=("answer_A", "answer_B", "answer_C", "answer_D"),
+                    show=False,
+                )
+
             print("\nFixed effects (per area):")
             print(fe_table.to_string(index=False))
 
@@ -208,11 +222,11 @@ def run_models_for_group(
             print(pairwise.sort_values("p_adj_holm").to_string(index=False))
 
             if save_tables:
-                base_dir = f"{tables_root}/{metric}/{group_name}"
+                base_dir = os.path.join(tables_root, metric, group_name)
                 os.makedirs(base_dir, exist_ok=True)
 
-                fe_path = f"{base_dir}/{group_name}__{ans}__fe.csv"
-                pw_path = f"{base_dir}/{group_name}__{ans}__pairwise.csv"
+                fe_path = os.path.join(base_dir, "{}__{}__fe.csv".format(group_name, ans))
+                pw_path = os.path.join(base_dir, "{}__{}__pairwise.csv".format(group_name, ans))
 
                 fe_table.to_csv(fe_path, index=False)
                 pairwise.to_csv(pw_path, index=False)
@@ -231,13 +245,15 @@ def run_models_for_group(
     return results
 
 
+
 def run_all_area_mixed_models(
     hunters: pd.DataFrame,
     gatherers: pd.DataFrame,
     metrics=None,
     alpha: float = 0.05,
     save_tables: bool = False,
-    tables_root: str = "reports/report_data/area_mixed_models",
+    tables_root: str = "../reports/report_data/area_mixed_models",
+    graphs_root: str = "../reports/plots/area_significance_heatmaps",
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
 ) -> Dict[str, Dict[str, Dict[str, dict]]]:
     """
@@ -256,6 +272,7 @@ def run_all_area_mixed_models(
         alpha=alpha,
         save_tables=save_tables,
         tables_root=tables_root,
+        graphs_root=graphs_root,
         trial_cols=trial_cols,
     )
 
@@ -266,6 +283,7 @@ def run_all_area_mixed_models(
         alpha=alpha,
         save_tables=save_tables,
         tables_root=tables_root,
+        graphs_root=graphs_root,
         trial_cols=trial_cols,
     )
 

@@ -653,6 +653,25 @@ def create_dwell_proportions(df):
     return aggregated_df
 
 
+def scale_pupil_area_to_mm(
+    pupil_area: pd.Series,
+    artificial_pupil_width_mm: float = 3.5,
+    avg_pupil_area: float = 1804.0,
+) -> pd.Series:
+    """
+    Convert pupil area (arbitrary units) to pupil diameter in mm.
+
+    Scaling:
+        diameter_mm = scaling_factor * sqrt(area)
+
+    where:
+        scaling_factor = artificial_pupil_width_mm / sqrt(avg_pupil_area)
+    """
+    scaling_factor = artificial_pupil_width_mm / np.sqrt(avg_pupil_area)
+
+    return scaling_factor * np.sqrt(pupil_area)
+
+
 def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df_local = df.copy()
 
@@ -663,7 +682,14 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
     ]
     for col in cols:
         if col in df_local.columns:
-            df_local[col] = df_local[col].replace(".", np.nan).astype(float)
+            df_local[col] = (
+                df_local[col]
+                .replace(".", np.nan)
+                .astype(float)
+            )
+
+            # scale to mm
+            df_local[col] = scale_pupil_area_to_mm(df_local[col])
 
     grouped = (
         df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -693,6 +719,11 @@ def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
         df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE]
         .replace(".", np.nan)
         .astype(float)
+    )
+
+    # scale to mm
+    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = scale_pupil_area_to_mm(
+        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE]
     )
 
     df_local = df_local[df_local[C.IA_FIRST_FIXATION_DURATION] > 0]
