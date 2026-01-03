@@ -286,8 +286,20 @@ def run_all_area_mixed_models(
         graphs_root=graphs_root,
         trial_cols=trial_cols,
     )
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    all_participants_res = run_models_for_group(
+        all_participants,
+        group_name="all participants",
+        metrics=metrics,
+        alpha=alpha,
+        save_tables=save_tables,
+        tables_root=tables_root,
+        graphs_root=graphs_root,
+        trial_cols=trial_cols,
+    )
 
     return {
         "hunters": hunters_res,
         "gatherers": gatherers_res,
+        "all participants": all_participants_res,
     }
