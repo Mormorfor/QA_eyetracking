@@ -587,68 +587,131 @@ def plot_participant_effects(
         print(f"Saved slope plot for {t} to: {fname_term}")
         plt.show()
 
-
-
-
 # ---------------------------------------------------------------------------
-# Run all
+# Significance heatmap plotting
 # ---------------------------------------------------------------------------
 
-def run_all(
-    hunters_path: str = "data/merged_hunters.csv",
-    gatherers_path: str = "data/merged_gatherers.csv",
+def _holm_adjust(pvals):
+    """
+    Holm step-down adjustment (no statsmodels dependency).
+    Returns adjusted p-values in original order.
+    """
+    pvals = np.asarray(pvals, dtype=float)
+    n = len(pvals)
+
+    order = np.argsort(pvals)
+    ranked = pvals[order]
+
+    adj = np.empty(n, dtype=float)
+    for k in range(n):
+        adj[k] = (n - k) * ranked[k]
+
+    adj = np.maximum.accumulate(adj)
+    adj = np.clip(adj, 0.0, 1.0)
+
+    out = np.empty(n, dtype=float)
+    out[order] = adj
+    return out
+
+
+def _stars(p):
+    if pd.isna(p):
+        return ""
+    if p < 1e-3:
+        return "***"
+    if p < 1e-2:
+        return "**"
+    if p < 5e-2:
+        return "*"
+    if p < 1e-1:
+        return "."
+    return ""
+
+
+def plot_text_to_answer_significance_heatmap(
+    models,
+    terms,
+    title,
+    alpha=0.05,
+    adjust="holm",      # "holm" or None
+    save_path=None,
+    show=False,
 ):
     """
-    Convenience entry point that:
-        1) loads merged hunters/gatherers,
-        2) fits no-slope models (separated & all),
-        3) plots fixed effects,
-        4) fits random-slope models (separated & all),
-        5) plots participant-specific effects (separated & all).
+    Heatmap of significance of each text segment (term) on each answer model.
 
+    Rows = terms
+    Cols = answers (A–D)
+
+    Color = -log10(p) or -log10(p_adj)
+    Annotation = stars based on adjusted p (if adjust="holm") else raw p
     """
-    merged_h, merged_g = load_merged_data(hunters_path, gatherers_path)
+    answers = [a for a in ["A", "B", "C", "D"] if a in models]
+    if len(answers) == 0:
+        return
 
-    # --- No slopes: separated ---
-    models_h_sep = fit_no_slopes_for_all_answers(merged_h, TERMS, separated=True)
-    models_g_sep = fit_no_slopes_for_all_answers(merged_g, TERMS, separated=True)
+    rows = []
+    for t in terms:
+        row = {"term": t}
+        for a in answers:
+            coefs = models[a].coefs
+            if t in coefs.index and "P-val" in coefs.columns:
+                row[a] = float(coefs.loc[t, "P-val"])
+            else:
+                row[a] = np.nan
+        rows.append(row)
 
-    plot_fixed_effects(TERMS, models_h_sep, "hunters", "answ_separated")
-    plot_fixed_effects(TERMS, models_g_sep, "gatherers", "answ_separated")
+    p_df = pd.DataFrame(rows).set_index("term")[answers]
 
-    # --- No slopes: all trials ---
-    models_h_all = fit_no_slopes_for_all_answers(merged_h, TERMS, separated=False)
-    models_g_all = fit_no_slopes_for_all_answers(merged_g, TERMS, separated=False)
+    p_for_adj = p_df.values.flatten()
+    mask = ~np.isnan(p_for_adj)
+    p_adj = p_for_adj.copy()
 
-    plot_fixed_effects(TERMS, models_h_all, "hunters", "all_answ")
-    plot_fixed_effects(TERMS, models_g_all, "gatherers", "all_answ")
+    if adjust == "holm":
+        p_adj[mask] = _holm_adjust(p_for_adj[mask])
+    else:
+        pass
 
-    # --- Slopes: separated ---
-    for label in C.ANSWER_LABELS:
-        m_h = build_model_with_slopes(
-            merged_h, label, TERMS, separated=True, correlated_slopes=False
-        )
-        plot_participant_effects(m_h, f"Answer {label}", TERMS, "hunters")
+    p_adj_mat = p_adj.reshape(p_df.shape)
+    p_adj_df = pd.DataFrame(p_adj_mat, index=p_df.index, columns=p_df.columns)
 
-        m_g = build_model_with_slopes(
-            merged_g, label, TERMS, separated=True, correlated_slopes=False
-        )
-        plot_participant_effects(m_g, f"Answer {label}", TERMS, "gatherers")
+    P_clip = np.clip(p_adj_df.values, 1e-300, 1.0)
+    intensity = -np.log10(P_clip)
 
-    # --- Slopes: all trials (correlated) ---
-    for label in C.ANSWER_LABELS:
-        m_h_all = build_model_with_slopes(
-            merged_h, label, TERMS, separated=False, correlated_slopes=True
-        )
-        plot_participant_effects(
-            m_h_all, f"Answer {label} (all)", TERMS, "hunters"
-        )
+    fig, ax = plt.subplots(figsize=(7, 3.5), dpi=150)
+    im = ax.imshow(intensity, aspect="auto")
 
-        m_g_all = build_model_with_slopes(
-            merged_g, label, TERMS, separated=False, correlated_slopes=True
-        )
-        plot_participant_effects(
-            m_g_all, f"Answer {label} (all)", TERMS, "gatherers"
-        )
+    ax.set_xticks(range(len(answers)))
+    ax.set_yticks(range(len(terms)))
+    ax.set_xticklabels(answers)
+    ax.set_yticklabels([t.capitalize() for t in terms])
+    ax.set_title(title)
+
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("-log10(p{} )".format("_adj (Holm)" if adjust == "holm" else ""))
+
+    for i, t in enumerate(terms):
+        for j, a in enumerate(answers):
+            p_cell = p_adj_df.loc[t, a]
+            if pd.isna(p_cell):
+                continue
+            txt = _stars(p_cell)
+            if p_cell < alpha and txt != "":
+                ax.text(j, i, txt, ha="center", va="center", fontsize=10)
+            else:
+                pass
+
+    fig.tight_layout()
+
+    if save_path is not None:
+        out_dir = os.path.dirname(save_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        fig.savefig(save_path, bbox_inches="tight")
+
+    if show:
+        plt.show()
+
+    plt.close(fig)
 
 
