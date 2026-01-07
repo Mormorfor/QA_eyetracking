@@ -58,8 +58,17 @@ from src.viz.visualisations_preference_correctness import (
 )
 
 from src.viz.visualisations_area_significance_heatmaps import (
-    plot_area_significance_heatmap,
-    run_all_area_significance_heatmaps,
+    plot_pairwise_significance_heatmap,
+)
+
+
+from src.viz.visualisations_correctness_measures import (
+    plot_correctness_by_sequence_len_threshold,
+    run_all_correctness_seq_len_threshold_plots,
+    plot_correctness_by_back_and_forth_pattern,
+    run_all_back_and_forth_pattern_plots,
+    plot_correctness_by_trial_mean_dwell_threshold,
+    run_all_trial_mean_dwell_threshold_plots
 )
 
 __all__ = [
@@ -102,7 +111,13 @@ __all__ = [
     "plot_correctness_by_matching",
     "run_all_matching_correctness_plots",
     # area significance heatmaps
-    "plot_area_significance_heatmap",
-    "run_all_area_significance_heatmaps",
+    "plot_pairwise_significance_heatmap",
+    # correctness measures
+    "plot_correctness_by_sequence_len_threshold",
+    "run_all_correctness_seq_len_threshold_plots",
+    "plot_correctness_by_back_and_forth_pattern",
+    "run_all_back_and_forth_pattern_plots",
+    "plot_correctness_by_trial_mean_dwell_threshold",
+    "run_all_trial_mean_dwell_threshold_plots",
 
 ]

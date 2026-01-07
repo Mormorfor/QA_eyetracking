@@ -1,0 +1,24 @@
+{
+  "contingency_table": [
+    [
+      295042,
+      56405
+    ],
+    [
+      17164,
+      11667
+    ]
+  ],
+  "odds_ratio": 3.5555511583286563,
+  "p_value": 0.0,
+  "counts": {
+    "low_dwell": {
+      "correct": 295042,
+      "incorrect": 56405
+    },
+    "high_dwell": {
+      "correct": 17164,
+      "incorrect": 11667
+    }
+  }
+}

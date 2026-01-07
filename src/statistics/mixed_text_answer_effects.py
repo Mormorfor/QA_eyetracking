@@ -226,12 +226,13 @@ def plot_fixed_effects(
     """
     effects = pd.concat(
         [
-            m.coefs.loc[terms, ["Estimate", "SE"]]
+            m.coefs.loc[terms, ["Estimate", "SE", "P-val"]]
             .assign(
                 answer=a,
                 term=lambda d: d.index,
                 ci_low=lambda d: d["Estimate"] - 1.96 * d["SE"],
                 ci_high=lambda d: d["Estimate"] + 1.96 * d["SE"],
+                sig=lambda d: d["P-val"].apply(_signif_code),
             )
             for a, m in models.items()
         ],
@@ -263,6 +264,17 @@ def plot_fixed_effects(
                 elinewidth=1,
                 capsize=3,
             )
+            sig = sub.loc[t, "sig"]
+            if sig:
+                ax.text(
+                    x[j] + offset[i],
+                    hi + 0.03 * (effects["ci_high"].max() - effects["ci_low"].min()),
+                    sig,
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                    fontweight="bold",
+                )
 
     ax.axhline(0, ls="--", lw=1, color="gray")
     ax.set_xticks(x)
@@ -414,7 +426,7 @@ def _signif_code(p: float) -> str:
     elif p < 5e-2:
         return "*"
     elif p < 1e-1:
-        return "."
+        return ""
     else:
         return ""
 
