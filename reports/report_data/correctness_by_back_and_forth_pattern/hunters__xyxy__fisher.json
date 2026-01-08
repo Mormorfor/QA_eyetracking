@@ -1,0 +1,31 @@
+{
+  "contingency_table": [
+    [
+      16116,
+      4610
+    ],
+    [
+      315191,
+      44433
+    ]
+  ],
+  "odds_ratio": 0.49281981560043087,
+  "p_value": 7.586e-320,
+  "counts": {
+    "pattern_present": {
+      "correct": 16116,
+      "incorrect": 4610,
+      "n": 20726
+    },
+    "pattern_absent": {
+      "correct": 315191,
+      "incorrect": 44433,
+      "n": 359624
+    }
+  },
+  "accuracies": {
+    "pattern_present": 0.7775740615651838,
+    "pattern_absent": 0.87644595466376
+  },
+  "delta_accuracy": -0.09887189309857614
+}

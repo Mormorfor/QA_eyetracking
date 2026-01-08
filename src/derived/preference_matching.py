@@ -18,7 +18,6 @@ def compute_trial_matching(
     direction: Direction = "high",
     extreme_mode: ExtremeMode = "polarity",
     out_col: str = "pref_group",
-    keep_cols: [Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Trial-level matching label (one row per TRIAL_ID x PARTICIPANT_ID),

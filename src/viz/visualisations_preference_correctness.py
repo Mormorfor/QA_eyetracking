@@ -19,86 +19,26 @@ Plots:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
-
-import scipy.stats as st
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from src import constants as C
-
 from src.statistics.preference_correctness_tests import correctness_by_pref_group_test
 from src.derived import preference_matching as PM
 
+# Reuse shared helpers (new)
+from src.viz.viz_helpers import (
+    p_to_stars,
+    barplot_accuracy,
+    add_wilson_errorbars_and_ns,
+)
 
-def _p_to_stars(p: float) -> str:
-    if np.isnan(p):
-        return "n/a"
-    if p < 0.001:
-        return "***"
-    if p < 0.01:
-        return "**"
-    if p < 0.05:
-        return "*"
-    return "ns"
-
-
-@dataclass(frozen=True)
-class CorrectnessSummary:
-    pref_group: str
-    n_trials: int
-    n_correct: int
-    acc: float
-    ci_low: float
-    ci_high: float
-
-
-def wilson_ci(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
-    """
-    Wilson (score) confidence interval for a binomial proportion.
-
-    Parameters
-    ----------
-    k : int
-        Number of successes (e.g. correct trials)
-    n : int
-        Number of trials
-    alpha : float
-        1 - confidence level (default: 0.05 → 95% CI)
-
-    Returns
-    -------
-    (ci_low, ci_high) : tuple of floats
-    """
-    if n == 0:
-        return (float("nan"), float("nan"))
-
-    # observed proportion
-    p_hat = k / n
-
-    # critical value for normal distribution
-    z = st.norm.ppf(1 - alpha / 2)
-
-    # estimated variance of p̂
-    var_hat = p_hat * (1 - p_hat) / n
-
-    # Wilson-specific shrinkage factor
-    omega = n / (n + z**2)
-
-    # adjusted center and spread
-    A = p_hat + (z**2) / (2 * n)
-    B = z * np.sqrt(var_hat + (z**2) / (4 * n**2))
-
-    # confidence interval
-    ci_low = omega * (A - B)
-    ci_high = omega * (A + B)
-
-    return float(ci_low), float(ci_high)
-
+# Reuse shared Wilson CI + summary logic (new)
+from src.derived.correctness_measures import summarize_binary_by_group
 
 
 def summarize_correctness_by_pref_group(
@@ -110,23 +50,36 @@ def summarize_correctness_by_pref_group(
     """
     Return a tidy summary table:
       pref_group, n_trials, n_correct, acc, ci_low, ci_high
-    """
 
+    Notes
+    -----
+    - Expects trial-level df (one row per trial x participant).
+    - Uses Wilson CI via shared derived utilities.
+    """
     sub = df[[pref_col, correct_col]].copy()
     sub = sub.dropna(subset=[pref_col, correct_col])
-
     sub[correct_col] = sub[correct_col].astype(int)
 
-    rows: list[CorrectnessSummary] = []
-    for g in group_order:
-        gdf = sub[sub[pref_col] == g]
-        n = int(len(gdf))
-        k = int(gdf[correct_col].sum())
-        acc = float(k / n) if n else np.nan
-        lo, hi = wilson_ci(k, n)
-        rows.append(CorrectnessSummary(g, n, k, acc, lo, hi))
+    # enforce stable plotting order
+    sub[pref_col] = pd.Categorical(sub[pref_col], categories=list(group_order), ordered=True)
 
-    return pd.DataFrame([r.__dict__ for r in rows])
+    tmp = summarize_binary_by_group(
+        trial_df=sub.rename(columns={pref_col: "group", correct_col: "is_correct"}),
+        group_col="group",
+        outcome_col="is_correct",
+    ).sort_values("group")
+
+    # match legacy column names used elsewhere in your pipeline
+    out = tmp.rename(
+        columns={
+            "group": "pref_group",
+            "n": "n_trials",
+            "k_correct": "n_correct",
+            "accuracy": "acc",
+        }
+    )
+
+    return out[["pref_group", "n_trials", "n_correct", "acc", "ci_low", "ci_high"]].reset_index(drop=True)
 
 
 def plot_correctness_by_matching(
@@ -143,6 +96,11 @@ def plot_correctness_by_matching(
     """
     Plot correctness rate (mean) ± 95% CI for matching vs not_matching.
     Optionally annotates Fisher exact test (p-value + odds ratio).
+
+    Returns
+    -------
+    summary : pd.DataFrame
+        Columns: pref_group, n_trials, n_correct, acc, ci_low, ci_high
     """
     summary = summarize_correctness_by_pref_group(
         df=df,
@@ -151,14 +109,10 @@ def plot_correctness_by_matching(
         group_order=group_order,
     )
 
-    labels = summary["pref_group"].tolist()
-    acc = summary["acc"].to_numpy(dtype=float)
-    lo = summary["ci_low"].to_numpy(dtype=float)
-    hi = summary["ci_high"].to_numpy(dtype=float)
-    yerr = np.vstack([acc - lo, hi - acc])
+    # Build the standardized summary table expected by viz_helpers
+    plot_df = summary.rename(columns={"pref_group": "group", "acc": "accuracy"}).copy()
 
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.bar(labels, acc, yerr=yerr, capsize=6)
+    fig, ax = barplot_accuracy(plot_df, order=list(group_order), figsize=(7, 4))
     ax.set_ylim(0.0, 1.0)
     ax.set_ylabel("Correctness rate")
     ax.set_xlabel("Preference group")
@@ -167,31 +121,46 @@ def plot_correctness_by_matching(
         title = f"Correctness by matching group ({metric_name})"
     ax.set_title(title)
 
-    # n labels
+    # error bars + n labels (centralized)
     if show_n:
-        for i, row in summary.iterrows():
-            ax.text(
-                i,
-                min(1.0, row["acc"] + 0.03),
-                f"n={int(row['n_trials'])}",
-                ha="center",
-                va="bottom",
-            )
+        add_wilson_errorbars_and_ns(
+            ax,
+            plot_df,
+            y="accuracy",
+            n_col="n_trials",
+        )
+    else:
+        # still draw error bars (CI), but skip n labels
+        # (small local tweak to avoid proliferating variants in viz_helpers yet)
+        for i, r in plot_df.reset_index(drop=True).iterrows():
+            acc = float(r["accuracy"])
+            if np.isfinite(r["ci_low"]) and np.isfinite(r["ci_high"]) and np.isfinite(acc):
+                ax.errorbar(
+                    i,
+                    acc,
+                    yerr=[[acc - float(r["ci_low"])], [float(r["ci_high"]) - acc]],
+                    fmt="none",
+                    capsize=4,
+                    ecolor="black",
+                    elinewidth=1.5,
+                )
 
     # ---- Statistical test annotation (Fisher exact) ----
     if show_test:
-        test_res = correctness_by_pref_group_test(
-            df=df, pref_col=pref_col, correct_col=correct_col
-        )
-        p = test_res["p_value"]
-        or_ = test_res["odds_ratio"]
-        stars = _p_to_stars(p)
+        test_res = correctness_by_pref_group_test(df=df, pref_col=pref_col, correct_col=correct_col)
+        p = test_res.get("p_value", np.nan)
+        or_ = test_res.get("odds_ratio", np.nan)
+        stars = p_to_stars(p)
 
+        # keep style consistent with your other plots: small text in the top area
         txt = f"Fisher p={p:.3g} {stars}  (OR={or_:.2f})"
         ax.text(
-            0.5, 0.98, txt,
+            0.5,
+            0.98,
+            txt,
             transform=ax.transAxes,
-            ha="center", va="top",
+            ha="center",
+            va="top",
             fontsize=10,
         )
 
@@ -205,7 +174,6 @@ def plot_correctness_by_matching(
     return summary
 
 
-
 _DEFAULT_DIRECTION_BY_METRIC = {
     C.MEAN_DWELL_TIME: "high",
     C.MEAN_FIXATIONS_COUNT: "high",
@@ -215,7 +183,7 @@ _DEFAULT_DIRECTION_BY_METRIC = {
     C.MEAN_AVG_FIX_PUPIL_SIZE: "high",
     C.MEAN_MAX_FIX_PUPIL_SIZE: "high",
     C.MEAN_MIN_FIX_PUPIL_SIZE: "low",
-    C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE: "high"
+    C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE: "high",
 }
 
 
@@ -268,11 +236,9 @@ def run_all_matching_correctness_plots(
 
         for group_key, df in groups.items():
             group_label = "all participants" if group_key == "all_participants" else group_key
-
             group_results: Dict = {}
 
             for metric in metrics:
-                # choose direction for polarity mode
                 direction = _DEFAULT_DIRECTION_BY_METRIC.get(metric, "high")
 
                 if mode == "polarity":
