@@ -127,3 +127,140 @@ class AreaMetricsCorrectnessLogRegModel:
 
         X = self._prepare_design_matrix(df, fit=False)
         return self.model.predict(X).astype(int)
+
+
+@dataclass
+class DerivedFeaturesCorrectnessLogRegModel:
+    """
+    Logistic regression on derived trial-level features:
+      - seq_len
+      - has_xyx
+      - has_xyxy
+      - trial_mean_dwell
+      - plus ALL columns starting with 'pref_matching__'
+    """
+    name: str = "derived_features_correctness_log_reg"
+
+    model: LogisticRegression = field(default=None, init=False)
+    base_feature_cols_: List[str] = field(default_factory=lambda: [
+        "seq_len",
+        "has_xyx",
+        "has_xyxy",
+        "trial_mean_dwell",
+    ], init=False)
+    feature_cols_: List[str] = field(default_factory=list, init=False)
+
+    def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
+        pref_cols = [c for c in df.columns if c.startswith("pref_matching__")]
+        return self.base_feature_cols_ + sorted(pref_cols)
+
+    def _prepare_X(self, df: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
+        if fit or not self.feature_cols_:
+            self.feature_cols_ = self._build_feature_cols(df)
+
+        missing = [c for c in self.feature_cols_ if c not in df.columns]
+        if missing:
+            raise KeyError(f"Missing derived feature columns: {missing}")
+
+        X = df[self.feature_cols_].copy()
+
+        for c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+
+        X = X.fillna(0.0)
+        return X
+
+    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
+        if target_col not in train_df.columns:
+            raise KeyError(f"Target column '{target_col}' not found in train_df.")
+
+        X = self._prepare_X(train_df, fit=True)
+        y = train_df[target_col].astype(int)
+
+        self.model = LogisticRegression(
+            max_iter=1000,
+            class_weight="balanced",
+        )
+        self.model.fit(X, y)
+
+    def predict(self, df: pd.DataFrame) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        X = self._prepare_X(df, fit=False)
+        return self.model.predict(X).astype(int)
+
+
+@dataclass
+class FullFeaturesCorrectnessLogRegModel:
+    """
+    Logistic regression using:
+      - area-metric features (<metric>__<area>)
+      - derived features (seq_len, has_xyx, has_xyxy, trial_mean_dwell)
+      - all pref_matching__* features
+      - optional last_loc_numeric
+    """
+    name: str = "full_features_correctness_log_reg"
+    include_last_location: bool = False
+
+    model: LogisticRegression = field(default=None, init=False)
+    feature_cols_: List[str] = field(default_factory=list, init=False)
+
+    def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
+        cols: List[str] = []
+
+        # --- area metrics
+        for metric in Con.AREA_METRIC_COLUMNS:
+            for area in Con.AREA_LABEL_CHOICES:
+                col = f"{metric}__{area}"
+                if col in df.columns:
+                    cols.append(col)
+
+        # --- derived base features
+        derived_base = [
+            "seq_len",
+            "has_xyx",
+            "has_xyxy",
+            "trial_mean_dwell",
+        ]
+        cols.extend([c for c in derived_base if c in df.columns])
+
+        # --- preference matching (multiple)
+        cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
+
+        # --- last location
+        if self.include_last_location and "last_loc_numeric" in df.columns:
+            cols.append("last_loc_numeric")
+
+        return cols
+
+    def _prepare_X(self, df: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
+        if fit or not self.feature_cols_:
+            self.feature_cols_ = self._build_feature_cols(df)
+
+        if not self.feature_cols_:
+            raise ValueError("No feature columns found for FullFeaturesCorrectnessLogRegModel.")
+
+        X = df[self.feature_cols_].copy()
+        for c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+
+        return X.fillna(0.0)
+
+    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
+        X = self._prepare_X(train_df, fit=True)
+        y = train_df[target_col].astype(int)
+
+        self.model = LogisticRegression(
+            max_iter=1000,
+            class_weight="balanced",
+        )
+        self.model.fit(X, y)
+
+    def predict(self, df: pd.DataFrame) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        X = self._prepare_X(df, fit=False)
+        return self.model.predict(X).astype(int)
+
