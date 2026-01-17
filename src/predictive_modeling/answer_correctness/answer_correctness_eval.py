@@ -16,6 +16,8 @@ from src.predictive_modeling.answer_correctness.answer_correctness_models import
 from src.predictive_modeling.common.data_utils import simple_train_test_split
 
 
+from typing import Optional
+
 @dataclass
 class CorrectnessEvaluationResult:
     train_df: pd.DataFrame
@@ -26,6 +28,8 @@ class CorrectnessEvaluationResult:
     n_test: int
     n_positive: int
     n_negative: int
+    coef_summary: Optional[pd.DataFrame] = None
+
 
 
 def evaluate_models_on_answer_correctness(
@@ -61,6 +65,7 @@ def evaluate_models_on_answer_correctness(
         group_col=split_group_col,
     )
 
+
     y_true = test_df[target_col].astype(int).to_numpy()
     results: Dict[str, CorrectnessEvaluationResult] = {}
 
@@ -68,17 +73,12 @@ def evaluate_models_on_answer_correctness(
         model.fit(train_df, target_col=target_col)
         y_pred = model.predict(test_df)
 
-        if len(y_pred) != len(test_df):
-            raise ValueError(
-                f"Model '{model.name}' returned {len(y_pred)} predictions "
-                f"for {len(test_df)} test trials."
-            )
-
-        y_pred = y_pred.astype(int)
         acc = float((y_true == y_pred).mean())
-        n_test = int(len(test_df))
-        n_pos = int((y_true == 1).sum())
-        n_neg = int((y_true == 0).sum())
+
+        coef_summary = None
+        if hasattr(model, "get_coef_summary"):
+            coef_summary = model.get_coef_summary(train_df)
+
 
         results[model.name] = CorrectnessEvaluationResult(
             train_df=train_df,
@@ -86,9 +86,10 @@ def evaluate_models_on_answer_correctness(
             y_true=y_true,
             y_pred=y_pred,
             accuracy=acc,
-            n_test=n_test,
-            n_positive=n_pos,
-            n_negative=n_neg,
+            n_test=len(test_df),
+            n_positive=int((y_true == 1).sum()),
+            n_negative=int((y_true == 0).sum()),
+            coef_summary=coef_summary,
         )
 
     return results

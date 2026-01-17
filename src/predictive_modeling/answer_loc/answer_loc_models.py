@@ -56,11 +56,9 @@ class LastLocationBaseline:
 class AreaMetricsLogRegModel:
     """
     Multinomial logistic regression using:
-      - AREA_METRIC_COLUMNS for each area in AREA_LABEL_CHOICES
+      - AREA_METRIC_COLUMNS for each area in ANSWER_LABEL_CHOICES
       - optionally last visited location as a numeric feature.
 
-    Uses only location-based labels (AREA_LABEL_CHOICES),
-    never correctness-based (ANSWER_LABEL_CHOICES).
     """
     name: str = "area_metrics_log_reg"
     include_last_location: bool = False
@@ -72,7 +70,7 @@ class AreaMetricsLogRegModel:
         cols: List[str] = []
 
         for metric in Con.AREA_METRIC_COLUMNS:
-            for area in Con.AREA_LABEL_CHOICES:
+            for area in Con.ANSWER_LABEL_CHOICES:
                 col = f"{metric}__{area}"
                 if col in df.columns:
                     cols.append(col)
@@ -149,7 +147,7 @@ class MixedEffectsLocationModel:
         cols: List[str] = []
 
         for metric in Con.AREA_METRIC_COLUMNS:
-            for area in Con.AREA_LABEL_CHOICES:
+            for area in Con.ANSWER_LABEL_CHOICES:
                 col = f"{metric}__{area}"
                 if col in df.columns:
                     cols.append(col)
@@ -171,30 +169,37 @@ class MixedEffectsLocationModel:
 
 
     def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
-        df = self._add_last_loc_numeric(train_df)
-
-        for col in (self.group_col, self.text_col, target_col):
-            if col not in df.columns:
-                raise KeyError(f"Required column '{col}' not found in train_df.")
+        df = self._add_last_loc_numeric(train_df).copy()
 
         self.fixed_cols_ = self._build_fixed_effect_columns(df)
 
-        if self.fixed_cols_:
-            fixed_part = " + ".join(self.fixed_cols_)
-        else:
-            fixed_part = "1"
+        required = [self.group_col, self.text_col, target_col] + self.fixed_cols_
+        missing_cols = [c for c in required if c not in df.columns]
+        if missing_cols:
+            raise KeyError(f"Required column(s) missing for MixedLM: {missing_cols}")
 
+        df = df.dropna(subset=required).reset_index(drop=True)
+
+        if df.empty:
+            raise ValueError("After dropping missing rows, no data left to fit MixedLM.")
+
+        df[self.group_col] = df[self.group_col].astype("category")
+        df[self.text_col] = df[self.text_col].astype("category")
+
+        fixed_part = " + ".join(self.fixed_cols_) if self.fixed_cols_ else "1"
         formula = f"{target_col} ~ {fixed_part}"
 
         vc_formula = {self.text_col: f"0 + C({self.text_col})"}
 
         md = smf.mixedlm(
-            formula,
-            df,
+            formula=formula,
+            data=df,
             groups=df[self.group_col],
             vc_formula=vc_formula,
+            missing="raise",
         )
         self.model = md.fit(reml=False)
+
 
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         if self.model is None:

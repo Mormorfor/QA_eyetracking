@@ -1,6 +1,6 @@
 # answer_correctness_data.py
 
-from typing import Sequence, Optional
+from typing import Sequence, Optional, Tuple
 import pandas as pd
 import numpy as np
 
@@ -62,11 +62,16 @@ def build_trial_level_with_area_metrics_for_correctness(
     )
 
     trial_df = trial_core.merge(metrics_pivot, on=list(group_cols), how="left")
+
     return trial_df
 
 
-def _safe_pref_feature_name(metric_col: str) -> str:
-    return f"pref_matching__{metric_col}"
+Direction = str  # "high" | "low"
+PrefSpec = Tuple[str, Direction]  # (metric_col, direction)
+
+
+def _safe_pref_feature_name(metric_col: str, direction: str) -> str:
+    return f"pref_matching__{metric_col}__{direction}"
 
 
 def build_trial_level_with_derived_features_for_correctness(
@@ -74,19 +79,24 @@ def build_trial_level_with_derived_features_for_correctness(
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     dwell_col: str = Con.IA_DWELL_TIME,
-    pref_metric_cols: Optional[Sequence[str]] = None,
-    pref_direction: str = "high",
+    # NEW: list of (metric, direction) pairs
+    pref_specs: Optional[Sequence[PrefSpec]] = None,
     pref_extreme_mode: str = "polarity",
 ) -> pd.DataFrame:
     """
     One row per trial (group_cols), containing:
-      - is_correct (0/1)
+      - is_correct
       - seq_len
-      - has_xyx (0/1)
-      - has_xyxy (0/1)
+      - has_xyx
+      - has_xyxy
       - trial_mean_dwell
-      - pref_matching__<metric> for each metric in pref_metric_cols (0/1)
+      - pref_matching__<metric>__<direction> (0/1) for each pref spec
 
+    pref_specs example:
+      [
+        (Con.IA_DWELL_TIME, "high"),
+        (Con.IA_FIXATION_COUNT, "low"),
+      ]
     """
     required = [*group_cols, Con.IS_CORRECT_COLUMN, seq_col, dwell_col]
     missing = [c for c in required if c not in df.columns]
@@ -96,15 +106,12 @@ def build_trial_level_with_derived_features_for_correctness(
     d = df[list(dict.fromkeys(required))].copy()
     d[Con.IS_CORRECT_COLUMN] = d[Con.IS_CORRECT_COLUMN].astype(int)
 
-    # --- seq len
     d["_seq_len"] = d[seq_col].apply(sequence_len_literal_eval)
 
-    # --- XYX / XYXY
     d["_seq"] = d[seq_col].apply(parse_seq)
     d["_has_xyx"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False)
     d["_has_xyxy"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False)
 
-    # --- mean dwell per word (trial-level)
     d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col=dwell_col)
 
     trial_feat = (
@@ -117,25 +124,26 @@ def build_trial_level_with_derived_features_for_correctness(
             trial_mean_dwell=("_trial_mean_dwell", "first"),
         )
     )
-
     trial_feat["has_xyx"] = trial_feat["has_xyx"].astype(int)
     trial_feat["has_xyxy"] = trial_feat["has_xyxy"].astype(int)
 
-    # --- preference matching features (multiple)
-    pref_metric_cols = list(pref_metric_cols) if pref_metric_cols else []
-    for metric_col in pref_metric_cols:
+
+    pref_specs = list(pref_specs) if pref_specs else []
+    for metric_col, direction in pref_specs:
         if metric_col not in df.columns:
             raise KeyError(f"Preference metric column '{metric_col}' not found in df.")
+        if direction not in ("high", "low"):
+            raise ValueError(f"Direction for '{metric_col}' must be 'high' or 'low' (got '{direction}').")
 
         pref_df = compute_trial_matching(
             df=df,
             metric_col=metric_col,
-            direction=pref_direction,
+            direction=direction,
             extreme_mode=pref_extreme_mode,
             out_col="pref_group",
         )
 
-        feat_col = _safe_pref_feature_name(metric_col)
+        feat_col = _safe_pref_feature_name(metric_col, direction)
 
         pref_df = pref_df[list(group_cols) + ["pref_group"]].copy()
         pref_df[feat_col] = (pref_df["pref_group"] == "matching").astype(int)
@@ -143,6 +151,7 @@ def build_trial_level_with_derived_features_for_correctness(
 
         trial_feat = trial_feat.merge(pref_df, on=list(group_cols), how="left")
 
+    # Fill missing preference features (e.g., incomplete trials)
     pref_cols = [c for c in trial_feat.columns if c.startswith("pref_matching__")]
     if pref_cols:
         trial_feat[pref_cols] = trial_feat[pref_cols].fillna(0).astype(int)
@@ -150,40 +159,30 @@ def build_trial_level_with_derived_features_for_correctness(
     return trial_feat
 
 
+import pandas as pd
+from typing import Sequence, Optional, Tuple
+
+from src import constants as Con
 
 def build_trial_level_full_features_for_correctness(
     df: pd.DataFrame,
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
-    pref_metric_cols: Optional[Sequence[str]] = None,
-    pref_direction: str = "high",
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
     pref_extreme_mode: str = "polarity",
     include_last_location: bool = False,
 ) -> pd.DataFrame:
-    """
-    Builds ONE row per trial×participant containing:
-      - is_correct
-      - area-metric pivot features
-      - derived behavioral features
-      - multiple preference-matching features
-      - optional last_loc_numeric
-    """
-
-    # --- area-metric features (already trial-level)
     area_df = build_trial_level_with_area_metrics_for_correctness(
         df=df,
         group_cols=group_cols,
     )
 
-    # --- derived features (also trial-level)
     derived_df = build_trial_level_with_derived_features_for_correctness(
         df=df,
         group_cols=group_cols,
-        pref_metric_cols=pref_metric_cols,
-        pref_direction=pref_direction,
+        pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
     )
 
-    # --- merge
     merged = area_df.merge(
         derived_df,
         on=list(group_cols),
@@ -191,10 +190,38 @@ def build_trial_level_full_features_for_correctness(
         suffixes=("", "_derived"),
     )
 
-    # --- optional last location
+
+    if Con.IS_CORRECT_COLUMN not in merged.columns:
+        candidates = []
+        for c in [f"{Con.IS_CORRECT_COLUMN}_x", f"{Con.IS_CORRECT_COLUMN}_y",
+                  f"{Con.IS_CORRECT_COLUMN}_derived"]:
+            if c in merged.columns:
+                candidates.append(c)
+
+        if not candidates:
+            raise KeyError(
+                f"After merging, no '{Con.IS_CORRECT_COLUMN}' column found. "
+                f"Columns present: {list(merged.columns)[:30]}..."
+            )
+
+        chosen = candidates[0]
+        merged[Con.IS_CORRECT_COLUMN] = merged[chosen].astype(int)
+
+    c1 = Con.IS_CORRECT_COLUMN
+    c2 = f"{Con.IS_CORRECT_COLUMN}_derived"
+    if c1 in merged.columns and c2 in merged.columns:
+        if (merged[c1].astype(int) != merged[c2].astype(int)).any():
+            bad = merged.loc[merged[c1].astype(int) != merged[c2].astype(int), list(group_cols) + [c1, c2]].head(10)
+            raise ValueError(f"is_correct mismatch between area vs derived tables. Examples:\n{bad}")
+
+        merged = merged.drop(columns=[c2])
+
+    for col in [f"{Con.IS_CORRECT_COLUMN}_x", f"{Con.IS_CORRECT_COLUMN}_y"]:
+        if col in merged.columns and col != Con.IS_CORRECT_COLUMN:
+            merged = merged.drop(columns=[col])
+
     if include_last_location and Con.LAST_VISITED_LOCATION in merged.columns:
         from src.predictive_modeling.common.features import map_last_location_to_position
-
         merged["last_loc_numeric"] = (
             map_last_location_to_position(merged[Con.LAST_VISITED_LOCATION])
             .fillna(-1)
@@ -202,3 +229,4 @@ def build_trial_level_full_features_for_correctness(
         )
 
     return merged
+

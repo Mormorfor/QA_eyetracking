@@ -88,5 +88,4 @@ def build_area_metric_pivot(
         for metric, area_label in metrics_pivot.columns.to_list()
     ]
     metrics_pivot = metrics_pivot.reset_index()
-
     return metrics_pivot
