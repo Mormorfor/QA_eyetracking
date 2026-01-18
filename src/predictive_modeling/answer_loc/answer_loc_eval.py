@@ -9,7 +9,7 @@ from src.predictive_modeling.answer_loc.answer_loc_models import AnswerLocationM
 
 from src.predictive_modeling.answer_loc.answer_loc_data import (
     build_trial_level_location_table,
-    simple_train_test_split,
+    group_vise_train_test_split,
 )
 
 
@@ -32,7 +32,7 @@ def evaluate_models_on_answer_location(
     target_col: str = Con.SELECTED_ANSWER_POSITION_COLUMN,
     test_size: float = 0.2,
     random_state: int = 42,
-    split_fn: Callable = simple_train_test_split,
+    split_fn: Callable = group_vise_train_test_split,
     builder_fn: Callable = build_trial_level_location_table,
 ) -> Dict[str, ModelEvaluationResult]:
     """

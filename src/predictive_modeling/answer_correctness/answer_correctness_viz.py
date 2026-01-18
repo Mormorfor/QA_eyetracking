@@ -44,8 +44,6 @@ def show_correctness_model_results(
         print(f"Positive (correct) trials: {res.n_positive}")
         print(f"Negative (incorrect) trials: {res.n_negative}")
 
-        # ---- precision / recall / f1 (per class + macro + weighted)
-        # zero_division=0 avoids warnings when a class is never predicted.
         prec, rec, f1, support = precision_recall_fscore_support(
             y_true,
             y_pred,
@@ -88,7 +86,6 @@ def show_correctness_model_results(
             f"\n  weighted P/R/F1: {weighted_p:.3f} / {weighted_r:.3f} / {weighted_f1:.3f}"
         )
 
-        # ---- confusion matrix
         cm = confusion_matrix(y_true, y_pred, labels=labels)
         cm_df = pd.DataFrame(
             cm,

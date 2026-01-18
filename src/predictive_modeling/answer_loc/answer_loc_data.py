@@ -6,7 +6,7 @@ import pandas as pd
 
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import (
-    simple_train_test_split,
+    group_vise_train_test_split,
     select_feature_columns,
     build_area_metric_pivot,
 )

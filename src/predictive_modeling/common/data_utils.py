@@ -1,23 +1,33 @@
 # data_utils.py
 
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 
 from src import constants as Con
 
-
-def simple_train_test_split(
+#--------------------------------
+# Splits
+#--------------------------------
+def group_vise_train_test_split(
     df: pd.DataFrame,
     test_size: float = 0.2,
     random_state: int = 42,
-    group_col: str = Con.PARTICIPANT_ID,
+    group_cols: List[str] = [Con.PARTICIPANT_ID, Con.TRIAL_ID],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Group-wise train/test split (e.g. by participant_id).
     """
     df = df.copy()
-    groups = df[group_col].dropna().unique()
+    groups = (
+        df[group_cols]
+        .dropna()
+        .drop_duplicates()
+        .apply(tuple, axis=1)
+        .to_numpy()
+    )
+
     rng = np.random.default_rng(random_state)
     rng.shuffle(groups)
 
@@ -27,24 +37,25 @@ def simple_train_test_split(
     test_groups = set(groups[:n_test])
     train_groups = set(groups[n_test:])
 
-    train_mask = df[group_col].isin(train_groups)
-    test_mask = df[group_col].isin(test_groups)
+    group_tuples = df[group_cols].apply(tuple, axis=1)
+
+    train_mask = group_tuples.isin(train_groups)
+    test_mask = group_tuples.isin(test_groups)
 
     return df[train_mask].copy(), df[test_mask].copy()
 
 
 
+#--------------------------------
+# Helpers
+#--------------------------------
+
 def select_feature_columns(
     df: pd.DataFrame,
     feature_cols: Sequence[str],
-    allow_missing: bool = False,
 ) -> pd.DataFrame:
+
     df_cols = set(df.columns)
-    missing = [c for c in feature_cols if c not in df_cols]
-
-    if missing and not allow_missing:
-        raise KeyError(f"Missing feature columns in DataFrame: {missing}")
-
     present_cols = [c for c in feature_cols if c in df_cols]
     return df[present_cols].copy()
 
@@ -57,7 +68,8 @@ def build_area_metric_pivot(
     metric_cols: Sequence[str],
 ) -> pd.DataFrame:
     """
-    Generic helper to aggregate area-level metrics per trial:
+    Collapse already-aggregated area-level metrics into one row per group,
+    pivoting areas into feature columns.
 
     Input: word-level df with columns:
         group_cols + [area_col] + metric_cols
@@ -65,22 +77,18 @@ def build_area_metric_pivot(
         <metric>__<area_label>
     """
     cols_needed = list(group_cols) + [area_col] + list(metric_cols)
-    missing = [c for c in cols_needed if c not in df.columns]
-    if missing:
-        raise KeyError(f"Missing required columns for area metrics: {missing}")
-
     metrics_df = (
         df[cols_needed]
         .dropna(subset=[area_col])
         .groupby(list(group_cols) + [area_col], as_index=False)
-        .agg({m: "mean" for m in metric_cols})
+        .agg({m: "first" for m in metric_cols})
     )
 
     metrics_pivot = metrics_df.pivot_table(
         index=list(group_cols),
         columns=area_col,
         values=metric_cols,
-        aggfunc="mean",
+        aggfunc="first",
     )
 
     metrics_pivot.columns = [
@@ -89,3 +97,37 @@ def build_area_metric_pivot(
     ]
     metrics_pivot = metrics_pivot.reset_index()
     return metrics_pivot
+
+
+
+def get_coef_summary(model: LogisticRegression,
+                     feature_cols: List[str],
+                     X: pd.DataFrame,
+                     top_k: int = None,
+                     standardize: bool = True,):
+
+    coef = np.asarray(model.coef_).reshape(-1)
+    out = pd.DataFrame(
+        {
+            "feature": list(feature_cols),
+            "coef": coef,
+            "odds_ratio": np.exp(coef),
+            "abs_coef": np.abs(coef),
+        }
+    )
+
+    if standardize:
+        std = X.std(axis=0).replace(0, np.nan)
+        std_coef = out["coef"] * std.to_numpy()
+        out["standardized_coef"] = std_coef
+        out["abs_standardized_coef"] = np.abs(std_coef)
+        sort_col = "abs_standardized_coef"
+    else:
+        sort_col = "abs_coef"
+
+    out = out.sort_values(sort_col, ascending=False).reset_index(drop=True)
+
+    if top_k is not None:
+        out = out.head(int(top_k)).reset_index(drop=True)
+
+    return out
