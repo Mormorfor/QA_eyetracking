@@ -7,9 +7,11 @@ from typing import Protocol, Sequence, List
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
 
 from src import constants as Con
-from src.predictive_modeling.common.data_utils import get_coef_summary
+from src.predictive_modeling.common.data_utils import get_coef_summary as summary
 
 class AnswerCorrectnessModel(Protocol):
     name: str
@@ -57,6 +59,7 @@ class AreaMetricsCorrectnessLogRegModel:
     """
     name: str = "area_metrics_correctness_log_reg"
     model: LogisticRegression = field(default=None, init=False)
+    scaler_: StandardScaler = field(default=None, init=False)
     feature_cols_: List[str] = field(default_factory=list, init=False)
 
     def _build_feature_columns(self, df: pd.DataFrame) -> List[str]:
@@ -76,15 +79,27 @@ class AreaMetricsCorrectnessLogRegModel:
             self.feature_cols_ = self._build_feature_columns(temp)
 
 # pupil data filled with zeros for nulls...
-        X = temp[self.feature_cols_].fillna(0.0)
-        return X
+
+        X = df[self.feature_cols_].copy()
+        for c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+        X = X.fillna(0.0)
+
+        if fit:
+            self.scaler_ = StandardScaler()
+            X_scaled = self.scaler_.fit_transform(X)
+        else:
+            if self.scaler_ is None:
+                raise RuntimeError("Scaler has not been fitted.")
+            X_scaled = self.scaler_.transform(X)
+
+        return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
 
 
     def get_coef_summary(
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
-            standardize: bool = True,
     ) -> pd.DataFrame:
         """
         Return a coefficient summary table for the fitted LogisticRegression model.
@@ -93,7 +108,7 @@ class AreaMetricsCorrectnessLogRegModel:
             raise RuntimeError("Model has not been fitted yet.")
 
         X = self._prepare_X(train_df, fit=False)
-        out = get_coef_summary(self.model, self.feature_cols_, X, top_k, standardize)
+        out = summary(self.model, self.feature_cols_, top_k)
         return out
 
 
@@ -132,6 +147,7 @@ class DerivedFeaturesCorrectnessLogRegModel:
     """
     name: str = "derived_features_correctness_log_reg"
     model: LogisticRegression = field(default=None, init=False)
+    scaler_: StandardScaler = field(default=None, init=False)
     base_feature_cols_: List[str] = field(default_factory=lambda: [
         "seq_len", "has_xyx", "has_xyxy", "trial_mean_dwell"], init=False)
     feature_cols_: List[str] = field(default_factory=list, init=False)
@@ -148,16 +164,23 @@ class DerivedFeaturesCorrectnessLogRegModel:
         X = df[self.feature_cols_].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
-
         X = X.fillna(0.0)
-        return X
+
+        if fit:
+            self.scaler_ = StandardScaler()
+            X_scaled = self.scaler_.fit_transform(X)
+        else:
+            if self.scaler_ is None:
+                raise RuntimeError("Scaler has not been fitted.")
+            X_scaled = self.scaler_.transform(X)
+
+        return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
 
 
     def get_coef_summary(
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
-            standardize: bool = True,
     ) -> pd.DataFrame:
         """
         Return a coefficient summary table for the fitted LogisticRegression model.
@@ -166,7 +189,7 @@ class DerivedFeaturesCorrectnessLogRegModel:
             raise RuntimeError("Model has not been fitted yet.")
 
         X = self._prepare_X(train_df, fit=False)
-        out = get_coef_summary(self.model, self.feature_cols_, X, top_k, standardize)
+        out = summary(self.model, self.feature_cols_, top_k)
         return out
 
 
@@ -203,6 +226,7 @@ class FullFeaturesCorrectnessLogRegModel:
     """
     name: str = "full_features_correctness_log_reg"
     model: LogisticRegression = field(default=None, init=False)
+    scaler_: StandardScaler = field(default=None, init=False)
     feature_cols_: List[str] = field(default_factory=list, init=False)
 
     def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
@@ -233,15 +257,23 @@ class FullFeaturesCorrectnessLogRegModel:
         X = df[self.feature_cols_].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
+        X = X.fillna(0.0)
 
-        return X.fillna(0.0)
+        if fit:
+            self.scaler_ = StandardScaler()
+            X_scaled = self.scaler_.fit_transform(X)
+        else:
+            if self.scaler_ is None:
+                raise RuntimeError("Scaler has not been fitted.")
+            X_scaled = self.scaler_.transform(X)
+
+        return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
 
 
     def get_coef_summary(
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
-            standardize: bool = True,
     ) -> pd.DataFrame:
         """
         Return a coefficient summary table for the fitted LogisticRegression model.
@@ -249,7 +281,7 @@ class FullFeaturesCorrectnessLogRegModel:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
         X = self._prepare_X(train_df, fit=False)
-        out = get_coef_summary(self.model, self.feature_cols_, X, top_k, standardize)
+        out = summary(self.model, self.feature_cols_, top_k)
         return out
 
 

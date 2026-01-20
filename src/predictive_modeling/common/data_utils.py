@@ -17,7 +17,7 @@ def group_vise_train_test_split(
     group_cols: List[str] = [Con.PARTICIPANT_ID, Con.TRIAL_ID],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Group-wise train/test split (e.g. by participant_id).
+    Group-wise train/test split
     """
     df = df.copy()
     groups = (
@@ -102,9 +102,7 @@ def build_area_metric_pivot(
 
 def get_coef_summary(model: LogisticRegression,
                      feature_cols: List[str],
-                     X: pd.DataFrame,
-                     top_k: int = None,
-                     standardize: bool = True,):
+                     top_k: int = None):
 
     coef = np.asarray(model.coef_).reshape(-1)
     out = pd.DataFrame(
@@ -115,16 +113,7 @@ def get_coef_summary(model: LogisticRegression,
             "abs_coef": np.abs(coef),
         }
     )
-
-    if standardize:
-        std = X.std(axis=0).replace(0, np.nan)
-        std_coef = out["coef"] * std.to_numpy()
-        out["standardized_coef"] = std_coef
-        out["abs_standardized_coef"] = np.abs(std_coef)
-        sort_col = "abs_standardized_coef"
-    else:
-        sort_col = "abs_coef"
-
+    sort_col = "abs_coef"
     out = out.sort_values(sort_col, ascending=False).reset_index(drop=True)
 
     if top_k is not None:
