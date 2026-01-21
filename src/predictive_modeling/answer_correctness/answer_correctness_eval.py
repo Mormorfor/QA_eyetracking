@@ -13,7 +13,10 @@ from src.predictive_modeling.answer_correctness.answer_correctness_data import (
 from src.predictive_modeling.answer_correctness.answer_correctness_models import (
     AnswerCorrectnessModel,
 )
-from src.predictive_modeling.common.data_utils import group_vise_train_test_split
+from src.predictive_modeling.common.data_utils import (
+    group_vise_train_test_split,
+    leave_one_trial_out_for_participant,
+)
 
 
 from typing import Optional
@@ -30,6 +33,11 @@ class CorrectnessEvaluationResult:
     n_negative: int
     coef_summary: Optional[pd.DataFrame] = None
 
+
+@dataclass
+class PerParticipantCorrectnessResult:
+    participant_id: str
+    per_trial_results: Dict[str, CorrectnessEvaluationResult]
 
 
 def evaluate_models_on_answer_correctness(
@@ -83,5 +91,72 @@ def evaluate_models_on_answer_correctness(
             n_negative=int((y_true == 0).sum()),
             coef_summary=coef_summary,
         )
+
+    return results
+
+
+def evaluate_models_on_answer_correctness_leave_one_trial_out(
+    df: pd.DataFrame,
+    models: Sequence[AnswerCorrectnessModel],
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    participant_col: str = Con.PARTICIPANT_ID,
+    trial_col: str = Con.TRIAL_ID,
+    builder_fn: Callable = build_trial_level_with_area_metrics,
+    split_fn: Callable = leave_one_trial_out_for_participant,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+) -> Dict[str, Dict[str, CorrectnessEvaluationResult]]:
+    """
+    Evaluate each model per participant using leave-one-trial-out splitting.
+
+    Returns:
+        results[participant_id][model_name] = CorrectnessEvaluationResult
+    """
+    trial_df = builder_fn(df, group_cols=group_cols).copy()
+
+    participants = (
+        trial_df[participant_col]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+    results: Dict[str, Dict[str, CorrectnessEvaluationResult]] = {}
+
+    for pid in participants:
+        train_df, test_df = split_fn(
+            df=trial_df,
+            participant_id=pid,
+            participant_col=participant_col,
+            trial_col=trial_col,
+        )
+
+        n_classes = train_df[target_col].dropna().astype(int).nunique()
+        if n_classes < 2:
+            continue
+
+        y_true = test_df[target_col].astype(int).to_numpy()
+        results[pid] = {}
+
+        for model in models:
+            model.fit(train_df, target_col=target_col)
+            y_pred = model.predict(test_df)
+
+            acc = float((y_true == y_pred).mean())
+            coef_summary = None
+            if hasattr(model, "get_coef_summary"):
+                coef_summary = model.get_coef_summary(train_df)
+
+            results[pid][model.name] = CorrectnessEvaluationResult(
+                train_df=train_df,
+                test_df=test_df,
+                y_true=y_true,
+                y_pred=y_pred,
+                accuracy=acc,
+                n_test=len(test_df),
+                n_positive=int((y_true == 1).sum()),
+                n_negative=int((y_true == 0).sum()),
+                coef_summary=coef_summary,
+            )
 
     return results

@@ -78,8 +78,6 @@ class AreaMetricsCorrectnessLogRegModel:
         if fit or not self.feature_cols_:
             self.feature_cols_ = self._build_feature_columns(temp)
 
-# pupil data filled with zeros for nulls...
-
         X = df[self.feature_cols_].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")

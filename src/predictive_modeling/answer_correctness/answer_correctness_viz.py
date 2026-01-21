@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Optional, Tuple
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Any, Dict
 
 import os
 
@@ -108,6 +108,7 @@ def plot_coef_summary_barh(
     figsize: Tuple[int, int] = (9, 7),
     save: bool = False,
     output_dir: Optional[str] = '../reports/plots/answer_correctness_coefficients',
+    save_path: Optional[str] = None,
 ) -> Tuple[plt.Figure, pd.DataFrame]:
     """
     Horizontal bar plot of top coefficients (by absolute magnitude).
@@ -115,17 +116,7 @@ def plot_coef_summary_barh(
     """
 
     df = coef_summary.copy()
-
-    abs_col = None
-    if value_col == "standardized_coef" and "abs_standardized_coef" in df.columns:
-        abs_col = "abs_standardized_coef"
-    elif value_col == "coef" and "abs_coef" in df.columns:
-        abs_col = "abs_coef"
-
-    if abs_col is None:
-        abs_col = "__abs_tmp__"
-        df[abs_col] = df[value_col].abs()
-
+    abs_col = "abs_coef"
     df = df.sort_values(abs_col, ascending=False).head(int(top_k)).copy()
 
     df = df.sort_values(value_col, ascending=True)
@@ -163,15 +154,176 @@ def plot_coef_summary_barh(
     plt.tight_layout()
 
     if save:
-        os.makedirs(output_dir, exist_ok=True)
-
-        fname = (
-            f"{model_name}_{h_or_g}.png"
-        )
-        outpath = os.path.join(output_dir, fname)
-        fig.savefig(outpath, dpi=200, bbox_inches="tight")
+        if save_path is not None:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            fig.savefig(save_path, dpi=200, bbox_inches="tight")
+        else:
+            os.makedirs(output_dir, exist_ok=True)
+            fname = f"{model_name}_{h_or_g}.png"
+            outpath = os.path.join(output_dir, fname)
+            fig.savefig(outpath, dpi=200, bbox_inches="tight")
 
     if "__abs_tmp__" in df.columns:
         df = df.drop(columns=["__abs_tmp__"])
 
     return fig, df
+
+
+
+
+def plot_top_abs_coef_feature_frequency_across_participants(
+        results_by_pid: Mapping[Any, Mapping[str, Any]],
+        model_name: str,
+        coef_col: str = "coef",
+        abs_col: Optional[str] = "abs_coef",
+    top_k_within_participant: int = 3,
+        top_k_features: int = 30,
+        min_count: int = 1,
+        title: Optional[str] = None,
+        figsize: Tuple[int, int] = (10, 7),
+        save_path: Optional[str] = None,
+) -> Tuple[plt.Figure, pd.DataFrame]:
+    """
+    For a given model, compute how often each feature appears in the TOP-K
+    absolute coefficients per participant.
+
+    Color encodes the majority sign (positive/negative) among the participant-occurrences.
+    If sign varies (both + and - occur), draw an "!" next to the bar.
+
+    Returns (fig, summary_df).
+    summary_df columns include: feature, count, prop, n_pos, n_neg, n_zero, majority_sign, sign_varies
+    """
+    occurrences = []
+
+    for pid, model_dict in results_by_pid.items():
+        res = model_dict[model_name]
+        coef_df = getattr(res, "coef_summary", None)
+        df = coef_df[["feature", coef_col]].dropna().copy()
+
+        df[coef_col] = pd.to_numeric(df[coef_col], errors="coerce")
+        df = df.dropna(subset=[coef_col])
+
+        if abs_col is not None and abs_col in coef_df.columns:
+            df["_abs"] = pd.to_numeric(coef_df.loc[df.index, abs_col], errors="coerce")
+        else:
+            df["_abs"] = df[coef_col].abs()
+        df = df.dropna(subset=["_abs"])
+
+        topk = df.nlargest(int(top_k_within_participant), "_abs").copy()
+        topk = topk.drop_duplicates(subset=["feature"], keep="first")
+
+        for _, row in topk.iterrows():
+            c = float(row[coef_col])
+            occurrences.append(
+                {
+                    "participant_id": pid,
+                    "feature": row["feature"],
+                    "coef": c,
+                    "sign": 1 if c > 0 else (-1 if c < 0 else 0),
+                }
+            )
+
+    occ_df = pd.DataFrame(occurrences)
+    total_participants = int(occ_df["participant_id"].nunique())
+
+    agg = (
+        occ_df.groupby("feature")
+        .agg(
+            count=("participant_id", "nunique"),
+            n_pos=("sign", lambda s: int((s > 0).sum())),
+            n_neg=("sign", lambda s: int((s < 0).sum())),
+            n_zero=("sign", lambda s: int((s == 0).sum())),
+            total_occ=("sign", "count"),
+        )
+        .reset_index()
+    )
+
+    agg["prop"] = agg["count"] / max(1, total_participants)
+    agg["sign_varies"] = (agg["n_pos"] > 0) & (agg["n_neg"] > 0)
+
+    def majority_sign(row) -> int:
+        if row["n_pos"] == 0 and row["n_neg"] == 0:
+            return 0
+        if row["n_pos"] >= row["n_neg"]:
+            return 1
+        return -1
+
+    agg["majority_sign"] = agg.apply(majority_sign, axis=1)
+
+    def minority_count(row) -> int:
+        if row["majority_sign"] > 0:
+            return int(row["n_neg"])
+        if row["majority_sign"] < 0:
+            return int(row["n_pos"])
+        return int(min(row["n_pos"], row["n_neg"]))
+
+    agg["minority_count"] = agg.apply(minority_count, axis=1)
+
+    agg = agg[agg["count"] >= int(min_count)].copy()
+    agg = agg.sort_values("count", ascending=False).head(int(top_k_features)).copy()
+    agg = agg.sort_values("count", ascending=True)
+
+    n_bars = len(agg)
+    row_height = 0.32
+    min_height = 6
+    max_height = 35
+    height = min(max(min_height, n_bars * row_height), max_height)
+
+    fig, ax = plt.subplots(figsize=(figsize[0], height))
+
+    y = np.arange(len(agg))
+    counts = agg["count"].to_numpy()
+
+    color_pos = "#2ca02c"  # green
+    color_neg = "#d62728"  # red
+    color_zero = "#7f7f7f"  # gray
+
+    colors = [
+        color_pos if s > 0 else (color_neg if s < 0 else color_zero)
+        for s in agg["majority_sign"].to_numpy()
+    ]
+
+    ax.barh(y, counts, color=colors)
+    ax.set_yticks(y)
+    ax.set_yticklabels(agg["feature"].tolist())
+
+    ax.set_xlabel(
+        f"# participants where feature is in top {top_k_within_participant} |{coef_col}|"
+    )
+    ax.set_ylabel("Feature")
+
+    if title is None:
+        title = (
+            f"Feature presence in top {top_k_within_participant} |{coef_col}| "
+            f"across participants – {model_name}"
+        )
+    ax.set_title(title)
+
+    for i, (_, row) in enumerate(agg.iterrows()):
+        if bool(row["sign_varies"]):
+            ax.text(
+                x=row["count"] + 0.05,
+                y=i,
+                s=f"!{int(row['minority_count'])}",
+                va="center",
+                ha="left",
+                fontsize=12,
+                fontweight="bold",
+            )
+
+    from matplotlib.patches import Patch
+    legend_handles = [
+        Patch(color=color_pos, label="Majority positive"),
+        Patch(color=color_neg, label="Majority negative"),
+        Patch(color=color_zero, label="No sign / zero"),
+    ]
+    ax.legend(handles=legend_handles, loc="lower right")
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        import os
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+
+    return fig, agg

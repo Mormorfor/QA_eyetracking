@@ -46,6 +46,32 @@ def group_vise_train_test_split(
 
 
 
+def leave_one_trial_out_for_participant(
+    df: pd.DataFrame,
+    participant_id,
+    participant_col: str = Con.PARTICIPANT_ID,
+    trial_col: str = Con.TRIAL_ID,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    For a given participant:
+    - randomly select one trial as test
+    - all other trials are train
+    """
+
+    df = df.copy()
+    df_p = df[df[participant_col] == participant_id].copy()
+
+    trials = df_p[trial_col].dropna().unique()
+
+    rng = np.random.default_rng()
+    test_trial = rng.choice(trials)
+
+    test_df = df_p[df_p[trial_col] == test_trial].copy()
+    train_df = df_p[df_p[trial_col] != test_trial].copy()
+
+    return train_df, test_df
+
+
 #--------------------------------
 # Helpers
 #--------------------------------

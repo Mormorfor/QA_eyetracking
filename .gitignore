@@ -7,3 +7,6 @@ archive/merged_hunters.csv
 
 /data/
 /data_raw/
+/reports/plots/participent_correctness_coeffs/area_metrics_correctness_log_reg/
+/reports/plots/participent_correctness_coeffs/derived_features_correctness_log_reg/
+/reports/plots/participent_correctness_coeffs/full_features_correctness_log_reg/
