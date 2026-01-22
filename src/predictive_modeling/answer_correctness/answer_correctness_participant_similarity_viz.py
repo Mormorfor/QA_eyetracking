@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, Literal
+from typing import Optional, Tuple, Literal
 
 import numpy as np
 import pandas as pd
@@ -15,16 +15,27 @@ from scipy.spatial.distance import squareform
 import umap
 
 
+# ---------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------
+
 LinkageMethod = Literal["average", "complete", "single", "ward"]
 CutMode = Literal["n_clusters", "distance"]
 
+
+# ---------------------------------------------------------------------
+# Result container
+# ---------------------------------------------------------------------
 
 @dataclass
 class ParticipantClusteringResult:
     linkage_Z: np.ndarray
     labels: pd.Series
-    umap_df: Optional[pd.DataFrame] = None
 
+
+# ---------------------------------------------------------------------
+# Clustering
+# ---------------------------------------------------------------------
 
 def hierarchical_cluster_participants(
     distance_matrix: pd.DataFrame,
@@ -35,30 +46,22 @@ def hierarchical_cluster_participants(
 ) -> ParticipantClusteringResult:
     """
     Hierarchical clustering from a square distance matrix.
-
-    cut_mode:
-      - "n_clusters": cut to exactly n_clusters
-      - "distance": cut by distance threshold (provide distance_threshold)
-
-    Returns linkage + per-participant cluster labels.
     """
-    D = distance_matrix.values
-    condensed = squareform(D, checks=False)
-
+    condensed = squareform(distance_matrix.values, checks=False)
     Z = linkage(condensed, method=linkage_method)
 
     if cut_mode == "n_clusters":
-        labels = fcluster(Z, t=int(n_clusters), criterion="maxclust")
-    elif cut_mode == "distance":
-        if distance_threshold is None:
-            raise ValueError("distance_threshold must be provided when cut_mode='distance'")
-        labels = fcluster(Z, t=float(distance_threshold), criterion="distance")
+        lab = fcluster(Z, t=int(n_clusters), criterion="maxclust")
     else:
-        raise ValueError(f"Unknown cut_mode: {cut_mode}")
+        lab = fcluster(Z, t=float(distance_threshold), criterion="distance")
 
-    labels_s = pd.Series(labels, index=distance_matrix.index, name="cluster")
-    return ParticipantClusteringResult(linkage_Z=Z, labels=labels_s)
+    labels = pd.Series(lab, index=distance_matrix.index, name="cluster")
+    return ParticipantClusteringResult(linkage_Z=Z, labels=labels)
 
+
+# ---------------------------------------------------------------------
+# Dendrogram plot
+# ---------------------------------------------------------------------
 
 def plot_participant_dendrogram(
     clustering: ParticipantClusteringResult,
@@ -66,9 +69,6 @@ def plot_participant_dendrogram(
     title: Optional[str] = None,
     save_path: Optional[str] = None,
 ) -> plt.Figure:
-    """
-    Plot dendrogram for participant clustering.
-    """
     fig, ax = plt.subplots(figsize=figsize)
     dendrogram(
         clustering.linkage_Z,
@@ -90,26 +90,23 @@ def plot_participant_dendrogram(
     return fig
 
 
+# ---------------------------------------------------------------------
+# UMAP
+# ---------------------------------------------------------------------
+
 def compute_participant_umap(
     coef_matrix: pd.DataFrame,
-    random_state: int = 42,
     n_neighbors: int = 15,
     min_dist: float = 0.1,
     metric: str = "cosine",
 ) -> pd.DataFrame:
-    """
-    Compute a 2D UMAP embedding from participant coefficient vectors.
-    Returns DataFrame with index=participant_id and columns ['x','y'].
-    """
     reducer = umap.UMAP(
         n_components=2,
         n_neighbors=int(n_neighbors),
         min_dist=float(min_dist),
         metric=metric,
-        random_state=int(random_state),
     )
-    X = coef_matrix.values
-    emb = reducer.fit_transform(X)
+    emb = reducer.fit_transform(coef_matrix.values)
     return pd.DataFrame(emb, index=coef_matrix.index, columns=["x", "y"])
 
 
@@ -121,9 +118,6 @@ def plot_participant_umap(
     annotate: bool = False,
     save_path: Optional[str] = None,
 ) -> plt.Figure:
-    """
-    Scatter plot of UMAP coordinates.
-    """
     fig, ax = plt.subplots(figsize=figsize)
 
     if labels is None:

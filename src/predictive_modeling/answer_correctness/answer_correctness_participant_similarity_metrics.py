@@ -2,34 +2,62 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Literal
+from typing import Dict, Literal
 
 import numpy as np
 import pandas as pd
 
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.preprocessing import normalize
+from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
 
 from scipy.cluster.hierarchy import linkage, fcluster, cophenet
 from scipy.spatial.distance import squareform
 
 
+# ---------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------
+
 Metric = Literal["cosine", "euclidean"]
 LinkageMethod = Literal["average", "complete", "single", "ward"]
 
 
-def _cluster_labels_from_distance(
-    distance_matrix: pd.DataFrame,
-    linkage_method: LinkageMethod,
-    n_clusters: int,
-) -> np.ndarray:
-    """hierarchical clustering on a square distance matrix -> flat labels."""
-    D = distance_matrix.values
-    condensed = squareform(D, checks=False)
-    Z = linkage(condensed, method=linkage_method)
-    labels = fcluster(Z, t=int(n_clusters), criterion="maxclust")
-    return labels
+# ---------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------
 
+def compute_distance_matrix(X: pd.DataFrame, metric: Metric = "cosine") -> pd.DataFrame:
+    """
+    Compute participant x participant distances from vectors (rows).
+    """
+    A = X.values
+    if metric == "cosine":
+        D = cosine_distances(A)
+    elif metric == "euclidean":
+        D = euclidean_distances(A)
+    else:
+        raise ValueError(f"Unknown metric: {metric}")
+
+    return pd.DataFrame(D, index=X.index, columns=X.index)
+
+
+def hierarchical_labels_from_distance(
+    distance_matrix: pd.DataFrame,
+    linkage_method: LinkageMethod = "average",
+    n_clusters: int = 5,
+) -> np.ndarray:
+    """
+    Hierarchical clustering on a square distance matrix -> flat labels.
+    """
+    condensed = squareform(distance_matrix.values, checks=False)
+    Z = linkage(condensed, method=linkage_method)
+    return fcluster(Z, t=int(n_clusters), criterion="maxclust")
+
+
+# ---------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------
 
 def evaluate_k_range_silhouette(
     X: pd.DataFrame,
@@ -38,24 +66,17 @@ def evaluate_k_range_silhouette(
     k_range: range = range(2, 11),
 ) -> pd.DataFrame:
     """
-    For each k in k_range:
-      - cluster participants hierarchically
-      - compute silhouette score on X using the chosen distance metric
+    For each k:
+      - hierarchical cluster (using distance_metric)
+      - silhouette on X (using distance_metric)
 
-    Returns a DataFrame with columns: k, silhouette
+    Returns: columns ['k', 'silhouette'].
     """
-    from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
-
-    if distance_metric == "cosine":
-        D = cosine_distances(X.values)
-    else:
-        D = euclidean_distances(X.values)
-
-    dist_df = pd.DataFrame(D, index=X.index, columns=X.index)
+    dist_df = compute_distance_matrix(X, metric=distance_metric)
 
     out = []
     for k in k_range:
-        labels = _cluster_labels_from_distance(dist_df, linkage_method=linkage_method, n_clusters=int(k))
+        labels = hierarchical_labels_from_distance(dist_df, linkage_method, int(k))
         sil = silhouette_score(X.values, labels, metric=distance_metric)
         out.append({"k": int(k), "silhouette": float(sil)})
 
@@ -69,20 +90,18 @@ def evaluate_k_range_davies_bouldin(
     normalize_rows_l2: bool = False,
 ) -> pd.DataFrame:
     """
-    Davies–Bouldin index (lower is better). Uses Euclidean distances internally.
+    Davies–Bouldin index (lower is better). Uses Euclidean geometry internally.
     """
-    X_arr = X.values
+    A = X.values
     if normalize_rows_l2:
-        X_arr = normalize(X_arr)
+        A = normalize(A)
 
-    from sklearn.metrics.pairwise import euclidean_distances
-    D = euclidean_distances(X_arr)
-    dist_df = pd.DataFrame(D, index=X.index, columns=X.index)
+    dist_df = pd.DataFrame(euclidean_distances(A), index=X.index, columns=X.index)
 
     out = []
     for k in k_range:
-        labels = _cluster_labels_from_distance(dist_df, linkage_method=linkage_method, n_clusters=int(k))
-        db = davies_bouldin_score(X_arr, labels)
+        labels = hierarchical_labels_from_distance(dist_df, linkage_method, int(k))
+        db = davies_bouldin_score(A, labels)
         out.append({"k": int(k), "davies_bouldin": float(db)})
 
     return pd.DataFrame(out)
@@ -93,11 +112,10 @@ def cophenetic_correlation(
     linkage_method: LinkageMethod = "average",
 ) -> float:
     """
-    Cophenetic correlation: how well the dendrogram preserves the original distances.
+    Dendrogram fidelity: correlation between original distances and cophenetic distances.
     Higher is better.
     """
-    D = distance_matrix.values
-    condensed = squareform(D, checks=False)
+    condensed = squareform(distance_matrix.values, checks=False)
     Z = linkage(condensed, method=linkage_method)
     coph_corr, _ = cophenet(Z, condensed)
     return float(coph_corr)
@@ -108,46 +126,33 @@ def permutation_silhouette_baseline(
     distance_metric: Metric = "cosine",
     linkage_method: LinkageMethod = "average",
     n_clusters: int = 5,
-    n_permutations: int = 100,
+    n_permutations: int = 200,
     random_state: int = 42,
 ) -> Dict[str, float]:
     """
-    Computes silhouette on real data, then compares to a null distribution where
-    each feature column is independently permuted across participants (destroying
-    participant-level structure but keeping each feature's distribution).
+    Silhouette on real data vs. null distribution produced by independently permuting
+    each feature column across participants.
 
-    Returns:
-      dict with real_silhouette, null_mean, null_std, z_score
+    Returns: real_silhouette, null_mean, null_std, z_score
     """
     rng = np.random.default_rng(int(random_state))
 
-    from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
-    if distance_metric == "cosine":
-        D_real = cosine_distances(X.values)
-    else:
-        D_real = euclidean_distances(X.values)
-
-    dist_df = pd.DataFrame(D_real, index=X.index, columns=X.index)
-    labels_real = _cluster_labels_from_distance(dist_df, linkage_method=linkage_method, n_clusters=int(n_clusters))
+    dist_real = compute_distance_matrix(X, metric=distance_metric)
+    labels_real = hierarchical_labels_from_distance(dist_real, linkage_method, int(n_clusters))
     real_sil = float(silhouette_score(X.values, labels_real, metric=distance_metric))
 
     null_sils = []
-    X_arr = X.values.copy()
+    A = X.values
 
     for _ in range(int(n_permutations)):
-        X_perm = X_arr.copy()
-        for j in range(X_perm.shape[1]):
-            rng.shuffle(X_perm[:, j])
+        A_perm = A.copy()
+        for j in range(A_perm.shape[1]):
+            rng.shuffle(A_perm[:, j])
 
-        if distance_metric == "cosine":
-            Dp = cosine_distances(X_perm)
-        else:
-            Dp = euclidean_distances(X_perm)
-
-        distp_df = pd.DataFrame(Dp, index=X.index, columns=X.index)
-        labels_p = _cluster_labels_from_distance(distp_df, linkage_method=linkage_method, n_clusters=int(n_clusters))
-        sil_p = float(silhouette_score(X_perm, labels_p, metric=distance_metric))
-        null_sils.append(sil_p)
+        Xp = pd.DataFrame(A_perm, index=X.index, columns=X.columns)
+        distp = compute_distance_matrix(Xp, metric=distance_metric)
+        labels_p = hierarchical_labels_from_distance(distp, linkage_method, int(n_clusters))
+        null_sils.append(float(silhouette_score(A_perm, labels_p, metric=distance_metric)))
 
     null_mean = float(np.mean(null_sils))
     null_std = float(np.std(null_sils)) if float(np.std(null_sils)) > 0 else 1e-9

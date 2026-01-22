@@ -3,35 +3,42 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Tuple, Literal, Dict, List
+from typing import Any, Mapping, Optional, Dict, List, Callable, Literal
 
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
 
 from src import constants as Con
 
 
-Metric = Literal["cosine", "euclidean"]
+# ---------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------
 
+Metric = Literal["cosine", "euclidean"]
+FamilyRule = Callable[[str], bool]
+FamilyAgg = Literal["sum_abs", "mean_abs", "sum_signed", "mean_signed"]
+
+
+# ---------------------------------------------------------------------
+# Core container
+# ---------------------------------------------------------------------
 
 @dataclass
 class ParticipantClusteringInputs:
     """
-    Container for participant-level coefficient representations.
-
     coef_matrix:
-        rows = participants
-        cols = features
-        values = coefficients
+        participant x (feature or family)
     coef_matrix_z:
-        z-scored version across participants (per feature column)
+        z-scored across participants (per column)
     """
     coef_matrix: pd.DataFrame
     coef_matrix_z: pd.DataFrame
 
 
+# ---------------------------------------------------------------------
+# Coefficient matrix building
+# ---------------------------------------------------------------------
 
 def build_participant_coef_matrix(
     results_by_pid: Mapping[Any, Mapping[str, Any]],
@@ -42,150 +49,159 @@ def build_participant_coef_matrix(
     drop_all_zero_features: bool = True,
 ) -> pd.DataFrame:
     """
-    Build a participant x feature coefficient matrix from nested evaluation results.
+    Build participant x feature coefficient matrix from results_by_pid.
 
-    Expects:
-        results_by_pid[pid][model_name].coef_summary is a DataFrame with columns:
+    Assumes:
+        results_by_pid[pid][model_name].coef_summary has columns:
             - 'feature'
             - coef_col (e.g., 'coef' or 'standardized_coef')
-
-    Notes:
-      - Some participants/models may be missing -> skipped.
-      - Missing features for a participant are filled with `fill_value` (default 0.0).
-      - If drop_all_zero_features is True, removes columns that are all zeros across participants.
     """
     rows: List[Dict[str, float]] = []
     pids: List[Any] = []
 
     for pid, model_dict in results_by_pid.items():
         res = model_dict[model_name]
-        coef_df = getattr(res, "coef_summary", None)
+        coef_df = res.coef_summary  # user guarantees it exists
 
         tmp = coef_df[["feature", coef_col]].copy()
         tmp = tmp.dropna(subset=["feature", coef_col])
         tmp[coef_col] = pd.to_numeric(tmp[coef_col], errors="coerce")
         tmp = tmp.dropna(subset=[coef_col])
 
-        series = tmp.drop_duplicates(subset=["feature"], keep="last").set_index("feature")[coef_col]
+        s = (
+            tmp.drop_duplicates(subset=["feature"], keep="last")
+            .set_index("feature")[coef_col]
+        )
 
-        row_dict = series.to_dict()
-        rows.append(row_dict)
+        rows.append(s.to_dict())
         pids.append(pid)
-
 
     mat = pd.DataFrame(rows, index=pids).fillna(float(fill_value))
     mat.index.name = participant_col_name
 
     if drop_all_zero_features:
-        nonzero_cols = (mat.abs().sum(axis=0) > 0)
-        mat = mat.loc[:, nonzero_cols]
+        mat = mat.loc[:, (mat.abs().sum(axis=0) > 0)]
 
-    mat = mat.reindex(sorted(mat.columns), axis=1)
-    return mat
+    return mat.reindex(sorted(mat.columns), axis=1)
 
 
-def zscore_coef_matrix_across_participants(
-    coef_matrix: pd.DataFrame,
+def zscore_across_participants(
+    mat: pd.DataFrame,
     with_mean: bool = True,
     with_std: bool = True,
 ) -> pd.DataFrame:
     """
-    Z-score each feature column across participants.
-
-    Returns a DataFrame with same shape/index/columns.
+    Z-score each column across participants.
     """
     scaler = StandardScaler(with_mean=with_mean, with_std=with_std)
-    z = scaler.fit_transform(coef_matrix.values)
-    return pd.DataFrame(z, index=coef_matrix.index, columns=coef_matrix.columns)
+    z = scaler.fit_transform(mat.values)
+    return pd.DataFrame(z, index=mat.index, columns=mat.columns)
 
 
 def build_participant_clustering_inputs(
     results_by_pid: Mapping[Any, Mapping[str, Any]],
     model_name: str,
     coef_col: str = "coef",
-    fill_value: float = 0.0,
-    drop_all_zero_features: bool = True,
     zscore: bool = True,
 ) -> ParticipantClusteringInputs:
     """
-    Convenience wrapper:
-      - builds participant x feature coefficient matrix
-      - optionally z-scores across participants
+    Builds participant x feature coef matrix (+ optional z-scored version).
     """
     mat = build_participant_coef_matrix(
         results_by_pid=results_by_pid,
         model_name=model_name,
         coef_col=coef_col,
-        fill_value=fill_value,
-        drop_all_zero_features=drop_all_zero_features,
     )
-
-    if zscore:
-        mat_z = zscore_coef_matrix_across_participants(mat)
-    else:
-        mat_z = mat.copy()
-
+    mat_z = zscore_across_participants(mat) if zscore else mat.copy()
     return ParticipantClusteringInputs(coef_matrix=mat, coef_matrix_z=mat_z)
 
 
+# ---------------------------------------------------------------------
+# Feature-family definitions + aggregation
+# ---------------------------------------------------------------------
 
-def compute_participant_distance_matrix(
+def default_feature_families() -> Dict[str, FamilyRule]:
+    """
+    Family rules based on your feature naming conventions.
+    First match wins (insertion order matters).
+    """
+    return {
+        "matching":   lambda f: f.startswith("pref_matching__"),
+        "pupil":      lambda f: "pupil" in f.lower(),
+        "dwell":      lambda f: "dwell" in f.lower(),
+        "skip":       lambda f: "skip" in f.lower(),
+        "proportion": lambda f: "proportion" in f.lower(),
+        "fixation":   lambda f: "fix" in f.lower(),
+        "sequence":   lambda f: f in {"seq_len", "has_xyx", "has_xyxy"},
+        "other":      lambda f: True,
+    }
+
+
+def assign_feature_family(feature: str, families: Dict[str, FamilyRule]) -> str:
+    for fam, rule in families.items():
+        if rule(feature):
+            return fam
+    return "other"
+
+
+def build_participant_family_coef_matrix(
     coef_matrix: pd.DataFrame,
-    metric: Metric = "cosine",
+    families: Optional[Dict[str, FamilyRule]] = None,
+    agg: FamilyAgg = "sum_abs",
+    include_counts: bool = False,
 ) -> pd.DataFrame:
     """
-    Compute participant x participant distance matrix from coefficient vectors.
+    Collapse participant x feature -> participant x family.
 
-    Returns square DataFrame with same index/columns = participant IDs.
+    Recommended for strategy clustering: agg="sum_abs" or "mean_abs".
     """
-    X = coef_matrix.values
-    if metric == "cosine":
-        D = cosine_distances(X)
-    elif metric == "euclidean":
-        D = euclidean_distances(X)
-    else:
-        raise ValueError(f"Unsupported metric: {metric}")
+    families = families or default_feature_families()
+    f2fam = {f: assign_feature_family(f, families) for f in coef_matrix.columns}
 
-    return pd.DataFrame(D, index=coef_matrix.index, columns=coef_matrix.index)
+    fam_names = list(dict.fromkeys(f2fam.values()))  # stable
+    out = pd.DataFrame(index=coef_matrix.index)
+
+    for fam in fam_names:
+        cols = [c for c, ff in f2fam.items() if ff == fam]
+        block = coef_matrix[cols]
+
+        if agg == "sum_abs":
+            out[fam] = block.abs().sum(axis=1)
+        elif agg == "mean_abs":
+            out[fam] = block.abs().mean(axis=1)
+        elif agg == "sum_signed":
+            out[fam] = block.sum(axis=1)
+        elif agg == "mean_signed":
+            out[fam] = block.mean(axis=1)
+        else:
+            raise ValueError(f"Unknown agg: {agg}")
+
+        if include_counts:
+            out[f"{fam}__n_features"] = len(cols)
+
+    return out.reindex(sorted(out.columns), axis=1)
 
 
-#
-# def compute_participant_cosine_similarity(
-#     coef_matrix: pd.DataFrame,
-# ) -> pd.DataFrame:
-#     """
-#     cosine similarity = 1 - cosine distance.
-#     """
-#     D = compute_participant_distance_matrix(coef_matrix, metric="cosine")
-#     S = 1.0 - D
-#     return S
-
-
-
-def get_top_features_for_participant(
-    coef_matrix: pd.DataFrame,
-    participant_id: Any,
-    top_k: int = 15,
-    by: Literal["abs", "pos", "neg"] = "abs",
-) -> pd.Series:
+def build_participant_family_clustering_inputs(
+    results_by_pid: Mapping[Any, Mapping[str, Any]],
+    model_name: str,
+    coef_col: str = "coef",
+    families: Optional[Dict[str, FamilyRule]] = None,
+    family_agg: FamilyAgg = "sum_abs",
+    zscore: bool = True,
+) -> ParticipantClusteringInputs:
     """
-    return the strongest features for a participant from a coefficient matrix.
-
-    by:
-      - "abs": largest absolute coefficients
-      - "pos": largest positive coefficients
-      - "neg": most negative coefficients (sorted ascending)
+    Builds participant x family coef matrix (+ optional z-scored version).
     """
-    if participant_id not in coef_matrix.index:
-        raise KeyError(f"participant_id {participant_id!r} not in coef_matrix index.")
-
-    s = coef_matrix.loc[participant_id]
-
-    if by == "abs":
-        return s.reindex(s.abs().sort_values(ascending=False).head(top_k).index)
-    if by == "pos":
-        return s.sort_values(ascending=False).head(top_k)
-    if by == "neg":
-        return s.sort_values(ascending=True).head(top_k)
-
-    raise ValueError(f"Unsupported 'by' value: {by}")
+    feat_mat = build_participant_coef_matrix(
+        results_by_pid=results_by_pid,
+        model_name=model_name,
+        coef_col=coef_col,
+    )
+    fam_mat = build_participant_family_coef_matrix(
+        coef_matrix=feat_mat,
+        families=families,
+        agg=family_agg,
+    )
+    fam_z = zscore_across_participants(fam_mat) if zscore else fam_mat.copy()
+    return ParticipantClusteringInputs(coef_matrix=fam_mat, coef_matrix_z=fam_z)
