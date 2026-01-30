@@ -51,17 +51,13 @@ def build_participant_coef_matrix(
     """
     Build participant x feature coefficient matrix from results_by_pid.
 
-    Assumes:
-        results_by_pid[pid][model_name].coef_summary has columns:
-            - 'feature'
-            - coef_col (e.g., 'coef' or 'standardized_coef')
     """
     rows: List[Dict[str, float]] = []
     pids: List[Any] = []
 
     for pid, model_dict in results_by_pid.items():
         res = model_dict[model_name]
-        coef_df = res.coef_summary  # user guarantees it exists
+        coef_df = res.coef_summary
 
         tmp = coef_df[["feature", coef_col]].copy()
         tmp = tmp.dropna(subset=["feature", coef_col])
@@ -130,7 +126,6 @@ def default_feature_families() -> Dict[str, FamilyRule]:
         "pupil":      lambda f: "pupil" in f.lower(),
         "dwell":      lambda f: "dwell" in f.lower(),
         "skip":       lambda f: "skip" in f.lower(),
-        "proportion": lambda f: "proportion" in f.lower(),
         "fixation":   lambda f: "fix" in f.lower(),
         "sequence":   lambda f: f in {"seq_len", "has_xyx", "has_xyxy"},
         "other":      lambda f: True,
@@ -152,8 +147,6 @@ def build_participant_family_coef_matrix(
 ) -> pd.DataFrame:
     """
     Collapse participant x feature -> participant x family.
-
-    Recommended for strategy clustering: agg="sum_abs" or "mean_abs".
     """
     families = families or default_feature_families()
     f2fam = {f: assign_feature_family(f, families) for f in coef_matrix.columns}

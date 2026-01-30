@@ -1,4 +1,4 @@
-# src/predictive_modeling/answer_correctness/answer_correctness_participant_similarity_viz.py
+# src/predictive_modeling/answer_correctness/answer_correctness_participant_clusters_viz.py
 
 from __future__ import annotations
 

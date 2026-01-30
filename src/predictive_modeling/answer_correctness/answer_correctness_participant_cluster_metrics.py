@@ -1,4 +1,4 @@
-# src/predictive_modeling/answer_correctness/answer_correctness_participant_similarity_metrics.py
+# src/predictive_modeling/answer_correctness/answer_correctness_participant_cluster_metrics.py
 
 from __future__ import annotations
 
@@ -119,48 +119,3 @@ def cophenetic_correlation(
     Z = linkage(condensed, method=linkage_method)
     coph_corr, _ = cophenet(Z, condensed)
     return float(coph_corr)
-
-
-def permutation_silhouette_baseline(
-    X: pd.DataFrame,
-    distance_metric: Metric = "cosine",
-    linkage_method: LinkageMethod = "average",
-    n_clusters: int = 5,
-    n_permutations: int = 200,
-    random_state: int = 42,
-) -> Dict[str, float]:
-    """
-    Silhouette on real data vs. null distribution produced by independently permuting
-    each feature column across participants.
-
-    Returns: real_silhouette, null_mean, null_std, z_score
-    """
-    rng = np.random.default_rng(int(random_state))
-
-    dist_real = compute_distance_matrix(X, metric=distance_metric)
-    labels_real = hierarchical_labels_from_distance(dist_real, linkage_method, int(n_clusters))
-    real_sil = float(silhouette_score(X.values, labels_real, metric=distance_metric))
-
-    null_sils = []
-    A = X.values
-
-    for _ in range(int(n_permutations)):
-        A_perm = A.copy()
-        for j in range(A_perm.shape[1]):
-            rng.shuffle(A_perm[:, j])
-
-        Xp = pd.DataFrame(A_perm, index=X.index, columns=X.columns)
-        distp = compute_distance_matrix(Xp, metric=distance_metric)
-        labels_p = hierarchical_labels_from_distance(distp, linkage_method, int(n_clusters))
-        null_sils.append(float(silhouette_score(A_perm, labels_p, metric=distance_metric)))
-
-    null_mean = float(np.mean(null_sils))
-    null_std = float(np.std(null_sils)) if float(np.std(null_sils)) > 0 else 1e-9
-    z = (real_sil - null_mean) / null_std
-
-    return {
-        "real_silhouette": real_sil,
-        "null_mean": null_mean,
-        "null_std": null_std,
-        "z_score": float(z),
-    }

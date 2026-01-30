@@ -327,3 +327,125 @@ def plot_top_abs_coef_feature_frequency_across_participants(
         fig.savefig(save_path, dpi=200, bbox_inches="tight")
 
     return fig, agg
+
+
+
+
+def compute_feature_avg_rank_across_participants(
+    results_by_pid: Mapping[Any, Mapping[str, Any]],
+    model_name: str,
+    coef_col: str = "coef",
+    feature_col: str = "feature",
+    abs_col: Optional[str] = "abs_coef",
+    rank_method: str = "average",
+) -> pd.DataFrame:
+    """
+    For each participant, rank features by descending |coef| (rank 1 = largest |coef|).
+    Aggregate across participants: mean_rank / median_rank / count_participants.
+
+    Returns a DataFrame with:
+      feature, count_participants, mean_rank, median_rank, std_rank, min_rank, max_rank
+    """
+    rows = []
+
+    for pid, per_model in results_by_pid.items():
+        res = per_model[model_name]
+        coef_df = getattr(res, "coef_summary", None)
+
+        if feature_col not in coef_df.columns or coef_col not in coef_df.columns:
+            continue
+
+        df = coef_df[[feature_col, coef_col]].copy()
+        df[coef_col] = pd.to_numeric(df[coef_col], errors="coerce")
+        df = df.dropna(subset=[coef_col, feature_col])
+
+        # compute abs
+        if abs_col is not None and abs_col in coef_df.columns:
+            df["_abs"] = pd.to_numeric(coef_df.loc[df.index, abs_col], errors="coerce")
+            df["_abs"] = df["_abs"].fillna(df[coef_col].abs())
+        else:
+            df["_abs"] = df[coef_col].abs()
+
+        df = df.dropna(subset=["_abs"])
+        df = df.drop_duplicates(subset=[feature_col], keep="first")
+
+        df["_rank"] = df["_abs"].rank(ascending=False, method=rank_method)
+
+        for _, r in df.iterrows():
+            rows.append(
+                {
+                    "participant_id": pid,
+                    "feature": r[feature_col],
+                    "rank": float(r["_rank"]),
+                    "abs_coef": float(r["_abs"]),
+                    "coef": float(r[coef_col]),
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "feature",
+                "count_participants",
+                "mean_rank",
+                "median_rank",
+                "std_rank",
+                "min_rank",
+                "max_rank",
+            ]
+        )
+
+    long_df = pd.DataFrame(rows)
+
+    agg = (
+        long_df.groupby("feature")
+        .agg(
+            count_participants=("participant_id", "nunique"),
+            mean_rank=("rank", "mean"),
+            median_rank=("rank", "median"),
+            std_rank=("rank", "std"),
+            min_rank=("rank", "min"),
+            max_rank=("rank", "max"),
+        )
+        .reset_index()
+    )
+    agg = agg.sort_values(["mean_rank", "count_participants"], ascending=[True, False])
+
+    return agg
+
+
+
+def plot_top_features_by_best_avg_rank(
+    avg_rank_df: pd.DataFrame,
+    top_k: int = 30,
+    min_participants: int = 1,
+    figsize: Tuple[int, int] = (10, 8),
+    title: Optional[str] = None,
+    save_path: Optional[str] = None,
+) -> plt.Figure:
+    """
+    Barh plot of the features with the *lowest* mean_rank (best, most consistently high-ranked).
+    """
+    df = avg_rank_df.copy()
+    df = df[df["count_participants"] >= int(min_participants)].copy()
+    df = df.nsmallest(int(top_k), "mean_rank").copy()
+    df = df.sort_values("mean_rank", ascending=True)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.barh(df["feature"], df["mean_rank"])
+    ax.invert_yaxis()
+
+    ax.set_xlabel("Mean rank across participants (lower = more consistently important)")
+    ax.set_ylabel("Feature")
+
+    if title:
+        ax.set_title(title)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        import os
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+
+    return fig
