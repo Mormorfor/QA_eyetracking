@@ -44,7 +44,7 @@ def clustering_agreement(
 
 
 # ---------------------------------------------------------------------
-# Hierarchical clustering wrapper (returns Series labels)
+# Hierarchical clustering wrapper
 # ---------------------------------------------------------------------
 
 def cluster_hierarchical_from_distance(
