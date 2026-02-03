@@ -36,6 +36,12 @@ IA_MAX_FIX_PUPIL_SIZE = "IA_MAX_FIX_PUPIL_SIZE"
 IA_MIN_FIX_PUPIL_SIZE = "IA_MIN_FIX_PUPIL_SIZE"
 
 # ---------------------------------------------------------------------------
+# Fixation level column name constants
+# ---------------------------------------------------------------------------
+
+CURRENT_FIX_PUPIL_SIZE = "CURRENT_FIX_PUPIL"
+
+# ---------------------------------------------------------------------------
 # Created column name constants
 # ---------------------------------------------------------------------------
 

@@ -117,14 +117,14 @@ from src import constants as C
 # Raw Data Loading
 # ---------------------------------------------------------------------------
 
-def load_raw_answers_data(ia_a_path = "full/ia_A.csv"):
+def load_raw_answers_data(ia_a_path = "data_raw/full/ia_A.csv"):
     """
     Load raw interest area level answers data from CSV file.
     """
     return pd.read_csv(ia_a_path)
 
 
-def load_raw_paragraphs_data(ia_p_path = "full/ia_P.csv"):
+def load_raw_paragraphs_data(ia_p_path = "data_raw/full/ia_P.csv"):
     """
     Load raw interest area level paragraphs data from CSV file.
     """
