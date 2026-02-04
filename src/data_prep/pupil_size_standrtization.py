@@ -3,6 +3,7 @@ import numpy as np
 import ast
 
 import constants as C
+from src.data_prep.data_csv_generation import scale_pupil_area_to_mm
 
 
 def load_raw_answers_fix_data(ia_a_path = "data_raw/full/fixations_A.csv"):
@@ -14,14 +15,28 @@ def load_raw_answers_fix_data(ia_a_path = "data_raw/full/fixations_A.csv"):
 
 def compute_participant_pupil_stats(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute per-participant mean and standard deviation of pupil size.
+    Compute per-participant mean and SD of pupil size (in mm).
 
-    Returns a DataFrame with:
-        PARTICIPANT_ID | pupil_mean | pupil_sd
+    Steps:
+    1. Clean pupil size column (replace '.' with NaN, cast to float)
+    2. Scale pupil area to mm
+    3. Compute mean and SD per participant
     """
+    df_local = df.copy()
+
+    # df_local[C.CURRENT_FIX_PUPIL_SIZE] = (
+    #     df_local[C.CURRENT_FIX_PUPIL_SIZE]
+    #     .replace(".", np.nan)
+    #     .astype(float)
+    # )
+
+    df_local["pupil_mm"] = scale_pupil_area_to_mm(
+        df_local[C.CURRENT_FIX_PUPIL_SIZE]
+    )
+
     stats = (
-        df
-        .groupby(C.PARTICIPANT_ID)[C.CURRENT_FIX_PUPIL_SIZE]
+        df_local
+        .groupby(C.PARTICIPANT_ID)["pupil_mm"]
         .agg(
             pupil_mean="mean",
             pupil_sd="std"
@@ -30,6 +45,7 @@ def compute_participant_pupil_stats(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return stats
+
 
 
 def main():
