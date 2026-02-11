@@ -5,6 +5,7 @@ import os
 import itertools
 from src import constants as C
 
+from src.derived.pupil_norm import zscore_pupil_by_participant
 
 # ===========================================================================
 # HOW TO ADD A NEW FEATURE FUNCTION
@@ -448,6 +449,52 @@ def add_selected_answer_label(df):
         df.apply(lambda row: row[C.ANSWERS_ORDER_COLUMN][row[C.SELECTED_ANSWER_POSITION_COLUMN]], axis=1))
     return df
 
+
+def add_zscored_pupil_columns(
+    df: pd.DataFrame,
+    stats_csv_path: str = "data/participant_pupils.csv",
+) -> pd.DataFrame:
+    """
+    1) Convert IA pupil columns to mm
+    2) Z-score them using participant stats (from fixations_A-derived CSV)
+    3) Store z-scored mm columns back into the IA pupil columns (or add new ones)
+
+    """
+
+    out = df.copy()
+    out = out.reset_index()
+
+    # scale IA pupil columns to mm first
+    pupil_cols = [
+        C.IA_MAX_FIX_PUPIL_SIZE,
+        C.IA_MIN_FIX_PUPIL_SIZE,
+        C.IA_AVERAGE_FIX_PUPIL_SIZE,
+    ]
+
+    for col in pupil_cols:
+        if col not in out.columns:
+            continue
+        out[col] = scale_pupil_area_to_mm(out[col])
+
+        # z-score (participant-level)
+        out = zscore_pupil_by_participant(
+            df=out,
+            pupil_col=col,
+            participant_col=C.PARTICIPANT_ID,
+            stats_csv_path=stats_csv_path,
+            out_col=f"{col}_z",
+        )
+
+
+    # overwrite the original columns with z-scored values
+    for col in pupil_cols:
+        zc = f"{col}_z"
+        if zc in out.columns:
+            out[col] = out[zc]
+            out = out.drop(columns=[zc])
+
+    return out
+
 # ---------------------------------------------------------------------------
 #  Group Features Creation
 # ---------------------------------------------------------------------------
@@ -667,14 +714,15 @@ def scale_pupil_area_to_mm(
     where:
         scaling_factor = artificial_pupil_width_mm / sqrt(avg_pupil_area)
     """
+    pupil_area = pupil_area.replace(".", np.nan).astype(float)
     scaling_factor = artificial_pupil_width_mm / np.sqrt(avg_pupil_area)
-
     return scaling_factor * np.sqrt(pupil_area)
 
 
 def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df_local = df.copy()
 
+    # columns are assumed to already be z-scored
     cols = [
         C.IA_MAX_FIX_PUPIL_SIZE,
         C.IA_MIN_FIX_PUPIL_SIZE,
@@ -682,14 +730,7 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
     ]
     for col in cols:
         if col in df_local.columns:
-            df_local[col] = (
-                df_local[col]
-                .replace(".", np.nan)
-                .astype(float)
-            )
-
-            # scale to mm
-            df_local[col] = scale_pupil_area_to_mm(df_local[col])
+            df_local[col] = pd.to_numeric(df_local[col], errors="coerce")
 
     grouped = (
         df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -699,7 +740,6 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
             C.MEAN_AVG_FIX_PUPIL_SIZE: (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean"),
         })
     )
-
     return grouped
 
 
@@ -715,15 +755,8 @@ def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
     """
     df_local = df.copy()
 
-    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = (
-        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE]
-        .replace(".", np.nan)
-        .astype(float)
-    )
-
-    # scale to mm
-    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = scale_pupil_area_to_mm(
-        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE]
+    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = pd.to_numeric(
+        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE], errors="coerce"
     )
 
     df_local = df_local[df_local[C.IA_FIRST_FIXATION_DURATION] > 0]
@@ -746,9 +779,7 @@ def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
             C.IA_AVERAGE_FIX_PUPIL_SIZE,
         ]
     ].rename(
-        columns={
-            C.IA_AVERAGE_FIX_PUPIL_SIZE: "first_encounter_avg_pupil_size"
-        }
+        columns={C.IA_AVERAGE_FIX_PUPIL_SIZE: C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE}
     )
 
 
@@ -1021,6 +1052,11 @@ FUNCTION_REGISTRY = {
         "default_kwargs": {},
         "kind": "base",
     },
+    "add_zscored_pupil_columns": {
+        "callable": add_zscored_pupil_columns,
+        "default_kwargs": {"stats_csv_path": "data/participant_pupils.csv"},
+        "kind": "base",
+    },
 
     # Group-level functions
     "create_mean_area_dwell_time": {
@@ -1089,20 +1125,40 @@ def resolve_base_functions(name_list=None):
     # Case 1: no explicit list → use all base functions
     if name_list is None:
         return [
-            entry["callable"]
+            (entry["callable"], entry.get("default_kwargs", {}))
             for name, entry in FUNCTION_REGISTRY.items()
             if entry.get("kind") == "base"
         ]
 
     # Case 2: explicit list → validate and return only those
     resolved = []
-    for name in name_list:
-        if name not in FUNCTION_REGISTRY:
-            raise ValueError(f"Unknown base function: {name}")
-        entry = FUNCTION_REGISTRY[name]
-        if entry.get("kind") != "base":
-            raise ValueError(f"Function '{name}' is not registered as a base feature.")
-        resolved.append(entry["callable"])
+    for item in name_list:
+        if isinstance(item, str):
+            name = item
+            if name not in FUNCTION_REGISTRY:
+                raise ValueError(f"Unknown base function: {name}")
+            entry = FUNCTION_REGISTRY[name]
+            if entry.get("kind") != "base":
+                raise ValueError(f"Function '{name}' is not registered as a base feature.")
+            resolved.append((entry["callable"], entry.get("default_kwargs", {})))
+            continue
+
+        if isinstance(item, tuple) and len(item) == 2:
+            name, user_kwargs = item
+            if name not in FUNCTION_REGISTRY:
+                raise ValueError(f"Unknown base function: {name}")
+            entry = FUNCTION_REGISTRY[name]
+            if entry.get("kind") != "base":
+                raise ValueError(f"Function '{name}' is not registered as a base feature.")
+            merged_kwargs = {**entry.get("default_kwargs", {}), **user_kwargs}
+            resolved.append((entry["callable"], merged_kwargs))
+            continue
+
+        raise ValueError(
+            f"Invalid base function specification: {item}. "
+            "Must be 'name' or ('name', {kwargs})."
+        )
+
     return resolved
 
 
@@ -1167,31 +1223,14 @@ def add_base_features(df, functions, verbose=False):
     Each function in `functions` must take a single DataFrame as input and
     return a (transformed) DataFrame as output. The functions are applied
     in the order given.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Input DataFrame.
-    functions : list of callables
-        List of functions to apply. Each must have signature:
-            func(df: DataFrame) -> DataFrame
-    reset_index : bool, optional
-        If True (default), reset the index of the final DataFrame before
-        returning it.
-    verbose : bool, optional
-        If True, print the name of each function as it is applied.
-
-    Returns
-    -------
-    DataFrame
-        The transformed DataFrame after all functions have been applied.
     """
+
     out = df.copy()
-    for func in functions:
+    for func, kwargs in functions:
         if verbose:
             print(f"Running: {func.__name__}")
-        out = func(out)
-    return out.reset_index()
+        out = func(out, **kwargs) if kwargs else func(out)
+    return out.reset_index(drop=False)
 
 
 def generate_new_row_features(functions, df, default_join_columns=None,
@@ -1202,32 +1241,9 @@ def generate_new_row_features(functions, df, default_join_columns=None,
     Each entry in `functions` is a tuple:
         (func, func_kwargs)
 
-    where:
-        - func is a callable with signature: func(df: DataFrame) -> DataFrame
-        - func_kwargs is a dict that may contain:
-            * 'join_columns': list of columns to use for merging
-              (defaults to [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN])
-
     For each function:
     1. Compute `new_features_df = func(result_df)`
     2. Merge `new_features_df` into `result_df` using a left join on `join_columns`.
-
-    This allows chaining multiple group-level feature generators that return
-    aggregated DataFrames, and incrementally enrich the original row-level
-    data with new columns.
-
-    Parameters
-    ----------
-    functions : list of (callable, dict)
-        List of (function, kwargs) tuples. Each function must accept a single
-        DataFrame and return a DataFrame with grouping columns + new features.
-    df : DataFrame
-        Base DataFrame to enrich with new features.
-    default_join_columns : list of str, optional
-        Default columns to use for merging results of each function.
-        If None, defaults to [TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN].
-    verbose : bool, optional
-        If True, print the name of each function as it is applied.
 
     Returns
     -------

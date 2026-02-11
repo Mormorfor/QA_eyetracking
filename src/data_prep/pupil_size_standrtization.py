@@ -24,12 +24,6 @@ def compute_participant_pupil_stats(df: pd.DataFrame) -> pd.DataFrame:
     """
     df_local = df.copy()
 
-    # df_local[C.CURRENT_FIX_PUPIL_SIZE] = (
-    #     df_local[C.CURRENT_FIX_PUPIL_SIZE]
-    #     .replace(".", np.nan)
-    #     .astype(float)
-    # )
-
     df_local["pupil_mm"] = scale_pupil_area_to_mm(
         df_local[C.CURRENT_FIX_PUPIL_SIZE]
     )
