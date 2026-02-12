@@ -3,8 +3,9 @@ import numpy as np
 import ast
 import os
 import itertools
-from src import constants as C
+from collections import Counter
 
+from src import constants as C
 from src.derived.pupil_norm import zscore_pupil_by_participant
 
 # ===========================================================================
@@ -141,19 +142,6 @@ def split_hunters_and_gatherers(df, remove_repeats = True, remove_practice = Tru
     Split trials into 'hunters' and 'gatherers' based on question preview.
     Optionally removes repeated and practice trials before splitting.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Interest-area level data.
-    remove_repeats : bool, optional
-        If True, remove repeated trials (REPEATED_TRIAL_COLUMN == True).
-    remove_practice : bool, optional
-        If True, remove practice trials (PRACTICE_TRIAL_COLUMN == True).
-
-    Returns
-    -------
-    (DataFrame, DataFrame)
-        Two DataFrames: (hunters, gatherers).
     """
     df_filtered = df.copy()
     if remove_repeats:
@@ -175,19 +163,6 @@ def split_hunters_and_gatherers(df, remove_repeats = True, remove_practice = Tru
 def add_text_id(df):
     """
     Add a unique text identifier column combining article, difficulty, batch, and paragraph.
-
-    The new column is named according to TEXT_ID_COLUMN.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Input DataFrame. Must contain ARTICLE_COLUMN, DIFFICULTY_COLUMN,
-        BATCH_COLUMN, and PARAGRAPH_COLUMN.
-
-    Returns
-    -------
-    DataFrame
-        Copy of the input DataFrame with an additional TEXT_ID_COLUMN.
     """
     out = df.copy()
     out[C.TEXT_ID_COLUMN] = (
@@ -202,11 +177,7 @@ def add_text_id(df):
 def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add a 'text_id_with_q' column that matches the original answer-text logic:
-
-        text_id_with_q = text_id + '_' + same_critical_span
-
-    This mirrors the old:
-        article_id_difficulty_batch_paragraph_sameCriticalSpan
+    text_id_with_q = text_id + '_' + same_critical_span
     """
     df = df.copy()
 
@@ -222,12 +193,6 @@ def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
 def add_is_correct(df):
     """
     Adds IS_CORRECT_COLUMN to the dataframe based on comparison of selected and correct answer positions.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Input DataFrame. Must contain SELECTED_ANSWER_POSITION_COLUMN and
-        CORRECT_ANSWER_POSITION_COLUMN.
 
     Returns
     -------
@@ -246,7 +211,7 @@ def add_is_correct(df):
 def add_answer_text_columns(df):
     """
     Creates explicit answer text columns (answer_A, answer_B, answer_C, answer_D)
-    per answer label (correctness level) and not just location.
+    per answer label (correctness level).
 
     based on the answer order and the screen location based
     answer_1, answer_2, answer_3, answer_4 columns.
@@ -255,16 +220,6 @@ def add_answer_text_columns(df):
     like ['A', 'B', 'C', 'D'], and that the DataFrame has columns
     'answer_1', 'answer_2', 'answer_3', 'answer_4'.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Interest-Area level data with ANSWERS_ORDER_COLUMN and answer_* columns.
-
-    Returns
-    -------
-    DataFrame
-        Copy of the input DataFrame with additional answer_X columns where X
-        in ANSWER_LABELS.
     """
     df_out = df.copy()
 
@@ -342,7 +297,7 @@ def add_IA_screen_location(df):
             (index_id > third_end) & (index_id <= fourth_end)
         ]
 
-        choices = C.AREA_LABEL_CHOICES
+        choices = C.LOC_CHOICES
         group[C.AREA_SCREEN_LOCATION] = np.select(conditions, choices, default='unknown')
         return group
 
@@ -389,13 +344,13 @@ def add_IA_answer_label(df):
     def get_area_label(row):
         loc = row[C.AREA_SCREEN_LOCATION]
 
-        if loc == C.AREA_LABEL_CHOICES[0]:
+        if loc == C.LOC_CHOICES[0]:
             return "question"
 
-        if loc in C.AREA_LABEL_CHOICES[1:]:
+        if loc in C.LOC_CHOICES[1:]:
             try:
                 # position index: 0..3 for answers
-                pos_index = C.AREA_LABEL_CHOICES.index(loc) - 1
+                pos_index = C.LOC_CHOICES.index(loc) - 1
                 answers_order = ast.literal_eval(row[C.ANSWERS_ORDER_COLUMN])
                 letter = answers_order[pos_index]
                 return letter_to_label.get(letter, None)
@@ -455,9 +410,9 @@ def add_zscored_pupil_columns(
     stats_csv_path: str = "data/participant_pupils.csv",
 ) -> pd.DataFrame:
     """
-    1) Convert IA pupil columns to mm
-    2) Z-score them using participant stats (from fixations_A-derived CSV)
-    3) Store z-scored mm columns back into the IA pupil columns (or add new ones)
+    1) Convert IA pupil columns to mm (stored back into original columns)
+    2) Z-score them using participant stats (from fixations-derived CSV)
+    3) Store z-scored values into NEW <column>_z columns
 
     """
 
@@ -484,14 +439,6 @@ def add_zscored_pupil_columns(
             stats_csv_path=stats_csv_path,
             out_col=f"{col}_z",
         )
-
-
-    # overwrite the original columns with z-scored values
-    for col in pupil_cols:
-        zc = f"{col}_z"
-        if zc in out.columns:
-            out[col] = out[zc]
-            out = out.drop(columns=[zc])
 
     return out
 
@@ -722,42 +669,44 @@ def scale_pupil_area_to_mm(
 def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df_local = df.copy()
 
-    # columns are assumed to already be z-scored
-    cols = [
+    mm_cols = [
         C.IA_MAX_FIX_PUPIL_SIZE,
         C.IA_MIN_FIX_PUPIL_SIZE,
         C.IA_AVERAGE_FIX_PUPIL_SIZE,
     ]
-    for col in cols:
+    z_cols = [f"{c}_z" for c in mm_cols]
+
+    for col in mm_cols + z_cols:
         if col in df_local.columns:
             df_local[col] = pd.to_numeric(df_local[col], errors="coerce")
 
-    grouped = (
-        df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
-        .agg(**{
-            C.MEAN_MAX_FIX_PUPIL_SIZE: (C.IA_MAX_FIX_PUPIL_SIZE, "mean"),
-            C.MEAN_MIN_FIX_PUPIL_SIZE: (C.IA_MIN_FIX_PUPIL_SIZE, "mean"),
-            C.MEAN_AVG_FIX_PUPIL_SIZE: (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean"),
-        })
-    )
-    return grouped
+    agg_spec = {}
 
+    # mm outputs (existing constants)
+    agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE] = (C.IA_MAX_FIX_PUPIL_SIZE, "mean")
+    agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE] = (C.IA_MIN_FIX_PUPIL_SIZE, "mean")
+    agg_spec[C.MEAN_AVG_FIX_PUPIL_SIZE] = (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean")
+
+
+    agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MAX_FIX_PUPIL_SIZE}_z", "mean")
+    agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MIN_FIX_PUPIL_SIZE}_z", "mean")
+    agg_spec[C.MEAN_AVG_FIX_PUPIL_SIZE_Z] = (f"{C.IA_AVERAGE_FIX_PUPIL_SIZE}_z", "mean")
+
+    return (
+        df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**agg_spec)
+    )
 
 
 
 def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute pupil size at the FIRST encounter of each area
-    per (trial, participant, area_label).
-
-    Uses IA_AVERAGE_FIX_PUPIL_SIZE from the first fixation
-    on that area.
-    """
     df_local = df.copy()
 
-    df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE] = pd.to_numeric(
-        df_local[C.IA_AVERAGE_FIX_PUPIL_SIZE], errors="coerce"
-    )
+    mm_col = C.IA_AVERAGE_FIX_PUPIL_SIZE
+    z_col = f"{mm_col}_z"
+
+    df_local[mm_col] = pd.to_numeric(df_local[mm_col], errors="coerce")
+    df_local[z_col] = pd.to_numeric(df_local[z_col], errors="coerce")
 
     df_local = df_local[df_local[C.IA_FIRST_FIXATION_DURATION] > 0]
 
@@ -771,16 +720,17 @@ def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
         .head(1)
     )
 
-    return first_fix[
-        [
-            C.TRIAL_ID,
-            C.PARTICIPANT_ID,
-            C.AREA_LABEL_COLUMN,
-            C.IA_AVERAGE_FIX_PUPIL_SIZE,
-        ]
-    ].rename(
-        columns={C.IA_AVERAGE_FIX_PUPIL_SIZE: C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE}
-    )
+    out_cols = [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
+    rename_map = {}
+
+    out_cols.append(mm_col)
+    rename_map[mm_col] = C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE
+
+    out_cols.append(z_col)
+    rename_map[z_col] = C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z
+
+    return first_fix[out_cols].rename(columns=rename_map)
+
 
 
 
@@ -840,7 +790,7 @@ def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # 3) Keep only answer areas (exclude 'question')
-    answer_labels = [lab for lab in C.ANSWER_LABEL_CHOICES if lab != "question"]
+    answer_labels = [lab for lab in C.LABEL_CHOICES if lab != "question"]
     df_answers_only = df_sorted[df_sorted[C.AREA_LABEL_COLUMN].isin(answer_labels)]
 
     # 4) Take the most recent answer-fixation per trial/participant
@@ -1011,6 +961,61 @@ def create_simplified_fixation_tags(df):
     return pd.DataFrame(result)
 
 
+from collections import Counter
+
+def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    For each (trial, participant):
+      - Count occurrences of each label in SIMPLIFIED_FIX_SEQ_BY_LABEL
+      - Count occurrences of each location in SIMPLIFIED_FIX_SEQ_BY_LOCATION
+
+    Then for each (trial, participant, area_label):
+      - num_label_visits = count of that area_label in label sequence
+      - num_loc_visits   = count of that area's screen location in location sequence
+    """
+    df_local = df.copy()
+
+    counts_rows = []
+    for (trial_id, participant_id), g in df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
+        labels_seq = g[C.SIMPLIFIED_FIX_SEQ_BY_LABEL].iloc[0]
+        locs_seq   = g[C.SIMPLIFIED_FIX_SEQ_BY_LOCATION].iloc[0]
+
+        label_counts = Counter(labels_seq)
+        loc_counts   = Counter(locs_seq)
+
+        counts_rows.append({
+            C.TRIAL_ID: trial_id,
+            C.PARTICIPANT_ID: participant_id,
+            "_label_counts": label_counts,
+            "_loc_counts": loc_counts,
+        })
+
+    counts_df = pd.DataFrame(counts_rows)
+    df_local = df_local.merge(counts_df, on=[C.TRIAL_ID, C.PARTICIPANT_ID], how="left")
+
+    df_local[C.NUM_LABEL_VISITS] = df_local.apply(
+        lambda r: int(r["_label_counts"].get(r[C.AREA_LABEL_COLUMN], 0))
+        if isinstance(r["_label_counts"], Counter) else 0,
+        axis=1
+    )
+
+    df_local[C.NUM_LOC_VISITS] = df_local.apply(
+        lambda r: int(r["_loc_counts"].get(r[C.AREA_SCREEN_LOCATION], 0))
+        if isinstance(r["_loc_counts"], Counter) else 0,
+        axis=1
+    )
+
+    out = (
+        df_local.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
+        .agg(**{
+            C.NUM_LABEL_VISITS: (C.NUM_LABEL_VISITS, "max"),
+            C.NUM_LOC_VISITS: (C.NUM_LOC_VISITS, "max"),
+        })
+    )
+
+    return out
+
 # ---------------------------------------------------------------------------
 #  Processing Pipelines
 # ---------------------------------------------------------------------------
@@ -1109,6 +1114,11 @@ FUNCTION_REGISTRY = {
     "create_simplified_fixation_tags": {
         "callable": create_simplified_fixation_tags,
         "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
+        "kind": "group",
+    },
+    "create_simplified_visit_counts": {
+        "callable": create_simplified_visit_counts,
+        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]},
         "kind": "group",
     },
 }

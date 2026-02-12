@@ -15,7 +15,7 @@ from src import constants as Con
 # Constants / helpers
 # ---------------------------------------------------------------------------
 
-ANSWER_AREAS = Con.ANSWER_LABEL_CHOICES[1:]
+ANSWER_AREAS = Con.LABEL_CHOICES[1:]
 
 
 def _build_trial_area_table(

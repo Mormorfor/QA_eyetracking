@@ -165,7 +165,7 @@ def run_models_for_group(
 ) -> Dict[str, Dict[str, dict]]:
 
     if metrics is None:
-        metrics = Con.AREA_METRIC_COLUMNS
+        metrics = Con.AREA_METRIC_COLUMNS_MODELING
 
     df_noq = df[df[Con.AREA_LABEL_COLUMN] != "question"].copy()
 

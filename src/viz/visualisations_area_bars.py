@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 import numpy as np
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-
+from src.viz.plot_output import save_plot
 
 # ---------------------------------------------------------------------------
 # Base Statistics Bar-charts + Mixed Models
@@ -16,42 +15,23 @@ from src import constants as Con
 def plot_area_ci_bar(
     df: pd.DataFrame,
     stat_col: str = Con.MEAN_DWELL_TIME,
-    trial_cols=(Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN),
+    trial_cols = (Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN),
     area_col: str = Con.AREA_LABEL_COLUMN,
     figsize=(8, 5),
     save: bool = False,
+    paper_dirs = None,
     h_or_g: str = "hunters",
     selected: str = "A",
     title: Optional[str] = None,
-    output_root: str = "../reports/plots/basic_stats_barcharts",
 ):
     """
     Plot mean ± 95% CI of a metric by area (answer_A/B/C/D).
 
-    Parameters
-    ----------
-    df : DataFrame
-        Row-level data (one row per IA) already filtered
-        to a subset (e.g. only selected_answer_label == 'A').
-    stat_col : str
-        Column with the metric to plot (e.g. Con.MEAN_DWELL_TIME).
-    trial_cols : tuple[str]
-        Columns that define a unique trial-level observation.
-        Defaults match constants: TRIAL_ID, PARTICIPANT_ID, TEXT_ID_COLUMN.
-    area_col : str
-        Area column to plot on the x-axis (typically Con.AREA_LABEL_COLUMN).
-    figsize : tuple
-        Figure size passed to matplotlib.
-    save : bool
-        If True, save PNG under output_root / stat_col / ...
-    h_or_g : {"hunters","gatherers"}
-        Tag used in filenames.
-    selected : {"A","B","C","D"}
-        Which answer label this subset represents (for filenames/titles).
-    title : str or None
-        Custom title; if None, a default is used.
-    output_root : str
-        Root directory for saving plots.
+    If save=True, always saves to:
+        reports/plots/basic_stats_barcharts/<stat_col>/<h_or_g>__<selected>.png
+
+    If paper_dirs is a list, also mirrors to:
+        <paper_dir>/basic_stats_barcharts/<stat_col>/<h_or_g>__<selected>.png
     """
 
     dedup = (
@@ -78,7 +58,13 @@ def plot_area_ci_bar(
 
     ax.set_xlabel(area_col)
     ax.set_ylabel(stat_col)
-    ax.set_title(title or f"{stat_col}: mean ± 95% CI by {area_col}")
+    if title:
+        ax.set_title(title)
+    else:
+        ax.set_title(
+            f"{stat_col}: mean ± 95% CI by {area_col}\n"
+            f"Selected answer = {selected}"
+        )
     ax.margins(x=0.02)
 
     summary_df_basic = (
@@ -95,10 +81,14 @@ def plot_area_ci_bar(
         )
 
     if save:
-        out_dir = os.path.join(output_root, stat_col)
-        os.makedirs(out_dir, exist_ok=True)
-        fname = f"{h_or_g}__{selected}.png"
-        plt.savefig(os.path.join(out_dir, fname), dpi=300)
+        save_plot(
+            fig=fig,
+            rel_dir=f"basic_stats_barcharts/{stat_col}",
+            filename=f"{h_or_g}__{selected}",
+            ext="png",
+            dpi=300,
+            paper_dirs=paper_dirs,
+        )
 
     return fig, summary_df_basic
 
@@ -109,29 +99,21 @@ def run_all_area_barplots(
         hunters: pd.DataFrame,
         gatherers: pd.DataFrame,
         metrics=None,
-        output_root: str = "../reports/plots/basic_stats_barcharts",
         save_plots: bool = True,
+        paper_dirs = None,
         print_summaries: bool = False,
 ):
     """
-    For each metric and each selected answer label (A–D), create
-    area-level barplots (mean ± 95% CI).
+    For each metric and each selected answer label (A–D),
+    for hunters, gatherers, and all participants combined,
+    create area-level barplots (mean ± 95% CI).
 
-    No mixed models, no statistics beyond descriptive summaries.
-
-    Returns
-    -------
-    results : dict
-        results[group][metric][label] = {
-            "fig": figure,
-            "summary": DataFrame
-        }
     """
     if metrics is None:
-        metrics = Con.AREA_METRIC_COLUMNS
+        metrics = Con.AREA_METRIC_COLUMNS_MODELING
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> dict:
-        df_noq = df[df[Con.AREA_LABEL_COLUMN] != "question"].copy()
+        df = df.copy()
         group_results = {}
 
         for metric in metrics:
@@ -139,14 +121,14 @@ def run_all_area_barplots(
 
             available_labels = [
                 lab for lab in ["A", "B", "C", "D"]
-                if lab in df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
+                if lab in df[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
             ]
 
             if print_summaries:
                 print(f"\n=== {group_name.upper()} — metric: {metric} ===")
 
             for ans in available_labels:
-                subset = df_noq[df_noq[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
+                subset = df[df[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
                 if subset.empty:
                     continue
 
@@ -156,7 +138,7 @@ def run_all_area_barplots(
                     h_or_g=group_name,
                     selected=ans,
                     save=save_plots,
-                    output_root=output_root,
+                    paper_dirs=paper_dirs,
                 )
 
                 if print_summaries:

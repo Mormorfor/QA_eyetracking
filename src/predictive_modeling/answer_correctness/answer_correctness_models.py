@@ -64,8 +64,8 @@ class AreaMetricsCorrectnessLogRegModel:
 
     def _build_feature_columns(self, df: pd.DataFrame) -> List[str]:
         cols: List[str] = []
-        for metric in Con.AREA_METRIC_COLUMNS:
-            for area in Con.ANSWER_LABEL_CHOICES:
+        for metric in Con.AREA_METRIC_COLUMNS_MODELING:
+            for area in Con.LABEL_CHOICES:
                 col = f"{metric}__{area}"
                 if col in df.columns:
                     cols.append(col)
@@ -230,8 +230,8 @@ class FullFeaturesCorrectnessLogRegModel:
     def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
         cols: List[str] = []
 
-        for metric in Con.AREA_METRIC_COLUMNS:
-            for area in Con.ANSWER_LABEL_CHOICES:
+        for metric in Con.AREA_METRIC_COLUMNS_MODELING:
+            for area in Con.LABEL_CHOICES:
                 col = f"{metric}__{area}"
                 if col in df.columns:
                     cols.append(col)

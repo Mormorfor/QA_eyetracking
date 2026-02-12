@@ -65,12 +65,12 @@ def matrix_plot_ABCD(
     )
 
     if drop_questions:
-        label_order = [lbl for lbl in Con.ANSWER_LABEL_CHOICES if lbl != "question"]
+        label_order = [lbl for lbl in Con.LABEL_CHOICES if lbl != "question"]
     else:
-        label_order = list(Con.ANSWER_LABEL_CHOICES)
+        label_order = list(Con.LABEL_CHOICES)
 
     row_order = [lbl for lbl in label_order if lbl in matrix.index]
-    col_order = [loc for loc in Con.AREA_LABEL_CHOICES if loc in matrix.columns]
+    col_order = [loc for loc in Con.AREA_LOC_CHOICES if loc in matrix.columns]
 
     matrix = matrix.reindex(index=row_order, columns=col_order)
 
@@ -157,7 +157,7 @@ def run_all_area_metric_plots(
 
     """
     if metrics is None:
-        metrics = Con.AREA_METRIC_COLUMNS
+        metrics = Con.AREA_METRIC_COLUMNS_MODELING
 
     all_participants = pd.concat([hunters, gatherers], ignore_index=True)
 

@@ -80,8 +80,12 @@ MEAN_AVG_FIX_PUPIL_SIZE = "mean_avg_fix_pupil_size"
 MEAN_MAX_FIX_PUPIL_SIZE = "mean_max_fix_pupil_size"
 MEAN_MIN_FIX_PUPIL_SIZE = "mean_min_fix_pupil_size"
 
-FIRST_ENCOUNTER_AVG_PUPIL_SIZE = "first_encounter_avg_pupil_size"
+MEAN_AVG_FIX_PUPIL_SIZE_Z = "mean_avg_fix_pupil_size_z"
+MEAN_MAX_FIX_PUPIL_SIZE_Z = "mean_max_fix_pupil_size_z"
+MEAN_MIN_FIX_PUPIL_SIZE_Z = "mean_min_fix_pupil_size_z"
 
+FIRST_ENCOUNTER_AVG_PUPIL_SIZE = "first_encounter_avg_pupil_size"
+FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z = "first_encounter_avg_pupil_size_z"
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
@@ -90,11 +94,14 @@ ANSWER_PREFIX = "answer_"
 ANSWER_LABELS = ["A", "B", "C", "D"]
 
 #must mantain consistent ordering + consistency with ANSWER_LABEL_CHOICES
-AREA_LABEL_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
+
+LOC_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
 
 #DO NOT CHANGE
-ANSWER_LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
+LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
 
+NUM_LABEL_VISITS = "num_label_visits"
+NUM_LOC_VISITS = "num_loc_visits"
 # ---------------------------------------------------------------------------
 # Existing metrics
 # ---------------------------------------------------------------------------
@@ -105,14 +112,16 @@ MEAN_FIRST_FIXATION_DURATION = "mean_first_fixation_duration"
 SKIP_RATE = "skip_rate"
 AREA_DWELL_PROPORTION = "area_dwell_proportion"
 
-AREA_METRIC_COLUMNS = [
+AREA_METRIC_COLUMNS_MODELING = [
     MEAN_DWELL_TIME,
     MEAN_FIXATIONS_COUNT,
     MEAN_FIRST_FIXATION_DURATION,
     SKIP_RATE,
     AREA_DWELL_PROPORTION,
-    MEAN_AVG_FIX_PUPIL_SIZE,
-    MEAN_MAX_FIX_PUPIL_SIZE,
-    MEAN_MIN_FIX_PUPIL_SIZE,
-    FIRST_ENCOUNTER_AVG_PUPIL_SIZE
+    MEAN_AVG_FIX_PUPIL_SIZE_Z,
+    MEAN_MAX_FIX_PUPIL_SIZE_Z,
+    MEAN_MIN_FIX_PUPIL_SIZE_Z,
+    FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z,
+    NUM_LABEL_VISITS,
+    NUM_LOC_VISITS,
 ]

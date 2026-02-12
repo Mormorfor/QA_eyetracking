@@ -85,7 +85,7 @@ LEGEND_MAPPING_LABEL = {
 # Colors for AREA_SCREEN_LOCATION-style sequences
 # (question, answer_0(top), answer_1(left), answer_2(right), answer_3(bottom))
 # Use constants.AREA_LABEL_CHOICES to keep it in sync.
-_LOC_CHOICES = C.AREA_LABEL_CHOICES  # ['question', 'answer_0(top)', ..., ...]
+_LOC_CHOICES = C.AREA_LOC_CHOICES  # ['question', 'answer_0(top)', ..., ...]
 
 CATEGORIES_LOC = {
     "question": _LOC_CHOICES[0] and "#74a9cf",

@@ -36,7 +36,7 @@ def build_trial_level_with_area_metrics(
     df: pd.DataFrame,
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
     area_col: str = Con.AREA_LABEL_COLUMN,
-    metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS,
+    metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     last_loc_col: str = Con.LAST_VISITED_LOCATION,
     target_col: str = Con.SELECTED_ANSWER_POSITION_COLUMN,
 ) -> pd.DataFrame:

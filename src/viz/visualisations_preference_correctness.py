@@ -218,7 +218,7 @@ def run_all_matching_correctness_plots(
     }
     """
     if metrics is None:
-        metrics = list(C.AREA_METRIC_COLUMNS)
+        metrics = list(C.AREA_METRIC_COLUMNS_MODELING)
 
     all_participants = pd.concat([hunters, gatherers], ignore_index=True)
 
