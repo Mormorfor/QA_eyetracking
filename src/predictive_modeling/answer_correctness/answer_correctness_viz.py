@@ -4,11 +4,14 @@ from __future__ import annotations
 from typing import Optional, Tuple
 from typing import Iterable, Mapping, Any, Dict
 
+
 import os
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+import src.constants as Con
 
 
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
@@ -449,3 +452,88 @@ def plot_top_features_by_best_avg_rank(
         fig.savefig(save_path, dpi=200, bbox_inches="tight")
 
     return fig
+
+
+def plot_feature_correlation_heatmap(
+    trial_df: pd.DataFrame,
+    feature_cols: Optional[Iterable[str]] = None,
+    *,
+    method: str = "spearman",
+    cluster_order: bool = True,
+    max_labels: int = 80,
+    title: Optional[str] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    save_path: Optional[str] = None,
+) -> Tuple[plt.Figure, pd.DataFrame]:
+    """
+    Correlation heatmap for modeling features.
+    """
+    if feature_cols is None:
+        exclude = {
+            Con.PARTICIPANT_ID,
+            Con.TRIAL_ID,
+            Con.IS_CORRECT_COLUMN,
+        }
+        numeric_cols = [c for c in trial_df.columns if c not in exclude]
+        X = trial_df[numeric_cols].copy()
+        for c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+        X = X.select_dtypes(include=[np.number])
+    else:
+        cols = [c for c in feature_cols if c in trial_df.columns]
+        X = trial_df[cols].copy()
+        for c in X.columns:
+            X[c] = pd.to_numeric(X[c], errors="coerce")
+
+    X = X.fillna(0.0)
+
+    corr = X.corr(method=method)
+
+    corr_ord = corr
+    if cluster_order and corr.shape[0] >= 2:
+
+        from scipy.cluster.hierarchy import linkage, leaves_list
+        from scipy.spatial.distance import squareform
+
+        dist = 1.0 - corr.values
+        np.fill_diagonal(dist, 0.0)
+        Z = linkage(squareform(dist, checks=False), method="average")
+        order = leaves_list(Z)
+        corr_ord = corr.iloc[order, order]
+
+
+    n = corr_ord.shape[0]
+
+    if figsize is None:
+        fig_w = max(10, min(30, 0.35 * n))
+        fig_h = max(8, min(30, 0.35 * n))
+        figsize = (fig_w, fig_h)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow(corr_ord.values, vmin=-1, vmax=1, aspect="auto")
+
+    if title is None:
+        title = f"Feature correlation ({method})"
+        if cluster_order:
+            title += " – cluster-ordered"
+    ax.set_title(title)
+
+    labels = list(corr_ord.columns)
+
+
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(labels, rotation=90, fontsize=12)
+    ax.set_yticklabels(labels, fontsize=12)
+
+
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label(f"{method.title()} correlation")
+
+    plt.tight_layout()
+
+    # if save_path is not None:
+    #     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    #     fig.savefig(save_path, dpi=200, bbox_inches="tight")
+
+    return fig, corr_ord
