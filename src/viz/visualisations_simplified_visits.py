@@ -76,7 +76,7 @@ def matrix_plot_simplified_visits(
         base_areas = list(Con.LABEL_CHOICES)
     elif kind == "location":
         seq_col = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION
-        base_areas = list(Con.AREA_LOC_CHOICES)
+        base_areas = list(Con.LOC_CHOICES)
     else:
         raise ValueError("kind must be 'label' or 'location'")
 

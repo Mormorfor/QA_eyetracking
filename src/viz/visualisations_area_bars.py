@@ -110,7 +110,7 @@ def run_all_area_barplots(
 
     """
     if metrics is None:
-        metrics = Con.AREA_METRIC_COLUMNS_MODELING
+        metrics = Con.AREA_METRIC_COLUMNS_VIZES
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> dict:
         df = df.copy()

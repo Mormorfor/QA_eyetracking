@@ -1,31 +1,31 @@
 {
   "contingency_table": [
     [
-      31138,
+      31046,
       9704
     ],
     [
-      612375,
+      612467,
       107411
     ]
   ],
-  "odds_ratio": 0.5628222187107855,
+  "odds_ratio": 0.5610750172745818,
   "p_value": 0.0,
   "counts": {
     "pattern_present": {
-      "correct": 31138,
+      "correct": 31046,
       "incorrect": 9704,
-      "n": 40842
+      "n": 40750
     },
     "pattern_absent": {
-      "correct": 612375,
+      "correct": 612467,
       "incorrect": 107411,
-      "n": 719786
+      "n": 719878
     }
   },
   "accuracies": {
-    "pattern_present": 0.7624014494882719,
-    "pattern_absent": 0.8507737021837046
+    "pattern_present": 0.7618650306748467,
+    "pattern_absent": 0.8507927732199068
   },
-  "delta_accuracy": -0.0883722526954327
+  "delta_accuracy": -0.08892774254506008
 }

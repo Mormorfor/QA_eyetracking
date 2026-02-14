@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 
-from src.predictive_modeling.answer_correctness.answer_correctness_participant_cluster_metrics import (
+from predictive_modeling.answer_correctness.clusters.answer_correctness_participant_cluster_metrics import (
     compute_distance_matrix,
 )
 

@@ -194,11 +194,6 @@ def add_is_correct(df):
     """
     Adds IS_CORRECT_COLUMN to the dataframe based on comparison of selected and correct answer positions.
 
-    Returns
-    -------
-    DataFrame
-        Copy of the input DataFrame with an additional IS_CORRECT_COLUMN
-        (1 if selected == correct, 0 otherwise).
     """
     out = df.copy()
     out[C.IS_CORRECT_COLUMN] = (
@@ -215,10 +210,6 @@ def add_answer_text_columns(df):
 
     based on the answer order and the screen location based
     answer_1, answer_2, answer_3, answer_4 columns.
-
-    This assumes that ANSWERS_ORDER_COLUMN contains a serialized list of labels
-    like ['A', 'B', 'C', 'D'], and that the DataFrame has columns
-    'answer_1', 'answer_2', 'answer_3', 'answer_4'.
 
     """
     df_out = df.copy()
@@ -247,16 +238,6 @@ def add_IA_screen_location(df):
     - assigns each IA to one of AREA_LABEL_CHOICES
     (ordered: question, answer on top, answer to the left, answer to the right, answer on bottom)
 
-    Parameters
-    ----------
-    df : DataFrame
-        Interest-area level data. Must contain:
-        'question', 'answer_1'...'answer_4', INTEREST_AREA_ID, TRIAL_ID, PARTICIPANT_ID.
-
-    Returns
-    -------
-    DataFrame
-        Copy of the input DataFrame with an additional AREA_SCREEN_LOCATION column.
     """
     df = df.copy()
     for col in ['question', 'answer_1', 'answer_2', 'answer_3', 'answer_4']:
@@ -310,27 +291,11 @@ def add_IA_answer_label(df):
     Add a logical answer label (correctness level) per interest area based on its screen location and
     the trial-specific answers order.
 
-    Uses:
-    - AREA_SCREEN_LOCATION: one of AREA_LABEL_CHOICES
-    - ANSWERS_ORDER_COLUMN: serialized list like ['B', 'A', 'C', 'D']
-     where index 0 corresponds to AREA_LABEL_CHOICES[1], index 1 to [2], etc.
-
-    Logic
-    -----
-    - If AREA_SCREEN_LOCATION == AREA_LABEL_CHOICES[0], return 'question'.
-    - Else, find position index p = AREA_LABEL_CHOICES.index(loc) - 1 (0..3),
+    - If AREA_SCREEN_LOCATION == LOC_CHOICES[0], return 'question'.
+    - Else, find position index p = LOC_CHOICES.index(loc) - 1 (0..3),
      take letter = answers_order[p] (A/B/C/D),
      and map it to 'answer_A' / 'answer_B' / 'answer_C' / 'answer_D'.
 
-    Parameters
-    ----------
-    df : DataFrame
-       Must contain AREA_SCREEN_LOCATION and ANSWERS_ORDER_COLUMN.
-
-    Returns
-    -------
-    DataFrame
-       Copy of the input DataFrame with an additional AREA_LABEL_COLUMN.
     """
     df_out = df.copy()
 
@@ -348,14 +313,11 @@ def add_IA_answer_label(df):
             return "question"
 
         if loc in C.LOC_CHOICES[1:]:
-            try:
-                # position index: 0..3 for answers
-                pos_index = C.LOC_CHOICES.index(loc) - 1
-                answers_order = ast.literal_eval(row[C.ANSWERS_ORDER_COLUMN])
-                letter = answers_order[pos_index]
-                return letter_to_label.get(letter, None)
-            except Exception:
-                return None
+            # position index: 0..3 for answers
+            pos_index = C.LOC_CHOICES.index(loc) - 1
+            answers_order = ast.literal_eval(row[C.ANSWERS_ORDER_COLUMN])
+            letter = answers_order[pos_index]
+            return letter_to_label.get(letter, None)
 
         return None
 
@@ -372,37 +334,28 @@ def add_selected_answer_label(df):
     into a *label-based* answer (e.g. "selected answer = 'B'") by using the
     answers_order sequence stored per trial.
 
-    Logic
-    -----
-    - ANSWERS_ORDER_COLUMN contains a serialized list like ['B', 'A', 'C', 'D'].
-      These represent the labels shown on screen in order of:
-          position 0 -> answers_order[0]
-          position 1 -> answers_order[1]
-          ...
-    - SELECTED_ANSWER_POSITION_COLUMN is an integer 0–3 indicating which option
-      the participant selected.
-    - The function maps:
-          selected_label = answers_order[selected_position]
-      and stores it in SELECTED_ANSWER_LABEL_COLUMN.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - ANSWERS_ORDER_COLUMN (string representation of a list)
-        - SELECTED_ANSWER_POSITION_COLUMN (integer index 0–3)
-
-    Returns
-    -------
-    DataFrame
-        Copy of the input DataFrame with an additional
-        SELECTED_ANSWER_LABEL_COLUMN containing 'A', 'B', 'C', or 'D'.
     """
     df = df.copy()
     df[C.ANSWERS_ORDER_COLUMN] = df[C.ANSWERS_ORDER_COLUMN].apply(ast.literal_eval)
     df[C.SELECTED_ANSWER_LABEL_COLUMN] = (
         df.apply(lambda row: row[C.ANSWERS_ORDER_COLUMN][row[C.SELECTED_ANSWER_POSITION_COLUMN]], axis=1))
     return df
+
+
+def scale_pupil_area_to_mm(
+    pupil_area: pd.Series,
+    artificial_pupil_width_mm: float = 3.5,
+    avg_pupil_area: float = 1804.0,
+) -> pd.Series:
+    """
+    Convert pupil area (arbitrary units) to pupil diameter in mm.
+
+    Scaling:  diameter_mm = scaling_factor * sqrt(area)
+    where:    scaling_factor = artificial_pupil_width_mm / sqrt(avg_pupil_area)
+    """
+    pupil_area = pupil_area.replace(".", np.nan).astype(float)
+    scaling_factor = artificial_pupil_width_mm / np.sqrt(avg_pupil_area)
+    return scaling_factor * np.sqrt(pupil_area)
 
 
 def add_zscored_pupil_columns(
@@ -412,14 +365,13 @@ def add_zscored_pupil_columns(
     """
     1) Convert IA pupil columns to mm (stored back into original columns)
     2) Z-score them using participant stats (from fixations-derived CSV)
-    3) Store z-scored values into NEW <column>_z columns
+    3) Store z-scored values into new <column>_z columns
 
     """
 
     out = df.copy()
     out = out.reset_index()
 
-    # scale IA pupil columns to mm first
     pupil_cols = [
         C.IA_MAX_FIX_PUPIL_SIZE,
         C.IA_MIN_FIX_PUPIL_SIZE,
@@ -427,11 +379,8 @@ def add_zscored_pupil_columns(
     ]
 
     for col in pupil_cols:
-        if col not in out.columns:
-            continue
         out[col] = scale_pupil_area_to_mm(out[col])
 
-        # z-score (participant-level)
         out = zscore_pupil_by_participant(
             df=out,
             pupil_col=col,
@@ -442,9 +391,15 @@ def add_zscored_pupil_columns(
 
     return out
 
+
+
+
 # ---------------------------------------------------------------------------
 #  Group Features Creation
 # ---------------------------------------------------------------------------
+
+
+
 
 def create_mean_area_dwell_time(df):
     """
@@ -456,29 +411,6 @@ def create_mean_area_dwell_time(df):
    - PARTICIPANT_ID
    - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
-   Logic
-   -----
-   The DataFrame is grouped by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN),
-   and the mean of IA_DWELL_TIME is computed within each group. The resulting
-   DataFrame contains one row per area per trial per participant.
-
-   Parameters
-   ----------
-   df : DataFrame
-       Must contain the columns:
-       - TRIAL_ID
-       - PARTICIPANT_ID
-       - AREA_LABEL_COLUMN
-       - IA_DWELL_TIME (numeric duration per interest area)
-
-   Returns
-   -------
-   DataFrame
-       A DataFrame with the following columns:
-       - TRIAL_ID
-       - PARTICIPANT_ID
-       - AREA_LABEL_COLUMN
-       - mean_dwell_time  (float)
    """
     return (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -496,29 +428,6 @@ def create_mean_area_fix_count(df):
     - PARTICIPANT_ID
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
-    Logic
-    -----
-    The DataFrame is grouped by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN),
-    and the mean of IA_FIXATIONS_COUNT is computed within each group. The result
-    is one row per area per trial per participant.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain the following columns:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - IA_FIXATIONS_COUNT (numeric)
-
-    Returns
-    -------
-    DataFrame
-        A DataFrame with columns:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - mean_fixations_count (float)
     """
     return (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -533,25 +442,6 @@ def create_mean_first_fix_duration(df):
     Groups by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN).
     Computes the mean first-fixation duration within each group.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - IA_FIRST_FIXATION_DURATION (may contain '.' for missing/zero values)
-
-    Returns
-    -------
-    DataFrame
-        A DataFrame containing:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - mean_first_fixation_duration (float)
-
-        One row per area per trial per participant.
     """
     df[C.IA_FIRST_FIXATION_DURATION] = df[C.IA_FIRST_FIXATION_DURATION].replace('.', 0).astype(int)
     return (
@@ -568,31 +458,12 @@ def create_skip_rate(df):
     The skip rate is the proportion of IAs within an area (e.g., 'answer_A')
     that were skipped by the participant during the trial.
 
-    Logic
-    -----
     - Create an indicator AREA_SKIPPED:
           1 if IA_DWELL_TIME == 0
           0 otherwise
     - Group by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN)
     - Compute the mean of AREA_SKIPPED → skip_rate
 
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - IA_DWELL_TIME (numeric)
-
-    Returns
-    -------
-    DataFrame
-        A DataFrame with:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - skip_rate (float in [0, 1])
     """
     df[C.AREA_SKIPPED] = (df[C.IA_DWELL_TIME] == 0).astype(int)
     return (
@@ -613,26 +484,6 @@ def create_dwell_proportions(df):
            TOTAL_IA_DWELL_TIME / TOTAL_TRIAL_DWELL_TIME
 
     Any resulting NaN values (e.g., if TOTAL_TRIAL_DWELL_TIME is 0) are replaced by 0.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - IA_DWELL_TIME (numeric)
-
-    Returns
-    -------
-    DataFrame
-        A DataFrame with columns:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - AREA_LABEL_COLUMN
-        - TOTAL_IA_DWELL_TIME
-        - TOTAL_TRIAL_DWELL_TIME
-        - AREA_DWELL_PROPORTION
     """
     aggregated_df = (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -645,25 +496,6 @@ def create_dwell_proportions(df):
     aggregated_df = aggregated_df.fillna(0)
 
     return aggregated_df
-
-
-def scale_pupil_area_to_mm(
-    pupil_area: pd.Series,
-    artificial_pupil_width_mm: float = 3.5,
-    avg_pupil_area: float = 1804.0,
-) -> pd.Series:
-    """
-    Convert pupil area (arbitrary units) to pupil diameter in mm.
-
-    Scaling:
-        diameter_mm = scaling_factor * sqrt(area)
-
-    where:
-        scaling_factor = artificial_pupil_width_mm / sqrt(avg_pupil_area)
-    """
-    pupil_area = pupil_area.replace(".", np.nan).astype(float)
-    scaling_factor = artificial_pupil_width_mm / np.sqrt(avg_pupil_area)
-    return scaling_factor * np.sqrt(pupil_area)
 
 
 def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
@@ -682,11 +514,9 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     agg_spec = {}
 
-    # mm outputs (existing constants)
     agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE] = (C.IA_MAX_FIX_PUPIL_SIZE, "mean")
     agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE] = (C.IA_MIN_FIX_PUPIL_SIZE, "mean")
     agg_spec[C.MEAN_AVG_FIX_PUPIL_SIZE] = (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean")
-
 
     agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MAX_FIX_PUPIL_SIZE}_z", "mean")
     agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MIN_FIX_PUPIL_SIZE}_z", "mean")
@@ -732,75 +562,34 @@ def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
     return first_fix[out_cols].rename(columns=rename_map)
 
 
-
-
 def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     """
     Determine the last-visited *answer* area label and screen location per trial,
     using the most recent fixation on one of the answer areas.
 
-    Logic
-    -----
-    1. Clean IA_LAST_FIXATION_TIME:
-       - Replace '.' placeholder with 0
-       - Convert to numeric (int)
-
-    2. Sort by:
-       - TRIAL_ID ascending
-       - PARTICIPANT_ID ascending
-       - IA_LAST_FIXATION_TIME descending
-       (so the most recent fixation is first per group)
-
-    3. Restrict to answer areas only
-       (exclude 'question' = ANSWER_LABEL_CHOICES[0])
-
-    4. Take the FIRST ROW per (TRIAL_ID, PARTICIPANT_ID)
-       This is the last fixation on an answer area.
-
-    5. Extract:
-       - last_visited_label     (AREA_LABEL_COLUMN)
-       - last_visited_location  (AREA_SCREEN_LOCATION)
-
-    Returns
-    -------
-    DataFrame with one row per trial and participant:
-        TRIAL_ID
-        PARTICIPANT_ID
-        last_visited_label
-        last_visited_location
-
-    Note
-    ----
-    If a trial never fixates any answer area (only 'question'), that trial
-    will not appear in the result
     """
     df_local = df.copy()
 
-    # 1) Clean fixation times
     df_local[C.IA_LAST_FIXATION_TIME] = (
         df_local[C.IA_LAST_FIXATION_TIME]
         .replace(".", 0)
         .astype(int)
     )
 
-    # 2) Sort by trial/participant + descending fixation time
     df_sorted = df_local.sort_values(
         by=[C.TRIAL_ID, C.PARTICIPANT_ID, C.IA_LAST_FIXATION_TIME],
         ascending=[True, True, False],
     )
 
-    # 3) Keep only answer areas (exclude 'question')
     answer_labels = [lab for lab in C.LABEL_CHOICES if lab != "question"]
     df_answers_only = df_sorted[df_sorted[C.AREA_LABEL_COLUMN].isin(answer_labels)]
 
-    # 4) Take the most recent answer-fixation per trial/participant
     last_fix = (
         df_answers_only
         .groupby([C.TRIAL_ID, C.PARTICIPANT_ID], as_index=False)
         .head(1)
     )
 
-    # 5) Rename to last-visited columns
     result = last_fix[
         [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN, C.AREA_SCREEN_LOCATION]
     ].rename(
@@ -831,27 +620,9 @@ def create_fixation_sequence_tags(df):
 
     Only IA_IDs that are present in the current group are used. The first element
     is dropped (label_sequence[1:], location_sequence[1:]) to exclude the very
-    first fixation from the sequence (usually spillover fixation from question reading)
+    first fixation from the sequence if the fixation is on the question and the following
+    fixation is not. This aims to eliminate spillover from the question screen fixation.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - INTEREST_AREA_ID
-        - AREA_LABEL_COLUMN
-        - AREA_SCREEN_LOCATION
-        - INTEREST_AREA_FIXATION_SEQUENCE
-
-    Returns
-    -------
-    DataFrame
-        One row per (TRIAL_ID, PARTICIPANT_ID) with:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - FIX_SEQUENCE_BY_LABEL    (list of labels)
-        - FIX_SEQUENCE_BY_LOCATION (list of locations)
     """
     result = []
     for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
@@ -870,14 +641,27 @@ def create_fixation_sequence_tags(df):
             if ia_id in group_ids:
                 label_sequence.append(id_to_label[ia_id])
                 location_sequence.append(id_to_location[ia_id])
+
+        if (
+                len(label_sequence) >= 2
+                and label_sequence[0] == "question"
+                and label_sequence[1] != "question"
+        ):
+            trimmed_labels = label_sequence[1:]
+            trimmed_locations = location_sequence[1:]
+        else:
+            trimmed_labels = label_sequence
+            trimmed_locations = location_sequence
+
         result.append({
             C.TRIAL_ID: trial_index,
             C.PARTICIPANT_ID: participant_id,
-            C.FIX_SEQUENCE_BY_LABEL: label_sequence[1:],
-            C.FIX_SEQUENCE_BY_LOCATION: location_sequence[1:]
+            C.FIX_SEQUENCE_BY_LABEL: trimmed_labels,
+            C.FIX_SEQUENCE_BY_LOCATION: trimmed_locations,
         })
 
     return pd.DataFrame(result)
+
 
 
 def create_simplified_fixation_tags(df):
@@ -905,63 +689,36 @@ def create_simplified_fixation_tags(df):
     The location sequence is compressed in parallel, taking the location
     of the first fixation in each run.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - INTEREST_AREA_ID
-        - AREA_LABEL_COLUMN
-        - AREA_SCREEN_LOCATION
-        - INTEREST_AREA_FIXATION_SEQUENCE
-
-    Returns
-    -------
-    DataFrame
-        One row per (TRIAL_ID, PARTICIPANT_ID) with:
-        - TRIAL_ID
-        - PARTICIPANT_ID
-        - SIMPLIFIED_FIX_SEQ_BY_LABEL    (tuple of labels)
-        - SIMPLIFIED_FIX_SEQ_BY_LOCATION (tuple of locations)
     """
-    result = []
-    for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
-        group_ids = set(group[C.INTEREST_AREA_ID].unique())
+    rows = []
+    for (trial_id, participant_id), g in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID], sort=False):
+        r = g.iloc[0]
 
-        id_to_label = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_LABEL_COLUMN]))
-        id_to_location = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_SCREEN_LOCATION]))
+        labels = list(r[C.FIX_SEQUENCE_BY_LABEL] or [])
+        locs = list(r[C.FIX_SEQUENCE_BY_LOCATION] or [])
 
-        sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
-        sequence = ast.literal_eval(sequence_str)
+        n = len(labels)
 
-        valid_fixations = []
-        for ia_id in sequence:
-            if ia_id in group_ids:
-                valid_fixations.append((
-                    ia_id,
-                    id_to_label[ia_id],
-                    id_to_location[ia_id],
-                ))
+        simpl_labels = []
+        simpl_locs = []
 
-        simpl_labels    = []
-        simpl_locations = []
+        prev_label = None
+        for lab, loc in zip(labels, locs):
+            if lab != prev_label:
+                simpl_labels.append(lab)
+                simpl_locs.append(loc)
+                prev_label = lab
 
-        for label, run in itertools.groupby(valid_fixations, key=lambda item: item[1]):
-            run_list = list(run)
-            simpl_labels.append(label)
-            simpl_locations.append(run_list[0][2])
-
-        result.append({
-            C.TRIAL_ID :       trial_index,
-            C.PARTICIPANT_ID:    participant_id,
-            C.SIMPLIFIED_FIX_SEQ_BY_LABEL:    tuple(simpl_labels[:]),
-            C.SIMPLIFIED_FIX_SEQ_BY_LOCATION:      tuple(simpl_locations[:]),
+        rows.append({
+            C.TRIAL_ID: trial_id,
+            C.PARTICIPANT_ID: participant_id,
+            C.SIMPLIFIED_FIX_SEQ_BY_LABEL: tuple(simpl_labels),
+            C.SIMPLIFIED_FIX_SEQ_BY_LOCATION: tuple(simpl_locs),
         })
-    return pd.DataFrame(result)
+
+    return pd.DataFrame(rows)
 
 
-from collections import Counter
 
 def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -1015,6 +772,7 @@ def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return out
+
 
 # ---------------------------------------------------------------------------
 #  Processing Pipelines
@@ -1131,6 +889,10 @@ def resolve_base_functions(name_list=None):
 
     If name_list is None, return ALL base functions from FUNCTION_REGISTRY
     in registry insertion order. Otherwise, return only the named ones.
+
+    can accept entries in name_list as either:
+    - "func_name"
+    - ("func_name", {override_kwargs})
     """
     # Case 1: no explicit list → use all base functions
     if name_list is None:
@@ -1193,7 +955,6 @@ def resolve_group_functions(name_list=None):
     # Case 2: explicit list
     resolved = []
     for item in name_list:
-        # Simple string: just a function name
         if isinstance(item, str):
             name = item
             if name not in FUNCTION_REGISTRY:
@@ -1204,7 +965,6 @@ def resolve_group_functions(name_list=None):
             resolved.append((entry["callable"], entry.get("default_kwargs", {})))
             continue
 
-        # Tuple: (function_name, user_kwargs)
         if isinstance(item, tuple) and len(item) == 2:
             name, user_kwargs = item
             if name not in FUNCTION_REGISTRY:
@@ -1277,9 +1037,11 @@ def generate_new_row_features(functions, df, default_join_columns=None,
 
     return result_df
 
+
 # ---------------------------------------------------------------------------
 #  Main
 # ---------------------------------------------------------------------------
+
 
 def main(
     ia_answers_path: str = "data_raw/full/ia_A.csv",
@@ -1298,22 +1060,6 @@ def main(
     4. Apply group-level features.
     5. Save output CSV files.
 
-    Parameters
-    ----------
-    ia_answers_path : str
-        Path to the raw answers CSV.
-    hunters_output_path : str
-        Output file path for hunter trials.
-    gatherers_output_path : str
-        Output file path for gatherer trials.
-    base_function_names : list or None
-        Optional override list of base-feature function names.
-        If None, defaults from FUNCTION_REGISTRY are used.
-    group_function_names : list or None
-        Optional override list for group-level functions.
-        If None, defaults from FUNCTION_REGISTRY are used.
-    verbose : bool
-        If True, prints progress.
     """
 
     os.makedirs(os.path.dirname(hunters_output_path), exist_ok=True)
