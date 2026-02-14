@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from src.predictive_modeling.common.data_utils import bootstrap_logreg_coef_cis
 
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import get_coef_summary as summary
@@ -109,6 +110,36 @@ class AreaMetricsCorrectnessLogRegModel:
 
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
+        fit_kwargs = dict(
+            max_iter=100000,
+            class_weight="balanced",
+        )
+
+        cluster = (
+            train_df[Con.PARTICIPANT_ID].to_numpy()
+            if Con.PARTICIPANT_ID in train_df.columns
+            else None
+        )
+
+        ci_df = bootstrap_logreg_coef_cis(
+            X=X,
+            y=train_df[Con.IS_CORRECT_COLUMN],
+            feature_names=self.feature_cols_,
+            fit_kwargs=fit_kwargs,
+            n_boot=1000,
+            ci=0.95,
+            seed=42,
+            cluster=cluster,
+        )
+
+        out = out.merge(
+            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+            on="feature",
+            how="left",
+        )
+
+        if top_k is not None:
+            out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
 
@@ -190,6 +221,36 @@ class DerivedFeaturesCorrectnessLogRegModel:
 
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
+        fit_kwargs = dict(
+            max_iter=100000,
+            class_weight="balanced",
+        )
+
+        cluster = (
+            train_df[Con.PARTICIPANT_ID].to_numpy()
+            if Con.PARTICIPANT_ID in train_df.columns
+            else None
+        )
+
+        ci_df = bootstrap_logreg_coef_cis(
+            X=X,
+            y=train_df[Con.IS_CORRECT_COLUMN],
+            feature_names=self.feature_cols_,
+            fit_kwargs=fit_kwargs,
+            n_boot=1000,
+            ci=0.95,
+            seed=42,
+            cluster=cluster,
+        )
+
+        out = out.merge(
+            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+            on="feature",
+            how="left",
+        )
+
+        if top_k is not None:
+            out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
 
@@ -282,6 +343,37 @@ class FullFeaturesCorrectnessLogRegModel:
             raise RuntimeError("Model has not been fitted yet.")
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
+
+        fit_kwargs = dict(
+            max_iter=100000,
+            class_weight="balanced",
+        )
+
+        cluster = (
+            train_df[Con.PARTICIPANT_ID].to_numpy()
+            if Con.PARTICIPANT_ID in train_df.columns
+            else None
+        )
+
+        ci_df = bootstrap_logreg_coef_cis(
+            X=X,
+            y=train_df[Con.IS_CORRECT_COLUMN],
+            feature_names=self.feature_cols_,
+            fit_kwargs=fit_kwargs,
+            n_boot=1000,
+            ci=0.95,
+            seed=42,
+            cluster=cluster,
+        )
+
+        out = out.merge(
+            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+            on="feature",
+            how="left",
+        )
+
+        if top_k is not None:
+            out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
 

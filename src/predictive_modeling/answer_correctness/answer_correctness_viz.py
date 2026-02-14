@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 from typing import Optional, Tuple
-from typing import Iterable, Mapping, Any, Dict
-
+from typing import Iterable, Mapping, Any, Dict, List
 
 import os
 
@@ -12,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import src.constants as Con
-
+from src.predictive_modeling.common.viz_utils import maybe_save_plot
 
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
@@ -88,104 +87,122 @@ def show_correctness_model_results(
             f"\n  macro   P/R/F1: {macro_p:.3f} / {macro_r:.3f} / {macro_f1:.3f}"
             f"\n  weighted P/R/F1: {weighted_p:.3f} / {weighted_r:.3f} / {weighted_f1:.3f}"
         )
-
-        cm = confusion_matrix(y_true, y_pred, labels=labels)
-        cm_df = pd.DataFrame(
-            cm,
-            index=[f"true_{l}" for l in labels],
-            columns=[f"pred_{l}" for l in labels],
-        )
-        print("\nConfusion Matrix:")
-        print(cm_df.to_string())
         print()
 
 
 
 def plot_coef_summary_barh(
     coef_summary: pd.DataFrame,
-    value_col: Optional[str] = 'standardized_coef',
-    top_k: int = 75,
+    value_col: Optional[str] = "coef",
+    top_k: int = 100,
     title: Optional[str] = None,
     model_name: Optional[str] = None,
-    h_or_g: Optional[str] = 'hunters',
+    h_or_g: Optional[str] = "hunters",
     figsize: Tuple[int, int] = (9, 7),
     save: bool = False,
-    output_dir: Optional[str] = '../reports/plots/answer_correctness_coefficients',
-    save_path: Optional[str] = None,
-) -> Tuple[plt.Figure, pd.DataFrame]:
+    rel_dir: str = "answer_correctness/coefficients",
+    filename: Optional[str] = None,
+    paper_dirs: Optional[list[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
     """
     Horizontal bar plot of top coefficients (by absolute magnitude).
-
+    If coef_summary contains ci_low/ci_high, overlay 95% CI error bars.
     """
 
     df = coef_summary.copy()
     abs_col = "abs_coef"
     df = df.sort_values(abs_col, ascending=False).head(int(top_k)).copy()
-
     df = df.sort_values(value_col, ascending=True)
 
     n_bars = len(df)
     row_height = 0.30
     min_height = 6
     max_height = 30
-
     height = min(max(min_height, n_bars * row_height), max_height)
 
     fig, ax = plt.subplots(figsize=(figsize[0], height))
-    ax.barh(df["feature"], df[value_col])
-    ax.axvline(0, linewidth=1)  # reference line at 0
+
+    y = np.arange(len(df))
+    x = pd.to_numeric(df[value_col], errors="coerce").fillna(0.0).to_numpy()
+    ax.barh(y, x)
+    ax.axvline(0, linewidth=1)
+
+    ax.set_yticks(y)
+
+    ax.set_yticklabels(df["feature"].tolist())
 
     ax.set_xlabel(value_col)
     ax.set_ylabel("feature")
     if title:
         ax.set_title(title)
 
+    if "ci_low" in df.columns and "ci_high" in df.columns:
+        lo = pd.to_numeric(df["ci_low"], errors="coerce").to_numpy()
+        hi = pd.to_numeric(df["ci_high"], errors="coerce").to_numpy()
+
+        mask = np.isfinite(lo) & np.isfinite(hi) & np.isfinite(x)
+        if mask.any():
+            xerr = np.vstack([x[mask] - lo[mask], hi[mask] - x[mask]])
+            ax.errorbar(
+                x[mask],
+                y[mask],
+                xerr=xerr,
+                fmt="none",
+                capsize=2,
+                linewidth=1,
+                color="black",
+                ecolor="black",
+            )
+
     if "odds_ratio" in df.columns:
-        for i, (_, row) in enumerate(df.iterrows()):
+        for i, row in enumerate(df.itertuples(index=False)):
             try:
-                or_val = float(row["odds_ratio"])
+                coef_val = float(getattr(row, value_col))
+                or_val = float(getattr(row, "odds_ratio"))
             except Exception:
                 continue
-            ax.text(
-                x=row[value_col],
-                y=i,
-                s=f"  OR={or_val:.2f}",
-                va="center",
-                fontsize=9,
-            )
+
 
     plt.tight_layout()
 
-    if save:
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            fig.savefig(save_path, dpi=200, bbox_inches="tight")
-        else:
-            os.makedirs(output_dir, exist_ok=True)
-            fname = f"{model_name}_{h_or_g}.png"
-            outpath = os.path.join(output_dir, fname)
-            fig.savefig(outpath, dpi=200, bbox_inches="tight")
+    if filename is None:
+        mn = model_name or "model"
+        hg = h_or_g or "group"
+        filename = f"{mn}_{hg}_top{top_k}_{value_col}"
 
-    if "__abs_tmp__" in df.columns:
-        df = df.drop(columns=["__abs_tmp__"])
-
-    return fig, df
+    saved_paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+    return fig, df, saved_paths
 
 
 
 
 def plot_top_abs_coef_feature_frequency_across_participants(
-        results_by_pid: Mapping[Any, Mapping[str, Any]],
-        model_name: str,
-        coef_col: str = "coef",
-        abs_col: Optional[str] = "abs_coef",
+    results_by_pid: Mapping[Any, Mapping[str, Any]],
+    model_name: str,
+    coef_col: str = "coef",
+    abs_col: Optional[str] = "abs_coef",
     top_k_within_participant: int = 3,
-        top_k_features: int = 30,
-        min_count: int = 1,
-        title: Optional[str] = None,
-        figsize: Tuple[int, int] = (10, 7),
-        save_path: Optional[str] = None,
-) -> Tuple[plt.Figure, pd.DataFrame]:
+    top_k_features: int = 30,
+    min_count: int = 1,
+    title: Optional[str] = None,
+    figsize: Tuple[int, int] = (10, 7),
+    save: bool = False,
+    rel_dir: str = "answer_correctness/feature_frequency",
+    filename: Optional[str] = None,
+    paper_dirs: Optional[list[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
     """
     For a given model, compute how often each feature appears in the TOP-K
     absolute coefficients per participant.
@@ -324,12 +341,20 @@ def plot_top_abs_coef_feature_frequency_across_participants(
 
     plt.tight_layout()
 
-    if save_path is not None:
-        import os
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    if filename is None:
+        filename = f"topcoef_freq_{model_name}_top{top_k_features}_k{top_k_within_participant}"
 
-    return fig, agg
+    saved_paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return fig, agg, saved_paths
 
 
 
@@ -424,8 +449,13 @@ def plot_top_features_by_best_avg_rank(
     min_participants: int = 1,
     figsize: Tuple[int, int] = (10, 8),
     title: Optional[str] = None,
-    save_path: Optional[str] = None,
-) -> plt.Figure:
+    save: bool = False,
+    rel_dir: str = "answer_correctness/avg_rank",
+    filename: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
     """
     Barh plot of the features with the *lowest* mean_rank (best, most consistently high-ranked).
     """
@@ -446,12 +476,20 @@ def plot_top_features_by_best_avg_rank(
 
     plt.tight_layout()
 
-    if save_path is not None:
-        import os
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    if filename is None:
+        filename = f"best_avg_rank_top{top_k}_min{min_participants}"
 
-    return fig
+    saved_paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return fig,df, saved_paths
 
 
 def plot_feature_correlation_heatmap(
@@ -460,11 +498,15 @@ def plot_feature_correlation_heatmap(
     *,
     method: str = "spearman",
     cluster_order: bool = True,
-    max_labels: int = 80,
     title: Optional[str] = None,
     figsize: Optional[Tuple[float, float]] = None,
-    save_path: Optional[str] = None,
-) -> Tuple[plt.Figure, pd.DataFrame]:
+    save: bool = False,
+    rel_dir: str = "answer_correctness/feature_correlation",
+    filename: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
     """
     Correlation heatmap for modeling features.
     """
@@ -523,8 +565,8 @@ def plot_feature_correlation_heatmap(
 
     ax.set_xticks(range(n))
     ax.set_yticks(range(n))
-    ax.set_xticklabels(labels, rotation=90, fontsize=12)
-    ax.set_yticklabels(labels, fontsize=12)
+    ax.set_xticklabels(labels, rotation=90, fontsize=14)
+    ax.set_yticklabels(labels, fontsize=14)
 
 
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -532,8 +574,18 @@ def plot_feature_correlation_heatmap(
 
     plt.tight_layout()
 
-    # if save_path is not None:
-    #     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    #     fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    if filename is None:
+        ord_tag = "clustered" if cluster_order else "plain"
+        filename = f"feature_corr_{method}_{ord_tag}_n{n}"
 
-    return fig, corr_ord
+    saved_paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return fig, corr_ord, saved_paths

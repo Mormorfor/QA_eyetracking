@@ -148,3 +148,84 @@ def get_coef_summary(model: LogisticRegression,
         out = out.head(int(top_k)).reset_index(drop=True)
 
     return out
+
+#--------------------------------
+# Stats
+#--------------------------------
+
+
+def bootstrap_logreg_coef_cis(
+    X: pd.DataFrame,
+    y: pd.Series,
+    *,
+    feature_names: list[str],
+    fit_kwargs: dict,
+    n_boot: int = 1000,
+    ci: float = 0.95,
+    seed: int = 42,
+    cluster: np.ndarray = None,
+) -> pd.DataFrame:
+    """
+    Bootstrap coefficient CIs for sklearn LogisticRegression.
+
+    - If cluster is None: classic row bootstrap (resample rows).
+    - If cluster is provided: cluster bootstrap (resample clusters with replacement,
+      keep all rows for selected clusters).
+
+    Returns a DF with:
+      feature, ci_low, ci_high, or_ci_low, or_ci_high, n_boot_ok
+    """
+    rng = np.random.default_rng(seed)
+    Xn = X.to_numpy()
+    yn = y.astype(int).to_numpy()
+
+    n, p = Xn.shape
+    boot = np.full((n_boot, p), np.nan, dtype=float)
+
+    if cluster is not None:
+        cluster = np.asarray(cluster)
+        uniq = pd.unique(cluster)
+        idx_by_c = {c: np.flatnonzero(cluster == c) for c in uniq}
+
+    ok = 0
+    for b in range(n_boot):
+        if cluster is None:
+            idx = rng.integers(0, n, size=n)
+        else:
+            sampled = rng.choice(uniq, size=len(uniq), replace=True)
+            idx = np.concatenate([idx_by_c[c] for c in sampled], axis=0)
+
+        Xb = Xn[idx]
+        yb = yn[idx]
+
+        # need both classes in the resample
+        if np.unique(yb).size < 2:
+            continue
+
+        m = LogisticRegression(**fit_kwargs)
+        m.fit(Xb, yb)
+
+        boot[ok, :] = m.coef_.reshape(-1)
+        ok += 1
+
+        if ok == n_boot:
+            break
+
+    boot = boot[:ok, :]
+    alpha = 1.0 - float(ci)
+    lo_q = 100 * (alpha / 2)
+    hi_q = 100 * (1 - alpha / 2)
+
+    ci_low = np.percentile(boot, lo_q, axis=0)
+    ci_high = np.percentile(boot, hi_q, axis=0)
+
+    out = pd.DataFrame({
+        "feature": feature_names,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+        "or_ci_low": np.exp(ci_low),
+        "or_ci_high": np.exp(ci_high),
+        "n_boot_ok": ok,
+    })
+    out["sig_ci"] = (out["ci_low"] > 0) | (out["ci_high"] < 0)
+    return out
