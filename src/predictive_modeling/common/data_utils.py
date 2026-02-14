@@ -119,7 +119,7 @@ def build_area_metric_pivot(
 
     metrics_pivot.columns = [
         f"{metric}__{area_label}"
-        for metric, area_label in metrics_pivot.columns.to_list()
+        for metric, area_label in metrics_pivot.columns
     ]
     metrics_pivot = metrics_pivot.reset_index()
     return metrics_pivot
@@ -129,7 +129,9 @@ def build_area_metric_pivot(
 def get_coef_summary(model: LogisticRegression,
                      feature_cols: List[str],
                      top_k: int = None):
-
+    """
+    Get a summary of coefficients from a fitted logistic regression model.
+    """
     coef = np.asarray(model.coef_).reshape(-1)
     out = pd.DataFrame(
         {

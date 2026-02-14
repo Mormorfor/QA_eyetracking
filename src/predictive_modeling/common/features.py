@@ -7,7 +7,7 @@ from src import constants as Con
 
 def map_last_location_to_position(
     series: pd.Series,
-    choices: Sequence[str] = Con.AREA_LOC_CHOICES,
+    choices: Sequence[str] = Con.LOC_CHOICES,
 ) -> pd.Series:
     """
     Map last_area_visited_loc values to numeric positions 0–3.

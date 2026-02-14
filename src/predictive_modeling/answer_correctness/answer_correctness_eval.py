@@ -54,18 +54,15 @@ def evaluate_models_on_answer_correctness(
     """
     High-level evaluation pipeline for answer-correctness prediction (is_correct).
     """
-    trial_df = builder_fn(
+    train_raw, test_raw = split_fn(
         df,
-        group_cols=group_cols,
-    )
-
-    train_df, test_df = split_fn(
-        trial_df,
         test_size=test_size,
         random_state=random_state,
         group_cols=split_group_cols,
     )
 
+    train_df = builder_fn(train_raw, group_cols=group_cols)
+    test_df = builder_fn(test_raw, group_cols=group_cols)
 
     y_true = test_df[target_col].astype(int).to_numpy()
     results: Dict[str, CorrectnessEvaluationResult] = {}

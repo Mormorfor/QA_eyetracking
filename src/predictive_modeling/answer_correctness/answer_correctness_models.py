@@ -13,6 +13,9 @@ from sklearn.preprocessing import StandardScaler
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import get_coef_summary as summary
 
+
+
+
 class AnswerCorrectnessModel(Protocol):
     name: str
 
@@ -69,7 +72,6 @@ class AreaMetricsCorrectnessLogRegModel:
                 col = f"{metric}__{area}"
                 if col in df.columns:
                     cols.append(col)
-
         return cols
 
 
