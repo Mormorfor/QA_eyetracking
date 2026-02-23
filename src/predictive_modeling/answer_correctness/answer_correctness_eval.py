@@ -1,7 +1,7 @@
 # answer_correctness_eval.py
 
 from dataclasses import dataclass
-from typing import Dict, Sequence, Callable, List
+from typing import Dict, Sequence, Callable, List, Literal
 
 import numpy as np
 import pandas as pd
@@ -50,6 +50,12 @@ def evaluate_models_on_answer_correctness(
     builder_fn: Callable = build_trial_level_with_area_metrics,
     split_fn: Callable = group_vise_train_test_split,
     target_col: str = Con.IS_CORRECT_COLUMN,
+    coef_ci_method: Literal["bootstrap", "wald", "none"] = "wald",
+    coef_ci_cluster: Literal["cluster", "row", "auto"] = "row",
+    coef_ci: float = 0.95,
+    coef_n_boot: int = 3000,
+    coef_seed: int = 42,
+    coef_top_k: int = None,
 ) -> Dict[str, CorrectnessEvaluationResult]:
     """
     High-level evaluation pipeline for answer-correctness prediction (is_correct).
@@ -74,8 +80,17 @@ def evaluate_models_on_answer_correctness(
         acc = float((y_true == y_pred).mean())
 
         coef_summary = None
-        if hasattr(model, "get_coef_summary"):
-            coef_summary = model.get_coef_summary(train_df)
+        get_cs = getattr(model, "get_coef_summary", None)
+        if callable(get_cs):
+            coef_summary = get_cs(
+                train_df=train_df,
+                top_k=coef_top_k,
+                ci_method=coef_ci_method,
+                ci_cluster=coef_ci_cluster,
+                ci=coef_ci,
+                n_boot=coef_n_boot,
+                seed=coef_seed,
+            )
 
         results[model.name] = CorrectnessEvaluationResult(
             train_df=train_df,

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, List
+from typing import Protocol, Sequence, List, Literal
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from src.predictive_modeling.common.data_utils import bootstrap_logreg_coef_cis
+from src.predictive_modeling.common.data_utils import bootstrap_logreg_coef_cis, wald_logreg_coef_cis
 
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import get_coef_summary as summary
@@ -96,52 +96,79 @@ class AreaMetricsCorrectnessLogRegModel:
 
         return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
 
-
     def get_coef_summary(
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
+            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
+            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
+            ci: float = 0.95,
+            n_boot: int = 5000,
+            seed: int = 42,
     ) -> pd.DataFrame:
         """
-        Return a coefficient summary table for the fitted LogisticRegression model.
+        Coef summary + optional CIs.
+
+        ci_method:
+          - "bootstrap": add bootstrap CIs
+          - "wald": add wald CIs
+
+        ci_cluster:
+          - "cluster": use participant cluster IDs (if available, else row)
+          - "row": Simple trial-level
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
-        fit_kwargs = dict(
-            max_iter=100000,
-            class_weight="balanced",
-        )
+        cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
-        cluster = (
-            train_df[Con.PARTICIPANT_ID].to_numpy()
-            if Con.PARTICIPANT_ID in train_df.columns
-            else None
-        )
+        if ci_cluster == "row":
+            cluster_used = None
+        elif ci_cluster == "cluster":
+            cluster_used = cluster
+        else:
+            cluster_used = None
 
-        ci_df = bootstrap_logreg_coef_cis(
-            X=X,
-            y=train_df[Con.IS_CORRECT_COLUMN],
-            feature_names=self.feature_cols_,
-            fit_kwargs=fit_kwargs,
-            n_boot=1000,
-            ci=0.95,
-            seed=42,
-            cluster=cluster,
-        )
+        if ci_method == "bootstrap":
+            fit_kwargs = dict(max_iter=100000, class_weight="balanced")
+            ci_df = bootstrap_logreg_coef_cis(
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                fit_kwargs=fit_kwargs,
+                n_boot=int(n_boot),
+                ci=float(ci),
+                seed=int(seed),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+                on="feature",
+                how="left",
+            )
 
-        out = out.merge(
-            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
-            on="feature",
-            how="left",
-        )
+        elif ci_method == "wald":
+            wald_df = wald_logreg_coef_cis(
+                model=self.model,
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                ci=float(ci),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
+                on="feature",
+                how="left",
+            )
+
+        else:
+            pass
 
         if top_k is not None:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
-
 
     def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
         X = self._prepare_X(train_df, fit=True)
@@ -207,47 +234,75 @@ class DerivedFeaturesCorrectnessLogRegModel:
 
         return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
 
-
     def get_coef_summary(
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
+            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
+            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
+            ci: float = 0.95,
+            n_boot: int = 5000,
+            seed: int = 42,
     ) -> pd.DataFrame:
         """
-        Return a coefficient summary table for the fitted LogisticRegression model.
+        Coef summary + optional CIs.
+
+        ci_method:
+          - "bootstrap": add bootstrap CIs
+          - "wald": add wald CIs
+
+        ci_cluster:
+          - "cluster": use participant cluster IDs (if available, else row)
+          - "row": Simple trial-level
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
-        fit_kwargs = dict(
-            max_iter=100000,
-            class_weight="balanced",
-        )
+        cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
-        cluster = (
-            train_df[Con.PARTICIPANT_ID].to_numpy()
-            if Con.PARTICIPANT_ID in train_df.columns
-            else None
-        )
+        if ci_cluster == "row":
+            cluster_used = None
+        elif ci_cluster == "cluster":
+            cluster_used = cluster
+        else:
+            cluster_used = None
 
-        ci_df = bootstrap_logreg_coef_cis(
-            X=X,
-            y=train_df[Con.IS_CORRECT_COLUMN],
-            feature_names=self.feature_cols_,
-            fit_kwargs=fit_kwargs,
-            n_boot=1000,
-            ci=0.95,
-            seed=42,
-            cluster=cluster,
-        )
+        if ci_method == "bootstrap":
+            fit_kwargs = dict(max_iter=100000, class_weight="balanced")
+            ci_df = bootstrap_logreg_coef_cis(
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                fit_kwargs=fit_kwargs,
+                n_boot=int(n_boot),
+                ci=float(ci),
+                seed=int(seed),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+                on="feature",
+                how="left",
+            )
 
-        out = out.merge(
-            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
-            on="feature",
-            how="left",
-        )
+        elif ci_method == "wald":
+            wald_df = wald_logreg_coef_cis(
+                model=self.model,
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                ci=float(ci),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
+                on="feature",
+                how="left",
+            )
+
+        else:
+            pass
 
         if top_k is not None:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
@@ -335,42 +390,72 @@ class FullFeaturesCorrectnessLogRegModel:
             self,
             train_df: pd.DataFrame,
             top_k: int = None,
+            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
+            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
+            ci: float = 0.95,
+            n_boot: int = 5000,
+            seed: int = 42,
     ) -> pd.DataFrame:
         """
-        Return a coefficient summary table for the fitted LogisticRegression model.
+        Coef summary + optional CIs.
+
+        ci_method:
+          - "bootstrap": add bootstrap CIs
+          - "wald": add wald CIs
+
+        ci_cluster:
+          - "cluster": use participant cluster IDs (if available, else row)
+          - "row": Simple trial-level
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
         X = self._prepare_X(train_df, fit=False)
         out = summary(self.model, self.feature_cols_, top_k)
+        cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
-        fit_kwargs = dict(
-            max_iter=100000,
-            class_weight="balanced",
-        )
+        if ci_cluster == "row":
+            cluster_used = None
+        elif ci_cluster == "cluster":
+            cluster_used = cluster
+        else:
+            cluster_used = None
 
-        cluster = (
-            train_df[Con.PARTICIPANT_ID].to_numpy()
-            if Con.PARTICIPANT_ID in train_df.columns
-            else None
-        )
+        if ci_method == "bootstrap":
+            fit_kwargs = dict(max_iter=100000, class_weight="balanced")
+            ci_df = bootstrap_logreg_coef_cis(
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                fit_kwargs=fit_kwargs,
+                n_boot=int(n_boot),
+                ci=float(ci),
+                seed=int(seed),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
+                on="feature",
+                how="left",
+            )
 
-        ci_df = bootstrap_logreg_coef_cis(
-            X=X,
-            y=train_df[Con.IS_CORRECT_COLUMN],
-            feature_names=self.feature_cols_,
-            fit_kwargs=fit_kwargs,
-            n_boot=1000,
-            ci=0.95,
-            seed=42,
-            cluster=cluster,
-        )
+        elif ci_method == "wald":
+            wald_df = wald_logreg_coef_cis(
+                model=self.model,
+                X=X,
+                y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
+                feature_names=self.feature_cols_,
+                ci=float(ci),
+                cluster=cluster_used,
+            )
+            out = out.merge(
+                wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
+                on="feature",
+                how="left",
+            )
 
-        out = out.merge(
-            ci_df[["feature", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_boot_ok"]],
-            on="feature",
-            how="left",
-        )
+        else:
+            pass
+
 
         if top_k is not None:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))

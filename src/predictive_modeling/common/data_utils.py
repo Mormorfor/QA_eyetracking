@@ -152,6 +152,97 @@ def get_coef_summary(model: LogisticRegression,
 #--------------------------------
 # Stats
 #--------------------------------
+import numpy as np
+import pandas as pd
+from scipy.stats import norm
+
+
+def wald_logreg_coef_cis(
+    model: LogisticRegression,
+    X: pd.DataFrame,
+    y: pd.Series,
+    feature_names: list[str],
+    ci: float = 0.95,
+    cluster: np.ndarray = None,
+    *,
+    include_intercept: bool = False,
+    use_pinv: bool = True,
+) -> pd.DataFrame:
+    """
+    Wald CIs for sklearn LogisticRegression coefficients.
+    """
+    Xn = np.asarray(X, dtype=float)
+    yn = np.asarray(y, dtype=float).reshape(-1)
+
+    n, p = Xn.shape
+
+    # --- predicted probabilities for class 1
+    p_hat = model.predict_proba(Xn)[:, 1]              # (n,)
+    w = p_hat * (1.0 - p_hat)                          # (n,)
+
+    # --- design matrix with intercept column
+    X_design = np.hstack([np.ones((n, 1)), Xn])        # (n, p+1)
+
+    # --- V is diagonal with w_i on diagonal; we avoid building full diag matrix
+    # A = X_design^T V X_design = (X_design * sqrt(w))^T (X_design * sqrt(w))
+    Xw = X_design * np.sqrt(w)[:, None]                # (n, p+1)
+    A = Xw.T @ Xw                                      # (p+1, p+1)
+
+    inv = np.linalg.pinv if use_pinv else np.linalg.inv
+    A_inv = inv(A)
+
+    # --- parameter vector including intercept (matches reference code)
+    theta = np.concatenate([model.intercept_.reshape(-1), model.coef_.reshape(-1)])  # (p+1,)
+
+    if cluster is None:
+        cov = A_inv
+        n_clusters = np.nan
+    else:
+        #TODO
+        cov = A_inv
+        n_clusters = np.nan
+        # cluster = np.asarray(cluster)
+        # uniq = pd.unique(cluster)
+        # n_clusters = len(uniq)
+        #
+        # # Score contributions u_i = x_i * (y_i - p_i), using X_design
+        # resid = yn - p_hat                              # (n,)
+        # U = X_design * resid[:, None]                   # (n, p+1)
+        #
+        # # Meat: sum_g U_g U_g^T where U_g = sum_{i in g} u_i
+        # S = np.zeros((p + 1, p + 1), dtype=float)
+        # for g in uniq:
+        #     idx = np.flatnonzero(cluster == g)
+        #     Ug = U[idx, :].sum(axis=0, keepdims=True)   # (1, p+1)
+        #     S += Ug.T @ Ug
+        #
+        # cov = A_inv @ S @ A_inv
+
+    # --- Wald CI
+    z = norm.ppf(1 - (1 - float(ci)) / 2)
+    se = np.sqrt(np.clip(np.diag(cov), 0, np.inf))      # (p+1,)
+
+    ci_low = theta - z * se
+    ci_high = theta + z * se
+
+    # --- build output
+    names = ["intercept"] + list(feature_names)
+
+    out = pd.DataFrame({
+        "feature": names,
+        "se": se,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+        "or_ci_low": np.exp(ci_low),
+        "or_ci_high": np.exp(ci_high),
+        "sig_ci": (ci_low > 0) | (ci_high < 0),
+        "n_clusters": n_clusters,
+    })
+
+    if not include_intercept:
+        out = out[out["feature"] != "intercept"].reset_index(drop=True)
+
+    return out
 
 
 def bootstrap_logreg_coef_cis(
