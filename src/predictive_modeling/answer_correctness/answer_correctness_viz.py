@@ -97,7 +97,7 @@ def plot_coef_summary_barh(
     top_k: int = 100,
     title: Optional[str] = None,
     model_name: Optional[str] = None,
-    h_or_g: Optional[str] = "hunters",
+    h_or_g: Optional[str] = "all_participants",
     figsize: Tuple[int, int] = (9, 7),
     save: bool = False,
     rel_dir: str = "answer_correctness/coefficients",
@@ -105,15 +105,51 @@ def plot_coef_summary_barh(
     paper_dirs: Optional[list[str]] = None,
     dpi: int = 300,
     close: bool = False,
+    significant_only: bool = True,
+    significance_eps: float = 0.0,
 ):
     """
-    Horizontal bar plot of top coefficients (by absolute magnitude).
-    If coef_summary contains ci_low/ci_high, overlay 95% CI error bars.
+    Horizontal bar plot of top coefficients (by absolute magnitude), overlay 95% CI error bars.
+    Can exclude insignificant.
     """
 
     df = coef_summary.copy()
-    abs_col = "abs_coef"
-    df = df.sort_values(abs_col, ascending=False).head(int(top_k)).copy()
+
+    df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
+    df["abs_coef"] = pd.to_numeric(df["abs_coef"], errors="coerce")
+    df["ci_low"] = pd.to_numeric(df["ci_low"], errors="coerce")
+    df["ci_high"] = pd.to_numeric(df["ci_high"], errors="coerce")
+
+    sig_mask = (df["ci_low"] > significance_eps) | (df["ci_high"] < -significance_eps)
+    df["significant"] = sig_mask
+
+    if significant_only:
+        df = df[df["significant"]].copy()
+
+    # if df.empty:
+    #     fig, ax = plt.subplots(figsize=figsize)
+    #     ax.axis("off")
+    #     if title:
+    #         ax.set_title(title)
+    #     plt.tight_layout()
+    #
+    #     if filename is None:
+    #         mn = model_name or "model"
+    #         hg = h_or_g or "group"
+    #         filename = f"{mn}_{hg}_top{top_k}_{value_col}_sigonly"
+    #
+    #     saved_paths = maybe_save_plot(
+    #         fig=fig,
+    #         save=save,
+    #         rel_dir=rel_dir,
+    #         filename=filename,
+    #         paper_dirs=paper_dirs,
+    #         dpi=dpi,
+    #         close=close,
+    #     )
+    #     return fig, df, saved_paths
+
+    df = df.sort_values("abs_coef", ascending=False).head(int(top_k)).copy()
     df = df.sort_values(value_col, ascending=True)
 
     n_bars = len(df)
@@ -125,12 +161,12 @@ def plot_coef_summary_barh(
     fig, ax = plt.subplots(figsize=(figsize[0], height))
 
     y = np.arange(len(df))
-    x = pd.to_numeric(df[value_col], errors="coerce").fillna(0.0).to_numpy()
+    x = df[value_col].to_numpy()
+
     ax.barh(y, x)
     ax.axvline(0, linewidth=1)
 
     ax.set_yticks(y)
-
     ax.set_yticklabels(df["feature"].tolist())
 
     ax.set_xlabel(value_col)
@@ -138,39 +174,30 @@ def plot_coef_summary_barh(
     if title:
         ax.set_title(title)
 
-    if "ci_low" in df.columns and "ci_high" in df.columns:
-        lo = pd.to_numeric(df["ci_low"], errors="coerce").to_numpy()
-        hi = pd.to_numeric(df["ci_high"], errors="coerce").to_numpy()
+    lo = df["ci_low"].to_numpy()
+    hi = df["ci_high"].to_numpy()
 
-        mask = np.isfinite(lo) & np.isfinite(hi) & np.isfinite(x)
-        if mask.any():
-            xerr = np.vstack([x[mask] - lo[mask], hi[mask] - x[mask]])
-            ax.errorbar(
-                x[mask],
-                y[mask],
-                xerr=xerr,
-                fmt="none",
-                capsize=2,
-                linewidth=1,
-                color="black",
-                ecolor="black",
-            )
-
-    if "odds_ratio" in df.columns:
-        for i, row in enumerate(df.itertuples(index=False)):
-            try:
-                coef_val = float(getattr(row, value_col))
-                or_val = float(getattr(row, "odds_ratio"))
-            except Exception:
-                continue
-
+    mask = np.isfinite(lo) & np.isfinite(hi) & np.isfinite(x)
+    if mask.any():
+        xerr = np.vstack([x[mask] - lo[mask], hi[mask] - x[mask]])
+        ax.errorbar(
+            x[mask],
+            y[mask],
+            xerr=xerr,
+            fmt="none",
+            capsize=2,
+            linewidth=1,
+            color="black",
+            ecolor="black",
+        )
 
     plt.tight_layout()
 
     if filename is None:
         mn = model_name or "model"
         hg = h_or_g or "group"
-        filename = f"{mn}_{hg}_top{top_k}_{value_col}"
+        suffix = "_sigonly" if significant_only else ""
+        filename = f"{mn}_{hg}_top{top_k}_{value_col}{suffix}"
 
     saved_paths = maybe_save_plot(
         fig=fig,

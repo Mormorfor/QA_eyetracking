@@ -1,7 +1,8 @@
 # answer_correctness_eval.py
 
 from dataclasses import dataclass
-from typing import Dict, Sequence, Callable, List, Literal
+from typing import Dict, Sequence, Callable, List, Literal, Optional
+
 
 import numpy as np
 import pandas as pd
@@ -13,13 +14,12 @@ from src.predictive_modeling.answer_correctness.answer_correctness_data import (
 from src.predictive_modeling.answer_correctness.answer_correctness_models import (
     AnswerCorrectnessModel,
 )
+
 from src.predictive_modeling.common.data_utils import (
     group_vise_train_test_split,
     leave_one_trial_out_for_participant,
 )
 
-
-from typing import Optional
 
 @dataclass
 class CorrectnessEvaluationResult:
@@ -32,6 +32,7 @@ class CorrectnessEvaluationResult:
     n_positive: int
     n_negative: int
     coef_summary: Optional[pd.DataFrame] = None
+
 
 
 @dataclass
@@ -172,3 +173,7 @@ def evaluate_models_on_answer_correctness_leave_one_trial_out(
             )
 
     return results
+
+
+
+

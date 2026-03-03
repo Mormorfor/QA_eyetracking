@@ -412,6 +412,11 @@ def create_mean_area_dwell_time(df):
    - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
    """
+    df[C.IA_DWELL_TIME] = (
+        df[C.IA_DWELL_TIME]
+        .replace(".", 0)
+        .astype(int)
+    )
     return (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
         .agg(**{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")})
@@ -429,6 +434,11 @@ def create_mean_area_fix_count(df):
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
     """
+    df[C.IA_FIXATIONS_COUNT] = (
+        df[C.IA_FIXATIONS_COUNT]
+        .replace(".", 0)
+        .astype(int)
+    )
     return (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
         .agg(**{C.MEAN_FIXATIONS_COUNT: (C.IA_FIXATIONS_COUNT, "mean")})
@@ -465,6 +475,11 @@ def create_skip_rate(df):
     - Compute the mean of AREA_SKIPPED → skip_rate
 
     """
+    df[C.IA_DWELL_TIME] = (
+        df[C.IA_DWELL_TIME]
+        .replace(".", 0)
+        .astype(int)
+    )
     df[C.AREA_SKIPPED] = (df[C.IA_DWELL_TIME] == 0).astype(int)
     return (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
@@ -485,6 +500,11 @@ def create_dwell_proportions(df):
 
     Any resulting NaN values (e.g., if TOTAL_TRIAL_DWELL_TIME is 0) are replaced by 0.
     """
+    df[C.IA_DWELL_TIME] = (
+        df[C.IA_DWELL_TIME]
+        .replace(".", 0)
+        .astype(int)
+    )
     aggregated_df = (
         df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
         .agg({C.IA_DWELL_TIME: 'sum'})
