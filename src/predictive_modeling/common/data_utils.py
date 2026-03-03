@@ -126,6 +126,49 @@ def build_area_metric_pivot(
 
 
 
+def add_answer_correct_wrong_contrast_columns(
+    df_pivot: pd.DataFrame,
+    metric_cols: Sequence[str],
+    sep: str = "__",
+    correct_label: str = "answer_A",
+    wrong_labels: Sequence[str] = ("answer_B", "answer_C", "answer_D"),
+    out_correct_suffix: str = "correct",
+    out_wrong_mean_suffix: str = "wrong_mean",
+    out_contrast_suffix: str = "contrast",
+) -> pd.DataFrame:
+    """
+    Given a pivoted trial-level dataframe that already contains columns like:
+        <metric>__answer_A, <metric>__answer_B, <metric>__answer_C, <metric>__answer_D
+    add:
+        <metric>__correct
+        <metric>__wrong_mean
+        <metric>__contrast
+
+    Does not drop any columns.
+    Assumes columns exist.
+    """
+    out = df_pivot.copy()
+
+    for metric in metric_cols:
+        a = f"{metric}{sep}{correct_label}"
+        bs = [f"{metric}{sep}{lbl}" for lbl in wrong_labels]
+
+        out_correct = f"{metric}{sep}{out_correct_suffix}"
+        out_wrong_mean = f"{metric}{sep}{out_wrong_mean_suffix}"
+        out_contrast = f"{metric}{sep}{out_contrast_suffix}"
+
+        out[a] = pd.to_numeric(out[a], errors="coerce")
+        for c in bs:
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+
+        out[out_correct] = out[a]
+        out[out_wrong_mean] = out[bs].mean(axis=1)
+        out[out_contrast] = out[out_correct] - out[out_wrong_mean]
+
+    return out
+
+
+
 def get_coef_summary(model: LogisticRegression,
                      feature_cols: List[str],
                      top_k: int = None):

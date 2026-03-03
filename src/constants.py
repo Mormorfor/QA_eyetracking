@@ -102,6 +102,17 @@ LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
 
 NUM_LABEL_VISITS = "num_label_visits"
 NUM_LOC_VISITS = "num_loc_visits"
+
+# ---------------------------------------------------------------------------
+# Derived (contrast) feature suffixes / helpers
+# ---------------------------------------------------------------------------
+
+DERIVED_CORRECT_SUFFIX = "correct"
+DERIVED_WRONG_MEAN_SUFFIX = "wrong_mean"
+DERIVED_CONTRAST_SUFFIX = "contrast"
+
+DERIVED_SEP = "__"
+
 # ---------------------------------------------------------------------------
 # Existing metrics
 # ---------------------------------------------------------------------------
@@ -136,5 +147,5 @@ AREA_METRIC_COLUMNS_VIZES = [
     MEAN_MIN_FIX_PUPIL_SIZE,
     FIRST_ENCOUNTER_AVG_PUPIL_SIZE,
     NUM_LABEL_VISITS,
-    NUM_LOC_VISITS,
+    #NUM_LOC_VISITS,
 ]

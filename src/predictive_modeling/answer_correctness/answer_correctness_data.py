@@ -6,7 +6,10 @@ import numpy as np
 import ast
 
 from src import constants as Con
-from src.predictive_modeling.common.data_utils import build_area_metric_pivot
+from src.predictive_modeling.common.data_utils import (
+    build_area_metric_pivot,
+    add_answer_correct_wrong_contrast_columns
+)
 
 from src.derived.correctness_measures import (
     has_back_and_forth_xyx,
@@ -43,6 +46,13 @@ def build_trial_level_with_area_metrics(
         group_cols=group_cols,
         area_col=area_col,
         metric_cols=metric_cols,
+    )
+    metrics_pivot = add_answer_correct_wrong_contrast_columns(
+        df_pivot=metrics_pivot,
+        metric_cols=metric_cols,
+        sep="__",
+        correct_label="answer_A",
+        wrong_labels=("answer_B", "answer_C", "answer_D"),
     )
     trial_df = trial_core.merge(metrics_pivot, on=list(group_cols), how="left")
     return trial_df
