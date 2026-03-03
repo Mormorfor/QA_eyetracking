@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, List, Literal
+from typing import Protocol, Sequence, List, Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,10 @@ from src.predictive_modeling.common.data_utils import get_coef_summary as summar
 class AnswerCorrectnessModel(Protocol):
     name: str
 
-    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
+    def fit(self, train_df: pd.DataFrame, target_col: str, feature_cols: Optional[Sequence[str]] = None) -> None:
         ...
 
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    def predict(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]] = None) -> np.ndarray:
         ...
 
 
@@ -39,12 +39,12 @@ class MajorityBaselineCorrectness:
     name: str = "majority_baseline"
     majority_label_: int = None
 
-    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
+    def fit(self, train_df: pd.DataFrame, target_col: str, feature_cols: Optional[Sequence[str]] = None) -> None:
         y = train_df[target_col].astype(int)
         counts = y.value_counts()
         self.majority_label_ = int(counts.idxmax())
 
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    def predict(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]] = None) -> np.ndarray:
         return np.full(len(df), self.majority_label_, dtype=int)
 
 
@@ -67,21 +67,34 @@ class AreaMetricsCorrectnessLogRegModel:
     feature_cols_: List[str] = field(default_factory=list, init=False)
 
     def _build_feature_columns(self, df: pd.DataFrame) -> List[str]:
+        # Default: all <metric>__<area> combinations (no existence checks needed)
         cols: List[str] = []
         for metric in Con.AREA_METRIC_COLUMNS_MODELING:
             for area in Con.LABEL_CHOICES:
-                col = f"{metric}__{area}"
-                if col in df.columns:
-                    cols.append(col)
+                cols.append(f"{metric}__{area}")
         return cols
 
+    def _resolve_feature_cols(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]]) -> List[str]:
+        if feature_cols is not None:
+            return list(feature_cols)
 
-    def _prepare_X(self, df: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
-        temp = df.copy()
-        if fit or not self.feature_cols_:
-            self.feature_cols_ = self._build_feature_columns(temp)
+        if not self.feature_cols_:
+            self.feature_cols_ = self._build_feature_columns(df)
+        return self.feature_cols_
 
-        X = df[self.feature_cols_].copy()
+    def _prepare_X(
+        self,
+        df: pd.DataFrame,
+        *,
+        fit: bool = False,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> pd.DataFrame:
+        cols = self._resolve_feature_cols(df, feature_cols)
+
+        if feature_cols is not None:
+            self.feature_cols_ = list(cols)
+
+        X = df[cols].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
         X = X.fillna(0.0)
@@ -94,7 +107,8 @@ class AreaMetricsCorrectnessLogRegModel:
                 raise RuntimeError("Scaler has not been fitted.")
             X_scaled = self.scaler_.transform(X)
 
-        return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
+        return pd.DataFrame(X_scaled, columns=cols, index=df.index)
+
 
     def get_coef_summary(
             self,
@@ -105,6 +119,7 @@ class AreaMetricsCorrectnessLogRegModel:
             ci: float = 0.95,
             n_boot: int = 5000,
             seed: int = 42,
+            feature_cols: Optional[Sequence[str]] = None,
     ) -> pd.DataFrame:
         """
         Coef summary + optional CIs.
@@ -119,8 +134,9 @@ class AreaMetricsCorrectnessLogRegModel:
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-        X = self._prepare_X(train_df, fit=False)
-        out = summary(self.model, self.feature_cols_, top_k)
+        X = self._prepare_X(train_df, fit=False, feature_cols=feature_cols)
+        cols_used = list(X.columns)
+        out = summary(self.model, cols_used, top_k)
         cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
         if ci_cluster == "row":
@@ -155,7 +171,6 @@ class AreaMetricsCorrectnessLogRegModel:
                 y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
                 feature_names=self.feature_cols_,
                 ci=float(ci),
-                cluster=cluster_used,
             )
             out = out.merge(
                 wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
@@ -170,8 +185,13 @@ class AreaMetricsCorrectnessLogRegModel:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
-    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
-        X = self._prepare_X(train_df, fit=True)
+    def fit(
+        self,
+        train_df: pd.DataFrame,
+        target_col: str,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> None:
+        X = self._prepare_X(train_df, fit=True, feature_cols=feature_cols)
         y = train_df[target_col].astype(int)
 
         self.model = LogisticRegression(
@@ -180,12 +200,15 @@ class AreaMetricsCorrectnessLogRegModel:
         )
         self.model.fit(X, y)
 
-
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    def predict(
+        self,
+        df: pd.DataFrame,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
 
-        X = self._prepare_X(df, fit=False)
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
 
 
@@ -213,13 +236,31 @@ class DerivedFeaturesCorrectnessLogRegModel:
 
     def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
         pref_cols = [c for c in df.columns if c.startswith("pref_matching__")]
-        return self.base_feature_cols_ + sorted(pref_cols)
+        return list(self.base_feature_cols_) + sorted(pref_cols)
 
-    def _prepare_X(self, df: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
-        if fit or not self.feature_cols_:
+
+    def _resolve_feature_cols(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]]) -> List[str]:
+        if feature_cols is not None:
+            return list(feature_cols)
+
+        if not self.feature_cols_:
             self.feature_cols_ = self._build_feature_cols(df)
+        return self.feature_cols_
 
-        X = df[self.feature_cols_].copy()
+
+    def _prepare_X(
+            self,
+            df: pd.DataFrame,
+            *,
+            fit: bool = False,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> pd.DataFrame:
+        cols = self._resolve_feature_cols(df, feature_cols)
+
+        if feature_cols is not None:
+            self.feature_cols_ = list(cols)
+
+        X = df[cols].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
         X = X.fillna(0.0)
@@ -232,7 +273,7 @@ class DerivedFeaturesCorrectnessLogRegModel:
                 raise RuntimeError("Scaler has not been fitted.")
             X_scaled = self.scaler_.transform(X)
 
-        return pd.DataFrame(X_scaled, columns=self.feature_cols_, index=df.index)
+        return pd.DataFrame(X_scaled, columns=cols, index=df.index)
 
     def get_coef_summary(
             self,
@@ -243,6 +284,7 @@ class DerivedFeaturesCorrectnessLogRegModel:
             ci: float = 0.95,
             n_boot: int = 5000,
             seed: int = 42,
+            feature_cols: Optional[Sequence[str]] = None,
     ) -> pd.DataFrame:
         """
         Coef summary + optional CIs.
@@ -257,8 +299,9 @@ class DerivedFeaturesCorrectnessLogRegModel:
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-        X = self._prepare_X(train_df, fit=False)
-        out = summary(self.model, self.feature_cols_, top_k)
+        X = self._prepare_X(train_df, fit=False, feature_cols=feature_cols)
+        cols_used = list(X.columns)
+        out = summary(self.model, cols_used, top_k)
         cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
         if ci_cluster == "row":
@@ -293,7 +336,6 @@ class DerivedFeaturesCorrectnessLogRegModel:
                 y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
                 feature_names=self.feature_cols_,
                 ci=float(ci),
-                cluster=cluster_used,
             )
             out = out.merge(
                 wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
@@ -308,9 +350,13 @@ class DerivedFeaturesCorrectnessLogRegModel:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
-
-    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
-        X = self._prepare_X(train_df, fit=True)
+    def fit(
+            self,
+            train_df: pd.DataFrame,
+            target_col: str,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> None:
+        X = self._prepare_X(train_df, fit=True, feature_cols=feature_cols)
         y = train_df[target_col].astype(int)
 
         self.model = LogisticRegression(
@@ -319,12 +365,15 @@ class DerivedFeaturesCorrectnessLogRegModel:
         )
         self.model.fit(X, y)
 
-
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    def predict(
+            self,
+            df: pd.DataFrame,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
 
-        X = self._prepare_X(df, fit=False)
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
 
 
@@ -365,12 +414,28 @@ class FullFeaturesCorrectnessLogRegModel:
 
         return cols
 
+    def _resolve_feature_cols(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]]) -> List[str]:
+        if feature_cols is not None:
+            return list(feature_cols)
 
-    def _prepare_X(self, df: pd.DataFrame, fit: bool = False) -> pd.DataFrame:
-        if fit or not self.feature_cols_:
+        if not self.feature_cols_:
             self.feature_cols_ = self._build_feature_cols(df)
+        return self.feature_cols_
 
-        X = df[self.feature_cols_].copy()
+    def _prepare_X(
+            self,
+            df: pd.DataFrame,
+            *,
+            fit: bool = False,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> pd.DataFrame:
+
+        cols = self._resolve_feature_cols(df, feature_cols)
+
+        if feature_cols is not None:
+            self.feature_cols_ = list(cols)
+
+        X = df[cols].copy()
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
         X = X.fillna(0.0)
@@ -395,6 +460,7 @@ class FullFeaturesCorrectnessLogRegModel:
             ci: float = 0.95,
             n_boot: int = 5000,
             seed: int = 42,
+            feature_cols: Optional[Sequence[str]] = None,
     ) -> pd.DataFrame:
         """
         Coef summary + optional CIs.
@@ -409,8 +475,10 @@ class FullFeaturesCorrectnessLogRegModel:
         """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-        X = self._prepare_X(train_df, fit=False)
-        out = summary(self.model, self.feature_cols_, top_k)
+        X = self._prepare_X(train_df, fit=False, feature_cols=feature_cols)
+        cols_used = list(X.columns)
+
+        out = summary(self.model, cols_used, top_k)
         cluster = train_df[Con.PARTICIPANT_ID].to_numpy()
 
         if ci_cluster == "row":
@@ -445,7 +513,6 @@ class FullFeaturesCorrectnessLogRegModel:
                 y=train_df[Con.IS_CORRECT_COLUMN].astype(int),
                 feature_names=self.feature_cols_,
                 ci=float(ci),
-                cluster=cluster_used,
             )
             out = out.merge(
                 wald_df[["feature", "se", "ci_low", "ci_high", "or_ci_low", "or_ci_high", "sig_ci", "n_clusters"]],
@@ -461,9 +528,13 @@ class FullFeaturesCorrectnessLogRegModel:
             out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
         return out
 
-
-    def fit(self, train_df: pd.DataFrame, target_col: str) -> None:
-        X = self._prepare_X(train_df, fit=True)
+    def fit(
+            self,
+            train_df: pd.DataFrame,
+            target_col: str,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> None:
+        X = self._prepare_X(train_df, fit=True, feature_cols=feature_cols)
         y = train_df[target_col].astype(int)
 
         self.model = LogisticRegression(
@@ -473,10 +544,14 @@ class FullFeaturesCorrectnessLogRegModel:
         self.model.fit(X, y)
 
 
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    def predict(
+        self,
+        df: pd.DataFrame,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
 
-        X = self._prepare_X(df, fit=False)
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
 

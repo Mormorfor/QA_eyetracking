@@ -175,7 +175,7 @@ def wald_logreg_coef_cis(
 
     n, p = Xn.shape
 
-    p_hat = model.predict_proba(Xn)[:, 1]
+    p_hat = model.predict_proba(X)[:, 1]
     w = p_hat * (1.0 - p_hat)
 
     X_design = np.hstack([np.ones((n, 1)), Xn])

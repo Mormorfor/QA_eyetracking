@@ -1,7 +1,7 @@
 # answer_correctness_eval.py
 
 from dataclasses import dataclass
-from typing import Dict, Sequence, Callable, List, Literal, Optional
+from typing import Dict, Sequence, Callable, List, Literal, Optional, Mapping
 
 
 import numpy as np
@@ -57,6 +57,10 @@ def evaluate_models_on_answer_correctness(
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
     coef_top_k: int = None,
+
+    feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
+    # one feature set for all models (overrides dict if provided)
+    feature_cols: Optional[Sequence[str]] = None,
 ) -> Dict[str, CorrectnessEvaluationResult]:
     """
     High-level evaluation pipeline for answer-correctness prediction (is_correct).
@@ -75,8 +79,14 @@ def evaluate_models_on_answer_correctness(
     results: Dict[str, CorrectnessEvaluationResult] = {}
 
     for model in models:
-        model.fit(train_df, target_col=target_col)
-        y_pred = model.predict(test_df)
+        feat_cols = None
+        if feature_cols is not None:
+            feat_cols = list(feature_cols)
+        elif feature_cols_by_model is not None and model.name in feature_cols_by_model:
+            feat_cols = list(feature_cols_by_model[model.name])
+
+        model.fit(train_df, target_col=target_col, feature_cols=feat_cols)
+        y_pred = model.predict(test_df, feature_cols=feat_cols)
 
         acc = float((y_true == y_pred).mean())
 
@@ -91,6 +101,7 @@ def evaluate_models_on_answer_correctness(
                 ci=coef_ci,
                 n_boot=coef_n_boot,
                 seed=coef_seed,
+                feature_cols=feat_cols,
             )
 
         results[model.name] = CorrectnessEvaluationResult(
