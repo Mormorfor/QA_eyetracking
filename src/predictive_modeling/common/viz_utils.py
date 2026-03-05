@@ -94,3 +94,4 @@ def plot_confusion_heatmap(
     )
 
     return fig, cm_df, saved_paths
+

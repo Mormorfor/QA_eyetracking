@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
+import pandas as pd
+from typing import List, Optional
 
 
 def project_root():
@@ -37,7 +39,7 @@ def save_plot(
 
     if paper_dirs:
         for p in paper_dirs:
-            paper_dir = root / p / rel_dir
+            paper_dir = root / p / "figures" / rel_dir
             os.makedirs(paper_dir, exist_ok=True)
 
             paper_path = paper_dir / f"{filename}.{ext}"
@@ -47,5 +49,43 @@ def save_plot(
 
     if close:
         plt.close(fig)
+
+    return saved_paths
+
+
+
+
+def save_df_csv(
+    df: pd.DataFrame,
+    *,
+    rel_dir: str = "",
+    filename: str = "table",
+    paper_dirs: Optional[List[str]] = None,
+) -> List[str]:
+    """
+    Always saves to:
+        reports/report_data/<rel_dir>/<filename>.csv
+
+    Optionally mirrors to each directory in paper_dirs:
+        <paper_dir>/<rel_dir>/<filename>.csv
+    """
+    root = project_root()
+
+    main_dir = root / "reports" / "report_data" / rel_dir
+    os.makedirs(main_dir, exist_ok=True)
+
+    main_path = main_dir / f"{filename}.csv"
+    df.to_csv(main_path, index=False)
+
+    saved_paths = [str(main_path)]
+
+    if paper_dirs:
+        for p in paper_dirs:
+            paper_dir = root / p / "report_data" / rel_dir
+            os.makedirs(paper_dir, exist_ok=True)
+
+            paper_path = paper_dir / f"{filename}.csv"
+            df.to_csv(paper_path, index=False)
+            saved_paths.append(str(paper_path))
 
     return saved_paths

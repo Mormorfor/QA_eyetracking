@@ -89,6 +89,55 @@ def show_correctness_model_results(
         )
         print()
 
+def correctness_results_to_summary_df(
+    results: Mapping[str, CorrectnessEvaluationResult],
+    labels: Iterable[int] = (0, 1),
+) -> pd.DataFrame:
+    labels = list(labels)
+
+    rows = []
+    for model_name, res in results.items():
+        y_true = np.asarray(res.y_true)
+        y_pred = np.asarray(res.y_pred)
+
+        # per-class
+        prec, rec, f1, support = precision_recall_fscore_support(
+            y_true, y_pred, labels=labels, average=None, zero_division=0
+        )
+
+        # macro / weighted
+        macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, labels=labels, average="macro", zero_division=0
+        )
+        weighted_p, weighted_r, weighted_f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, labels=labels, average="weighted", zero_division=0
+        )
+
+        row = {
+            "model": model_name,
+            "n_test": res.n_test,
+            "accuracy": res.accuracy,
+            "n_positive": res.n_positive,
+            "n_negative": res.n_negative,
+            "macro_precision": macro_p,
+            "macro_recall": macro_r,
+            "macro_f1": macro_f1,
+            "weighted_precision": weighted_p,
+            "weighted_recall": weighted_r,
+            "weighted_f1": weighted_f1,
+        }
+
+        # class-specific columns
+        for i, lab in enumerate(labels):
+            row[f"precision_class_{lab}"] = prec[i]
+            row[f"recall_class_{lab}"] = rec[i]
+            row[f"f1_class_{lab}"] = f1[i]
+            row[f"support_class_{lab}"] = support[i]
+
+        rows.append(row)
+
+    return pd.DataFrame(rows).sort_values(["accuracy", "macro_f1"], ascending=False).reset_index(drop=True)
+
 
 
 def plot_coef_summary_barh(
