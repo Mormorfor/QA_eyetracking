@@ -132,22 +132,35 @@ def add_answer_correct_wrong_contrast_columns(
     sep: str = "__",
     correct_label: str = "answer_A",
     wrong_labels: Sequence[str] = ("answer_B", "answer_C", "answer_D"),
-    out_correct_suffix: str = "correct",
-    out_wrong_mean_suffix: str = "wrong_mean",
-    out_contrast_suffix: str = "contrast",
+    out_correct_suffix: str = Con.CORRECT_SUFFIX,
+    out_wrong_mean_suffix: str = Con.WRONG_MEAN_SUFFIX,
+    out_contrast_suffix: str = Con.CONTRAST_SUFFIX,
+    out_distance_furthest_suffix: str = Con.DISTANCE_FURTHEST_SUFFIX,
+    out_distance_closest_suffix: str = Con.DISTANCE_CLOSEST_SUFFIX,
 ) -> pd.DataFrame:
     """
     Given a pivoted trial-level dataframe that already contains columns like:
         <metric>__answer_A, <metric>__answer_B, <metric>__answer_C, <metric>__answer_D
+
     add:
         <metric>__correct
         <metric>__wrong_mean
         <metric>__contrast
+        <metric>__distance_furthest
+        <metric>__distance_closest
+
+    where:
+        correct             = value of the correct answer
+        wrong_mean          = mean value across wrong answers
+        contrast            = correct - wrong_mean
+        distance_furthest   = max absolute distance between correct and any wrong answer
+        distance_closest    = min absolute distance between correct and any wrong answer
 
     Does not drop any columns.
     Assumes columns exist.
     """
-    out = df_pivot.copy()
+    base = df_pivot.copy()
+    new_cols = {}
 
     for metric in metric_cols:
         a = f"{metric}{sep}{correct_label}"
@@ -156,14 +169,24 @@ def add_answer_correct_wrong_contrast_columns(
         out_correct = f"{metric}{sep}{out_correct_suffix}"
         out_wrong_mean = f"{metric}{sep}{out_wrong_mean_suffix}"
         out_contrast = f"{metric}{sep}{out_contrast_suffix}"
+        out_distance_furthest = f"{metric}{sep}{out_distance_furthest_suffix}"
+        out_distance_closest = f"{metric}{sep}{out_distance_closest_suffix}"
 
-        out[a] = pd.to_numeric(out[a], errors="coerce")
-        for c in bs:
-            out[c] = pd.to_numeric(out[c], errors="coerce")
+        correct_vals = pd.to_numeric(base[a], errors="coerce")
+        wrong_vals = base[bs].apply(pd.to_numeric, errors="coerce")
 
-        out[out_correct] = out[a]
-        out[out_wrong_mean] = out[bs].mean(axis=1)
-        out[out_contrast] = out[out_correct] - out[out_wrong_mean]
+        wrong_mean = wrong_vals.mean(axis=1)
+        contrast = correct_vals - wrong_mean
+        abs_diffs = wrong_vals.sub(correct_vals, axis=0).abs()
+
+        new_cols[out_correct] = correct_vals
+        new_cols[out_wrong_mean] = wrong_mean
+        new_cols[out_contrast] = contrast
+        new_cols[out_distance_furthest] = abs_diffs.max(axis=1)
+        new_cols[out_distance_closest] = abs_diffs.min(axis=1)
+
+    derived_df = pd.DataFrame(new_cols, index=base.index)
+    out = pd.concat([base, derived_df], axis=1)
 
     return out
 

@@ -44,13 +44,14 @@ def _base_rel_dir(split_tag: str, subdir: Optional[str]) -> str:
 
 def run_full_features_correctness_bundle(
     df: pd.DataFrame,
-    feature_cols: Sequence[str],
     split_group_cols: Sequence[str],
+    feature_cols: Optional[Sequence[str]] = None,
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
     pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
     pref_extreme_mode: str = "polarity",
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
+    save: bool = True,
     paper_dirs: Optional[List[str]] = None,
     dpi: int = 300,
     close: bool = False,
@@ -63,7 +64,11 @@ def run_full_features_correctness_bundle(
     split_tag = _split_tag(split_group_cols)
     base_dir = _base_rel_dir(split_tag, subdir)
 
-    feature_cols_by_model = {model_name: list(feature_cols)}
+    feature_cols_by_model = (
+        {model_name: list(feature_cols)}
+        if feature_cols is not None
+        else None
+    )
 
     def builder_fn_local(d: pd.DataFrame, group_cols=group_cols):
         return build_trial_level_all_features(
@@ -87,13 +92,15 @@ def run_full_features_correctness_bundle(
     show_correctness_model_results(results)
 
     # save CSV summary next to plots
-    summary_df = correctness_results_to_summary_df(results)
-    summary_paths = save_df_csv(
-        summary_df,
-        rel_dir=base_dir,  # same base directory used for plots
-        filename="model_summary",
-        paper_dirs=paper_dirs,
-    )
+    summary_paths = None
+    if save:
+        summary_df = correctness_results_to_summary_df(results)
+        summary_paths = save_df_csv(
+            summary_df,
+            rel_dir=base_dir,
+            filename="model_summary",
+            paper_dirs=paper_dirs,
+        )
 
     res = results[model_name]
 
@@ -106,7 +113,7 @@ def run_full_features_correctness_bundle(
         labels=(0, 1),
         normalize=True,
         title=f"{model_name} – normalized confusion",
-        save=True,
+        save=save,
         rel_dir=f"{base_dir}/confusion",
         filename=f"{model_name}_normalized_confusion",
         paper_dirs=paper_dirs,
@@ -126,7 +133,7 @@ def run_full_features_correctness_bundle(
             value_col="coef",
             model_name=model_name,
             title=f"{model_name} – coefficients",
-            save=True,
+            save=save,
             rel_dir=f"{base_dir}/coefficients",
             filename=f"{model_name}_coef_all",
             paper_dirs=paper_dirs,
@@ -140,7 +147,7 @@ def run_full_features_correctness_bundle(
             value_col="coef",
             model_name=model_name,
             title=f"{model_name} – significant coefficients",
-            save=True,
+            save=save,
             rel_dir=f"{base_dir}/coefficients",
             filename=f"{model_name}_coef_significant",
             paper_dirs=paper_dirs,
@@ -159,15 +166,17 @@ def run_full_features_correctness_bundle(
         pref_extreme_mode=pref_extreme_mode,
     )
 
+    corr_feature_cols = list(model.feature_cols_)
+
     fig_corr, corr_df, corr_paths = plot_feature_correlation_heatmap(
         trial_df,
-        feature_cols=list(feature_cols),
+        feature_cols=list(corr_feature_cols),
         figsize=(30, 30),
         method="pearson",
         cluster_order=True,
-        save=True,
+        save=save,
         rel_dir=f"{base_dir}/diagnostics/feature_correlation",
-        filename=f"feature_corr_clustered_n{len(feature_cols)}",
+        filename=f"feature_corr_clustered_n{len(corr_feature_cols)}",
         paper_dirs=paper_dirs,
         dpi=dpi,
         close=close,

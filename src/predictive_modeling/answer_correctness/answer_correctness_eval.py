@@ -83,7 +83,8 @@ def evaluate_models_on_answer_correctness(
         if feature_cols is not None:
             feat_cols = list(feature_cols)
         elif feature_cols_by_model is not None and model.name in feature_cols_by_model:
-            feat_cols = list(feature_cols_by_model[model.name])
+            model_feature_cols = feature_cols_by_model[model.name]
+            feat_cols = None if model_feature_cols is None else list(model_feature_cols)
 
         model.fit(train_df, target_col=target_col, feature_cols=feat_cols)
         y_pred = model.predict(test_df, feature_cols=feat_cols)

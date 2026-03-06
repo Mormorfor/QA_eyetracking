@@ -124,7 +124,6 @@ def build_trial_level_with_derived_metrics(
             direction=direction,
             extreme_mode=pref_extreme_mode,
             out_col="pref_group",
-            #group_cols=group_cols,
         )
 
         feat_col = _safe_pref_feature_name(metric_col, direction)

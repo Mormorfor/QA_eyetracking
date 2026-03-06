@@ -107,9 +107,11 @@ NUM_LOC_VISITS = "num_loc_visits"
 # Derived (contrast) feature suffixes / helpers
 # ---------------------------------------------------------------------------
 
-DERIVED_CORRECT_SUFFIX = "correct"
-DERIVED_WRONG_MEAN_SUFFIX = "wrong_mean"
-DERIVED_CONTRAST_SUFFIX = "contrast"
+CORRECT_SUFFIX = "correct"
+WRONG_MEAN_SUFFIX = "wrong_mean"
+CONTRAST_SUFFIX = "contrast"
+DISTANCE_FURTHEST_SUFFIX = "distance_furthest"
+DISTANCE_CLOSEST_SUFFIX = "distance_closest"
 
 DERIVED_SEP = "__"
 
