@@ -1,7 +1,7 @@
 # answer_correctness_eval.py
 
 from dataclasses import dataclass
-from typing import Dict, Sequence, Callable, List, Literal, Optional, Mapping
+from typing import Dict, Sequence, Callable, List, Literal, Optional, Mapping, Tuple
 
 
 import numpy as np
@@ -19,6 +19,45 @@ from src.predictive_modeling.common.data_utils import (
     group_vise_train_test_split,
     leave_one_trial_out_for_participant,
 )
+from src.predictive_modeling.answer_correctness.answer_correctness_data import (
+    build_trial_level_all_features
+)
+
+
+
+def build_feature_trial_df(
+    df: pd.DataFrame,
+    feature_cols: Optional[Sequence[str]] = None,
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
+    pref_extreme_mode: str = "polarity",
+    keep_extra_cols: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """
+    Build trial-level feature dataframe without fitting any model.
+    """
+    trial_df = build_trial_level_all_features(
+        df,
+        group_cols=group_cols,
+        pref_specs=pref_specs,
+        pref_extreme_mode=pref_extreme_mode,
+    )
+
+    if feature_cols is None:
+        return trial_df
+
+    keep_cols: List[str] = list(group_cols)
+
+    if target_col in trial_df.columns:
+        keep_cols.append(target_col)
+    if keep_extra_cols is not None:
+        keep_cols.extend([c for c in keep_extra_cols if c in trial_df.columns])
+
+    keep_cols.extend([c for c in feature_cols if c in trial_df.columns])
+    keep_cols = list(dict.fromkeys(keep_cols))
+
+    return trial_df[keep_cols].copy()
 
 
 @dataclass
@@ -189,3 +228,112 @@ def evaluate_models_on_answer_correctness_leave_one_trial_out(
 
 
 
+def correlation_prune_features(
+    df: pd.DataFrame,
+    feature_cols: Sequence[str],
+    target_col: Optional[str] = None,
+    corr_threshold: float = 0.80,
+    verbose: bool = True,
+) -> tuple[list[str], list[str], pd.DataFrame]:
+    """
+    Iteratively prune highly correlated features.
+
+    Rule:
+    - If two features have abs(corr) >= corr_threshold, drop one.
+    - If target_col is provided, keep the feature with stronger absolute
+      correlation to the target.
+    - Otherwise, keep the one that appears first in feature_cols.
+
+    Returns
+    -------
+    kept_cols : list[str]
+        Features remaining after pruning.
+    dropped_cols : list[str]
+        Features removed by pruning.
+    prune_log : pd.DataFrame
+        Row-by-row record of pruning decisions.
+    """
+    feature_cols = [c for c in feature_cols if c in df.columns]
+    work_cols = feature_cols.copy()
+
+    # numeric-only working frame
+    X = df[work_cols].apply(pd.to_numeric, errors="coerce")
+
+    # optional score: absolute feature-target association
+    target_scores = {}
+    if target_col is not None:
+        y = pd.to_numeric(df[target_col], errors="coerce")
+        for col in work_cols:
+            valid = X[col].notna() & y.notna()
+            if valid.sum() < 3:
+                target_scores[col] = -np.inf
+            else:
+                target_scores[col] = abs(X.loc[valid, col].corr(y.loc[valid]))
+                if pd.isna(target_scores[col]):
+                    target_scores[col] = -np.inf
+
+    prune_steps = []
+    dropped = set()
+
+    while True:
+        current_cols = [c for c in work_cols if c not in dropped]
+        if len(current_cols) <= 1:
+            break
+
+        corr_mat = X[current_cols].corr().abs()
+
+        # ignore diagonal
+        np.fill_diagonal(corr_mat.values, np.nan)
+
+        max_corr = np.nanmax(corr_mat.values)
+        if pd.isna(max_corr) or max_corr < corr_threshold:
+            break
+
+        # locate one maximally correlated pair
+        i, j = np.where(corr_mat.values == max_corr)
+        f1 = current_cols[i[0]]
+        f2 = current_cols[j[0]]
+
+        # decide which to keep/drop
+        if target_col is not None:
+            s1 = target_scores.get(f1, -np.inf)
+            s2 = target_scores.get(f2, -np.inf)
+
+            if s1 > s2:
+                keep, drop = f1, f2
+                reason = "kept higher abs(feature-target corr)"
+            elif s2 > s1:
+                keep, drop = f2, f1
+                reason = "kept higher abs(feature-target corr)"
+            else:
+                keep, drop = f1, f2
+                reason = "tie on target score; kept first"
+        else:
+            keep, drop = f1, f2
+            reason = "no target provided; kept first"
+
+        dropped.add(drop)
+
+        prune_steps.append(
+            {
+                "feature_1": f1,
+                "feature_2": f2,
+                "pair_abs_corr": float(max_corr),
+                "kept": keep,
+                "dropped": drop,
+                "kept_target_score": target_scores.get(keep, np.nan) if target_col else np.nan,
+                "dropped_target_score": target_scores.get(drop, np.nan) if target_col else np.nan,
+                "reason": reason,
+            }
+        )
+
+        if verbose:
+            print(
+                f"Dropping '{drop}' (corr={max_corr:.3f} with '{keep}') | reason: {reason}"
+            )
+
+    kept_cols = [c for c in work_cols if c not in dropped]
+    dropped_cols = [c for c in work_cols if c in dropped]
+    prune_log = pd.DataFrame(prune_steps)
+
+    return kept_cols, dropped_cols, prune_log
