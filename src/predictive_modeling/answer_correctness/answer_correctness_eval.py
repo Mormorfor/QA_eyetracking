@@ -3,9 +3,10 @@
 from dataclasses import dataclass
 from typing import Dict, Sequence, Callable, List, Literal, Optional, Mapping, Tuple
 
-
 import numpy as np
 import pandas as pd
+
+import statsmodels.api as sm
 
 from src import constants as Con
 from src.predictive_modeling.answer_correctness.answer_correctness_data import (
@@ -256,10 +257,8 @@ def correlation_prune_features(
     feature_cols = [c for c in feature_cols if c in df.columns]
     work_cols = feature_cols.copy()
 
-    # numeric-only working frame
     X = df[work_cols].apply(pd.to_numeric, errors="coerce")
 
-    # optional score: absolute feature-target association
     target_scores = {}
     if target_col is not None:
         y = pd.to_numeric(df[target_col], errors="coerce")
@@ -282,19 +281,16 @@ def correlation_prune_features(
 
         corr_mat = X[current_cols].corr().abs()
 
-        # ignore diagonal
         np.fill_diagonal(corr_mat.values, np.nan)
 
         max_corr = np.nanmax(corr_mat.values)
         if pd.isna(max_corr) or max_corr < corr_threshold:
             break
 
-        # locate one maximally correlated pair
         i, j = np.where(corr_mat.values == max_corr)
         f1 = current_cols[i[0]]
         f2 = current_cols[j[0]]
 
-        # decide which to keep/drop
         if target_col is not None:
             s1 = target_scores.get(f1, -np.inf)
             s2 = target_scores.get(f2, -np.inf)
@@ -337,3 +333,89 @@ def correlation_prune_features(
     prune_log = pd.DataFrame(prune_steps)
 
     return kept_cols, dropped_cols, prune_log
+
+
+def aic_forward_select_logit(
+    df: pd.DataFrame,
+    feature_cols,
+    target_col: str,
+    standardize: bool = True,
+    verbose: bool = True,
+):
+    """
+    Simple forward AIC selection for logistic regression.
+
+    Returns
+    -------
+    selected_cols : list[str]
+    log_df : pd.DataFrame
+    final_model : fitted statsmodels model
+    """
+    feature_cols = [c for c in feature_cols if c in df.columns]
+
+    X = df[feature_cols].apply(pd.to_numeric, errors="coerce").fillna(0.0)
+    y = pd.to_numeric(df[target_col], errors="coerce")
+
+    valid = y.notna()
+    X = X.loc[valid].copy()
+    y = y.loc[valid].astype(int).copy()
+
+    if standardize:
+        X = (X - X.mean()) / X.std(ddof=0)
+        X = X.fillna(0.0)
+
+    selected = []
+    remaining = feature_cols.copy()
+    log_rows = []
+
+    def fit_aic(cols):
+        X_model = sm.add_constant(X[cols], has_constant="add") if cols else sm.add_constant(
+            pd.DataFrame(index=X.index), has_constant="add"
+        )
+        model = sm.Logit(y, X_model).fit(disp=False)
+        return model.aic, model
+
+    current_aic, current_model = fit_aic([])
+
+    if verbose:
+        print(f"Start AIC: {current_aic:.3f}")
+
+    while remaining:
+        best_feature = None
+        best_aic = current_aic
+        best_model = current_model
+
+        for col in remaining:
+            trial_cols = selected + [col]
+            try:
+                trial_aic, trial_model = fit_aic(trial_cols)
+            except Exception:
+                continue
+
+            if trial_aic < best_aic:
+                best_feature = col
+                best_aic = trial_aic
+                best_model = trial_model
+
+        if best_feature is None:
+            break
+
+        selected.append(best_feature)
+        remaining.remove(best_feature)
+
+        log_rows.append({
+            "step": len(selected),
+            "added": best_feature,
+            "aic_before": current_aic,
+            "aic_after": best_aic,
+            "delta_aic": best_aic - current_aic,
+            "n_features": len(selected),
+        })
+
+        if verbose:
+            print(f"Step {len(selected)}: add '{best_feature}' | AIC {current_aic:.3f} -> {best_aic:.3f}")
+
+        current_aic = best_aic
+        current_model = best_model
+
+    return selected, pd.DataFrame(log_rows), current_model
