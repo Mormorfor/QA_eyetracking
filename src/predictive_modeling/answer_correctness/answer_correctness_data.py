@@ -24,16 +24,25 @@ from src.derived.preference_matching import compute_trial_matching
 # Feature Set Builders - get data with one raw per trial
 #--------------------------------------------------------------
 
+
+def _deduplicate_keep_cols(
+    group_cols: Sequence[str],
+    keep_cols: Optional[Sequence[str]],
+) -> list[str]:
+    keep_cols = list(keep_cols) if keep_cols is not None else []
+    return [c for c in keep_cols if c not in group_cols]
+
+
 def build_trial_level_with_area_metrics(
     df: pd.DataFrame,
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
     area_col: str = Con.AREA_LABEL_COLUMN,
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
+    keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
 
-    core_cols = list(group_cols) + [Con.IS_CORRECT_COLUMN]
-    d = df[core_cols].copy()
-    d[Con.IS_CORRECT_COLUMN] = d[Con.IS_CORRECT_COLUMN].astype(int)
+    keep_cols = _deduplicate_keep_cols(group_cols, keep_cols)
+    core_cols = list(group_cols) + keep_cols + [Con.IS_CORRECT_COLUMN]
 
     trial_core = (
         df[core_cols]
@@ -41,12 +50,15 @@ def build_trial_level_with_area_metrics(
         .dropna(subset=[Con.IS_CORRECT_COLUMN])
         .reset_index(drop=True)
     )
+    trial_core[Con.IS_CORRECT_COLUMN] = trial_core[Con.IS_CORRECT_COLUMN].astype(int)
+
     metrics_pivot = build_area_metric_pivot(
         df=df,
         group_cols=group_cols,
         area_col=area_col,
         metric_cols=metric_cols,
     )
+
     metrics_pivot = add_answer_correct_wrong_contrast_columns(
         df_pivot=metrics_pivot,
         metric_cols=metric_cols,
@@ -54,6 +66,7 @@ def build_trial_level_with_area_metrics(
         correct_label="answer_A",
         wrong_labels=("answer_B", "answer_C", "answer_D"),
     )
+
     trial_df = trial_core.merge(metrics_pivot, on=list(group_cols), how="left")
     return trial_df
 
@@ -74,6 +87,7 @@ def build_trial_level_with_derived_metrics(
     dwell_col: str = Con.MEAN_DWELL_TIME,
     pref_specs: Sequence[Tuple[str, str]] = None,
     pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     One row per trial (group_cols), containing:
@@ -83,6 +97,7 @@ def build_trial_level_with_derived_metrics(
       - has_xyxy
       - trial_mean_dwell
       - pref_matching__<metric>__<direction> (0/1) for each pref spec
+      - any keep_cols copied through at trial level
 
     pref_specs example:
       [
@@ -90,29 +105,41 @@ def build_trial_level_with_derived_metrics(
         (Con.SKIP_RATE, "low"),
       ]
     """
-    required = [*group_cols, Con.IS_CORRECT_COLUMN, seq_col, dwell_col]
+
+    keep_cols = _deduplicate_keep_cols(group_cols, keep_cols)
+    required = [*group_cols, *keep_cols, Con.IS_CORRECT_COLUMN, seq_col, dwell_col]
 
     d = df[required].copy()
     d[Con.IS_CORRECT_COLUMN] = d[Con.IS_CORRECT_COLUMN].astype(int)
 
     d["_seq"] = d[seq_col].apply(ast.literal_eval)
     d["_seq_len"] = d["_seq"].apply(lambda s: len(s) if isinstance(s, (list, tuple)) else 0)
-
     d["_has_xyx"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False)
     d["_has_xyxy"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False)
-
     d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col=dwell_col)
+
+    agg_dict = {
+        Con.IS_CORRECT_COLUMN: "first",
+        "_seq_len": "first",
+        "_has_xyx": "first",
+        "_has_xyxy": "first",
+        "_trial_mean_dwell": "first",
+    }
+    for c in keep_cols:
+        agg_dict[c] = "first"
 
     trial_feat = (
         d.groupby(list(group_cols), as_index=False)
-        .agg(
-            is_correct=(Con.IS_CORRECT_COLUMN, "first"),
-            seq_len=("_seq_len", "first"),
-            has_xyx=("_has_xyx", "first"),
-            has_xyxy=("_has_xyxy", "first"),
-            trial_mean_dwell=("_trial_mean_dwell", "first"),
-        )
+        .agg(agg_dict)
+        .rename(columns={
+            Con.IS_CORRECT_COLUMN: "is_correct",
+            "_seq_len": "seq_len",
+            "_has_xyx": "has_xyx",
+            "_has_xyxy": "has_xyxy",
+            "_trial_mean_dwell": "trial_mean_dwell",
+        })
     )
+
     trial_feat["has_xyx"] = trial_feat["has_xyx"].astype(int)
     trial_feat["has_xyxy"] = trial_feat["has_xyxy"].astype(int)
 
@@ -134,12 +161,11 @@ def build_trial_level_with_derived_metrics(
 
         trial_feat = trial_feat.merge(pref_df, on=list(group_cols), how="left")
 
-
     pref_cols = [c for c in trial_feat.columns if c.startswith("pref_matching__")]
     if pref_cols:
         trial_feat[pref_cols] = trial_feat[pref_cols].fillna(0).astype(int)
-    return trial_feat
 
+    return trial_feat
 
 
 def build_trial_level_all_features(
@@ -147,14 +173,15 @@ def build_trial_level_all_features(
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
     pref_specs: Sequence[Tuple[str, str]] = None,
     pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
-    Build trial-level table with all features for answer correctness prediction (both area level and derived).
+    Build trial-level table with all features for answer correctness prediction.
     """
-
     area_df = build_trial_level_with_area_metrics(
         df=df,
         group_cols=group_cols,
+        keep_cols=keep_cols,
     )
 
     derived_df = build_trial_level_with_derived_metrics(
@@ -162,6 +189,7 @@ def build_trial_level_all_features(
         group_cols=group_cols,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
+        keep_cols=keep_cols,
     )
 
     merged = area_df.merge(
@@ -172,7 +200,16 @@ def build_trial_level_all_features(
     )
 
     c2 = f"{Con.IS_CORRECT_COLUMN}_derived"
-    return merged.drop(columns=[c2])
+    if c2 in merged.columns:
+        merged = merged.drop(columns=[c2])
+
+    if keep_cols:
+        for c in keep_cols:
+            c2 = f"{c}_derived"
+            if c2 in merged.columns:
+                merged = merged.drop(columns=[c2])
+
+    return merged
 
 
 

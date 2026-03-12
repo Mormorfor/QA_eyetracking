@@ -13,7 +13,12 @@ import matplotlib.pyplot as plt
 import src.constants as Con
 from src.predictive_modeling.common.viz_utils import maybe_save_plot
 
-from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
+from sklearn.metrics import (
+    precision_recall_fscore_support,
+    balanced_accuracy_score,
+    roc_auc_score,
+    average_precision_score,
+)
 
 from src.predictive_modeling.answer_correctness.answer_correctness_eval import (
     CorrectnessEvaluationResult,
@@ -25,9 +30,13 @@ def show_correctness_model_results(
     labels: Iterable[int] = (0, 1),
 ) -> None:
     """
-    Print per-model summary statistics and a confusion matrix (text form)
-    for correctness prediction (is_correct = 0/1).
-    Also prints precision/recall/F1.
+    Print per-model summary statistics for correctness prediction (is_correct = 0/1),
+    including:
+      - accuracy
+      - balanced accuracy
+      - precision / recall / F1 per class
+      - macro and weighted averages
+      - ROC-AUC / average precision if predicted probabilities are available
     """
     labels = list(labels)
 
@@ -43,6 +52,7 @@ def show_correctness_model_results(
 
         print(f"Number of test trials: {n}")
         print(f"Accuracy: {acc:.3f}")
+        print(f"Balanced accuracy: {balanced_accuracy_score(y_true, y_pred):.3f}")
         print(f"Positive (correct) trials: {res.n_positive}")
         print(f"Negative (incorrect) trials: {res.n_negative}")
 
@@ -61,6 +71,7 @@ def show_correctness_model_results(
             average="macro",
             zero_division=0,
         )
+
         weighted_p, weighted_r, weighted_f1, _ = precision_recall_fscore_support(
             y_true,
             y_pred,
@@ -84,10 +95,27 @@ def show_correctness_model_results(
 
         print(
             "\nAverages:"
-            f"\n  macro   P/R/F1: {macro_p:.3f} / {macro_r:.3f} / {macro_f1:.3f}"
+            f"\n  macro    P/R/F1: {macro_p:.3f} / {macro_r:.3f} / {macro_f1:.3f}"
             f"\n  weighted P/R/F1: {weighted_p:.3f} / {weighted_r:.3f} / {weighted_f1:.3f}"
         )
+
+        y_prob = getattr(res, "y_prob", None)
+        if y_prob is not None:
+            try:
+                roc_auc = roc_auc_score(y_true, y_prob)
+                print(f"\nROC-AUC: {roc_auc:.3f}")
+            except Exception:
+                pass
+
+            try:
+                avg_prec = average_precision_score(y_true, y_prob)
+                print(f"Average precision (PR-AUC): {avg_prec:.3f}")
+            except Exception:
+                pass
+
         print()
+
+
 
 def correctness_results_to_summary_df(
     results: Mapping[str, CorrectnessEvaluationResult],
@@ -165,38 +193,30 @@ def plot_coef_summary_barh(
     df = coef_summary.copy()
 
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
-    df["abs_coef"] = pd.to_numeric(df["abs_coef"], errors="coerce")
-    df["ci_low"] = pd.to_numeric(df["ci_low"], errors="coerce")
-    df["ci_high"] = pd.to_numeric(df["ci_high"], errors="coerce")
+
+    if "abs_coef" not in df.columns:
+        df["abs_coef"] = df[value_col].abs()
+    else:
+        df["abs_coef"] = pd.to_numeric(df["abs_coef"], errors="coerce")
+
+    if "ci_low" not in df.columns:
+        df["ci_low"] = np.nan
+    else:
+        df["ci_low"] = pd.to_numeric(df["ci_low"], errors="coerce")
+
+    if "ci_high" not in df.columns:
+        df["ci_high"] = np.nan
+    else:
+        df["ci_high"] = pd.to_numeric(df["ci_high"], errors="coerce")
+
+    if "sig_ci" not in df.columns:
+        df["sig_ci"] = False
 
     sig_mask = (df["ci_low"] > significance_eps) | (df["ci_high"] < -significance_eps)
     df["significant"] = sig_mask
 
     if significant_only:
         df = df[df["significant"]].copy()
-
-    # if df.empty:
-    #     fig, ax = plt.subplots(figsize=figsize)
-    #     ax.axis("off")
-    #     if title:
-    #         ax.set_title(title)
-    #     plt.tight_layout()
-    #
-    #     if filename is None:
-    #         mn = model_name or "model"
-    #         hg = h_or_g or "group"
-    #         filename = f"{mn}_{hg}_top{top_k}_{value_col}_sigonly"
-    #
-    #     saved_paths = maybe_save_plot(
-    #         fig=fig,
-    #         save=save,
-    #         rel_dir=rel_dir,
-    #         filename=filename,
-    #         paper_dirs=paper_dirs,
-    #         dpi=dpi,
-    #         close=close,
-    #     )
-    #     return fig, df, saved_paths
 
     df = df.sort_values("abs_coef", ascending=False).head(int(top_k)).copy()
     df = df.sort_values(value_col, ascending=True)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, List, Literal, Optional
+from typing import Protocol, Sequence, List, Literal, Optional, Dict
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ from src.predictive_modeling.common.data_utils import bootstrap_logreg_coef_cis,
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import get_coef_summary as summary
 
-
+from pymer4.models import Lmer
 
 
 class AnswerCorrectnessModel(Protocol):
@@ -211,7 +211,16 @@ class AreaMetricsCorrectnessLogRegModel:
         X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
 
+    def predict_proba(
+            self,
+            df: pd.DataFrame,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
 
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
+        return self.model.predict_proba(X)[:, 1]
 
 # ---------------------------------------------------------------------
 # Derived-metrics Logistic Regression
@@ -375,6 +384,17 @@ class DerivedFeaturesCorrectnessLogRegModel:
 
         X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
+
+    def predict_proba(
+            self,
+            df: pd.DataFrame,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
+        return self.model.predict_proba(X)[:, 1]
 
 
 
@@ -555,3 +575,301 @@ class FullFeaturesCorrectnessLogRegModel:
         X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
         return self.model.predict(X).astype(int)
 
+
+    def predict_proba(
+            self,
+            df: pd.DataFrame,
+            feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        X = self._prepare_X(df, fit=False, feature_cols=feature_cols)
+        return self.model.predict_proba(X)[:, 1]
+
+
+
+@dataclass
+class FullFeaturesCorrectnessGLMERModel:
+    """
+    Binomial mixed-effects model using:
+      - area-metric features
+      - derived features
+      - pref_matching__* features
+
+    with crossed random intercepts for:
+      - participant
+      - text
+
+    Implemented via pymer4 Lmer(..., family="binomial") for pymer4 0.8.x.
+    """
+    name: str = "full_features_correctness_glmer"
+    model: object = field(default=None, init=False)
+    scaler_: StandardScaler = field(default=None, init=False)
+    raw_feature_cols_: List[str] = field(default_factory=list, init=False)
+    feature_cols_: List[str] = field(default_factory=list, init=False)
+
+    formula_: Optional[str] = field(default=None, init=False)
+
+    rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
+    reverse_rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
+
+    target_col_model_: Optional[str] = field(default=None, init=False)
+    participant_col_model_: Optional[str] = field(default=None, init=False)
+    text_col_model_: Optional[str] = field(default=None, init=False)
+
+
+    def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
+        cols: List[str] = []
+
+        for metric in Con.AREA_METRIC_COLUMNS_MODELING:
+            for area in Con.LABEL_CHOICES:
+                col = f"{metric}__{area}"
+                if col in df.columns:
+                    cols.append(col)
+
+        derived_base = [
+            "seq_len",
+            "has_xyx",
+            "has_xyxy",
+            "trial_mean_dwell",
+        ]
+        cols.extend([c for c in derived_base if c in df.columns])
+        cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
+
+        return cols
+
+
+    def _resolve_feature_cols(
+        self,
+        df: pd.DataFrame,
+        feature_cols: Optional[Sequence[str]],
+    ) -> List[str]:
+        if feature_cols is not None:
+            return list(feature_cols)
+
+        if not self.raw_feature_cols_:
+            self.raw_feature_cols_ = self._build_feature_cols(df)
+
+        return self.raw_feature_cols_
+
+
+    @staticmethod
+    def _sanitize_colname(col: str) -> str:
+        out = str(col)
+        out = out.replace("__", "_")
+        out = out.replace("-", "_")
+        out = out.replace(" ", "_")
+        out = out.replace("(", "_").replace(")", "_")
+        out = out.replace("/", "_")
+        out = out.replace("\\", "_")
+        out = out.replace(".", "_")
+        out = out.replace(":", "_")
+        return out
+
+
+    def _prepare_model_df(
+        self,
+        df: pd.DataFrame,
+        *,
+        fit: bool = False,
+        feature_cols: Optional[Sequence[str]] = None,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+    ) -> pd.DataFrame:
+
+        raw_cols = self._resolve_feature_cols(df, feature_cols)
+
+        if feature_cols is not None:
+            self.raw_feature_cols_ = list(raw_cols)
+
+        needed = [target_col, participant_col, text_col] + list(raw_cols)
+        model_df = df[needed].copy()
+
+        for c in raw_cols:
+            model_df[c] = pd.to_numeric(model_df[c], errors="coerce")
+        model_df[raw_cols] = model_df[raw_cols].fillna(0.0)
+
+        model_df[target_col] = pd.to_numeric(model_df[target_col], errors="coerce").astype(int)
+        model_df[participant_col] = model_df[participant_col].astype(str)
+        model_df[text_col] = model_df[text_col].astype(str)
+
+        if fit:
+            self.scaler_ = StandardScaler()
+            model_df[raw_cols] = self.scaler_.fit_transform(model_df[raw_cols])
+        else:
+            if self.scaler_ is None:
+                raise RuntimeError("Scaler has not been fitted.")
+            model_df[raw_cols] = self.scaler_.transform(model_df[raw_cols])
+
+        rename_map = {
+            c: self._sanitize_colname(c)
+            for c in [target_col, participant_col, text_col] + list(raw_cols)
+        }
+
+        model_df = model_df.rename(columns=rename_map)
+
+        self.rename_map_ = {raw: san for raw, san in rename_map.items()}
+        self.reverse_rename_map_ = {san: raw for raw, san in rename_map.items()}
+
+        self.target_col_model_ = rename_map[target_col]
+        self.participant_col_model_ = rename_map[participant_col]
+        self.text_col_model_ = rename_map[text_col]
+
+        self.raw_feature_cols_ = list(raw_cols)
+        self.feature_cols_ = [rename_map[c] for c in raw_cols]
+
+        return model_df
+
+
+    def _build_formula(self) -> str:
+        fixed = " + ".join(self.feature_cols_)
+
+        formula = (
+            f"{self.target_col_model_} ~ {fixed} "
+            f"+ (1|{self.participant_col_model_}) "
+            f"+ (1|{self.text_col_model_})"
+        )
+        self.formula_ = formula
+        return formula
+
+
+    def fit(
+        self,
+        train_df: pd.DataFrame,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        feature_cols: Optional[Sequence[str]] = None,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+    ) -> None:
+        model_df = self._prepare_model_df(
+            train_df,
+            fit=True,
+            feature_cols=feature_cols,
+            target_col=target_col,
+            participant_col=participant_col,
+            text_col=text_col,
+        )
+
+        formula = self._build_formula()
+
+        self.model = Lmer(
+            formula,
+            data=model_df,
+            family="binomial",
+        )
+
+        self.model.fit()
+
+
+    def predict_proba(
+        self,
+        df: pd.DataFrame,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        feature_cols: Optional[Sequence[str]] = None,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+        use_rfx: bool = False,
+        verify_predictions: bool = False,
+    ) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        model_df = self._prepare_model_df(
+            df,
+            fit=False,
+            feature_cols=feature_cols,
+            target_col=target_col,
+            participant_col=participant_col,
+            text_col=text_col,
+        )
+
+
+        preds = self.model.predict(
+            model_df,
+            verify_predictions=verify_predictions,
+            use_rfx=use_rfx,
+            pred_type="response",
+        )
+
+
+        preds = np.asarray(preds).reshape(-1)
+        return preds.astype(float)
+
+
+    def predict(
+        self,
+        df: pd.DataFrame,
+        threshold: float = 0.5,
+        **kwargs,
+    ) -> np.ndarray:
+        p = self.predict_proba(df, **kwargs)
+        return (p >= threshold).astype(int)
+
+    def get_coef_summary(self) -> pd.DataFrame:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        if not hasattr(self.model, "coefs"):
+            raise RuntimeError("Could not find coefficient table on fitted pymer4 model.")
+
+        out = self.model.coefs.copy()
+
+        if "index" in out.columns:
+            feature_col = "index"
+        else:
+            out = out.reset_index()
+            feature_col = "index"
+
+        out = out.rename(columns={feature_col: "feature"})
+
+        out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
+
+        # -----------------------------
+        # Normalize coefficient column names
+        # -----------------------------
+        if "Estimate" in out.columns and "coef" not in out.columns:
+            out["coef"] = pd.to_numeric(out["Estimate"], errors="coerce")
+        elif "coef" in out.columns:
+            out["coef"] = pd.to_numeric(out["coef"], errors="coerce")
+        else:
+            out["coef"] = np.nan
+
+        out["abs_coef"] = out["coef"].abs()
+
+        # CI columns
+        if "2.5_ci" in out.columns and "97.5_ci" in out.columns:
+            out["ci_low"] = pd.to_numeric(out["2.5_ci"], errors="coerce")
+            out["ci_high"] = pd.to_numeric(out["97.5_ci"], errors="coerce")
+        elif "97.5_ci" in out.columns and "2.5_ci" in out.columns:
+            out["ci_low"] = pd.to_numeric(out["2.5_ci"], errors="coerce")
+            out["ci_high"] = pd.to_numeric(out["97.5_ci"], errors="coerce")
+        else:
+            out["ci_low"] = np.nan
+            out["ci_high"] = np.nan
+
+        # Odds-ratio style columns if desired
+        out["or"] = np.exp(out["coef"])
+        out["or_ci_low"] = np.exp(out["ci_low"])
+        out["or_ci_high"] = np.exp(out["ci_high"])
+
+        # significance flag compatible with your plotting code
+        # prefer p-value if present, otherwise use CI exclusion of zero
+        if "P-val" in out.columns:
+            pvals = pd.to_numeric(out["P-val"], errors="coerce")
+            out["sig_ci"] = pvals < 0.05
+        else:
+            out["sig_ci"] = (
+                    pd.notna(out["ci_low"]) &
+                    pd.notna(out["ci_high"]) &
+                    ((out["ci_low"] > 0) | (out["ci_high"] < 0))
+            )
+
+        return out
+
+
+    def get_formula(self) -> str:
+        if self.formula_ is None:
+            raise RuntimeError("Model formula is not available before fitting.")
+        return self.formula_
