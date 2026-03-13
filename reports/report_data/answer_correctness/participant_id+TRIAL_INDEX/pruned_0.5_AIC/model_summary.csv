@@ -1,0 +1,2 @@
+model,n_test,accuracy,n_positive,n_negative,macro_precision,macro_recall,macro_f1,weighted_precision,weighted_recall,weighted_f1,precision_class_0,recall_class_0,f1_class_0,support_class_0,precision_class_1,recall_class_1,f1_class_1,support_class_1
+full_features_correctness_log_reg,3887,0.7959866220735786,3249,638,0.6898589206961374,0.7872704502277528,0.7112117421663473,0.8629378890262429,0.7959866220735786,0.8163148815005262,0.4321959755030621,0.774294670846395,0.5547445255474452,638,0.9475218658892128,0.8002462296091105,0.8676789587852495,3249

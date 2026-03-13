@@ -130,7 +130,20 @@ def run_full_features_correctness_bundle(
         title=f"{model_name} – normalized confusion",
         save=save,
         rel_dir=f"{base_dir}/confusion",
-        filename=f"{model_name}_normalized_confusion",
+        filename=f"{model_name}_norm_confusion",
+        paper_dirs=paper_dirs,
+        close=close,
+    )
+
+    fig_cm2, cm_df2, cm_paths2 = plot_confusion_heatmap(
+        y_true=res.y_true,
+        y_pred=res.y_pred,
+        labels=(0, 1),
+        normalize=False,
+        title=f"{model_name} – un-normalized confusion",
+        save=save,
+        rel_dir=f"{base_dir}/confusion",
+        filename=f"{model_name}_unnorm_confusion",
         paper_dirs=paper_dirs,
         close=close,
     )
@@ -200,7 +213,8 @@ def run_full_features_correctness_bundle(
     return {
         "results": results,
         "paths": {
-            "confusion": cm_paths,
+            "confusion_norm": cm_paths,
+            "confusion_unnorm"  : cm_paths2,
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
             "correlation": corr_paths,
@@ -356,10 +370,23 @@ def run_full_features_correctness_glmer_bundle(
         y_pred=res.y_pred,
         labels=(0, 1),
         normalize=True,
-        title=f"{model_name} – confusion",
+        title=f"{model_name} – normalized confusion",
         save=save,
         rel_dir=f"{base_dir}/confusion",
-        filename=f"{model_name}_confusion",
+        filename=f"{model_name}_norm_confusion",
+        paper_dirs=paper_dirs,
+        close=close,
+    )
+
+    fig_cm2, cm_df2, cm_paths2 = plot_confusion_heatmap(
+        y_true=res.y_true,
+        y_pred=res.y_pred,
+        labels=(0, 1),
+        normalize=False,
+        title=f"{model_name} – un-normalized confusion",
+        save=save,
+        rel_dir=f"{base_dir}/confusion",
+        filename=f"{model_name}_unnorm_confusion",
         paper_dirs=paper_dirs,
         close=close,
     )
@@ -431,7 +458,8 @@ def run_full_features_correctness_glmer_bundle(
     return {
         "results": results,
         "paths": {
-            "confusion": cm_paths,
+            "confusion_norm": cm_paths,
+            "confusion_unnorm"  : cm_paths2,
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
             "correlation": corr_paths,

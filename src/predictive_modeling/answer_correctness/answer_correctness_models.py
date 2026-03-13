@@ -760,7 +760,7 @@ class FullFeaturesCorrectnessGLMERModel:
             family="binomial",
         )
 
-        self.model.fit()
+        self.model.fit(control="optimizer='bobyqa'")
 
 
     def predict_proba(
@@ -793,7 +793,6 @@ class FullFeaturesCorrectnessGLMERModel:
             pred_type="response",
         )
 
-
         preds = np.asarray(preds).reshape(-1)
         return preds.astype(float)
 
@@ -806,6 +805,7 @@ class FullFeaturesCorrectnessGLMERModel:
     ) -> np.ndarray:
         p = self.predict_proba(df, **kwargs)
         return (p >= threshold).astype(int)
+
 
     def get_coef_summary(self) -> pd.DataFrame:
         if self.model is None:
