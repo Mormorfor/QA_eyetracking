@@ -48,6 +48,35 @@ class MajorityBaselineCorrectness:
         return np.full(len(df), self.majority_label_, dtype=int)
 
 
+# ---------------------------------------------------------------------
+# Baseline: random prior
+# ---------------------------------------------------------------------
+@dataclass
+class RandomPriorBaselineCorrectness:
+    """
+    Baseline model that predicts labels randomly according to the
+    class proportions observed in the training data.
+    """
+    name: str = "random_prior_baseline"
+    p_positive_: float = None
+
+    def fit(
+        self,
+        train_df: pd.DataFrame,
+        target_col: str,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> None:
+        y = train_df[target_col].astype(int)
+        self.p_positive_ = y.mean()
+
+
+    def predict(
+        self,
+        df: pd.DataFrame,
+        feature_cols: Optional[Sequence[str]] = None,
+    ) -> np.ndarray:
+        n = len(df)
+        return np.random.binomial(1, self.p_positive_, size=n)
 
 # ---------------------------------------------------------------------
 # Area-metrics Logistic Regression
@@ -601,7 +630,6 @@ class FullFeaturesCorrectnessGLMERModel:
       - participant
       - text
 
-    Implemented via pymer4 Lmer(..., family="binomial") for pymer4 0.8.x.
     """
     name: str = "full_features_correctness_glmer"
     model: object = field(default=None, init=False)
@@ -754,14 +782,23 @@ class FullFeaturesCorrectnessGLMERModel:
 
         formula = self._build_formula()
 
+        counts = model_df[self.target_col_model_].value_counts()
+        w0 = 1 / counts[0]
+        w1 = 1 / counts[1]
+        model_df["obs_weight"] = np.where(model_df[self.target_col_model_] == 0, w0, w1)
+        model_df["obs_weight"] = model_df["obs_weight"] / model_df["obs_weight"].mean()
+
         self.model = Lmer(
             formula,
             data=model_df,
             family="binomial",
+
         )
 
-        self.model.fit(control="optimizer='bobyqa'")
-
+        self.model.fit(
+            weights=model_df["obs_weight"],
+            control="optimizer='bobyqa'"
+        )
 
     def predict_proba(
         self,
@@ -784,7 +821,6 @@ class FullFeaturesCorrectnessGLMERModel:
             participant_col=participant_col,
             text_col=text_col,
         )
-
 
         preds = self.model.predict(
             model_df,
@@ -849,13 +885,11 @@ class FullFeaturesCorrectnessGLMERModel:
             out["ci_low"] = np.nan
             out["ci_high"] = np.nan
 
-        # Odds-ratio style columns if desired
         out["or"] = np.exp(out["coef"])
         out["or_ci_low"] = np.exp(out["ci_low"])
         out["or_ci_high"] = np.exp(out["ci_high"])
 
-        # significance flag compatible with your plotting code
-        # prefer p-value if present, otherwise use CI exclusion of zero
+
         if "P-val" in out.columns:
             pvals = pd.to_numeric(out["P-val"], errors="coerce")
             out["sig_ci"] = pvals < 0.05
