@@ -14,8 +14,8 @@ from src.predictive_modeling.common.data_utils import bootstrap_logreg_coef_cis,
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import get_coef_summary as summary
 
-from pymer4.models import Lmer
-
+from pymer4.models import glm, glmer
+import polars as pl
 
 class AnswerCorrectnessModel(Protocol):
     name: str
@@ -762,14 +762,17 @@ class FullFeaturesCorrectnessGLMERModel:
         self.formula_ = formula
         return formula
 
+    @staticmethod
+    def _to_model_df(df: pd.DataFrame):
+        return pl.from_pandas(df.reset_index(drop=True))
 
     def fit(
-        self,
-        train_df: pd.DataFrame,
-        target_col: str = Con.IS_CORRECT_COLUMN,
-        feature_cols: Optional[Sequence[str]] = None,
-        participant_col: str = Con.PARTICIPANT_ID,
-        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+            self,
+            train_df: pd.DataFrame,
+            target_col: str = Con.IS_CORRECT_COLUMN,
+            feature_cols: Optional[Sequence[str]] = None,
+            participant_col: str = Con.PARTICIPANT_ID,
+            text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
     ) -> None:
         model_df = self._prepare_model_df(
             train_df,
@@ -783,32 +786,38 @@ class FullFeaturesCorrectnessGLMERModel:
         formula = self._build_formula()
 
         counts = model_df[self.target_col_model_].value_counts()
-        w0 = 1 / counts[0]
-        w1 = 1 / counts[1]
+        if not {0, 1}.issubset(set(counts.index)):
+            raise ValueError("Target column must contain both classes 0 and 1 in training data.")
+
+        w0 = 1.0 / counts[0]
+        w1 = 1.0 / counts[1]
         model_df["obs_weight"] = np.where(model_df[self.target_col_model_] == 0, w0, w1)
         model_df["obs_weight"] = model_df["obs_weight"] / model_df["obs_weight"].mean()
 
-        self.model = Lmer(
-            formula,
-            data=model_df,
-            family="binomial",
 
+        self.model = glmer(
+            formula=formula,
+            data=self._to_model_df(model_df),
+            family="binomial",
         )
 
         self.model.fit(
-            weights=model_df["obs_weight"],
-            control="optimizer='bobyqa'"
+            exponentiate=False,
+            summary=False,
+            conf_method="wald",
+            type_predict="response",
+            control="glmerControl(optimizer='bobyqa', optCtrl=list(maxfun=200000))",
+            weights="obs_weight",
         )
 
     def predict_proba(
-        self,
-        df: pd.DataFrame,
-        target_col: str = Con.IS_CORRECT_COLUMN,
-        feature_cols: Optional[Sequence[str]] = None,
-        participant_col: str = Con.PARTICIPANT_ID,
-        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
-        use_rfx: bool = False,
-        verify_predictions: bool = False,
+            self,
+            df: pd.DataFrame,
+            target_col: str = Con.IS_CORRECT_COLUMN,
+            feature_cols: Optional[Sequence[str]] = None,
+            participant_col: str = Con.PARTICIPANT_ID,
+            text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+            use_rfx: bool = False,
     ) -> np.ndarray:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
@@ -823,21 +832,18 @@ class FullFeaturesCorrectnessGLMERModel:
         )
 
         preds = self.model.predict(
-            model_df,
-            verify_predictions=verify_predictions,
+            data=self._to_model_df(model_df),
             use_rfx=use_rfx,
-            pred_type="response",
+            type_predict="response",
         )
 
-        preds = np.asarray(preds).reshape(-1)
-        return preds.astype(float)
-
+        return np.asarray(preds).reshape(-1).astype(float)
 
     def predict(
-        self,
-        df: pd.DataFrame,
-        threshold: float = 0.5,
-        **kwargs,
+            self,
+            df: pd.DataFrame,
+            threshold: float = 0.5,
+            **kwargs,
     ) -> np.ndarray:
         p = self.predict_proba(df, **kwargs)
         return (p >= threshold).astype(int)
@@ -847,38 +853,38 @@ class FullFeaturesCorrectnessGLMERModel:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
 
-        if not hasattr(self.model, "coefs"):
+        if hasattr(self.model, "result_fit") and self.model.result_fit is not None:
+            out = self.model.result_fit.to_pandas()
+        elif hasattr(self.model, "params") and self.model.params is not None:
+            out = self.model.params.to_pandas()
+        else:
             raise RuntimeError("Could not find coefficient table on fitted pymer4 model.")
 
-        out = self.model.coefs.copy()
-
-        if "index" in out.columns:
-            feature_col = "index"
+        if "term" in out.columns:
+            out = out.rename(columns={"term": "feature"})
+        elif "index" in out.columns:
+            out = out.rename(columns={"index": "feature"})
         else:
-            out = out.reset_index()
-            feature_col = "index"
-
-        out = out.rename(columns={feature_col: "feature"})
+            out = out.reset_index().rename(columns={"index": "feature"})
 
         out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
 
-        # -----------------------------
-        # Normalize coefficient column names
-        # -----------------------------
-        if "Estimate" in out.columns and "coef" not in out.columns:
+        if "estimate" in out.columns:
+            out["coef"] = pd.to_numeric(out["estimate"], errors="coerce")
+        elif "Estimate" in out.columns:
             out["coef"] = pd.to_numeric(out["Estimate"], errors="coerce")
-        elif "coef" in out.columns:
-            out["coef"] = pd.to_numeric(out["coef"], errors="coerce")
         else:
             out["coef"] = np.nan
 
         out["abs_coef"] = out["coef"].abs()
 
-        # CI columns
-        if "2.5_ci" in out.columns and "97.5_ci" in out.columns:
-            out["ci_low"] = pd.to_numeric(out["2.5_ci"], errors="coerce")
-            out["ci_high"] = pd.to_numeric(out["97.5_ci"], errors="coerce")
-        elif "97.5_ci" in out.columns and "2.5_ci" in out.columns:
+        if "conf_low" in out.columns and "conf_high" in out.columns:
+            out["ci_low"] = pd.to_numeric(out["conf_low"], errors="coerce")
+            out["ci_high"] = pd.to_numeric(out["conf_high"], errors="coerce")
+        elif "lower_CL" in out.columns and "upper_CL" in out.columns:
+            out["ci_low"] = pd.to_numeric(out["lower_CL"], errors="coerce")
+            out["ci_high"] = pd.to_numeric(out["upper_CL"], errors="coerce")
+        elif "2.5_ci" in out.columns and "97.5_ci" in out.columns:
             out["ci_low"] = pd.to_numeric(out["2.5_ci"], errors="coerce")
             out["ci_high"] = pd.to_numeric(out["97.5_ci"], errors="coerce")
         else:
@@ -889,8 +895,10 @@ class FullFeaturesCorrectnessGLMERModel:
         out["or_ci_low"] = np.exp(out["ci_low"])
         out["or_ci_high"] = np.exp(out["ci_high"])
 
-
-        if "P-val" in out.columns:
+        if "p_value" in out.columns:
+            pvals = pd.to_numeric(out["p_value"], errors="coerce")
+            out["sig_ci"] = pvals < 0.05
+        elif "P-val" in out.columns:
             pvals = pd.to_numeric(out["P-val"], errors="coerce")
             out["sig_ci"] = pvals < 0.05
         else:

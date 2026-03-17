@@ -14,19 +14,19 @@ def group_vise_train_test_split(
     df: pd.DataFrame,
     test_size: float = 0.2,
     random_state: int = 42,
-    group_cols: List[str] = [Con.PARTICIPANT_ID, Con.TRIAL_ID],
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Group-wise train/test split
-    """
-    df = df.copy()
+    group_cols: Sequence[str] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if group_cols is None:
+        raise ValueError("group_cols must be provided.")
+
+    # unique group combinations as tuples
     groups = (
-        df[group_cols]
+        df[list(group_cols)]
         .dropna()
         .drop_duplicates()
-        .apply(tuple, axis=1)
-        .to_numpy()
+        .itertuples(index=False, name=None)
     )
+    groups = list(groups)
 
     rng = np.random.default_rng(random_state)
     rng.shuffle(groups)
@@ -37,12 +37,12 @@ def group_vise_train_test_split(
     test_groups = set(groups[:n_test])
     train_groups = set(groups[n_test:])
 
-    group_tuples = df[group_cols].apply(tuple, axis=1)
+    group_tuples = df[list(group_cols)].apply(tuple, axis=1)
 
-    train_mask = group_tuples.isin(train_groups)
-    test_mask = group_tuples.isin(test_groups)
+    train_df = df[group_tuples.isin(train_groups)].copy()
+    test_df = df[group_tuples.isin(test_groups)].copy()
 
-    return df[train_mask].copy(), df[test_mask].copy()
+    return train_df, test_df
 
 
 

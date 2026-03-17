@@ -184,7 +184,6 @@ def evaluate_glmer_on_answer_correctness(
     participant_col: str = Con.PARTICIPANT_ID,
     text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
     use_rfx: bool = False,
-    verify_predictions: bool = False,
 ) -> Dict[str, CorrectnessEvaluationResult]:
     """
     Evaluation pipeline for the GLMER answer-correctness model.
@@ -227,7 +226,6 @@ def evaluate_glmer_on_answer_correctness(
         participant_col=participant_col,
         text_col=text_col,
         use_rfx=use_rfx,
-        verify_predictions=verify_predictions,
     )
 
     y_prob = None
@@ -240,7 +238,6 @@ def evaluate_glmer_on_answer_correctness(
                 participant_col=participant_col,
                 text_col=text_col,
                 use_rfx=use_rfx,
-                verify_predictions=verify_predictions,
             )
         except Exception:
             y_prob = None
@@ -390,14 +387,15 @@ def correlation_prune_features(
             break
 
         corr_mat = X[current_cols].corr().abs()
+        corr_values = corr_mat.to_numpy(copy=True)
 
-        np.fill_diagonal(corr_mat.values, np.nan)
+        np.fill_diagonal(corr_values, np.nan)
 
-        max_corr = np.nanmax(corr_mat.values)
+        max_corr = np.nanmax(corr_values)
         if pd.isna(max_corr) or max_corr < corr_threshold:
             break
 
-        i, j = np.where(corr_mat.values == max_corr)
+        i, j = np.where(corr_values == max_corr)
         f1 = current_cols[i[0]]
         f2 = current_cols[j[0]]
 

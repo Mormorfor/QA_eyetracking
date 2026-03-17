@@ -239,7 +239,6 @@ def run_full_features_correctness_glmer_bundle(
     close: bool = False,
     subdir: Optional[str] = None,
     use_rfx: bool = False,
-    verify_predictions: bool = False,
 ) -> Dict[str, Any]:
 
     model = FullFeaturesCorrectnessGLMERModel()
@@ -269,13 +268,13 @@ def run_full_features_correctness_glmer_bundle(
         participant_col=Con.PARTICIPANT_ID,
         text_col=Con.TEXT_ID_WITH_Q_COLUMN,
         use_rfx=use_rfx,
-        verify_predictions=verify_predictions,
     )
 
     show_correctness_model_results(results)
 
     res = results[model_name]
     formula = model.get_formula() if hasattr(model, "get_formula") else None
+    print(f"Model formula: {formula}")
 
     # ------------------------
     # Save CSV summary

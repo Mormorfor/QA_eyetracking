@@ -166,9 +166,9 @@ def add_text_id(df):
     """
     out = df.copy()
     out[C.TEXT_ID_COLUMN] = (
+            out[C.BATCH_COLUMN].astype(str) + '_' +
             out[C.ARTICLE_COLUMN].astype(str) + '_' +
             out[C.DIFFICULTY_COLUMN].astype(str) + '_' +
-            out[C.BATCH_COLUMN].astype(str) + '_' +
             out[C.PARAGRAPH_COLUMN].astype(str)
     )
     return out
