@@ -6,6 +6,9 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
+from IPython.display import display
 
 import src.constants as Con
 # ---------------------------------------------------------------------
@@ -353,3 +356,266 @@ def crossval_predictions_to_df(
                 )
 
     return pd.DataFrame(rows)
+
+
+def summarize_cv_results_by_regime(
+    cv_out,
+    model_name: Optional[str] = "full_features_correctness_log_reg",
+    *,
+    test_only: bool = False,
+    val_only: bool = False,
+    ci: float = 0.95,
+) -> pd.DataFrame:
+    """
+    Aggregate cross-validation accuracy by regime across folds.
+
+    Parameters
+    ----------
+    cv_out
+        Output object from `run_cross_validation_on_predefined_folds`.
+    model_name
+        Model name to filter on. If None, keeps all models.
+    test_only
+        If True, keep only test regimes.
+    val_only
+        If True, keep only validation regimes.
+    ci
+        Confidence level for mean accuracy CI across folds.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per regime with fold-level summary statistics and CI bounds.
+    """
+    df = cv_out.summary_df.copy()
+
+    if model_name is not None:
+        df = df[df["model"] == model_name].copy()
+
+    if test_only and val_only:
+        raise ValueError("Choose only one of test_only / val_only.")
+
+    if test_only:
+        df = df[df["regime"].astype(str).str.startswith("test")].copy()
+    elif val_only:
+        df = df[df["regime"].astype(str).str.startswith("val")].copy()
+
+    if df.empty:
+        raise ValueError("No rows found for the requested selection.")
+
+    z_map = {
+        0.90: 1.645,
+        0.95: 1.96,
+        0.99: 2.576,
+    }
+    z = z_map.get(ci, 1.96)
+
+    out = (
+        df.groupby("regime", as_index=False)
+        .agg(
+            n_folds=("fold", "nunique"),
+            mean_accuracy=("accuracy", "mean"),
+            std_accuracy=("accuracy", "std"),
+            min_accuracy=("accuracy", "min"),
+            max_accuracy=("accuracy", "max"),
+            mean_n_eval=("n_eval", "mean"),
+            total_n_eval=("n_eval", "sum"),
+        )
+        .sort_values("regime")
+        .reset_index(drop=True)
+    )
+
+    out["std_accuracy"] = out["std_accuracy"].fillna(0.0)
+    out["se_accuracy"] = out["std_accuracy"] / np.sqrt(out["n_folds"])
+    out["ci_low"] = (out["mean_accuracy"] - z * out["se_accuracy"]).clip(lower=0.0)
+    out["ci_high"] = (out["mean_accuracy"] + z * out["se_accuracy"]).clip(upper=1.0)
+
+    return out
+
+
+def show_cv_results(
+    cv_out,
+    model_name: Optional[str] = "full_features_correctness_log_reg",
+) -> Dict[str, pd.DataFrame]:
+    """
+    Display fold-level and aggregated CV results for a model.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the key summary tables.
+    """
+    summary_df = cv_out.summary_df.copy()
+
+    if model_name is not None:
+        summary_df = summary_df[summary_df["model"] == model_name].copy()
+
+    print("=" * 80)
+    print(f"CROSS-VALIDATION RESULTS: {model_name}")
+    print("=" * 80)
+
+    print("\n1) Fold-level raw results")
+    fold_level = summary_df.sort_values(["regime", "fold"]).reset_index(drop=True)
+    display(fold_level)
+
+    print("\n2) Aggregated by regime")
+    by_regime = summarize_cv_results_by_regime(
+        cv_out=cv_out,
+        model_name=model_name,
+        test_only=False,
+        val_only=False,
+        ci=0.95,
+    )
+    display(by_regime)
+
+    print("\n3) Test-only regimes")
+    test_only = summarize_cv_results_by_regime(
+        cv_out=cv_out,
+        model_name=model_name,
+        test_only=True,
+        val_only=False,
+        ci=0.95,
+    )
+    display(test_only)
+
+    print("\n4) Validation-only regimes")
+    val_only = summarize_cv_results_by_regime(
+        cv_out=cv_out,
+        model_name=model_name,
+        test_only=False,
+        val_only=True,
+        ci=0.95,
+    )
+    display(val_only)
+
+    print("\n5) Overall mean across all fold-regime evaluations")
+    overall = pd.DataFrame([{
+        "model": model_name,
+        "n_rows": len(summary_df),
+        "n_folds": summary_df["fold"].nunique(),
+        "mean_accuracy": summary_df["accuracy"].mean(),
+        "std_accuracy": summary_df["accuracy"].std(),
+        "min_accuracy": summary_df["accuracy"].min(),
+        "max_accuracy": summary_df["accuracy"].max(),
+        "total_n_eval": summary_df["n_eval"].sum(),
+    }])
+    display(overall)
+
+    return {
+        "fold_level": fold_level,
+        "by_regime": by_regime,
+        "test_only": test_only,
+        "val_only": val_only,
+        "overall": overall,
+    }
+
+
+def plot_cv_accuracy_by_regime(
+    cv_out,
+    model_name: str = "full_features_correctness_log_reg",
+    ci: float = 0.95,
+    test_only: bool = False,
+    val_only: bool = False,
+    figsize: tuple = (10, 6),
+    rotate_xticks: int = 30,
+):
+    """
+    Bar plot of mean CV accuracy by regime, with confidence intervals across folds.
+
+    Parameters
+    ----------
+    cv_out
+        Output object from `run_cross_validation_on_predefined_folds`.
+    model_name
+        Model name to plot.
+    ci
+        Confidence level for mean accuracy CI across folds.
+    test_only
+        If True, keep only test regimes.
+    val_only
+        If True, keep only validation regimes.
+    figsize
+        Figure size.
+    rotate_xticks
+        Rotation angle for x tick labels.
+
+    Returns
+    -------
+    summary : pd.DataFrame
+        Aggregated regime summary.
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+    """
+    summary = summarize_cv_results_by_regime(
+        cv_out=cv_out,
+        model_name=model_name,
+        test_only=test_only,
+        val_only=val_only,
+        ci=ci,
+    )
+
+    y = summary["mean_accuracy"].to_numpy()
+    yerr = np.vstack([
+        y - summary["ci_low"].to_numpy(),
+        summary["ci_high"].to_numpy() - y,
+    ])
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.bar(
+        summary["regime"],
+        summary["mean_accuracy"],
+        yerr=yerr,
+        capsize=6,
+    )
+
+    ax.set_ylabel("Accuracy")
+    ax.set_xlabel("Regime")
+    ax.set_title(f"{model_name}: mean CV accuracy by regime ({int(ci * 100)}% CI)")
+    ax.set_ylim(0, 1)
+
+    plt.xticks(rotation=rotate_xticks, ha="right")
+    plt.tight_layout()
+
+    return summary, fig, ax
+
+
+
+def plot_cv_accuracy_by_regime_pretty(
+    cv_out,
+    model_name: str = "full_features_correctness_log_reg",
+    ci: float = 0.95,
+    test_only: bool = False,
+    val_only: bool = False,
+    figsize: tuple = (10, 6),
+):
+    """
+    Same as `plot_cv_accuracy_by_regime`, but with prettier regime labels.
+    """
+    pretty_names = {
+        "val_seen_subject_unseen_item": "Val: seen subj,\nunseen item",
+        "test_seen_subject_unseen_item": "Test: seen subj,\nunseen item",
+        "val_unseen_subject_seen_item": "Val: unseen subj,\nseen item",
+        "test_unseen_subject_seen_item": "Test: unseen subj,\nseen item",
+        "val_unseen_subject_unseen_item": "Val: unseen subj,\nunseen item",
+        "test_unseen_subject_unseen_item": "Test: unseen subj,\nunseen item",
+    }
+
+    summary, fig, ax = plot_cv_accuracy_by_regime(
+        cv_out=cv_out,
+        model_name=model_name,
+        ci=ci,
+        test_only=test_only,
+        val_only=val_only,
+        figsize=figsize,
+        rotate_xticks=0,
+    )
+
+    ax.set_xticks(range(len(summary)))
+    ax.set_xticklabels(
+        [pretty_names.get(r, r) for r in summary["regime"]],
+        rotation=0,
+        ha="center",
+    )
+    plt.tight_layout()
+
+    return summary, fig, ax
