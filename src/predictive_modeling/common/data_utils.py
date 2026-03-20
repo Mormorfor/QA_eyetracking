@@ -356,3 +356,21 @@ def bootstrap_logreg_coef_cis(
     })
     out["sig_ci"] = (out["ci_low"] > 0) | (out["ci_high"] < 0)
     return out
+
+
+def summarize_random_effects(re_df: pd.DataFrame) -> pd.DataFrame:
+    value_cols = [c for c in re_df.columns if c != re_df.columns[0]]
+    out = []
+
+    for c in value_cols:
+        s = pd.to_numeric(re_df[c], errors="coerce")
+        out.append({
+            "term": c,
+            "n_levels": int(s.notna().sum()),
+            "mean": float(s.mean()),
+            "std": float(s.std()),
+            "min": float(s.min()),
+            "max": float(s.max()),
+        })
+
+    return pd.DataFrame(out)

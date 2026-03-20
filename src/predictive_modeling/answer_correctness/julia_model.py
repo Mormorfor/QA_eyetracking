@@ -1,0 +1,474 @@
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from juliacall import Main as jl
+
+import src.constants as Con
+
+@dataclass
+class FullFeaturesCorrectnessJuliaGLMERModel:
+    """
+    Binomial mixed-effects model using Julia MixedModels.jl.
+
+    Fixed effects:
+      - area-metric features
+      - derived features
+      - pref_matching__* features
+
+    Random intercepts:
+      - participant
+      - text
+    """
+    name: str = "full_features_correctness_julia_glmer"
+
+    model: object = field(default=None, init=False)
+    scaler_: Optional[StandardScaler] = field(default=None, init=False)
+
+    raw_feature_cols_: List[str] = field(default_factory=list, init=False)
+    feature_cols_: List[str] = field(default_factory=list, init=False)
+
+    formula_: Optional[str] = field(default=None, init=False)
+
+    rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
+    reverse_rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
+
+    target_col_model_: Optional[str] = field(default=None, init=False)
+    participant_col_model_: Optional[str] = field(default=None, init=False)
+    text_col_model_: Optional[str] = field(default=None, init=False)
+
+    _julia_ready: bool = field(default=False, init=False)
+
+    # ------------------------------------------------------------------
+    # Julia setup
+    # ------------------------------------------------------------------
+    def _setup_julia(self) -> None:
+        if self._julia_ready:
+            return
+
+        jl.seval("using DataFrames")
+        jl.seval("using StatsModels")
+        jl.seval("using MixedModels")
+        jl.seval("using Distributions")
+        jl.seval("using PythonCall")
+        jl.seval("using StatsBase")
+
+        jl.seval("""
+        function pycols_to_df(colnames, cols)
+            d = DataFrame()
+            for (nm, col) in zip(colnames, cols)
+                d[!, Symbol(nm)] = pyconvert(Vector, col)
+            end
+            return d
+        end
+        """)
+
+        jl.seval("""
+        function table_to_py(x)
+            PythonCall.Compat.pytable(x)
+        end
+        """)
+
+        # Fit helper with optional weights
+        jl.seval("""
+        function fit_glmm_binomial(formula_obj, df; wcol=nothing)
+            if isnothing(wcol)
+                return fit(MixedModel, formula_obj, df, Bernoulli(); progress=false)
+            else
+                w = Vector{Float64}(df[!, Symbol(wcol)])
+                return fit(MixedModel, formula_obj, df, Bernoulli(), wts=w; progress=false)
+            end
+        end
+        """)
+
+        # Predict helper
+        jl.seval("""
+        function predict_glmm_prob(model, newdf; use_rfx=false)
+            if use_rfx
+                return Vector{Float64}(predict(model, newdf; type=:response))
+            else
+                return Vector{Float64}(predict(model, newdf; type=:response, new_re_levels=:population))
+            end
+        end
+        """)
+
+        jl.seval("""
+        function fixef_table(model)
+            return DataFrame(
+                feature = String.(fixefnames(model)),
+                coef = collect(fixef(model)),
+            )
+        end
+        """)
+
+        jl.seval("""
+        function ranef_tables_dict(model)
+            tabs = raneftables(model)
+            out = Dict{String,Any}()
+            for (k, v) in pairs(tabs)
+                out[string(k)] = DataFrame(v)
+            end
+            return out
+        end
+        """)
+
+        jl.seval("""
+        function varcorr_text(model)
+            io = IOBuffer()
+            show(io, MIME"text/plain"(), VarCorr(model))
+            return String(take!(io))
+        end
+        """)
+
+        self._julia_ready = True
+
+    # ------------------------------------------------------------------
+    # Feature column logic
+    # ------------------------------------------------------------------
+    def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
+        cols: List[str] = []
+
+        for metric in Con.AREA_METRIC_COLUMNS_MODELING:
+            for area in Con.LABEL_CHOICES:
+                col = f"{metric}__{area}"
+                if col in df.columns:
+                    cols.append(col)
+
+        derived_base = [
+            "seq_len",
+            "has_xyx",
+            "has_xyxy",
+            "trial_mean_dwell",
+        ]
+        cols.extend([c for c in derived_base if c in df.columns])
+        cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
+
+        return cols
+
+    def _resolve_feature_cols(
+        self,
+        df: pd.DataFrame,
+        feature_cols: Optional[Sequence[str]],
+    ) -> List[str]:
+        if feature_cols is not None:
+            return list(feature_cols)
+
+        if not self.raw_feature_cols_:
+            self.raw_feature_cols_ = self._build_feature_cols(df)
+
+        return self.raw_feature_cols_
+
+    # ------------------------------------------------------------------
+    # Column-name sanitizing
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _sanitize_colname(col: str) -> str:
+        out = str(col)
+        out = out.replace("__", "_")
+        out = out.replace("-", "_")
+        out = out.replace(" ", "_")
+        out = out.replace("(", "_").replace(")", "_")
+        out = out.replace("/", "_")
+        out = out.replace("\\", "_")
+        out = out.replace(".", "_")
+        out = out.replace(":", "_")
+        return out
+
+    # ------------------------------------------------------------------
+    # Prepare model dataframe
+    # ------------------------------------------------------------------
+    def _prepare_model_df(
+        self,
+        df: pd.DataFrame,
+        *,
+        fit: bool = False,
+        feature_cols: Optional[Sequence[str]] = None,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+    ) -> pd.DataFrame:
+        raw_cols = self._resolve_feature_cols(df, feature_cols)
+
+        if feature_cols is not None:
+            self.raw_feature_cols_ = list(raw_cols)
+
+        needed = [target_col, participant_col, text_col] + list(raw_cols)
+        model_df = df[needed].copy()
+
+        for c in raw_cols:
+            model_df[c] = pd.to_numeric(model_df[c], errors="coerce")
+        model_df[raw_cols] = model_df[raw_cols].fillna(0.0)
+
+        model_df[target_col] = pd.to_numeric(model_df[target_col], errors="coerce").fillna(0).astype(int)
+        model_df[participant_col] = model_df[participant_col].astype(str)
+        model_df[text_col] = model_df[text_col].astype(str)
+
+        if fit:
+            self.scaler_ = StandardScaler()
+            model_df[raw_cols] = self.scaler_.fit_transform(model_df[raw_cols])
+        else:
+            if self.scaler_ is None:
+                raise RuntimeError("Scaler has not been fitted.")
+            model_df[raw_cols] = self.scaler_.transform(model_df[raw_cols])
+
+        rename_map = {
+            c: self._sanitize_colname(c)
+            for c in [target_col, participant_col, text_col] + list(raw_cols)
+        }
+
+        model_df = model_df.rename(columns=rename_map)
+
+        self.rename_map_ = dict(rename_map)
+        self.reverse_rename_map_ = {v: k for k, v in rename_map.items()}
+
+        self.target_col_model_ = rename_map[target_col]
+        self.participant_col_model_ = rename_map[participant_col]
+        self.text_col_model_ = rename_map[text_col]
+
+        self.raw_feature_cols_ = list(raw_cols)
+        self.feature_cols_ = [rename_map[c] for c in raw_cols]
+
+        return model_df
+
+    # ------------------------------------------------------------------
+    # Formula
+    # ------------------------------------------------------------------
+    def _build_formula(self) -> str:
+        fixed = " + ".join(self.feature_cols_)
+        formula = (
+            f"{self.target_col_model_} ~ 1 + {fixed} "
+            f"+ (1|{self.participant_col_model_}) "
+            f"+ (1|{self.text_col_model_})"
+        )
+        self.formula_ = formula
+        return formula
+
+    # ------------------------------------------------------------------
+    # Pandas -> Julia DataFrame
+    # ------------------------------------------------------------------
+    def _to_julia_df(self, df: pd.DataFrame):
+        self._setup_julia()
+
+        tmp = df.copy()
+
+        for c in tmp.columns:
+            if c in self.feature_cols_:
+                tmp[c] = tmp[c].astype(float)
+            elif c == self.target_col_model_:
+                tmp[c] = tmp[c].astype(int)
+            elif c == self.participant_col_model_:
+                tmp[c] = tmp[c].astype(str)
+            elif c == self.text_col_model_:
+                tmp[c] = tmp[c].astype(str)
+            elif c == "obs_weight":
+                tmp[c] = tmp[c].astype(float)
+
+        colnames = list(tmp.columns)
+        cols = [tmp[c].tolist() for c in colnames]
+
+        jl.colnames_py = colnames
+        jl.cols_py = cols
+        return jl.seval("pycols_to_df(colnames_py, cols_py)")
+
+    # ------------------------------------------------------------------
+    # Fit
+    # ------------------------------------------------------------------
+    def fit(
+        self,
+        train_df: pd.DataFrame,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        feature_cols: Optional[Sequence[str]] = None,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+    ) -> None:
+        model_df = self._prepare_model_df(
+            train_df,
+            fit=True,
+            feature_cols=feature_cols,
+            target_col=target_col,
+            participant_col=participant_col,
+            text_col=text_col,
+        )
+
+        formula = self._build_formula()
+
+        counts = model_df[self.target_col_model_].value_counts()
+        if not {0, 1}.issubset(set(counts.index)):
+            raise ValueError("Target column must contain both classes 0 and 1 in training data.")
+
+        w0 = 1.0 / counts[0]
+        w1 = 1.0 / counts[1]
+        model_df["obs_weight"] = np.where(model_df[self.target_col_model_] == 0, w0, w1)
+        model_df["obs_weight"] = model_df["obs_weight"] / model_df["obs_weight"].mean()
+
+        j_df = self._to_julia_df(model_df)
+
+        jl.j_df_train = j_df
+        jl.seval(f"j_formula = @formula({formula})")
+
+        self.model = jl.seval(
+            'fit_glmm_binomial(j_formula, j_df_train; wcol="obs_weight")'
+        )
+
+    # ------------------------------------------------------------------
+    # Predict probabilities
+    # ------------------------------------------------------------------
+    def predict_proba(
+        self,
+        df: pd.DataFrame,
+        target_col: str = Con.IS_CORRECT_COLUMN,
+        feature_cols: Optional[Sequence[str]] = None,
+        participant_col: str = Con.PARTICIPANT_ID,
+        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+        use_rfx: bool = False,
+    ) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        if target_col not in df.columns:
+            df = df.copy()
+            df[target_col] = 0
+
+        model_df = self._prepare_model_df(
+            df,
+            fit=False,
+            feature_cols=feature_cols,
+            target_col=target_col,
+            participant_col=participant_col,
+            text_col=text_col,
+        )
+
+        j_new = self._to_julia_df(model_df)
+        jl.model_py = self.model
+        jl.j_new = j_new
+
+        preds = jl.seval(f"predict_glmm_prob(model_py, j_new; use_rfx={str(use_rfx).lower()})")
+        return np.asarray(preds).reshape(-1).astype(float)
+
+    # ------------------------------------------------------------------
+    # Predict classes
+    # ------------------------------------------------------------------
+    def predict(
+        self,
+        df: pd.DataFrame,
+        threshold: float = 0.5,
+        **kwargs,
+    ) -> np.ndarray:
+        p = self.predict_proba(df, **kwargs)
+        return (p >= threshold).astype(int)
+
+    # ------------------------------------------------------------------
+    # Coefficient summary
+    # ------------------------------------------------------------------
+    def get_coef_summary(self) -> pd.DataFrame:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        jl.model_py = self.model
+        coef_tbl = jl.table_to_py(jl.seval("coeftable(model_py)"))
+        out = pd.DataFrame(coef_tbl)
+
+        if "Name" in out.columns:
+            out = out.rename(columns={"Name": "feature"})
+        elif "Coef." in out.columns:
+            out = out.reset_index().rename(columns={"index": "feature"})
+        else:
+            out = out.reset_index().rename(columns={"index": "feature"})
+
+        out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
+
+        if "Coef." in out.columns:
+            out["coef"] = pd.to_numeric(out["Coef."], errors="coerce")
+        elif "Estimate" in out.columns:
+            out["coef"] = pd.to_numeric(out["Estimate"], errors="coerce")
+        else:
+            out["coef"] = np.nan
+
+        if "Std. Error" in out.columns:
+            se = pd.to_numeric(out["Std. Error"], errors="coerce")
+            out["ci_low"] = out["coef"] - 1.96 * se
+            out["ci_high"] = out["coef"] + 1.96 * se
+        else:
+            out["ci_low"] = np.nan
+            out["ci_high"] = np.nan
+
+        out["abs_coef"] = out["coef"].abs()
+        out["or"] = np.exp(out["coef"])
+        out["or_ci_low"] = np.exp(out["ci_low"])
+        out["or_ci_high"] = np.exp(out["ci_high"])
+
+        if "Pr(>|z|)" in out.columns:
+            pvals = pd.to_numeric(out["Pr(>|z|)"], errors="coerce")
+            out["sig_ci"] = pvals < 0.05
+        elif "p" in out.columns:
+            pvals = pd.to_numeric(out["p"], errors="coerce")
+            out["sig_ci"] = pvals < 0.05
+        else:
+            out["sig_ci"] = (
+                pd.notna(out["ci_low"]) &
+                pd.notna(out["ci_high"]) &
+                ((out["ci_low"] > 0) | (out["ci_high"] < 0))
+            )
+
+        return out
+
+
+    def get_formula(self) -> str:
+        if self.formula_ is None:
+            raise RuntimeError("Model formula is not available before fitting.")
+        return self.formula_
+
+    def get_fixef_table(self) -> pd.DataFrame:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        jl.model_py = self.model
+        tbl = jl.table_to_py(jl.seval("fixef_table(model_py)"))
+        out = pd.DataFrame(tbl)
+
+        if "feature" in out.columns:
+            out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
+        else:
+            out["feature_raw"] = np.nan
+
+        out["coef"] = pd.to_numeric(out["coef"], errors="coerce")
+        out["or"] = np.exp(out["coef"])
+        out["abs_coef"] = out["coef"].abs()
+        return out.sort_values("abs_coef", ascending=False).reset_index(drop=True)
+
+    def get_random_effects(self) -> Dict[str, pd.DataFrame]:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        jl.model_py = self.model
+        out = jl.seval("ranef_tables_dict(model_py)")
+
+        py_out: Dict[str, pd.DataFrame] = {}
+        for group_name, table_obj in out.items():
+            df = pd.DataFrame(jl.table_to_py(table_obj)).copy()
+
+            rename_candidates = {
+                "(Intercept)": "random_intercept",
+                "Intercept": "random_intercept",
+            }
+            df = df.rename(columns=rename_candidates)
+
+            cols = list(df.columns)
+            if cols:
+                first = cols[0]
+                other_cols = [c for c in cols if c != first]
+                df = df[[first] + other_cols]
+
+            py_out[str(group_name)] = df
+
+        return py_out
+
+
+    def get_random_effect_variance_summary(self) -> str:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+
+        jl.model_py = self.model
+        return str(jl.seval("varcorr_text(model_py)"))

@@ -266,6 +266,101 @@ def evaluate_glmer_on_answer_correctness(
     return results
 
 
+def evaluate_julia_glmer_on_answer_correctness(
+    df: pd.DataFrame,
+    model,
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    split_group_cols: List[str] = [Con.PARTICIPANT_ID, Con.TRIAL_ID],
+    test_size: float = 0.2,
+    random_state: int = 42,
+    builder_fn: callable = None,
+    split_fn: callable = None,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    feature_cols: Optional[Sequence[str]] = None,
+    participant_col: str = Con.PARTICIPANT_ID,
+    text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+    use_rfx: bool = False,
+) -> Dict[str, CorrectnessEvaluationResult]:
+    """
+    Evaluation pipeline for the Julia GLMER answer-correctness model.
+
+    Same structure as the old GLMER pipeline:
+        {model_name: CorrectnessEvaluationResult}
+    """
+    if builder_fn is None:
+        raise ValueError("builder_fn must be provided for GLMER evaluation.")
+    if split_fn is None:
+        raise ValueError("split_fn must be provided for GLMER evaluation.")
+
+    train_raw, test_raw = split_fn(
+        df,
+        test_size=test_size,
+        random_state=random_state,
+        group_cols=split_group_cols,
+    )
+
+    train_df = builder_fn(train_raw, group_cols=group_cols)
+    test_df = builder_fn(test_raw, group_cols=group_cols)
+
+    y_true = test_df[target_col].astype(int).to_numpy()
+    feat_cols = None if feature_cols is None else list(feature_cols)
+
+    model.fit(
+        train_df=train_df,
+        target_col=target_col,
+        feature_cols=feat_cols,
+        participant_col=participant_col,
+        text_col=text_col,
+    )
+
+    y_pred = model.predict(
+        test_df,
+        threshold=0.5,
+        feature_cols=feat_cols,
+        target_col=target_col,
+        participant_col=participant_col,
+        text_col=text_col,
+        use_rfx=use_rfx,
+    )
+
+    y_prob = None
+    if hasattr(model, "predict_proba"):
+        try:
+            y_prob = model.predict_proba(
+                test_df,
+                feature_cols=feat_cols,
+                target_col=target_col,
+                participant_col=participant_col,
+                text_col=text_col,
+                use_rfx=use_rfx,
+            )
+        except Exception:
+            y_prob = None
+
+    acc = float((y_true == y_pred).mean())
+
+    coef_summary = None
+    if hasattr(model, "get_coef_summary") and callable(model.get_coef_summary):
+        coef_summary = model.get_coef_summary()
+
+    results: Dict[str, CorrectnessEvaluationResult] = {
+        model.name: CorrectnessEvaluationResult(
+            train_df=train_df,
+            test_df=test_df,
+            y_true=y_true,
+            y_pred=y_pred,
+            y_prob=y_prob,
+            accuracy=acc,
+            n_test=len(test_df),
+            n_positive=int((y_true == 1).sum()),
+            n_negative=int((y_true == 0).sum()),
+            coef_summary=coef_summary,
+        )
+    }
+
+    return results
+
+
 
 def evaluate_models_on_answer_correctness_leave_one_trial_out(
     df: pd.DataFrame,
@@ -332,7 +427,6 @@ def evaluate_models_on_answer_correctness_leave_one_trial_out(
             )
 
     return results
-
 
 
 
