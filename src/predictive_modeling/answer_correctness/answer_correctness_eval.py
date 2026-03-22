@@ -8,6 +8,7 @@ import pandas as pd
 
 import statsmodels.api as sm
 
+
 from src import constants as Con
 from src.predictive_modeling.answer_correctness.answer_correctness_data import (
     build_trial_level_with_area_metrics,
@@ -23,7 +24,6 @@ from src.predictive_modeling.common.data_utils import (
 from src.predictive_modeling.answer_correctness.answer_correctness_data import (
     build_trial_level_all_features
 )
-
 
 
 def build_feature_trial_df(
@@ -362,6 +362,53 @@ def evaluate_julia_glmer_on_answer_correctness(
 
 
 
+def fit_julia_glmer_on_answer_correctness_all(
+    df: pd.DataFrame,
+    model,
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    builder_fn: callable = None,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    feature_cols: Optional[Sequence[str]] = None,
+    participant_col: str = Con.PARTICIPANT_ID,
+    text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+) -> Dict[str, Any]:
+    if builder_fn is None:
+        raise ValueError("builder_fn must be provided.")
+
+    full_df = builder_fn(df, group_cols=group_cols)
+    feat_cols = None if feature_cols is None else list(feature_cols)
+
+    model.fit(
+        train_df=full_df,
+        target_col=target_col,
+        feature_cols=feat_cols,
+        participant_col=participant_col,
+        text_col=text_col,
+    )
+
+    coef_summary = model.get_coef_summary() if hasattr(model, "get_coef_summary") else None
+    random_effects = model.get_random_effects() if hasattr(model, "get_random_effects") else None
+    random_varcorr = (
+        model.get_random_effect_variance_summary()
+        if hasattr(model, "get_random_effect_variance_summary")
+        else None
+    )
+
+    return {
+        model.name: {
+            "fit_df": full_df,
+            "n_rows": len(full_df),
+            "n_positive": int((full_df[target_col] == 1).sum()),
+            "n_negative": int((full_df[target_col] == 0).sum()),
+            "coef_summary": coef_summary,
+            "random_effects": random_effects,
+            "random_effect_variance_summary": random_varcorr,
+        }
+    }
+
+
+
+
 def evaluate_models_on_answer_correctness_leave_one_trial_out(
     df: pd.DataFrame,
     models: Sequence[AnswerCorrectnessModel],
@@ -537,6 +584,7 @@ def correlation_prune_features(
     return kept_cols, dropped_cols, prune_log
 
 
+
 def aic_forward_select_logit(
     df: pd.DataFrame,
     feature_cols,
@@ -621,3 +669,5 @@ def aic_forward_select_logit(
         current_model = best_model
 
     return selected, pd.DataFrame(log_rows), current_model
+
+

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Optional, Tuple
-from typing import Iterable, Mapping, Any, Dict, List
+from typing import Iterable, Mapping, Any, Dict, List, Sequence
 
 import os
 
@@ -23,6 +23,7 @@ from sklearn.metrics import (
 from src.predictive_modeling.answer_correctness.answer_correctness_eval import (
     CorrectnessEvaluationResult,
 )
+
 
 
 def show_correctness_model_results(
@@ -685,3 +686,115 @@ def plot_feature_correlation_heatmap(
     )
 
     return fig, corr_ord, saved_paths
+
+
+
+
+
+def plot_random_effects_barh(
+    random_effects_df: pd.DataFrame,
+    id_col: str,
+    effect_col: str = "random_intercept",
+    title: Optional[str] = None,
+    top_n: int = 30,
+    sort_by_abs: bool = True,
+    figsize: Tuple[int, int] = (10, 8),
+    save: bool = False,
+    rel_dir: Optional[str] = None,
+    filename: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
+    df = random_effects_df.copy()
+    df = df[[id_col, effect_col]].dropna()
+
+    if sort_by_abs:
+        df = df.assign(_abs=df[effect_col].abs()).sort_values("_abs", ascending=False)
+    else:
+        df = df.sort_values(effect_col, ascending=False)
+
+    df = df.head(top_n).copy()
+    df = df.sort_values(effect_col, ascending=True)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.barh(df[id_col].astype(str), df[effect_col])
+    ax.axvline(0, linewidth=1)
+
+    ax.set_xlabel("Random effect")
+    ax.set_ylabel(id_col)
+    ax.set_title(title or f"Random effects: {id_col}")
+
+    fig.tight_layout()
+
+    paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return fig, df, paths
+
+
+def plot_random_effects_distribution(
+    random_effects_df: pd.DataFrame,
+    effect_col: str = "random_intercept",
+    title: Optional[str] = None,
+    bins: int = 30,
+    figsize: Tuple[int, int] = (8, 5),
+    save: bool = False,
+    rel_dir: Optional[str] = None,
+    filename: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
+    vals = pd.to_numeric(random_effects_df[effect_col], errors="coerce").dropna()
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.hist(vals, bins=bins)
+    ax.axvline(0, linewidth=1)
+
+    ax.set_xlabel("Random effect")
+    ax.set_ylabel("Count")
+    ax.set_title(title or "Random-effects distribution")
+
+    fig.tight_layout()
+
+    paths = maybe_save_plot(
+        fig=fig,
+        save=save,
+        rel_dir=rel_dir,
+        filename=filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return fig, vals, paths
+
+
+def summarize_random_effects(
+    random_effects_df: pd.DataFrame,
+    group_name: str,
+    effect_col: str = "random_intercept",
+) -> pd.DataFrame:
+    vals = pd.to_numeric(random_effects_df[effect_col], errors="coerce").dropna()
+
+    return pd.DataFrame([{
+        "group_name": group_name,
+        "n_levels": int(len(vals)),
+        "mean": float(vals.mean()),
+        "std": float(vals.std(ddof=1)) if len(vals) > 1 else np.nan,
+        "min": float(vals.min()),
+        "q25": float(vals.quantile(0.25)),
+        "median": float(vals.median()),
+        "q75": float(vals.quantile(0.75)),
+        "max": float(vals.max()),
+        "mean_abs": float(vals.abs().mean()),
+        "max_abs": float(vals.abs().max()),
+    }])

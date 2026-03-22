@@ -22,7 +22,7 @@ from src.predictive_modeling.answer_correctness.julia_model import (
 from src.predictive_modeling.answer_correctness.answer_correctness_eval import (
     evaluate_models_on_answer_correctness,
     evaluate_glmer_on_answer_correctness,
-    evaluate_julia_glmer_on_answer_correctness
+    evaluate_julia_glmer_on_answer_correctness, fit_julia_glmer_on_answer_correctness_all
 )
 from src.predictive_modeling.common.viz_utils import (
     plot_confusion_heatmap,
@@ -52,6 +52,10 @@ from sklearn.metrics import (
     roc_auc_score,
     average_precision_score,
 )
+
+from predictive_modeling.answer_correctness.answer_correctness_viz import plot_coef_summary_barh, \
+    plot_feature_correlation_heatmap, plot_random_effects_distribution, plot_random_effects_barh, summarize_random_effects
+
 
 def _split_tag(split_group_cols: Sequence[str]) -> str:
     return "+".join(split_group_cols)
@@ -724,3 +728,219 @@ def run_full_features_correctness_julia_glmer_bundle(
         "formula": formula,
     }
 
+
+def run_full_features_correctness_julia_glmer_fit_all(
+    df: pd.DataFrame,
+    feature_cols: Optional[Sequence[str]] = None,
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
+    pref_extreme_mode: str = "polarity",
+    save: bool = True,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+    subdir: Optional[str] = None,
+    top_n_rfx: int = 30,
+) -> Dict[str, Any]:
+
+    model = FullFeaturesCorrectnessJuliaGLMERModel()
+    model_name = f"{model.name}_fit_all"
+
+    base_dir = f"answer_correctness/full_fit/{subdir}" if subdir else "answer_correctness/full_fit"
+
+    def builder_fn_local(d: pd.DataFrame, group_cols=group_cols):
+        return build_trial_level_all_features(
+            d,
+            group_cols=group_cols,
+            pref_specs=pref_specs,
+            pref_extreme_mode=pref_extreme_mode,
+            keep_cols=[Con.TEXT_ID_WITH_Q_COLUMN],
+        )
+
+    results = fit_julia_glmer_on_answer_correctness_all(
+        df=df,
+        model=model,
+        group_cols=tuple(group_cols),
+        builder_fn=builder_fn_local,
+        target_col=Con.IS_CORRECT_COLUMN,
+        feature_cols=feature_cols,
+        participant_col=Con.PARTICIPANT_ID,
+        text_col=Con.TEXT_ID_WITH_Q_COLUMN,
+    )
+
+    res = results[model.name]
+    formula = model.get_formula() if hasattr(model, "get_formula") else None
+    print(f"Model formula: {formula}")
+
+    summary_df = pd.DataFrame([{
+        "model_name": model_name,
+        "n_rows": int(res["n_rows"]),
+        "n_positive": int(res["n_positive"]),
+        "n_negative": int(res["n_negative"]),
+        "formula": formula,
+        "random_effect_variance_summary": res["random_effect_variance_summary"],
+    }])
+
+    summary_paths = None
+    if save:
+        summary_paths = save_df_csv(
+            summary_df,
+            rel_dir=base_dir,
+            filename="model_summary_fit_all",
+            paper_dirs=paper_dirs,
+        )
+
+    coef_paths = []
+    coef_sig_paths = []
+
+    coef_summary = res["coef_summary"]
+    if coef_summary is not None and not coef_summary.empty:
+        _, _, coef_paths = plot_coef_summary_barh(
+            coef_summary=coef_summary,
+            value_col="coef",
+            model_name=model_name,
+            title=f"{model_name} – coefficients",
+            save=save,
+            rel_dir=f"{base_dir}/coefficients",
+            filename=f"{model_name}_coef_all",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+            significant_only=False,
+        )
+
+        _, _, coef_sig_paths = plot_coef_summary_barh(
+            coef_summary=coef_summary,
+            value_col="coef",
+            model_name=model_name,
+            title=f"{model_name} – significant coefficients",
+            save=save,
+            rel_dir=f"{base_dir}/coefficients",
+            filename=f"{model_name}_coef_significant",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+            significant_only=True,
+        )
+
+    fit_df = res["fit_df"]
+    corr_feature_cols = list(model.raw_feature_cols_)
+
+    _, _, corr_paths = plot_feature_correlation_heatmap(
+        fit_df,
+        feature_cols=corr_feature_cols,
+        figsize=(30, 30),
+        method="pearson",
+        cluster_order=True,
+        save=save,
+        rel_dir=f"{base_dir}/diagnostics/feature_correlation",
+        filename=f"feature_corr_clustered_n{len(corr_feature_cols)}",
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    random_effects = res["random_effects"] or {}
+    rfx_paths = {}
+    rfx_summary_frames = []
+
+    if Con.PARTICIPANT_ID in random_effects:
+        part_df = random_effects[Con.PARTICIPANT_ID]
+        rfx_summary_frames.append(summarize_random_effects(part_df, group_name=Con.PARTICIPANT_ID))
+
+        _, _, part_dist_paths = plot_random_effects_distribution(
+            part_df,
+            effect_col="random_intercept",
+            title=f"{model_name} – participant random-effects distribution",
+            save=save,
+            rel_dir=f"{base_dir}/random_effects",
+            filename=f"{model_name}_participant_distribution",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+        )
+
+        _, _, part_bar_paths = plot_random_effects_barh(
+            part_df,
+            id_col=Con.PARTICIPANT_ID,
+            effect_col="random_intercept",
+            title=f"{model_name} – strongest participant random effects",
+            top_n=top_n_rfx,
+            save=save,
+            rel_dir=f"{base_dir}/random_effects",
+            filename=f"{model_name}_participant_top{top_n_rfx}",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+        )
+
+        rfx_paths[Con.PARTICIPANT_ID] = {
+            "distribution": part_dist_paths,
+            "top_abs": part_bar_paths,
+        }
+
+    if Con.TEXT_ID_WITH_Q_COLUMN in random_effects:
+        text_df = random_effects[Con.TEXT_ID_WITH_Q_COLUMN]
+        rfx_summary_frames.append(summarize_random_effects(text_df, group_name=Con.TEXT_ID_WITH_Q_COLUMN))
+
+        _, _, text_dist_paths = plot_random_effects_distribution(
+            text_df,
+            effect_col="random_intercept",
+            title=f"{model_name} – text random-effects distribution",
+            save=save,
+            rel_dir=f"{base_dir}/random_effects",
+            filename=f"{model_name}_text_distribution",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+        )
+
+        _, _, text_bar_paths = plot_random_effects_barh(
+            text_df,
+            id_col=Con.TEXT_ID_WITH_Q_COLUMN,
+            effect_col="random_intercept",
+            title=f"{model_name} – strongest text random effects",
+            top_n=top_n_rfx,
+            save=save,
+            rel_dir=f"{base_dir}/random_effects",
+            filename=f"{model_name}_text_top{top_n_rfx}",
+            paper_dirs=paper_dirs,
+            dpi=dpi,
+            close=close,
+        )
+
+        rfx_paths[Con.TEXT_ID_WITH_Q_COLUMN] = {
+            "distribution": text_dist_paths,
+            "top_abs": text_bar_paths,
+        }
+
+    random_effects_summary_df = (
+        pd.concat(rfx_summary_frames, ignore_index=True)
+        if rfx_summary_frames else pd.DataFrame()
+    )
+
+    rfx_summary_paths = None
+    if save and not random_effects_summary_df.empty:
+        rfx_summary_paths = save_df_csv(
+            random_effects_summary_df,
+            rel_dir=f"{base_dir}/random_effects",
+            filename="random_effects_summary",
+            paper_dirs=paper_dirs,
+        )
+
+    return {
+        "results": results,
+        "paths": {
+            "coef_all": coef_paths,
+            "coef_significant": coef_sig_paths,
+            "correlation": corr_paths,
+            "random_effects": rfx_paths,
+            "random_effects_summary": rfx_summary_paths,
+        },
+        "fit_df": fit_df,
+        "base_rel_dir": base_dir,
+        "summary_csv": summary_paths,
+        "formula": formula,
+        "random_effects": random_effects,
+        "random_effects_summary_df": random_effects_summary_df,
+    }
