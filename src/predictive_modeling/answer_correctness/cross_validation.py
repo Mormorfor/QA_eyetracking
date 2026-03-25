@@ -367,7 +367,7 @@ def summarize_cv_results_by_regime(
     ci: float = 0.95,
 ) -> pd.DataFrame:
     """
-    Aggregate cross-validation accuracy by regime across folds.
+    Aggregate cross-validation accuracy by regime across GatherersFolds.
 
     Parameters
     ----------
@@ -380,7 +380,7 @@ def summarize_cv_results_by_regime(
     val_only
         If True, keep only validation regimes.
     ci
-        Confidence level for mean accuracy CI across folds.
+        Confidence level for mean accuracy CI across GatherersFolds.
 
     Returns
     -------
@@ -520,7 +520,7 @@ def plot_cv_accuracy_by_regime(
     rotate_xticks: int = 30,
 ):
     """
-    Bar plot of mean CV accuracy by regime, with confidence intervals across folds.
+    Bar plot of mean CV accuracy by regime, with confidence intervals across GatherersFolds.
 
     Parameters
     ----------
@@ -529,7 +529,7 @@ def plot_cv_accuracy_by_regime(
     model_name
         Model name to plot.
     ci
-        Confidence level for mean accuracy CI across folds.
+        Confidence level for mean accuracy CI across GatherersFolds.
     test_only
         If True, keep only test regimes.
     val_only

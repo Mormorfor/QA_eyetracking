@@ -460,6 +460,7 @@ class FullFeaturesCorrectnessLogRegModel:
         ]
         cols.extend([c for c in derived_base if c in df.columns])
         cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
+        cols.extend(sorted(c for c in df.columns if c.startswith("last_visited_")))
 
         return cols
 

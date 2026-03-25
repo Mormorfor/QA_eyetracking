@@ -1,6 +1,6 @@
 # data_utils.py
 
-from typing import Sequence, Tuple, List
+from typing import Sequence, Tuple, List, Optional
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -190,8 +190,46 @@ def add_answer_correct_wrong_contrast_columns(
 
     return out
 
+def build_trial_level_categorical_feature(
+    df: pd.DataFrame,
+    feature_col: str,
+    group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
+    prefix: Optional[str] = None,
+    drop_first: bool = False,
+    dummy_na: bool = False,
+) -> pd.DataFrame:
+    """
+    Build one-hot encoded trial-level features from a categorical column
+    that should be constant within each trial.
+
+    Returns:
+        one row per trial with columns:
+            group_cols + dummy columns
+    """
+    prefix = prefix or feature_col
+
+    cols_needed = list(group_cols) + [feature_col]
+    d = df[cols_needed].copy()
+
+    trial_cat = (
+        d.groupby(list(group_cols), as_index=False)[feature_col]
+        .first()
+    )
+
+    dummies = pd.get_dummies(
+        trial_cat[feature_col],
+        prefix=prefix,
+        drop_first=drop_first,
+        dummy_na=dummy_na,
+    ).astype(int)
+
+    out = pd.concat([trial_cat[list(group_cols)], dummies], axis=1)
+    return out
 
 
+#--------------------------------
+# Summary
+#--------------------------------
 def get_coef_summary(model: LogisticRegression,
                      feature_cols: List[str],
                      top_k: int = None):

@@ -1,8 +1,9 @@
 # src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
-from typing import Optional, Tuple
-from typing import Iterable, Mapping, Any, Dict, List, Sequence
+from pathlib import Path
+from typing import Iterable, List, Optional, Sequence, Union, Dict, Any, Tuple, Mapping
+
 
 import os
 
@@ -23,7 +24,7 @@ from sklearn.metrics import (
 from src.predictive_modeling.answer_correctness.answer_correctness_eval import (
     CorrectnessEvaluationResult,
 )
-
+from viz.plot_output import save_plot, save_df_csv
 
 
 def show_correctness_model_results(
@@ -118,18 +119,22 @@ def show_correctness_model_results(
 
 
 
+
 def correctness_results_to_summary_df(
     results: Mapping[str, CorrectnessEvaluationResult],
     labels: Iterable[int] = (0, 1),
+    run_identifier: str = "",
+    trained_feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
 ) -> pd.DataFrame:
     labels = list(labels)
+    trained_feature_cols_by_model = trained_feature_cols_by_model or {}
 
     rows = []
     for model_name, res in results.items():
         y_true = np.asarray(res.y_true)
         y_pred = np.asarray(res.y_pred)
+        y_prob = None if getattr(res, "y_prob", None) is None else np.asarray(res.y_prob)
 
-        # per-class
         prec, rec, f1, support = precision_recall_fscore_support(
             y_true, y_pred, labels=labels, average=None, zero_division=0
         )
@@ -142,30 +147,55 @@ def correctness_results_to_summary_df(
             y_true, y_pred, labels=labels, average="weighted", zero_division=0
         )
 
+        bal_acc = balanced_accuracy_score(y_true, y_pred)
+
+        roc_auc = None
+        avg_prec = None
+        if y_prob is not None:
+            try:
+                roc_auc = float(roc_auc_score(y_true, y_prob))
+            except Exception:
+                roc_auc = None
+            try:
+                avg_prec = float(average_precision_score(y_true, y_prob))
+            except Exception:
+                avg_prec = None
+
+        trained_features = list(trained_feature_cols_by_model.get(model_name, []))
+
         row = {
+            "run_identifier": run_identifier,
             "model": model_name,
-            "n_test": res.n_test,
-            "accuracy": res.accuracy,
-            "n_positive": res.n_positive,
-            "n_negative": res.n_negative,
-            "macro_precision": macro_p,
-            "macro_recall": macro_r,
-            "macro_f1": macro_f1,
-            "weighted_precision": weighted_p,
-            "weighted_recall": weighted_r,
-            "weighted_f1": weighted_f1,
+            "n_test": int(res.n_test),
+            "accuracy": float(res.accuracy),
+            "balanced_accuracy": float(bal_acc),
+            "n_positive": int(res.n_positive),
+            "n_negative": int(res.n_negative),
+            "macro_precision": float(macro_p),
+            "macro_recall": float(macro_r),
+            "macro_f1": float(macro_f1),
+            "weighted_precision": float(weighted_p),
+            "weighted_recall": float(weighted_r),
+            "weighted_f1": float(weighted_f1),
+            "roc_auc": roc_auc,
+            "average_precision": avg_prec,
+            "n_features": len(trained_features),
+            "trained_feature_cols": " | ".join(trained_features),
         }
 
-        # class-specific columns
         for i, lab in enumerate(labels):
-            row[f"precision_class_{lab}"] = prec[i]
-            row[f"recall_class_{lab}"] = rec[i]
-            row[f"f1_class_{lab}"] = f1[i]
-            row[f"support_class_{lab}"] = support[i]
+            row[f"precision_class_{lab}"] = float(prec[i])
+            row[f"recall_class_{lab}"] = float(rec[i])
+            row[f"f1_class_{lab}"] = float(f1[i])
+            row[f"support_class_{lab}"] = int(support[i])
 
         rows.append(row)
 
-    return pd.DataFrame(rows).sort_values(["accuracy", "macro_f1"], ascending=False).reset_index(drop=True)
+    return (
+        pd.DataFrame(rows)
+        .sort_values(["balanced_accuracy", "accuracy", "macro_f1"], ascending=False)
+        .reset_index(drop=True)
+    )
 
 
 
@@ -798,3 +828,264 @@ def summarize_random_effects(
         "mean_abs": float(vals.abs().mean()),
         "max_abs": float(vals.abs().max()),
     }])
+
+
+
+def _infer_model_family(model_name: str) -> Optional[str]:
+    if not isinstance(model_name, str):
+        return None
+
+    name = model_name.lower()
+
+    if "log_reg" in name or "logreg" in name:
+        return "logreg"
+    if "glmer" in name and "julia" not in name:
+        return "glmer"
+    if "julia" in name:
+        return "julia"
+
+    return None
+
+
+
+def collect_correctness_run_reports(
+    report_dirs: Union[str, Path, Sequence[Union[str, Path]]],
+    filename: str = "model_summary.csv",
+    recursive: bool = True,
+    sort_by: str = "balanced_accuracy",
+    ascending: bool = False,
+) -> pd.DataFrame:
+    """
+    Collect correctness run summary CSVs from one or more directories.
+
+    Parameters
+    ----------
+    report_dirs:
+        One folder or a list of folders that contain run report CSVs.
+        Example:
+            "reports/report_data/answer_correctness/logreg"
+            [
+                "reports/report_data/answer_correctness/logreg",
+                "reports/report_data/answer_correctness/glmer",
+                "reports/report_data/answer_correctness/julia",
+            ]
+
+    filename:
+        CSV filename to search for. Default: "model_summary.csv"
+
+    recursive:
+        If True, searches all nested subfolders.
+
+    sort_by:
+        Column to sort the final table by.
+
+    ascending:
+        Sort direction.
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined dataframe of all found run summaries.
+    """
+    if isinstance(report_dirs, (str, Path)):
+        report_dirs = [report_dirs]
+
+    csv_paths: List[Path] = []
+
+    for folder in report_dirs:
+        folder = Path(folder)
+        if recursive:
+            csv_paths.extend(folder.rglob(filename))
+        else:
+            csv_paths.extend(folder.glob(filename))
+
+    frames = []
+    for csv_path in sorted(set(csv_paths)):
+
+        df = pd.read_csv(csv_path)
+        df["source_csv"] = str(csv_path)
+        df["source_folder"] = str(csv_path.parent)
+
+        parts = list(csv_path.parts)
+        df["model_family"] = df["model"].apply(_infer_model_family)
+        frames.append(df)
+
+
+    out = pd.concat(frames, ignore_index=True)
+
+    preferred_cols = [
+        "run_identifier",
+        "model_family",
+        "model",
+        "balanced_accuracy",
+        "accuracy",
+        "macro_f1",
+        "weighted_f1",
+        "n_test",
+        "n_features",
+        "trained_feature_cols",
+        "source_folder",
+    ]
+    existing_preferred = [c for c in preferred_cols if c in out.columns]
+    remaining = [c for c in out.columns if c not in existing_preferred]
+    out = out[existing_preferred + remaining]
+
+    if sort_by in out.columns:
+        out = out.sort_values(sort_by, ascending=ascending).reset_index(drop=True)
+
+    return out
+
+
+def plot_correctness_run_comparison(
+    summary_df: pd.DataFrame,
+    metric_col: str = "balanced_accuracy",
+    label_col: Optional[str] = None,
+    top_n: Optional[int] = None,
+    figsize: tuple = (12, 8),
+    title: Optional[str] = None,
+    save: bool = False,
+    rel_dir: Optional[str] = None,
+    filename: str = "run_comparison_balanced_accuracy",
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+):
+    """
+    Create a horizontal bar plot comparing runs by balanced accuracy.
+
+    Parameters
+    ----------
+    summary_df:
+        Combined dataframe returned by collect_correctness_run_reports().
+
+    metric_col:
+        Metric to plot. Default: balanced_accuracy
+
+    label_col:
+        Column to use as bar labels.
+        If None, a readable label is constructed automatically.
+
+    top_n:
+        Optionally only plot the top N runs.
+
+    Returns
+    -------
+    fig, plot_df, saved_paths
+    """
+
+    df = summary_df.copy()
+
+    if label_col is None:
+        def make_label(row):
+            run_id = row["run_identifier"] if "run_identifier" in row and pd.notna(row["run_identifier"]) and str(row["run_identifier"]).strip() else None
+            model_family = row["model_family"] if "model_family" in row and pd.notna(row["model_family"]) else None
+            n_features = row["n_features"] if "n_features" in row and pd.notna(row["n_features"]) else None
+
+            parts = [p for p in [run_id, model_family, str(n_features) + " features"] if p]
+            return " | ".join(parts)
+
+        df["_plot_label"] = df.apply(make_label, axis=1)
+        label_col = "_plot_label"
+
+    df = df.dropna(subset=[metric_col]).copy()
+    df = df.sort_values(metric_col, ascending=False)
+
+    if top_n is not None:
+        df = df.head(top_n).copy()
+
+    df = df.sort_values(metric_col, ascending=True)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.barh(df[label_col].astype(str), df[metric_col])
+    ax.set_xlabel(metric_col.replace("_", " ").title())
+    ax.set_ylabel("Run")
+    ax.set_title(title or f"Comparison of runs by {metric_col.replace('_', ' ')}")
+
+    for i, val in enumerate(df[metric_col]):
+        ax.text(val, i, f" {val:.3f}", va="center")
+
+    plt.tight_layout()
+
+    saved_paths = []
+    if save:
+        saved_paths = save_plot(
+            fig=fig,
+            rel_dir=rel_dir,
+            filename=filename,
+            dpi=dpi,
+            paper_dirs=paper_dirs,
+            close=close,
+        )
+    elif close:
+        plt.close(fig)
+
+    return fig, df, saved_paths
+
+
+def collect_and_plot_correctness_runs(
+    report_dirs: Union[str, Path, Sequence[Union[str, Path]]],
+    filename: str = "model_summary.csv",
+    recursive: bool = True,
+    sort_by: str = "balanced_accuracy",
+    ascending: bool = False,
+    metric_col: str = "balanced_accuracy",
+    label_col: Optional[str] = None,
+    top_n: Optional[int] = None,
+    figsize: tuple = (12, 8),
+    title: Optional[str] = None,
+    save_table: bool = False,
+    save_plot_figure: bool = False,
+    rel_dir: Optional[str] = None,
+    table_filename: str = "all_run_summaries",
+    plot_filename: str = "run_comparison_balanced_accuracy",
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+) -> Dict[str, Any]:
+    """
+    Convenience wrapper:
+    - collect all run summaries
+    - plot balanced accuracy comparison
+    - optionally save combined table and figure
+    """
+    summary_df = collect_correctness_run_reports(
+        report_dirs=report_dirs,
+        filename=filename,
+        recursive=recursive,
+        sort_by=sort_by,
+        ascending=ascending,
+    )
+
+    table_paths = []
+    if save_table:
+        if rel_dir is None:
+            raise ValueError("rel_dir must be provided when save_table=True.")
+        table_paths = save_df_csv(
+            summary_df,
+            rel_dir=rel_dir,
+            filename=table_filename,
+            paper_dirs=paper_dirs,
+        )
+
+    fig, plot_df, plot_paths = plot_correctness_run_comparison(
+        summary_df=summary_df,
+        metric_col=metric_col,
+        label_col=label_col,
+        top_n=top_n,
+        figsize=figsize,
+        title=title,
+        save=save_plot_figure,
+        rel_dir=rel_dir,
+        filename=plot_filename,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return {
+        "summary_df": summary_df,
+        "plot_df": plot_df,
+        "fig": fig,
+        "table_paths": table_paths,
+        "plot_paths": plot_paths,
+    }

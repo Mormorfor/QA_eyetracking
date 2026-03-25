@@ -8,7 +8,8 @@ import ast
 from src import constants as Con
 from src.predictive_modeling.common.data_utils import (
     build_area_metric_pivot,
-    add_answer_correct_wrong_contrast_columns
+    add_answer_correct_wrong_contrast_columns,
+    build_trial_level_categorical_feature
 )
 
 from src.derived.correctness_measures import (
@@ -174,6 +175,7 @@ def build_trial_level_all_features(
     pref_specs: Sequence[Tuple[str, str]] = None,
     pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
+    add_last_visited_lbl: bool = True,
 ) -> pd.DataFrame:
     """
     Build trial-level table with all features for answer correctness prediction.
@@ -208,6 +210,21 @@ def build_trial_level_all_features(
             c2 = f"{c}_derived"
             if c2 in merged.columns:
                 merged = merged.drop(columns=[c2])
+
+    if add_last_visited_lbl:
+        last_loc_df = build_trial_level_categorical_feature(
+            df=df,
+            feature_col=Con.LAST_VISITED_LABEL,
+            group_cols=group_cols,
+            prefix="last_visited",
+            drop_first=False,
+            dummy_na=True,
+        )
+        merged = merged.merge(last_loc_df, on=list(group_cols), how="left")
+
+        last_loc_cols = [c for c in last_loc_df.columns if c not in group_cols]
+        if last_loc_cols:
+            merged[last_loc_cols] = merged[last_loc_cols].fillna(0).astype(int)
 
     return merged
 
