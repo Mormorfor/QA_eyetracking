@@ -237,13 +237,27 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
     # Formula
     # ------------------------------------------------------------------
     def _build_formula(self) -> str:
+        if not self.feature_cols_:
+            raise ValueError("No feature columns available to build formula.")
+
         fixed = " + ".join(self.feature_cols_)
+        random_slopes = "1 + " + fixed
+
+        # formula = (
+        #     f"{self.target_col_model_} ~ 1 + {fixed} "
+        #     f"+ zerocorr({random_slopes} | {self.participant_col_model_}) "
+        #     f"+ zerocorr({random_slopes} | {self.text_col_model_})"
+        # )
+
         formula = (
             f"{self.target_col_model_} ~ 1 + {fixed} "
-            f"+ (1|{self.participant_col_model_}) "
-            f"+ (1|{self.text_col_model_})"
+            f"+ zerocorr({random_slopes} | {self.participant_col_model_}) "
+            #f"+ (1 | {self.participant_col_model_})"
+            f"+ zerocorr({random_slopes} | {self.text_col_model_})"
+            #f"+ (1 | {self.text_col_model_})"
         )
         self.formula_ = formula
+        print(f"Built formula: {formula}")
         return formula
 
     # ------------------------------------------------------------------

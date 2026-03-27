@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from IPython.display import display
+from sklearn.metrics import balanced_accuracy_score
 
 import src.constants as Con
 # ---------------------------------------------------------------------
@@ -25,6 +26,7 @@ class FoldRegimeEvaluationResult:
     y_pred: np.ndarray
     y_prob: Optional[np.ndarray]
     accuracy: float
+    balanced_accuracy: float
     n_eval: int
     n_positive: int
     n_negative: int
@@ -156,8 +158,8 @@ def evaluate_one_fold_on_regimes(
         ]
 
     train_raw = df[df["regime"] == train_regime].copy()
-
     train_df = builder_fn(train_raw)
+
     results: Dict[str, FoldRegimeEvaluationResult] = {}
 
     for regime in eval_regimes:
@@ -172,6 +174,7 @@ def evaluate_one_fold_on_regimes(
         y_prob = model.predict_proba(eval_df, feature_cols=feature_cols)
 
         acc = float((y_true == y_pred).mean())
+        bal_acc = float(balanced_accuracy_score(y_true, y_pred))
 
         coef_summary = None
         get_cs = getattr(model, "get_coef_summary", None)
@@ -196,6 +199,7 @@ def evaluate_one_fold_on_regimes(
             y_pred=y_pred,
             y_prob=y_prob,
             accuracy=acc,
+            balanced_accuracy=bal_acc,
             n_eval=len(eval_df),
             n_positive=int((y_true == 1).sum()),
             n_negative=int((y_true == 0).sum()),
@@ -231,6 +235,7 @@ def run_cross_validation_on_predefined_folds(
 ) -> CrossValidationRunResult:
     """
     Run cross-validation using predefined fold assignment CSVs.
+    Stores both accuracy and balanced_accuracy in the summary tables.
     """
     fold_dir = Path(fold_dir)
 
@@ -282,6 +287,7 @@ def run_cross_validation_on_predefined_folds(
                         "fold": fold_idx,
                         "regime": regime,
                         "accuracy": res.accuracy,
+                        "balanced_accuracy": res.balanced_accuracy,
                         "n_eval": res.n_eval,
                         "n_positive": res.n_positive,
                         "n_negative": res.n_negative,
@@ -296,6 +302,8 @@ def run_cross_validation_on_predefined_folds(
             folds=("fold", "nunique"),
             mean_accuracy=("accuracy", "mean"),
             std_accuracy=("accuracy", "std"),
+            mean_balanced_accuracy=("balanced_accuracy", "mean"),
+            std_balanced_accuracy=("balanced_accuracy", "std"),
             mean_n_eval=("n_eval", "mean"),
             total_n_eval=("n_eval", "sum"),
         )
@@ -309,6 +317,8 @@ def run_cross_validation_on_predefined_folds(
             folds=("fold", "nunique"),
             mean_accuracy=("accuracy", "mean"),
             std_accuracy=("accuracy", "std"),
+            mean_balanced_accuracy=("balanced_accuracy", "mean"),
+            std_balanced_accuracy=("balanced_accuracy", "std"),
             total_n_eval=("n_eval", "sum"),
         )
         .sort_values(["model"])
@@ -362,12 +372,13 @@ def summarize_cv_results_by_regime(
     cv_out,
     model_name: Optional[str] = "full_features_correctness_log_reg",
     *,
+    metric_col: str = "balanced_accuracy",
     test_only: bool = False,
     val_only: bool = False,
     ci: float = 0.95,
 ) -> pd.DataFrame:
     """
-    Aggregate cross-validation accuracy by regime across GatherersFolds.
+    Aggregate cross-validation results by regime across folds.
 
     Parameters
     ----------
@@ -375,12 +386,14 @@ def summarize_cv_results_by_regime(
         Output object from `run_cross_validation_on_predefined_folds`.
     model_name
         Model name to filter on. If None, keeps all models.
+    metric_col
+        Metric column to aggregate. Typically "balanced_accuracy" or "accuracy".
     test_only
         If True, keep only test regimes.
     val_only
         If True, keep only validation regimes.
     ci
-        Confidence level for mean accuracy CI across GatherersFolds.
+        Confidence level for mean metric CI across folds.
 
     Returns
     -------
@@ -391,6 +404,9 @@ def summarize_cv_results_by_regime(
 
     if model_name is not None:
         df = df[df["model"] == model_name].copy()
+
+    if metric_col not in df.columns:
+        raise ValueError(f"metric_col='{metric_col}' not found in cv_out.summary_df")
 
     if test_only and val_only:
         raise ValueError("Choose only one of test_only / val_only.")
@@ -414,10 +430,10 @@ def summarize_cv_results_by_regime(
         df.groupby("regime", as_index=False)
         .agg(
             n_folds=("fold", "nunique"),
-            mean_accuracy=("accuracy", "mean"),
-            std_accuracy=("accuracy", "std"),
-            min_accuracy=("accuracy", "min"),
-            max_accuracy=("accuracy", "max"),
+            mean_metric=(metric_col, "mean"),
+            std_metric=(metric_col, "std"),
+            min_metric=(metric_col, "min"),
+            max_metric=(metric_col, "max"),
             mean_n_eval=("n_eval", "mean"),
             total_n_eval=("n_eval", "sum"),
         )
@@ -425,10 +441,11 @@ def summarize_cv_results_by_regime(
         .reset_index(drop=True)
     )
 
-    out["std_accuracy"] = out["std_accuracy"].fillna(0.0)
-    out["se_accuracy"] = out["std_accuracy"] / np.sqrt(out["n_folds"])
-    out["ci_low"] = (out["mean_accuracy"] - z * out["se_accuracy"]).clip(lower=0.0)
-    out["ci_high"] = (out["mean_accuracy"] + z * out["se_accuracy"]).clip(upper=1.0)
+    out["std_metric"] = out["std_metric"].fillna(0.0)
+    out["se_metric"] = out["std_metric"] / np.sqrt(out["n_folds"])
+    out["ci_low"] = (out["mean_metric"] - z * out["se_metric"]).clip(lower=0.0)
+    out["ci_high"] = (out["mean_metric"] + z * out["se_metric"]).clip(upper=1.0)
+    out["metric"] = metric_col
 
     return out
 
@@ -436,19 +453,19 @@ def summarize_cv_results_by_regime(
 def show_cv_results(
     cv_out,
     model_name: Optional[str] = "full_features_correctness_log_reg",
+    *,
+    metric_col: str = "balanced_accuracy",
 ) -> Dict[str, pd.DataFrame]:
     """
     Display fold-level and aggregated CV results for a model.
-
-    Returns
-    -------
-    dict
-        Dictionary containing the key summary tables.
     """
     summary_df = cv_out.summary_df.copy()
 
     if model_name is not None:
         summary_df = summary_df[summary_df["model"] == model_name].copy()
+
+    if metric_col not in summary_df.columns:
+        raise ValueError(f"metric_col='{metric_col}' not found in cv_out.summary_df")
 
     print("=" * 80)
     print(f"CROSS-VALIDATION RESULTS: {model_name}")
@@ -458,45 +475,49 @@ def show_cv_results(
     fold_level = summary_df.sort_values(["regime", "fold"]).reset_index(drop=True)
     display(fold_level)
 
-    print("\n2) Aggregated by regime")
+    print(f"\n2) Aggregated by regime ({metric_col})")
     by_regime = summarize_cv_results_by_regime(
         cv_out=cv_out,
         model_name=model_name,
+        metric_col=metric_col,
         test_only=False,
         val_only=False,
         ci=0.95,
     )
     display(by_regime)
 
-    print("\n3) Test-only regimes")
+    print(f"\n3) Test-only regimes ({metric_col})")
     test_only = summarize_cv_results_by_regime(
         cv_out=cv_out,
         model_name=model_name,
+        metric_col=metric_col,
         test_only=True,
         val_only=False,
         ci=0.95,
     )
     display(test_only)
 
-    print("\n4) Validation-only regimes")
+    print(f"\n4) Validation-only regimes ({metric_col})")
     val_only = summarize_cv_results_by_regime(
         cv_out=cv_out,
         model_name=model_name,
+        metric_col=metric_col,
         test_only=False,
         val_only=True,
         ci=0.95,
     )
     display(val_only)
 
-    print("\n5) Overall mean across all fold-regime evaluations")
+    print(f"\n5) Overall mean across all fold-regime evaluations ({metric_col})")
     overall = pd.DataFrame([{
         "model": model_name,
+        "metric": metric_col,
         "n_rows": len(summary_df),
         "n_folds": summary_df["fold"].nunique(),
-        "mean_accuracy": summary_df["accuracy"].mean(),
-        "std_accuracy": summary_df["accuracy"].std(),
-        "min_accuracy": summary_df["accuracy"].min(),
-        "max_accuracy": summary_df["accuracy"].max(),
+        "mean_metric": summary_df[metric_col].mean(),
+        "std_metric": summary_df[metric_col].std(),
+        "min_metric": summary_df[metric_col].min(),
+        "max_metric": summary_df[metric_col].max(),
         "total_n_eval": summary_df["n_eval"].sum(),
     }])
     display(overall)
@@ -510,9 +531,10 @@ def show_cv_results(
     }
 
 
-def plot_cv_accuracy_by_regime(
+def plot_cv_metric_by_regime(
     cv_out,
     model_name: str = "full_features_correctness_log_reg",
+    metric_col: str = "balanced_accuracy",
     ci: float = 0.95,
     test_only: bool = False,
     val_only: bool = False,
@@ -520,41 +542,18 @@ def plot_cv_accuracy_by_regime(
     rotate_xticks: int = 30,
 ):
     """
-    Bar plot of mean CV accuracy by regime, with confidence intervals across GatherersFolds.
-
-    Parameters
-    ----------
-    cv_out
-        Output object from `run_cross_validation_on_predefined_folds`.
-    model_name
-        Model name to plot.
-    ci
-        Confidence level for mean accuracy CI across GatherersFolds.
-    test_only
-        If True, keep only test regimes.
-    val_only
-        If True, keep only validation regimes.
-    figsize
-        Figure size.
-    rotate_xticks
-        Rotation angle for x tick labels.
-
-    Returns
-    -------
-    summary : pd.DataFrame
-        Aggregated regime summary.
-    fig : matplotlib.figure.Figure
-    ax : matplotlib.axes.Axes
+    Bar plot of mean CV metric by regime, with confidence intervals across folds.
     """
     summary = summarize_cv_results_by_regime(
         cv_out=cv_out,
         model_name=model_name,
+        metric_col=metric_col,
         test_only=test_only,
         val_only=val_only,
         ci=ci,
     )
 
-    y = summary["mean_accuracy"].to_numpy()
+    y = summary["mean_metric"].to_numpy()
     yerr = np.vstack([
         y - summary["ci_low"].to_numpy(),
         summary["ci_high"].to_numpy() - y,
@@ -563,14 +562,15 @@ def plot_cv_accuracy_by_regime(
     fig, ax = plt.subplots(figsize=figsize)
     ax.bar(
         summary["regime"],
-        summary["mean_accuracy"],
+        summary["mean_metric"],
         yerr=yerr,
         capsize=6,
     )
 
-    ax.set_ylabel("Accuracy")
+    pretty_metric = metric_col.replace("_", " ").title()
+    ax.set_ylabel(pretty_metric)
     ax.set_xlabel("Regime")
-    ax.set_title(f"{model_name}: mean CV accuracy by regime ({int(ci * 100)}% CI)")
+    ax.set_title(f"{model_name}: mean CV {pretty_metric.lower()} by regime ({int(ci * 100)}% CI)")
     ax.set_ylim(0, 1)
 
     plt.xticks(rotation=rotate_xticks, ha="right")
@@ -580,16 +580,17 @@ def plot_cv_accuracy_by_regime(
 
 
 
-def plot_cv_accuracy_by_regime_pretty(
+def plot_cv_metric_by_regime_pretty(
     cv_out,
     model_name: str = "full_features_correctness_log_reg",
+    metric_col: str = "balanced_accuracy",
     ci: float = 0.95,
     test_only: bool = False,
     val_only: bool = False,
     figsize: tuple = (10, 6),
 ):
     """
-    Same as `plot_cv_accuracy_by_regime`, but with prettier regime labels.
+    Same as `plot_cv_metric_by_regime`, but with prettier regime labels.
     """
     pretty_names = {
         "val_seen_subject_unseen_item": "Val: seen subj,\nunseen item",
@@ -600,9 +601,10 @@ def plot_cv_accuracy_by_regime_pretty(
         "test_unseen_subject_unseen_item": "Test: unseen subj,\nunseen item",
     }
 
-    summary, fig, ax = plot_cv_accuracy_by_regime(
+    summary, fig, ax = plot_cv_metric_by_regime(
         cv_out=cv_out,
         model_name=model_name,
+        metric_col=metric_col,
         ci=ci,
         test_only=test_only,
         val_only=val_only,
@@ -619,3 +621,4 @@ def plot_cv_accuracy_by_regime_pretty(
     plt.tight_layout()
 
     return summary, fig, ax
+
