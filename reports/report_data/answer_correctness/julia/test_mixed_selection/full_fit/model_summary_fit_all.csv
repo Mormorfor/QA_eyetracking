@@ -1,7 +1,0 @@
-run_identifier,model_name,n_rows,n_positive,n_negative,formula,participant_effects_mode,text_effects_mode,random_effect_variance_summary,n_features,trained_feature_cols
-test_mixed_selection,full_features_correctness_julia_glmer_fit_all,19436,16339,3097,is_correct ~ 1 + seq_len + (1 | participant_id) + (1 | text_id_with_q),intercept,intercept,"Variance components:
-                  Column   Variance Std.Dev. 
-text_id_with_q (Intercept)  2.001900 1.414885
-participant_id (Intercept)  0.763877 0.874001
-
-",1,seq_len
