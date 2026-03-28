@@ -103,6 +103,9 @@ LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
 NUM_LABEL_VISITS = "num_label_visits"
 NUM_LOC_VISITS = "num_loc_visits"
 
+TRIAL_ID_COLS = (PARTICIPANT_ID, TRIAL_ID)
+
+
 # ---------------------------------------------------------------------------
 # Derived (contrast) feature suffixes / helpers
 # ---------------------------------------------------------------------------
@@ -136,8 +139,8 @@ AREA_METRIC_COLUMNS_MODELING = [
     MEAN_MIN_FIX_PUPIL_SIZE_Z,
     FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z,
     NUM_LABEL_VISITS,
-    #NUM_LOC_VISITS,
 ]
+
 AREA_METRIC_COLUMNS_VIZES = [
     MEAN_DWELL_TIME,
     MEAN_FIXATIONS_COUNT,
@@ -149,5 +152,18 @@ AREA_METRIC_COLUMNS_VIZES = [
     MEAN_MIN_FIX_PUPIL_SIZE,
     FIRST_ENCOUNTER_AVG_PUPIL_SIZE,
     NUM_LABEL_VISITS,
-    #NUM_LOC_VISITS,
+]
+
+
+PREF_SPECS = [
+    (MEAN_DWELL_TIME, "high"),
+    (MEAN_FIXATIONS_COUNT, "high"),
+    (MEAN_FIRST_FIXATION_DURATION, "high"),
+    (SKIP_RATE, "low"),
+    (AREA_DWELL_PROPORTION, "high"),
+    (MEAN_AVG_FIX_PUPIL_SIZE_Z, "high"),
+    (MEAN_MAX_FIX_PUPIL_SIZE_Z, "high"),
+    (MEAN_MIN_FIX_PUPIL_SIZE_Z, "low"),
+    (FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z, "high"),
+    (NUM_LABEL_VISITS, "high"),
 ]

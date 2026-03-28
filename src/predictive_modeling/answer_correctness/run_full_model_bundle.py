@@ -2,20 +2,17 @@ from __future__ import annotations
 
 from typing import Sequence, Tuple, Optional, List, Dict, Any
 import pandas as pd
-import numpy as np
-
-from pathlib import Path
 
 from src import constants as Con
 
 from src.predictive_modeling.answer_correctness.answer_correctness_data import (
     build_trial_level_all_features,
 )
-from src.predictive_modeling.answer_correctness.answer_correctness_models import (
+from predictive_modeling.answer_correctness.models.logreg_models import (
     FullFeaturesCorrectnessLogRegModel,
 )
 
-from src.predictive_modeling.answer_correctness.julia_model import (
+from predictive_modeling.answer_correctness.models.julia_model_old import (
     FullFeaturesCorrectnessJuliaGLMERModel,
 )
 
@@ -27,10 +24,6 @@ from src.predictive_modeling.answer_correctness.answer_correctness_eval import (
 from src.predictive_modeling.common.viz_utils import (
     plot_confusion_heatmap,
 )
-from src.predictive_modeling.answer_correctness.answer_correctness_viz import (
-    plot_coef_summary_barh,
-    plot_feature_correlation_heatmap,
-)
 
 from src.predictive_modeling.answer_correctness.answer_correctness_viz import (
     show_correctness_model_results,
@@ -38,19 +31,12 @@ from src.predictive_modeling.answer_correctness.answer_correctness_viz import (
 )
 from src.viz.plot_output import save_df_csv, _answer_correctness_rel_dir
 
-from src.predictive_modeling.answer_correctness.answer_correctness_models import (
+from predictive_modeling.answer_correctness.models.logreg_models import (
     FullFeaturesCorrectnessGLMERModel
 )
 
 from src.predictive_modeling.common.data_utils import (
     group_vise_train_test_split,
-)
-
-from sklearn.metrics import (
-    precision_recall_fscore_support,
-    balanced_accuracy_score,
-    roc_auc_score,
-    average_precision_score,
 )
 
 from predictive_modeling.answer_correctness.answer_correctness_viz import plot_coef_summary_barh, \
@@ -61,21 +47,13 @@ def _split_tag(split_group_cols: Sequence[str]) -> str:
     return "+".join(split_group_cols)
 
 
-# def _base_rel_dir(split_tag: str, subdir: Optional[str]) -> str:
-#     """
-#     answer_correctness/[/<subdir>]/<split_tag>
-#     """
-#     if subdir is None or str(subdir).strip() == "":
-#         return f"answer_correctness/{split_tag}"
-#     return f"answer_correctness/{subdir}/{split_tag}"
-
 
 def run_full_features_correctness_bundle(
     df: pd.DataFrame,
     split_group_cols: Sequence[str],
     feature_cols: Optional[Sequence[str]] = None,
     group_cols: Sequence[str] = (Con.PARTICIPANT_ID, Con.TRIAL_ID),
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
     pref_extreme_mode: str = "polarity",
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",

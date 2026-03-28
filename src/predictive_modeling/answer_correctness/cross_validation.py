@@ -12,6 +12,11 @@ from IPython.display import display
 from sklearn.metrics import balanced_accuracy_score
 
 import src.constants as Con
+
+from src.predictive_modeling.answer_correctness.model_data import build_trial_level_model_df
+from src.predictive_modeling.answer_correctness.evaluation_core import evaluate_single_model_on_prepared_split
+from src.predictive_modeling.common.feature_specs import get_full_feature_cols
+
 # ---------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------
@@ -130,8 +135,10 @@ def evaluate_one_fold_on_regimes(
     df: pd.DataFrame,
     *,
     model_builder: Callable[[], Any],
-    builder_fn: Callable[[pd.DataFrame], pd.DataFrame],
     target_col: str,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
+    pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
     train_regime: str = "train_train",
     eval_regimes: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
@@ -146,6 +153,7 @@ def evaluate_one_fold_on_regimes(
     """
     Fit on train_regime and evaluate on each requested regime.
     """
+    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
 
     if eval_regimes is None:
         eval_regimes = [
@@ -158,52 +166,66 @@ def evaluate_one_fold_on_regimes(
         ]
 
     train_raw = df[df["regime"] == train_regime].copy()
-    train_df = builder_fn(train_raw)
+    train_df = build_trial_level_model_df(
+        df=train_raw,
+        pref_specs=pref_specs,
+        pref_extreme_mode=pref_extreme_mode,
+        keep_cols=keep_cols,
+        target_col=target_col,
+        include_area_features=True,
+        include_derived_features=True,
+        include_last_visited_features=True,
+    )
+
+    feat_cols = list(feature_cols) if feature_cols is not None else list(get_full_feature_cols(train_df))
 
     results: Dict[str, FoldRegimeEvaluationResult] = {}
 
     for regime in eval_regimes:
         eval_raw = df[df["regime"] == regime].copy()
-        eval_df = builder_fn(eval_raw)
+        eval_df = build_trial_level_model_df(
+            df=eval_raw,
+            pref_specs=pref_specs,
+            pref_extreme_mode=pref_extreme_mode,
+            keep_cols=keep_cols,
+            target_col=target_col,
+            include_area_features=True,
+            include_derived_features=True,
+            include_last_visited_features=True,
+        )
 
         model = model_builder()
-        model.fit(train_df, target_col=target_col, feature_cols=feature_cols)
 
-        y_true = eval_df[target_col].astype(int).to_numpy()
-        y_pred = model.predict(eval_df, feature_cols=feature_cols)
-        y_prob = model.predict_proba(eval_df, feature_cols=feature_cols)
-
-        acc = float((y_true == y_pred).mean())
-        bal_acc = float(balanced_accuracy_score(y_true, y_pred))
-
-        coef_summary = None
-        get_cs = getattr(model, "get_coef_summary", None)
-        if callable(get_cs):
-            coef_summary = get_cs(
-                train_df=train_df,
-                top_k=coef_top_k,
-                ci_method=coef_ci_method,
-                ci_cluster=coef_ci_cluster,
-                ci=coef_ci,
-                n_boot=coef_n_boot,
-                seed=coef_seed,
-                feature_cols=feature_cols,
-            )
+        eval_res = evaluate_single_model_on_prepared_split(
+            model=model,
+            train_df=train_df,
+            test_df=eval_df,
+            target_col=target_col,
+            feature_cols=feat_cols,
+            coef_kwargs={
+                "top_k": coef_top_k,
+                "ci_method": coef_ci_method,
+                "ci_cluster": coef_ci_cluster,
+                "ci": coef_ci,
+                "n_boot": coef_n_boot,
+                "seed": coef_seed,
+            },
+        )
 
         results[regime] = FoldRegimeEvaluationResult(
             fold_idx=fold_idx,
             regime=regime,
             train_df=train_df,
             eval_df=eval_df,
-            y_true=y_true,
-            y_pred=y_pred,
-            y_prob=y_prob,
-            accuracy=acc,
-            balanced_accuracy=bal_acc,
-            n_eval=len(eval_df),
-            n_positive=int((y_true == 1).sum()),
-            n_negative=int((y_true == 0).sum()),
-            coef_summary=coef_summary,
+            y_true=eval_res.y_true,
+            y_pred=eval_res.y_pred,
+            y_prob=eval_res.y_prob,
+            accuracy=eval_res.accuracy,
+            balanced_accuracy=float(balanced_accuracy_score(eval_res.y_true, eval_res.y_pred)),
+            n_eval=eval_res.n_test,
+            n_positive=eval_res.n_positive,
+            n_negative=eval_res.n_negative,
+            coef_summary=eval_res.coef_summary,
         )
 
     return results
@@ -218,7 +240,6 @@ def run_cross_validation_on_predefined_folds(
     *,
     fold_dir: str | Path,
     model_builders: Mapping[str, Callable[[], Any]],
-    builder_fn: Callable[[pd.DataFrame], pd.DataFrame],
     target_col: str,
     n_folds: int = 10,
     fold_filename_template: str = "fold_{fold_idx}_trial_ids_by_regime.csv",
@@ -226,6 +247,9 @@ def run_cross_validation_on_predefined_folds(
     df_text_col: str = Con.TEXT_ID_COLUMN,
     eval_regimes: Optional[Sequence[str]] = None,
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
+    pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
     coef_ci: float = 0.95,
@@ -237,6 +261,7 @@ def run_cross_validation_on_predefined_folds(
     Run cross-validation using predefined fold assignment CSVs.
     Stores both accuracy and balanced_accuracy in the summary tables.
     """
+    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
     fold_dir = Path(fold_dir)
 
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
@@ -263,10 +288,12 @@ def run_cross_validation_on_predefined_folds(
                 feat_cols = None if cols is None else list(cols)
 
             fold_results = evaluate_one_fold_on_regimes(
-                df_fold,
+                df=df_fold,
                 model_builder=model_builder,
-                builder_fn=builder_fn,
                 target_col=target_col,
+                pref_specs=pref_specs,
+                pref_extreme_mode=pref_extreme_mode,
+                keep_cols=keep_cols,
                 eval_regimes=eval_regimes,
                 coef_ci_method=coef_ci_method,
                 coef_ci_cluster=coef_ci_cluster,

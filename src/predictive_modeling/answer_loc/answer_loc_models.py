@@ -1,7 +1,7 @@
 # answer_loc_models.py
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, List
+from typing import Protocol, List
 import numpy as np
 import pandas as pd
 from src import constants as Con
@@ -9,7 +9,7 @@ from src import constants as Con
 from sklearn.linear_model import LogisticRegression
 import statsmodels.formula.api as smf
 
-from src.predictive_modeling.common.features import map_last_location_to_position
+from predictive_modeling.answer_loc.features import map_last_location_to_position
 
 
 

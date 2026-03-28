@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Literal
 
 import numpy as np
 import pandas as pd
@@ -8,26 +8,27 @@ from juliacall import Main as jl
 
 import src.constants as Con
 
+
 @dataclass
-class FullFeaturesCorrectnessJuliaGLMERModel:
+class TrialLevelJuliaGLMERModel:
     """
     Binomial mixed-effects model using Julia MixedModels.jl.
 
-    Fixed effects:
-      - area-metric features
-      - derived features
-      - pref_matching__* features
+    Expected input:
+      - a ready trial-level dataframe
+      - explicit feature_cols passed from the outside
 
-    Random intercepts:
+    Random intercepts/slopes:
       - participant
       - text
     """
     name: str = "full_features_correctness_julia_glmer"
+    fill_value: float = 0.0
 
     model: object = field(default=None, init=False)
     scaler_: Optional[StandardScaler] = field(default=None, init=False)
 
-    raw_feature_cols_: List[str] = field(default_factory=list, init=False)
+    feature_cols_raw_: List[str] = field(default_factory=list, init=False)
     feature_cols_: List[str] = field(default_factory=list, init=False)
 
     formula_: Optional[str] = field(default=None, init=False)
@@ -38,6 +39,9 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
     target_col_model_: Optional[str] = field(default=None, init=False)
     participant_col_model_: Optional[str] = field(default=None, init=False)
     text_col_model_: Optional[str] = field(default=None, init=False)
+
+    participant_effects_mode: str = "slopes"  # "intercept" | "slopes"
+    text_effects_mode: str = "slopes"  # "intercept" | "slopes"
 
     _julia_ready: bool = field(default=False, init=False)
 
@@ -71,7 +75,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         end
         """)
 
-        # Fit helper with optional weights
         jl.seval("""
         function fit_glmm_binomial(formula_obj, df; wcol=nothing)
             if isnothing(wcol)
@@ -83,7 +86,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         end
         """)
 
-        # Predict helper
         jl.seval("""
         function predict_glmm_prob(model, newdf; use_rfx=false)
             if use_rfx
@@ -125,59 +127,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         self._julia_ready = True
 
     # ------------------------------------------------------------------
-    # Feature column logic
-    # ------------------------------------------------------------------
-    def _build_feature_cols(self, df: pd.DataFrame) -> List[str]:
-        cols: List[str] = []
-
-        for metric in Con.AREA_METRIC_COLUMNS_MODELING:
-            for area in Con.LABEL_CHOICES:
-                col = f"{metric}__{area}"
-                if col in df.columns:
-                    cols.append(col)
-
-        derived_base = [
-            "seq_len",
-            "has_xyx",
-            "has_xyxy",
-            "trial_mean_dwell",
-        ]
-        cols.extend([c for c in derived_base if c in df.columns])
-        cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
-        cols.extend(sorted(c for c in df.columns if c.startswith("last_visited_")))
-
-        return cols
-
-    def _resolve_feature_cols(
-        self,
-        df: pd.DataFrame,
-        feature_cols: Optional[Sequence[str]],
-    ) -> List[str]:
-        if feature_cols is not None:
-            return list(feature_cols)
-
-        if not self.raw_feature_cols_:
-            self.raw_feature_cols_ = self._build_feature_cols(df)
-
-        return self.raw_feature_cols_
-
-    # ------------------------------------------------------------------
-    # Column-name sanitizing
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _sanitize_colname(col: str) -> str:
-        out = str(col)
-        out = out.replace("__", "_")
-        out = out.replace("-", "_")
-        out = out.replace(" ", "_")
-        out = out.replace("(", "_").replace(")", "_")
-        out = out.replace("/", "_")
-        out = out.replace("\\", "_")
-        out = out.replace(".", "_")
-        out = out.replace(":", "_")
-        return out
-
-    # ------------------------------------------------------------------
     # Prepare model dataframe
     # ------------------------------------------------------------------
     def _prepare_model_df(
@@ -190,17 +139,16 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         participant_col: str = Con.PARTICIPANT_ID,
         text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
     ) -> pd.DataFrame:
-        raw_cols = self._resolve_feature_cols(df, feature_cols)
+        if feature_cols is None:
+            raw_cols = list(self.feature_cols_raw_)
+        else:
+            raw_cols = list(feature_cols)
 
-        if feature_cols is not None:
-            self.raw_feature_cols_ = list(raw_cols)
-
-        needed = [target_col, participant_col, text_col] + list(raw_cols)
-        model_df = df[needed].copy()
+        model_df = df[[target_col, participant_col, text_col] + raw_cols].copy()
 
         for c in raw_cols:
             model_df[c] = pd.to_numeric(model_df[c], errors="coerce")
-        model_df[raw_cols] = model_df[raw_cols].fillna(0.0)
+        model_df[raw_cols] = model_df[raw_cols].fillna(self.fill_value)
 
         model_df[target_col] = pd.to_numeric(model_df[target_col], errors="coerce").fillna(0).astype(int)
         model_df[participant_col] = model_df[participant_col].astype(str)
@@ -209,27 +157,18 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         if fit:
             self.scaler_ = StandardScaler()
             model_df[raw_cols] = self.scaler_.fit_transform(model_df[raw_cols])
+            self.feature_cols_raw_ = list(raw_cols)
         else:
-            if self.scaler_ is None:
-                raise RuntimeError("Scaler has not been fitted.")
             model_df[raw_cols] = self.scaler_.transform(model_df[raw_cols])
 
-        rename_map = {
-            c: self._sanitize_colname(c)
-            for c in [target_col, participant_col, text_col] + list(raw_cols)
-        }
+        self.rename_map_ = {c: c for c in [target_col, participant_col, text_col] + raw_cols}
+        self.reverse_rename_map_ = dict(self.rename_map_)
 
-        model_df = model_df.rename(columns=rename_map)
+        self.target_col_model_ = target_col
+        self.participant_col_model_ = participant_col
+        self.text_col_model_ = text_col
 
-        self.rename_map_ = dict(rename_map)
-        self.reverse_rename_map_ = {v: k for k, v in rename_map.items()}
-
-        self.target_col_model_ = rename_map[target_col]
-        self.participant_col_model_ = rename_map[participant_col]
-        self.text_col_model_ = rename_map[text_col]
-
-        self.raw_feature_cols_ = list(raw_cols)
-        self.feature_cols_ = [rename_map[c] for c in raw_cols]
+        self.feature_cols_ = list(raw_cols)
 
         return model_df
 
@@ -237,25 +176,26 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
     # Formula
     # ------------------------------------------------------------------
     def _build_formula(self) -> str:
-        if not self.feature_cols_:
-            raise ValueError("No feature columns available to build formula.")
-
         fixed = " + ".join(self.feature_cols_)
-        random_slopes = "1 + " + fixed
 
-        # formula = (
-        #     f"{self.target_col_model_} ~ 1 + {fixed} "
-        #     f"+ zerocorr({random_slopes} | {self.participant_col_model_}) "
-        #     f"+ zerocorr({random_slopes} | {self.text_col_model_})"
-        # )
+        terms = [f"{self.target_col_model_} ~ 1 + {fixed}"]
 
-        formula = (
-            f"{self.target_col_model_} ~ 1 + {fixed} "
-            f"+ zerocorr({random_slopes} | {self.participant_col_model_}) "
-            #f"+ (1 | {self.participant_col_model_})"
-            f"+ zerocorr({random_slopes} | {self.text_col_model_})"
-            #f"+ (1 | {self.text_col_model_})"
-        )
+        if self.participant_effects_mode == "intercept":
+            terms.append(f"(1 | {self.participant_col_model_})")
+        elif self.participant_effects_mode == "slopes":
+            terms.append(
+                f"zerocorr(1 + {fixed} | {self.participant_col_model_})"
+            )
+
+        if self.text_effects_mode == "intercept":
+            terms.append(f"(1 | {self.text_col_model_})")
+        elif self.text_effects_mode == "slopes":
+            terms.append(
+                f"zerocorr(1 + {fixed} | {self.text_col_model_})"
+            )
+
+        formula = " + ".join(terms)
+
         self.formula_ = formula
         print(f"Built formula: {formula}")
         return formula
@@ -310,9 +250,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         formula = self._build_formula()
 
         counts = model_df[self.target_col_model_].value_counts()
-        if not {0, 1}.issubset(set(counts.index)):
-            raise ValueError("Target column must contain both classes 0 and 1 in training data.")
-
         w0 = 1.0 / counts[0]
         w1 = 1.0 / counts[1]
         model_df["obs_weight"] = np.where(model_df[self.target_col_model_] == 0, w0, w1)
@@ -339,13 +276,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
         use_rfx: bool = False,
     ) -> np.ndarray:
-        if self.model is None:
-            raise RuntimeError("Model has not been fitted yet.")
-
-        if target_col not in df.columns:
-            df = df.copy()
-            df[target_col] = 0
-
         model_df = self._prepare_model_df(
             df,
             fit=False,
@@ -359,7 +289,9 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         jl.model_py = self.model
         jl.j_new = j_new
 
-        preds = jl.seval(f"predict_glmm_prob(model_py, j_new; use_rfx={str(use_rfx).lower()})")
+        preds = jl.seval(
+            f"predict_glmm_prob(model_py, j_new; use_rfx={str(use_rfx).lower()})"
+        )
         return np.asarray(preds).reshape(-1).astype(float)
 
     # ------------------------------------------------------------------
@@ -374,10 +306,18 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         p = self.predict_proba(df, **kwargs)
         return (p >= threshold).astype(int)
 
-    # ------------------------------------------------------------------
-    # Coefficient summary
-    # ------------------------------------------------------------------
-    def get_coef_summary(self) -> pd.DataFrame:
+    def get_coef_summary(
+            self,
+            train_df: Optional[pd.DataFrame] = None,
+            top_k: Optional[int] = None,
+            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
+            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
+            ci: float = 0.95,
+            n_boot: int = 5000,
+            seed: int = 42,
+            feature_cols: Optional[Sequence[str]] = None,
+            target_col: str = Con.IS_CORRECT_COLUMN,
+    ) -> pd.DataFrame:
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
 
@@ -392,7 +332,7 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         else:
             out = out.reset_index().rename(columns={"index": "feature"})
 
-        out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
+        out["feature_raw"] = out["feature"]
 
         if "Coef." in out.columns:
             out["coef"] = pd.to_numeric(out["Coef."], errors="coerce")
@@ -403,9 +343,11 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
 
         if "Std. Error" in out.columns:
             se = pd.to_numeric(out["Std. Error"], errors="coerce")
+            out["se"] = se
             out["ci_low"] = out["coef"] - 1.96 * se
             out["ci_high"] = out["coef"] + 1.96 * se
         else:
+            out["se"] = np.nan
             out["ci_low"] = np.nan
             out["ci_high"] = np.nan
 
@@ -422,41 +364,34 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
             out["sig_ci"] = pvals < 0.05
         else:
             out["sig_ci"] = (
-                pd.notna(out["ci_low"]) &
-                pd.notna(out["ci_high"]) &
-                ((out["ci_low"] > 0) | (out["ci_high"] < 0))
+                    pd.notna(out["ci_low"])
+                    & pd.notna(out["ci_high"])
+                    & ((out["ci_low"] > 0) | (out["ci_high"] < 0))
             )
 
-        return out
+        if top_k is not None:
+            out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
+
+        return out.reset_index(drop=True)
+
 
 
     def get_formula(self) -> str:
-        if self.formula_ is None:
-            raise RuntimeError("Model formula is not available before fitting.")
         return self.formula_
 
     def get_fixef_table(self) -> pd.DataFrame:
-        if self.model is None:
-            raise RuntimeError("Model has not been fitted yet.")
-
         jl.model_py = self.model
         tbl = jl.table_to_py(jl.seval("fixef_table(model_py)"))
         out = pd.DataFrame(tbl)
 
-        if "feature" in out.columns:
-            out["feature_raw"] = out["feature"].map(self.reverse_rename_map_).fillna(out["feature"])
-        else:
-            out["feature_raw"] = np.nan
-
+        out["feature_raw"] = out["feature"]
         out["coef"] = pd.to_numeric(out["coef"], errors="coerce")
         out["or"] = np.exp(out["coef"])
         out["abs_coef"] = out["coef"].abs()
+
         return out.sort_values("abs_coef", ascending=False).reset_index(drop=True)
 
     def get_random_effects(self) -> Dict[str, pd.DataFrame]:
-        if self.model is None:
-            raise RuntimeError("Model has not been fitted yet.")
-
         jl.model_py = self.model
         out = jl.seval("ranef_tables_dict(model_py)")
 
@@ -464,11 +399,10 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
         for group_name, table_obj in out.items():
             df = pd.DataFrame(jl.table_to_py(table_obj)).copy()
 
-            rename_candidates = {
+            df = df.rename(columns={
                 "(Intercept)": "random_intercept",
                 "Intercept": "random_intercept",
-            }
-            df = df.rename(columns=rename_candidates)
+            })
 
             cols = list(df.columns)
             if cols:
@@ -480,10 +414,6 @@ class FullFeaturesCorrectnessJuliaGLMERModel:
 
         return py_out
 
-
     def get_random_effect_variance_summary(self) -> str:
-        if self.model is None:
-            raise RuntimeError("Model has not been fitted yet.")
-
         jl.model_py = self.model
         return str(jl.seval("varcorr_text(model_py)"))
