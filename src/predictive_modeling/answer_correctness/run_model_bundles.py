@@ -46,7 +46,7 @@ def _split_tag(split_group_cols: Sequence[str]) -> str:
     return "+".join(split_group_cols)
 
 
-def _build_train_test_trial_dfs(
+def build_train_test_trial_dfs(
     df: pd.DataFrame,
     split_group_cols: Sequence[str],
     pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
@@ -279,7 +279,7 @@ def run_full_features_correctness_bundle(
         split_tag=split_tag,
     )
 
-    train_df, test_df = _build_train_test_trial_dfs(
+    train_df, test_df = build_train_test_trial_dfs(
         df=df,
         split_group_cols=split_group_cols,
         pref_specs=pref_specs,
@@ -404,7 +404,7 @@ def run_full_features_correctness_bundle(
 #
 #     keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
 #
-#     train_df, test_df = _build_train_test_trial_dfs(
+#     train_df, test_df = build_train_test_trial_dfs(
 #         df=df,
 #         split_group_cols=split_group_cols,
 #         pref_specs=pref_specs,
@@ -554,7 +554,7 @@ def run_full_features_correctness_julia_glmer_bundle(
 
     keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
 
-    train_df, test_df = _build_train_test_trial_dfs(
+    train_df, test_df = build_train_test_trial_dfs(
         df=df,
         split_group_cols=split_group_cols,
         pref_specs=pref_specs,
