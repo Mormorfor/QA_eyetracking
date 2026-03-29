@@ -1,0 +1,22 @@
+{
+  "identifier": "full_last_select_pruned_t05_aic",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "num_label_visits__wrong_mean",
+    "last_before_select_answer_A",
+    "num_label_visits__contrast",
+    "mean_first_fixation_duration__wrong_mean",
+    "num_label_visits__distance_furthest",
+    "last_before_select_answer_D",
+    "skip_rate__distance_closest",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "has_xyx",
+    "last_before_select_answer_B",
+    "first_encounter_avg_pupil_size_z__distance_closest",
+    "mean_max_fix_pupil_size_z__contrast",
+    "has_xyxy",
+    "last_before_select_answer_C",
+    "mean_avg_fix_pupil_size_z__distance_furthest",
+    "mean_min_fix_pupil_size_z__distance_closest"
+  ]
+}

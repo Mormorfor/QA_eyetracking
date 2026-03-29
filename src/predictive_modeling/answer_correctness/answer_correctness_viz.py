@@ -1023,48 +1023,48 @@ def plot_correctness_run_comparison(
     return fig, df, saved_paths
 
 
-
-
-def save_feature_columns(
-        columns: List[str],
-        identifier: str,
-        folder_path: str,
-) -> Path:
-    """
-    Save feature columns with an identifier.
-
-    - File name = {identifier}.json
-    - File content includes both identifier and columns
-    """
-    folder = Path(folder_path)
-    folder.mkdir(parents=True, exist_ok=True)
-
-    filepath = folder / f"{identifier}.json"
-
-    payload: Dict[str, Any] = {
-        "identifier": identifier,
-        "columns": columns,
-    }
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-
-    return filepath
-
-
-def load_feature_columns(filepath: str) -> List[str]:
-    """
-    Load only the feature columns from file.
-    """
-    with open(filepath, "r", encoding="utf-8") as f:
-        payload = json.load(f)
-
-    return payload["columns"]
-
-
-def load_feature_config(filepath: str) -> Dict[str, Any]:
-    """
-    Load full config (identifier + columns).
-    """
-    with open(filepath, "r", encoding="utf-8") as f:
-        return json.load(f)
+#
+#
+# def save_feature_columns(
+#         columns: List[str],
+#         identifier: str,
+#         folder_path: str,
+# ) -> Path:
+#     """
+#     Save feature columns with an identifier.
+#
+#     - File name = {identifier}.json
+#     - File content includes both identifier and columns
+#     """
+#     folder = Path(folder_path)
+#     folder.mkdir(parents=True, exist_ok=True)
+#
+#     filepath = folder / f"{identifier}.json"
+#
+#     payload: Dict[str, Any] = {
+#         "identifier": identifier,
+#         "columns": columns,
+#     }
+#
+#     with open(filepath, "w", encoding="utf-8") as f:
+#         json.dump(payload, f, indent=2)
+#
+#     return filepath
+#
+#
+# def load_feature_columns(filepath: str) -> List[str]:
+#     """
+#     Load only the feature columns from file.
+#     """
+#     with open(filepath, "r", encoding="utf-8") as f:
+#         payload = json.load(f)
+#
+#     return payload["columns"]
+#
+#
+# def load_feature_config(filepath: str) -> Dict[str, Any]:
+#     """
+#     Load full config (identifier + columns).
+#     """
+#     with open(filepath, "r", encoding="utf-8") as f:
+#         return json.load(f)
