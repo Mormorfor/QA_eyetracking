@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 import ast
@@ -622,8 +624,6 @@ def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     return result.reset_index(drop=True)
 
 
-
-
 def create_fixation_sequence_tags(df):
     """
     Build fixation sequences per trial/participant in terms of area labels and locations.
@@ -1062,6 +1062,41 @@ def generate_new_row_features(functions, df, default_join_columns=None,
 #  Main
 # ---------------------------------------------------------------------------
 
+def _attach_last_label_features_if_available(
+    df: pd.DataFrame,
+    last_labels_path: str,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    If a precomputed last-label file exists, merge in:
+    - C.LAST_LBL_BEFORE_SELECT
+    - C.LAST_LBL_BEFORE_CONFIRM
+    """
+    path = Path(last_labels_path)
+
+    if not path.exists():
+        if verbose:
+            print(f"Last-label file not found, skipping merge: {last_labels_path}")
+        return df
+
+    if verbose:
+        print(f"Merging last-label features from: {last_labels_path}")
+
+    last_df = pd.read_csv(path)
+
+    merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
+
+    rename_map = {
+        "area_label_before_select": C.LAST_LBL_BEFORE_SELECT,
+        "area_label_before_confirm": C.LAST_LBL_BEFORE_CONFIRM,
+    }
+
+    needed_cols = merge_cols + list(rename_map.keys())
+    last_df = last_df[needed_cols].rename(columns=rename_map)
+
+    df = df.merge(last_df, on=merge_cols, how="left")
+    return df
+
 
 def main(
     ia_answers_path: str = "data_raw/full/ia_A.csv",
@@ -1110,6 +1145,12 @@ def main(
         print("Applying group-level features for hunters…")
     df_h = generate_new_row_features(group_funcs, df_h)
 
+    df_h = _attach_last_label_features_if_available(
+        df_h,
+        "data/hunters_last.csv",
+        verbose=verbose,
+    )
+
     if verbose:
         print(f"Saving hunters features to: {hunters_output_path}")
     df_h.to_csv(hunters_output_path, index=False)
@@ -1122,6 +1163,12 @@ def main(
     if verbose:
         print("Applying group-level features for gatherers…")
     df_g = generate_new_row_features(group_funcs, df_g)
+
+    df_g = _attach_last_label_features_if_available(
+        df_g,
+        "data/gatherers_last.csv",
+        verbose=verbose,
+    )
 
     if verbose:
         print(f"Saving gatherers features to: {gatherers_output_path}")

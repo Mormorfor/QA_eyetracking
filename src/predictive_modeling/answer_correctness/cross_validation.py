@@ -174,7 +174,7 @@ def evaluate_one_fold_on_regimes(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_features=True,
+        include_last_visited_answer_features=True,
     )
 
     feat_cols = list(feature_cols) if feature_cols is not None else list(get_full_feature_cols(train_df))
@@ -191,7 +191,7 @@ def evaluate_one_fold_on_regimes(
             target_col=target_col,
             include_area_features=True,
             include_derived_features=True,
-            include_last_visited_features=True,
+            include_last_visited_answer_features=True,
         )
 
         model = model_builder()

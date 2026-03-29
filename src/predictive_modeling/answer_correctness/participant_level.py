@@ -57,7 +57,7 @@ def evaluate_logreg_on_answer_correctness_leave_one_trial_out(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_features=True,
+        include_last_visited_answer_features=True,
     ).copy()
 
     feat_cols = list(feature_cols) if feature_cols is not None else list(get_full_feature_cols(trial_df))

@@ -1,0 +1,13 @@
+{
+  "identifier": "pruned_0.4_no_last",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "num_label_visits__wrong_mean",
+    "mean_max_fix_pupil_size_z__contrast",
+    "num_label_visits__contrast",
+    "mean_avg_fix_pupil_size_z__distance_furthest",
+    "skip_rate__distance_closest",
+    "has_xyx"
+  ]
+}

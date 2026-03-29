@@ -232,7 +232,9 @@ def build_trial_level_model_df(
     target_col: str = Con.IS_CORRECT_COLUMN,
     include_area_features: bool = True,
     include_derived_features: bool = True,
-    include_last_visited_features: bool = True,
+    include_last_visited_answer_features: bool = True,
+    include_last_lbl_before_confirm_features: bool = True,
+    include_last_lbl_before_select_features: bool = True,
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
@@ -284,13 +286,29 @@ def build_trial_level_model_df(
             how="left",
         )
 
-    if include_last_visited_features:
+    if include_last_visited_answer_features:
         last_visited_df = build_trial_level_last_visited_features(
             df=df,
             feature_col=Con.LAST_VISITED_LABEL,
             prefix="last_visited",
         )
         out = out.merge(last_visited_df, on=list(TRIAL_ID_COLS), how="left")
+
+    if include_last_lbl_before_confirm_features:
+        last_before_confirm_df = build_trial_level_last_visited_features(
+            df=df,
+            feature_col=Con.LAST_LBL_BEFORE_CONFIRM,
+            prefix="last_before_confirm",
+        )
+        out = out.merge(last_before_confirm_df, on=list(TRIAL_ID_COLS), how="left")
+
+    if include_last_lbl_before_select_features:
+        last_before_select_df = build_trial_level_last_visited_features(
+            df=df,
+            feature_col=Con.LAST_LBL_BEFORE_SELECT,
+            prefix="last_before_select",
+        )
+        out = out.merge(last_before_select_df, on=list(TRIAL_ID_COLS), how="left")
 
     return out
 
@@ -313,7 +331,7 @@ def make_area_only_dataset(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=False,
-        include_last_visited_features=False,
+        include_last_visited_answer_features=False,
     )
 
     feature_cols = get_area_feature_cols(trial_df)
@@ -345,7 +363,7 @@ def make_derived_dataset(
         target_col=target_col,
         include_area_features=False,
         include_derived_features=True,
-        include_last_visited_features=include_last_visited_features,
+        include_last_visited_answer_features=include_last_visited_features,
     )
 
     feature_cols = get_derived_feature_cols(trial_df)
@@ -385,7 +403,7 @@ def make_full_dataset(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_features=True,
+        include_last_visited_answer_features=True,
     )
 
     feature_cols = get_full_feature_cols(trial_df)

@@ -58,8 +58,11 @@ AREA_SKIPPED = "area_skipped"
 TOTAL_IA_DWELL_TIME = "total_area_dwell_time"
 TOTAL_TRIAL_DWELL_TIME = "total_dwell_time"
 
-LAST_VISITED_LABEL = "last_area_visited_lbl"
-LAST_VISITED_LOCATION = "last_area_visited_loc"
+LAST_VISITED_LABEL = "last_answer_area_visited_lbl"
+LAST_VISITED_LOCATION = "last_answer_area_visited_loc"
+
+LAST_LBL_BEFORE_CONFIRM = "last_lbl_before_confirm"
+LAST_LBL_BEFORE_SELECT = "last_lbl_before_select"
 
 FIX_SEQUENCE_BY_LABEL = "fix_by_label"
 FIX_SEQUENCE_BY_LOCATION = "fix_by_loc"
