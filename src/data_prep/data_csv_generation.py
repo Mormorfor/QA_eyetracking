@@ -624,48 +624,171 @@ def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     return result.reset_index(drop=True)
 
 
-def create_fixation_sequence_tags(df):
+# def create_fixation_sequence_tags(df):
+#     """
+#     Build fixation sequences per trial/participant in terms of area labels and locations.
+#
+#     For each (TRIAL_ID, PARTICIPANT_ID), this function:
+#     - Reads a precomputed fixation sequence stored in INTEREST_AREA_FIXATION_SEQUENCE,
+#       which is assumed to be a serialized list of IA_IDs (e.g. "[1, 2, 3, 2, 4]").
+#     - Maps each IA_ID to:
+#         * AREA_LABEL_COLUMN   (e.g. 'question', 'answer_A', ...)
+#         * AREA_SCREEN_LOCATION (e.g. 'top', 'left', ...) (or how they are defined in ANSWER_LABEL_CHOICES)
+#     - Produces two sequences:
+#         * FIX_SEQUENCE_BY_LABEL
+#         * FIX_SEQUENCE_BY_LOCATION
+#
+#     Only IA_IDs that are present in the current group are used. The first element
+#     is dropped (label_sequence[1:], location_sequence[1:]) to exclude the very
+#     first fixation from the sequence if the fixation is on the question and the following
+#     fixation is not. This aims to eliminate spillover from the question screen fixation.
+#
+#     """
+#     result = []
+#     for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
+#         group_ids = set(group[C.INTEREST_AREA_ID].unique())
+#
+#         id_to_label = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_LABEL_COLUMN]))
+#         id_to_location = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_SCREEN_LOCATION]))
+#
+#         sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
+#         sequence = ast.literal_eval(sequence_str)
+#
+#         label_sequence = []
+#         location_sequence = []
+#
+#         for ia_id in sequence:
+#             if ia_id in group_ids:
+#                 label_sequence.append(id_to_label[ia_id])
+#                 location_sequence.append(id_to_location[ia_id])
+#
+#         if (
+#                 len(label_sequence) >= 2
+#                 and label_sequence[0] == "question"
+#                 and label_sequence[1] != "question"
+#         ):
+#             trimmed_labels = label_sequence[1:]
+#             trimmed_locations = location_sequence[1:]
+#         else:
+#             trimmed_labels = label_sequence
+#             trimmed_locations = location_sequence
+#
+#         result.append({
+#             C.TRIAL_ID: trial_index,
+#             C.PARTICIPANT_ID: participant_id,
+#             C.FIX_SEQUENCE_BY_LABEL: trimmed_labels,
+#             C.FIX_SEQUENCE_BY_LOCATION: trimmed_locations,
+#         })
+#
+#     return pd.DataFrame(result)
+
+
+def create_fixation_sequence_tags(df, fix_path = "data_raw/full/fixations_A.csv"):
     """
     Build fixation sequences per trial/participant in terms of area labels and locations.
 
     For each (TRIAL_ID, PARTICIPANT_ID), this function:
-    - Reads a precomputed fixation sequence stored in INTEREST_AREA_FIXATION_SEQUENCE,
-      which is assumed to be a serialized list of IA_IDs (e.g. "[1, 2, 3, 2, 4]").
-    - Maps each IA_ID to:
-        * AREA_LABEL_COLUMN   (e.g. 'question', 'answer_A', ...)
-        * AREA_SCREEN_LOCATION (e.g. 'top', 'left', ...) (or how they are defined in ANSWER_LABEL_CHOICES)
-    - Produces two sequences:
+    - Reads the precomputed fixation sequence stored in INTEREST_AREA_FIXATION_SEQUENCE,
+      assumed to be a serialized list of IA_IDs.
+    - Maps known IA_IDs directly from the IA-level dataframe (`df`).
+    - For unknown IA_IDs (i.e. IDs not present in the current group's IA_ID set),
+      falls back to the next value from `fixations_df[C.NEAREST_IA]` among fixation rows
+      whose CURRENT_FIX_INTEREST_AREAS is an empty list.
+    - Maps the resolved IA_IDs to:
+        * AREA_LABEL_COLUMN
+        * AREA_SCREEN_LOCATION
+    - Produces:
         * FIX_SEQUENCE_BY_LABEL
         * FIX_SEQUENCE_BY_LOCATION
 
-    Only IA_IDs that are present in the current group are used. The first element
-    is dropped (label_sequence[1:], location_sequence[1:]) to exclude the very
-    first fixation from the sequence if the fixation is on the question and the following
-    fixation is not. This aims to eliminate spillover from the question screen fixation.
+    The first fixation is removed only if:
+    - there are at least 2 labels
+    - the first is "question"
+    - the second is not "question"
 
+    Assumptions
+    -----------
+    - `fixations_df` contains one row per fixation.
+    - `fixations_df[C.CURRENT_FIX_INTEREST_AREAS]` contains either real Python lists
+      or strings representing lists like "[]" or "[21]".
+    - Rows with empty CURRENT_FIX_INTEREST_AREAS correspond in order to unknown entries
+      in INTEREST_AREA_FIXATION_SEQUENCE for the same participant-trial.
+    - `C.NEAREST_IA = 'CURRENT_FIX_NEAREST_INTEREST_AREA'`
     """
+    fixations_df = pd.read_csv(fix_path)
     result = []
-    for (trial_index, participant_id), group in df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID]):
+
+    group_cols = [C.TRIAL_ID, C.PARTICIPANT_ID]
+
+    for (trial_index, participant_id), group in df.groupby(group_cols):
         group_ids = set(group[C.INTEREST_AREA_ID].unique())
 
         id_to_label = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_LABEL_COLUMN]))
         id_to_location = dict(zip(group[C.INTEREST_AREA_ID], group[C.AREA_SCREEN_LOCATION]))
 
+        # -----------------------------
+        # original serialized sequence
+        # -----------------------------
         sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
-        sequence = ast.literal_eval(sequence_str)
+        sequence = ast.literal_eval(sequence_str) if isinstance(sequence_str, str) else sequence_str
 
-        label_sequence = []
-        location_sequence = []
+        # ---------------------------------------------------------
+        # fixation-level fallback queue for unknown sequence entries
+        # ---------------------------------------------------------
+        fix_group = fixations_df[
+            (fixations_df[C.TRIAL_ID] == trial_index)
+            & (fixations_df[C.PARTICIPANT_ID] == participant_id)
+        ].copy()
 
+        def _parse_list(x):
+            if isinstance(x, list):
+                return x
+            if pd.isna(x):
+                return []
+            if isinstance(x, str):
+                x = x.strip()
+                if not x:
+                    return []
+                return ast.literal_eval(x)
+            return []
+
+        fix_group[C.CURRENT_FIX_INTEREST_AREAS] = fix_group[C.CURRENT_FIX_INTEREST_AREAS].apply(_parse_list)
+
+        fallback_nearest_ids = (
+            fix_group.loc[
+                fix_group[C.CURRENT_FIX_INTEREST_AREAS].apply(len) == 0,
+                C.NEAREST_IA
+            ]
+            .astype(int)
+            .tolist()
+        )
+
+        fallback_pointer = 0
+        resolved_sequence = []
+
+        # --------------------------------------------
+        # resolve each entry: direct IA or fallback IA
+        # --------------------------------------------
         for ia_id in sequence:
             if ia_id in group_ids:
-                label_sequence.append(id_to_label[ia_id])
-                location_sequence.append(id_to_location[ia_id])
+                resolved_ia_id = ia_id
+            else:
+                if fallback_pointer < len(fallback_nearest_ids):
+                    resolved_ia_id = fallback_nearest_ids[fallback_pointer]
+                    fallback_pointer += 1
+                else:
+                    print('Warning: No fallback IA left for trial {}, participant {}'.format(trial_index, participant_id))
+                    continue
+
+            resolved_sequence.append(resolved_ia_id)
+
+        label_sequence = [id_to_label[ia_id] for ia_id in resolved_sequence]
+        location_sequence = [id_to_location[ia_id] for ia_id in resolved_sequence]
 
         if (
-                len(label_sequence) >= 2
-                and label_sequence[0] == "question"
-                and label_sequence[1] != "question"
+            len(label_sequence) >= 2
+            and label_sequence[0] == "question"
+            and label_sequence[1] != "question"
         ):
             trimmed_labels = label_sequence[1:]
             trimmed_locations = location_sequence[1:]
@@ -681,6 +804,7 @@ def create_fixation_sequence_tags(df):
         })
 
     return pd.DataFrame(result)
+
 
 
 
@@ -884,10 +1008,14 @@ FUNCTION_REGISTRY = {
         "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
         "kind": "group",
     },
+    ## heavy inner data loading here. Might fix later, slow for now.
     "create_fixation_sequence_tags": {
-        "callable": create_fixation_sequence_tags,
-        "default_kwargs": {"join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID]},
-        "kind": "group",
+    "callable": create_fixation_sequence_tags,
+    "default_kwargs": {
+        "join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID],
+        "fix_path": "data_raw/full/fixations_A.csv",
+    },
+    "kind": "group",
     },
     "create_simplified_fixation_tags": {
         "callable": create_simplified_fixation_tags,

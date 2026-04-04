@@ -35,11 +35,6 @@ IA_AVERAGE_FIX_PUPIL_SIZE = "IA_AVERAGE_FIX_PUPIL_SIZE"
 IA_MAX_FIX_PUPIL_SIZE = "IA_MAX_FIX_PUPIL_SIZE"
 IA_MIN_FIX_PUPIL_SIZE = "IA_MIN_FIX_PUPIL_SIZE"
 
-# ---------------------------------------------------------------------------
-# Fixation level column name constants
-# ---------------------------------------------------------------------------
-
-CURRENT_FIX_PUPIL_SIZE = "CURRENT_FIX_PUPIL"
 
 # ---------------------------------------------------------------------------
 # Created column name constants
@@ -89,6 +84,7 @@ MEAN_MIN_FIX_PUPIL_SIZE_Z = "mean_min_fix_pupil_size_z"
 
 FIRST_ENCOUNTER_AVG_PUPIL_SIZE = "first_encounter_avg_pupil_size"
 FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z = "first_encounter_avg_pupil_size_z"
+
 # ---------------------------------------------------------------------------
 # Helper Constants
 # ---------------------------------------------------------------------------
@@ -107,7 +103,6 @@ NUM_LABEL_VISITS = "num_label_visits"
 NUM_LOC_VISITS = "num_loc_visits"
 
 TRIAL_ID_COLS = (PARTICIPANT_ID, TRIAL_ID)
-
 
 # ---------------------------------------------------------------------------
 # Derived (contrast) feature suffixes / helpers
@@ -170,3 +165,12 @@ PREF_SPECS = [
     (FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z, "high"),
     (NUM_LABEL_VISITS, "high"),
 ]
+
+# ---------------------------------------------------------------------------
+# Fixation Level Constants
+# ---------------------------------------------------------------------------
+
+CURRENT_FIX_PUPIL_SIZE = "CURRENT_FIX_PUPIL"
+NEAREST_IA = 'CURRENT_FIX_NEAREST_INTEREST_AREA'
+CURRENT_FIX_LABEL = "CURRENT_FIX_LABEL" #contains current fix ms!
+CURRENT_FIX_INTEREST_AREAS = "CURRENT_FIX_INTEREST_AREAS"
