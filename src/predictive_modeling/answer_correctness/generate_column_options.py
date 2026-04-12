@@ -7,10 +7,12 @@ from typing import Any, Dict, List, Sequence, Tuple, Optional
 import pandas as pd
 
 import src.constants as Con
-from predictive_modeling.answer_correctness.run_model_bundles import run_full_features_correctness_bundle
+from predictive_modeling.answer_correctness.run_model_bundles import run_full_features_correctness_bundle, _split_tag
 from predictive_modeling.common.feature_selection import correlation_prune_features, aic_forward_select_logit
 
 import matplotlib.pyplot as plt
+
+from viz.plot_output import _answer_correctness_rel_dir
 
 COL_SAVE_PATH = "../reports/report_data/answer_correctness/feature_columns"
 
@@ -341,6 +343,41 @@ def generate_feature_column_files(
 
 
 
+def _dir_has_any_files(path: Path) -> bool:
+    if not path.exists() or not path.is_dir():
+        return False
+    return any(path.iterdir())
+
+
+
+def _correctness_output_exists(
+    split_group_cols: Sequence[str],
+    subdir: Optional[str] = None,
+    results_base_dir: str | Path = "../reports/plots",
+    verbose: bool = False,
+) -> bool:
+    base_rel_dir = Path(
+        _answer_correctness_rel_dir(
+            model_family="logreg",
+            subdir=subdir,
+            split_tag=_split_tag(split_group_cols),
+        )
+    )
+
+    search_dir = Path(results_base_dir) / base_rel_dir
+
+    if verbose:
+        print("\n[CHECK] Looking for existing results in:")
+        print(f"  - {search_dir} (exists={search_dir.exists()})")
+
+    has_files = search_dir.exists() and any(p.is_file() for p in search_dir.rglob("*"))
+
+    if verbose:
+        print(f"    -> has_files={has_files}")
+
+    return has_files
+
+
 def run_correctness_bundle_for_saved_column_sets(
     df,
     columns_folder: str | Path,
@@ -350,6 +387,8 @@ def run_correctness_bundle_for_saved_column_sets(
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
     recursive: bool = False,
+    rerun: bool = True,
+    results_base_dir: str | Path = "../reports/plots",
     verbose: bool = True,
 ):
     """
@@ -360,6 +399,11 @@ def run_correctness_bundle_for_saved_column_sets(
     - feature_cols = loaded columns
     - subdir = identifier
     - run_identifier = identifier
+
+    Parameters
+    ----------
+    rerun : bool
+        If False, skip runs whose output directory already exists and is non-empty.
 
     Returns
     -------
@@ -391,6 +435,29 @@ def run_correctness_bundle_for_saved_column_sets(
         identifier = payload["identifier"]
         feature_cols = payload["columns"]
 
+        already_exists = False
+        if not rerun:
+            already_exists = _correctness_output_exists(
+                split_group_cols=split_group_cols,
+                subdir=identifier,
+                results_base_dir=results_base_dir,
+                verbose=verbose,
+            )
+
+        if already_exists:
+            if verbose:
+                print(f"\nSkipping: {identifier}")
+                print(f"  source: {json_path}")
+                print("  reason: output already exists and rerun=False")
+
+            run_rows.append({
+                "identifier": identifier,
+                "json_path": str(json_path),
+                "n_features": len(feature_cols),
+                "status": "skipped_existing",
+            })
+            continue
+
         if verbose:
             print(f"\nRunning: {identifier}")
             print(f"  source: {json_path}")
@@ -414,6 +481,7 @@ def run_correctness_bundle_for_saved_column_sets(
             "identifier": identifier,
             "json_path": str(json_path),
             "n_features": len(feature_cols),
+            "status": "ran",
         })
 
     metadata_df = pd.DataFrame(run_rows).sort_values("identifier").reset_index(drop=True)
