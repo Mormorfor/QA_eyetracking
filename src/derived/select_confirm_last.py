@@ -1,184 +1,202 @@
-from IPython.core.display_functions import display
-
-from data_prep.data_csv_generation import load_raw_answers_data, load_raw_paragraphs_data
+import ast
 import pandas as pd
 
 
-import pandas as pd
-import re
-
-
-def _extract_single_ia_value(x):
-    """
-    Convert values like '[ 31]' or '[31]' to 31.
-    Treat '[0]' as empty.
-    Return pd.NA for empty values like '[]', '[ ]', or '[0]'.
-    """
+def _parse_tuple_list(x):
     if pd.isna(x):
+        return []
+    if isinstance(x, list):
+        return x
+    return ast.literal_eval(x)
+
+
+def _extract_last_ia_from_tuple_list(x):
+    """
+    From a list like:
+    [(42231, 24), (44993, 9), (45873, 45), (46380, 32)]
+
+    return:
+    32
+
+    Returns pd.NA for empty or malformed values.
+    """
+
+    try:
+        tuples_ = _parse_tuple_list(x)
+        if not tuples_:
+            return pd.NA
+
+        last_item = tuples_[-1]
+
+        if isinstance(last_item, tuple) and len(last_item) == 2:
+            ia = last_item[1]
+            if pd.isna(ia):
+                return pd.NA
+            return int(ia)
+
+        return pd.NA
+    except Exception:
         return pd.NA
 
-    s = str(x).strip()
 
-    nums = re.findall(r'\d+', s)
-    if not nums:
-        return pd.NA
-
-    val = int(nums[-1])
-
-    # treat 0 as empty
-    if val == 0:
-        return pd.NA
-
-    return val
+    # tuples_ = ast.literal_eval(x)
+    # last_item = tuples_[-1]
+    # ia = last_item[1]
+    #
+    # return int(ia)
 
 
-def extract_last_ia_before_selection_and_confirmation(df: pd.DataFrame) -> pd.DataFrame:
-    df = df[
-        [
-            'participant_id',
-            'TRIAL_INDEX',
-            'CURRENT_FIX_END',
-            'CURRENT_FIX_DURATION',
-            'ANSWER_RT',
-            'CONFIRM_FINAL_ANSWER_RT',
-            'CURRENT_FIX_INTEREST_AREAS',
-        ]
+def extract_last_areas_from_trial_level_df(
+    trial_df: pd.DataFrame,
+    participant_col: str = "participant_id",
+    trial_col: str = "TRIAL_INDEX",
+    select_fix_col: str = "LAST_FIXATIONS_BEFORE_SELECT",
+    confirm_fix_col: str = "LAST_FIXATIONS_BEFORE_CONFIRM",
+) -> pd.DataFrame:
+    """
+    Extract:
+    - last IA before the last select
+    - last IA before confirm
+
+    directly from tuple-list columns in the trial-level CSV.
+    """
+    out = trial_df[
+        [participant_col, trial_col, select_fix_col, confirm_fix_col]
     ].copy()
 
-    group_cols = ['participant_id', 'TRIAL_INDEX']
-    rows = []
+    out["last_ia_before_last_select"] = out[select_fix_col].apply(
+        _extract_last_ia_from_tuple_list
+    )
 
-    for (participant_id, trial_index), g in df.groupby(group_cols):
-        g = g.sort_values('CURRENT_FIX_END').copy()
+    out["last_ia_before_confirm"] = out[confirm_fix_col].apply(
+        _extract_last_ia_from_tuple_list
+    )
 
-        answer_rt = g['ANSWER_RT'].iloc[0]
-        confirm_rt = g['CONFIRM_FINAL_ANSWER_RT'].iloc[0]
-
-        first_fix_end = g['CURRENT_FIX_END'].iloc[0]
-        first_fix_duration = g['CURRENT_FIX_DURATION'].iloc[0]
-        first_fix_start = first_fix_end - first_fix_duration
-
-        g['CURRENT_FIX_END_REL'] = g['CURRENT_FIX_END'] - first_fix_start
-        g['ia_value'] = g['CURRENT_FIX_INTEREST_AREAS'].apply(_extract_single_ia_value)
-
-        before_select = g[
-            (g['CURRENT_FIX_END_REL'] <= answer_rt) &
-            (g['ia_value'].notna())
+    return out[
+        [
+            participant_col,
+            trial_col,
+            "last_ia_before_last_select",
+            "last_ia_before_confirm",
         ]
-
-        before_confirm = g[
-            (g['CURRENT_FIX_END_REL'] <= confirm_rt) &
-            (g['ia_value'].notna())
-        ]
-
-        last_ia_before_select = (
-            before_select['ia_value'].iloc[-1]
-            if not before_select.empty else pd.NA
-        )
-
-        last_ia_before_confirm = (
-            before_confirm['ia_value'].iloc[-1]
-            if not before_confirm.empty else pd.NA
-        )
-
-        rows.append({
-            'participant_id': participant_id,
-            'TRIAL_INDEX': trial_index,
-            'ANSWER_RT': answer_rt,
-            'CONFIRM_FINAL_ANSWER_RT': confirm_rt,
-            'last_ia_before_select': last_ia_before_select,
-            'last_ia_before_confirm': last_ia_before_confirm,
-        })
-
-    return pd.DataFrame(rows)
+    ]
 
 
 def attach_area_labels(
     extracted_df: pd.DataFrame,
     ia_df: pd.DataFrame,
+    participant_col: str = "participant_id",
+    trial_col: str = "TRIAL_INDEX",
+    ia_id_col: str = "IA_ID",
+    area_label_col: str = "area_label",
 ) -> pd.DataFrame:
+    """
+    Keep only participant/trial pairs that exist in ia_df.
+    Then, within each valid participant/trial pair, attach the area label
+    corresponding to:
+    - last_ia_before_last_select
+    - last_ia_before_confirm
+    """
+
     ia_small = ia_df[
-        ['participant_id', 'TRIAL_INDEX', 'IA_ID', 'area_label']
+        [participant_col, trial_col, ia_id_col, area_label_col]
     ].copy()
 
-    ia_small['IA_ID'] = pd.to_numeric(ia_small['IA_ID'], errors='coerce')
+    ia_small[ia_id_col] = pd.to_numeric(ia_small[ia_id_col], errors="coerce").astype("Int64")
+
+    valid_pairs = ia_small[[participant_col, trial_col]].drop_duplicates()
 
     extracted = extracted_df.copy()
-    extracted['last_ia_before_select'] = pd.to_numeric(
-        extracted['last_ia_before_select'], errors='coerce'
+    extracted["last_ia_before_last_select"] = pd.to_numeric(
+        extracted["last_ia_before_last_select"], errors="coerce"
+    ).astype("Int64")
+
+    extracted["last_ia_before_confirm"] = pd.to_numeric(
+        extracted["last_ia_before_confirm"], errors="coerce"
+    ).astype("Int64")
+
+    # keep only participant/trial pairs that exist in the original ia_df
+    extracted = extracted.merge(
+        valid_pairs,
+        on=[participant_col, trial_col],
+        how="inner",
     )
-    extracted['last_ia_before_confirm'] = pd.to_numeric(
-        extracted['last_ia_before_confirm'], errors='coerce'
-    )
+
+    select_lookup = ia_small.rename(columns={
+        ia_id_col: "last_ia_before_last_select",
+        area_label_col: "area_label_before_last_select",
+    })
+
+    confirm_lookup = ia_small.rename(columns={
+        ia_id_col: "last_ia_before_confirm",
+        area_label_col: "area_label_before_confirm",
+    })
 
     out = extracted.merge(
-        ia_small.rename(columns={
-            'IA_ID': 'last_ia_before_select',
-            'area_label': 'area_label_before_select',
-        }),
-        on=['participant_id', 'TRIAL_INDEX', 'last_ia_before_select'],
-        how='left',
+        select_lookup,
+        on=[participant_col, trial_col, "last_ia_before_last_select"],
+        how="left",
     )
 
     out = out.merge(
-        ia_small.rename(columns={
-            'IA_ID': 'last_ia_before_confirm',
-            'area_label': 'area_label_before_confirm',
-        }),
-        on=['participant_id', 'TRIAL_INDEX', 'last_ia_before_confirm'],
-        how='left',
-    )
-
-    valid_pairs = ia_small[['participant_id', 'TRIAL_INDEX']].drop_duplicates()
-
-    out = out.merge(
-        valid_pairs,
-        on=['participant_id', 'TRIAL_INDEX'],
-        how='inner',
+        confirm_lookup,
+        on=[participant_col, trial_col, "last_ia_before_confirm"],
+        how="left",
     )
 
     return out[
         [
-            'TRIAL_INDEX',
-            'participant_id',
-            'area_label_before_select',
-            'area_label_before_confirm',
+            participant_col,
+            trial_col,
+            "last_ia_before_last_select",
+            "area_label_before_last_select",
+            "last_ia_before_confirm",
+            "area_label_before_confirm",
         ]
     ]
 
 
-def get_last_areas(hunt_path = '../../data/hunters.csv',
-                   gath_path = '../../data/gatherers.csv',
-                   fix_path = '../../data_raw/full/fixations_A.csv'):
-    print("Loading hunters data...")
-    hunt = load_raw_answers_data(hunt_path)
-    print("Done!")
-    print("Loading gatherers data...")
-    gath = load_raw_answers_data(gath_path)
-    print("Done!")
+def get_last_areas_from_trial_level_csv(
+    trial_level_path="../data/select_confirm.csv",
+    hunt_path="../data/hunters.csv",
+    gath_path="../data/gatherers.csv",
+    out_hunt_path="../data/hunters_last.csv",
+    out_gath_path="../data/gatherers_last.csv",
+    verbose=True,
+):
+    if verbose:
+        print("Loading data...")
 
-    print("Loading raw fixations data...")
-    fix = load_raw_answers_data(fix_path)
-    print("Done!")
+    trial_df = pd.read_csv(trial_level_path)
+    hunt = pd.read_csv(hunt_path)
+    gath = pd.read_csv(gath_path)
 
-    print("Searching for last IAs visited before selection and confirmation...")
-    extracted = extract_last_ia_before_selection_and_confirmation(fix)
-    print("Done!")
+    if verbose:
+        print("Extracting last IAs from trial-level data...")
 
-    print("Attaching hunters...")
+    extracted = extract_last_areas_from_trial_level_df(trial_df)
+
+    if verbose:
+        print("Attaching area labels (hunters)...")
+
     fin_hunt = attach_area_labels(extracted, hunt)
 
-    print("Attaching gatherers...")
+    if verbose:
+        print("Attaching area labels (gatherers)...")
+
     fin_gath = attach_area_labels(extracted, gath)
 
+    if verbose:
+        print("Saving outputs...")
+
+    fin_hunt.to_csv(out_hunt_path, index=False)
+    fin_gath.to_csv(out_gath_path, index=False)
+
+    if verbose:
+        print(f"Saved:\n- {out_hunt_path}\n- {out_gath_path}")
 
     return fin_hunt, fin_gath
 
 
 if __name__ == "__main__":
-    hunters_last, gatherers_last = get_last_areas()
-
-    hunters_last.to_csv("../../data/hunters_last.csv", index=False)
-    gatherers_last.to_csv("../../data/gatherers_last.csv", index=False)
-
-    print("Saved hunters_last and gatherers_last to ../../data")
+    get_last_areas_from_trial_level_csv()

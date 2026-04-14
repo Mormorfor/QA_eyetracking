@@ -217,7 +217,7 @@ def extract_fixation_timestamps_with_ia(
 
 def join_on_participant_trial(
     dfs: list[pd.DataFrame],
-    participant_col: str = Con.RECORDING_SESSION_LABEL,
+    participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
     how: str = "outer",
     sort: bool = True,
@@ -334,13 +334,13 @@ def build_trial_level_df(
     trial_answers = build_trial_answers_df(fix_tsv_cleaned)
 
     click_df = extract_click_timestamps(
-        fix_tsv_cleaned,
+        fix_tsv,
         keyword=Con.CHOOSE_ANSWER_KEYWORD,
         output_col=Con.SELECT_ANS_TIMESTAMPS,
     )
 
     confirm_df = extract_click_timestamps(
-        fix_tsv_cleaned,
+        fix_tsv,
         keyword=Con.CONFIRM_ANSWER_KEYWORD,
         output_col=Con.CONFIRM_TIMESTAMPS,
     )
