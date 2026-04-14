@@ -1193,12 +1193,17 @@ def generate_new_row_features(functions, df, default_join_columns=None,
 def _attach_last_label_features_if_available(
     df: pd.DataFrame,
     last_labels_path: str,
+    select_col_in_file: str = "area_label_before_last_select",
+    confirm_col_in_file: str = "area_label_before_confirm",
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
     If a precomputed last-label file exists, merge in:
     - C.LAST_LBL_BEFORE_SELECT
     - C.LAST_LBL_BEFORE_CONFIRM
+
+    The source file is expected to contain participant/trial keys and
+    area-label columns derived from the last-fixation logic.
     """
     path = Path(last_labels_path)
 
@@ -1215,12 +1220,24 @@ def _attach_last_label_features_if_available(
     merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
 
     rename_map = {
-        "area_label_before_select": C.LAST_LBL_BEFORE_SELECT,
-        "area_label_before_confirm": C.LAST_LBL_BEFORE_CONFIRM,
+        select_col_in_file: C.LAST_LBL_BEFORE_SELECT,
+        confirm_col_in_file: C.LAST_LBL_BEFORE_CONFIRM,
     }
 
     needed_cols = merge_cols + list(rename_map.keys())
-    last_df = last_df[needed_cols].rename(columns=rename_map)
+    missing_cols = [col for col in needed_cols if col not in last_df.columns]
+
+    if missing_cols:
+        raise ValueError(
+            f"Missing required columns in {last_labels_path}: {missing_cols}"
+        )
+
+    last_df = (
+        last_df[needed_cols]
+        .drop_duplicates(subset=merge_cols)
+        .rename(columns=rename_map)
+    )
+
 
     df = df.merge(last_df, on=merge_cols, how="left")
     return df

@@ -1,0 +1,9 @@
+{
+  "identifier": "sequence_only",
+  "columns": [
+    "seq_len",
+    "has_xyx",
+    "has_xyxy",
+    "trial_mean_dwell"
+  ]
+}
