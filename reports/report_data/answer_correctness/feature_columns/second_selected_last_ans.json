@@ -1,0 +1,13 @@
+{
+  "identifier": "second_selected_last_ans",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "area_dwell_proportion__distance_closest",
+    "num_label_visits__correct",
+    "num_label_visits__distance_closest",
+    "last_visited_answer_A",
+    "last_visited_answer_B",
+    "last_visited_answer_C",
+    "last_visited_answer_D"
+  ]
+}
