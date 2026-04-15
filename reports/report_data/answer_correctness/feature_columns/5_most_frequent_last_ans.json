@@ -1,0 +1,14 @@
+{
+  "identifier": "5_most_frequent_last_ans",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "has_xyx",
+    "mean_first_fixation_duration__wrong_mean",
+    "num_label_visits__distance_furthest",
+    "num_label_visits__wrong_mean",
+    "last_visited_answer_A",
+    "last_visited_answer_B",
+    "last_visited_answer_C",
+    "last_visited_answer_D"
+  ]
+}

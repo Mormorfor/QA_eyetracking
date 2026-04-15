@@ -1,0 +1,8 @@
+{
+  "identifier": "3_most_frequent",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "has_xyx",
+    "mean_first_fixation_duration__wrong_mean"
+  ]
+}

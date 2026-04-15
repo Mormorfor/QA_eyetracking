@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple, Optional
+from collections import Counter
 
 import pandas as pd
 
@@ -12,7 +13,7 @@ from predictive_modeling.common.feature_selection import correlation_prune_featu
 
 import matplotlib.pyplot as plt
 
-from viz.plot_output import _answer_correctness_rel_dir
+from viz.plot_output import _answer_correctness_rel_dir, save_plot
 
 COL_SAVE_PATH = "../reports/report_data/answer_correctness/feature_columns"
 
@@ -343,6 +344,159 @@ def generate_feature_column_files(
 
 
 
+def selected_with_last_variations():
+    LAST_ANS = [
+        "last_visited_answer_A",
+        "last_visited_answer_B",
+        "last_visited_answer_C",
+        "last_visited_answer_D",
+    ]
+
+    LAST_CONF = [
+        "last_before_confirm_answer_A",
+        "last_before_confirm_answer_B",
+        "last_before_confirm_answer_C",
+        "last_before_confirm_answer_D",
+        "last_before_confirm_question",
+    ]
+
+    LAST_SELECT = [
+        "last_before_select_answer_A",
+        "last_before_select_answer_B",
+        "last_before_select_answer_C",
+        "last_before_select_answer_D",
+        "last_before_select_question",
+    ]
+
+    SELECTED_NO_LAST = [
+        "skip_rate__correct",
+        "skip_rate__wrong_mean",
+        "area_dwell_proportion__correct",
+        "area_dwell_proportion__wrong_mean",
+        "num_label_visits__correct",
+        "num_label_visits__wrong_mean",
+        "seq_len",
+        "has_xyx",
+    ]
+
+    # --------------------------------------
+    # Save each combination
+    # --------------------------------------
+    _save_one(
+        columns=SELECTED_NO_LAST + LAST_ANS,
+        identifier="selected_last_ans_only",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    _save_one(
+        columns=SELECTED_NO_LAST + LAST_CONF,
+        identifier="selected_last_confirm_only",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    _save_one(
+        columns=SELECTED_NO_LAST + LAST_SELECT,
+        identifier="selected_last_select_only",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+
+def second_manual_selected():
+    SECOND_SELECTED = [
+        "area_dwell_proportion__correct",
+        "area_dwell_proportion__distance_closest",
+        "num_label_visits__correct",
+        "num_label_visits__distance_closest",
+    ]
+
+    LAST_ANS = [
+        "last_visited_answer_A",
+        "last_visited_answer_B",
+        "last_visited_answer_C",
+        "last_visited_answer_D",
+    ]
+
+    LAST_CONF = [
+        "last_before_confirm_answer_A",
+        "last_before_confirm_answer_B",
+        "last_before_confirm_answer_C",
+        "last_before_confirm_answer_D",
+        "last_before_confirm_question",
+    ]
+
+    LAST_SELECT = [
+        "last_before_select_answer_A",
+        "last_before_select_answer_B",
+        "last_before_select_answer_C",
+        "last_before_select_answer_D",
+        "last_before_select_question",
+    ]
+
+    LAST_ALL = LAST_ANS + LAST_CONF + LAST_SELECT
+
+    # --------------------------------------
+    # Save variants
+    # --------------------------------------
+
+    # 1) no last
+    _save_one(
+        columns=SECOND_SELECTED,
+        identifier="second_selected_no_last",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    # 2) all last together
+    _save_one(
+        columns=SECOND_SELECTED + LAST_ALL,
+        identifier="second_selected_last_all",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    # 3) last answer only
+    _save_one(
+        columns=SECOND_SELECTED + LAST_ANS,
+        identifier="second_selected_last_ans",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    # 4) last confirm only
+    _save_one(
+        columns=SECOND_SELECTED + LAST_CONF,
+        identifier="second_selected_last_confirm",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+    # 5) last select only
+    _save_one(
+        columns=SECOND_SELECTED + LAST_SELECT,
+        identifier="second_selected_last_select",
+        folder_path=COL_SAVE_PATH,
+        saved_paths={},
+    )
+
+
+def sequence_only():
+    SEQ_ONLY = ["seq_len", "has_xyx", "has_xyxy", "trial_mean_dwell"]
+
+    LAST_ANS = [
+        "last_visited_answer_A",
+        "last_visited_answer_B",
+        "last_visited_answer_C",
+        "last_visited_answer_D",
+    ]
+
+    _save_one(SEQ_ONLY, "sequence_only", COL_SAVE_PATH, {})
+    _save_one(SEQ_ONLY + LAST_ANS, "sequence_last_ans", COL_SAVE_PATH, {})
+
+
+
 def _dir_has_any_files(path: Path) -> bool:
     if not path.exists() or not path.is_dir():
         return False
@@ -486,3 +640,258 @@ def run_correctness_bundle_for_saved_column_sets(
 
     metadata_df = pd.DataFrame(run_rows).sort_values("identifier").reset_index(drop=True)
     return results_by_identifier, metadata_df
+
+
+def plot_feature_frequency_from_full_jsons(
+    columns_folder: str | Path,
+    recursive: bool = False,
+    case_sensitive: bool = False,
+    sort_desc: bool = True,
+    top_n: Optional[int] = None,
+    figsize: tuple = (12, 8),
+    title: Optional[str] = None,
+    save: bool = False,
+    save_path: Optional[str | Path] = None,
+    dpi: int = 300,
+    close: bool = False,
+    verbose: bool = True,
+):
+    """
+    Load all feature-column JSON files from `columns_folder` whose FILE NAME
+    contains 'full', count how often each feature appears across files, and plot it.
+
+    """
+    columns_folder = Path(columns_folder)
+
+    if recursive:
+        json_paths = sorted(columns_folder.rglob("*.json"))
+    else:
+        json_paths = sorted(columns_folder.glob("*.json"))
+
+    if not json_paths:
+        raise FileNotFoundError(f"No JSON files found in: {columns_folder}")
+
+    def matches_full(path: Path) -> bool:
+        name = path.name if case_sensitive else path.name.lower()
+        needle = "full" if case_sensitive else "full"
+        return needle in name
+
+    matched_files = [p for p in json_paths if matches_full(p)]
+
+    if not matched_files:
+        raise FileNotFoundError(
+            f"No JSON files with 'full' in the filename found in: {columns_folder}"
+        )
+
+    if verbose:
+        print(f"Found {len(matched_files)} matching JSON files:")
+        for p in matched_files:
+            print(f"  - {p}")
+
+    feature_counter = Counter()
+
+    for json_path in matched_files:
+        with open(json_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+
+        if "columns" not in payload:
+            raise KeyError(f"Missing 'columns' key in file: {json_path}")
+
+        feature_cols = payload["columns"]
+
+        if not isinstance(feature_cols, list):
+            raise TypeError(f"'columns' must be a list in file: {json_path}")
+
+        feature_counter.update(feature_cols)
+
+    if not feature_counter:
+        raise ValueError("No features found in matched files.")
+
+    freq_df = pd.DataFrame(
+        [{"feature": feat, "count": cnt} for feat, cnt in feature_counter.items()]
+    )
+
+    freq_df = freq_df.sort_values(
+        by=["count", "feature"],
+        ascending=[not sort_desc, True]
+    ).reset_index(drop=True)
+
+    if top_n is not None:
+        freq_df_plot = freq_df.head(top_n).copy()
+    else:
+        freq_df_plot = freq_df.copy()
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.barh(freq_df_plot["feature"], freq_df_plot["count"])
+    ax.invert_yaxis()
+
+    ax.set_xlabel("Frequency across matching files")
+    ax.set_ylabel("Feature")
+    ax.set_title(
+        title or f"Feature appearance frequency across JSON files with 'full' in filename"
+    )
+
+    plt.tight_layout()
+
+    if save:
+        if save_path is None:
+            save_path = columns_folder / "feature_frequency_full_files.png"
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+        if verbose:
+            print(f"Saved plot to: {save_path}")
+
+    if close:
+        plt.close(fig)
+
+    return fig, freq_df, matched_files
+
+
+
+def generate_k_most_frequent_feature_sets_from_full_files(
+    columns_folder: str | Path,
+    folder_path: str | Path,
+    k: int,
+    recursive: bool = False,
+    case_sensitive: bool = False,
+    save_plot_flag: bool = True,
+    plot_rel_dir: str = "feature_selection",
+    plot_filename: str = "k_most_frequent_feature_frequency",
+    paper_dirs=None,
+    verbose: bool = True,
+):
+    """
+    Builds k-most-frequent feature sets from JSON files containing 'full'
+    and saves:
+
+    - k_most_frequent
+    - k_most_frequent_last_ans
+    - k_most_frequent_last_confirm
+    - k_most_frequent_last_select
+    - k_most_frequent_last_all
+
+    Also plots feature frequencies.
+
+    Returns
+    -------
+    saved_paths : dict
+    freq_df : pd.DataFrame
+    """
+
+    columns_folder = Path(columns_folder)
+
+    json_paths = (
+        sorted(columns_folder.rglob("*.json"))
+        if recursive
+        else sorted(columns_folder.glob("*.json"))
+    )
+
+    def _matches_full(p: Path):
+        name = p.name if case_sensitive else p.name.lower()
+        return "full" in name
+
+    matched_files = [p for p in json_paths if _matches_full(p)]
+
+    if not matched_files:
+        raise FileNotFoundError("No 'full' JSON files found")
+
+    if verbose:
+        print(f"Using {len(matched_files)} files with 'full'")
+
+    # ------------------------------------------------------------------
+    # Last groups (same as your generator)
+    # ------------------------------------------------------------------
+    LAST_ANS = [
+        "last_visited_answer_A",
+        "last_visited_answer_B",
+        "last_visited_answer_C",
+        "last_visited_answer_D",
+    ]
+
+    LAST_CONF = [
+        "last_before_confirm_answer_A",
+        "last_before_confirm_answer_B",
+        "last_before_confirm_answer_C",
+        "last_before_confirm_answer_D",
+        "last_before_confirm_question",
+    ]
+
+    LAST_SELECT = [
+        "last_before_select_answer_A",
+        "last_before_select_answer_B",
+        "last_before_select_answer_C",
+        "last_before_select_answer_D",
+        "last_before_select_question",
+    ]
+
+    LAST_ALL = _dedupe_keep_order(LAST_ANS + LAST_CONF + LAST_SELECT)
+
+    # ------------------------------------------------------------------
+    # Count frequencies
+    # ------------------------------------------------------------------
+    counter = Counter()
+
+    for p in matched_files:
+        payload = load_feature_columns_from_json(p)
+        counter.update(payload["columns"])
+
+    if not counter:
+        raise ValueError("No features found")
+
+    sorted_feats = sorted(counter.items(), key=lambda x: (-x[1], x[0]))
+
+    k_base = _dedupe_keep_order([f for f, _ in sorted_feats[:k]])
+
+    if verbose:
+        print(f"Selected top {len(k_base)} features")
+
+    # ------------------------------------------------------------------
+    # Build sets
+    # ------------------------------------------------------------------
+    feature_sets = {
+        f"{k}_most_frequent": k_base,
+        f"{k}_most_frequent_last_ans": _dedupe_keep_order(k_base + LAST_ANS),
+        f"{k}_most_frequent_last_confirm": _dedupe_keep_order(k_base + LAST_CONF),
+        f"{k}_most_frequent_last_select": _dedupe_keep_order(k_base + LAST_SELECT),
+        f"{k}_most_frequent_last_all": _dedupe_keep_order(k_base + LAST_ALL),
+    }
+
+    saved_paths: Dict[str, Path] = {}
+
+    for identifier, cols in feature_sets.items():
+        _save_one(
+            columns=cols,
+            identifier=identifier,
+            folder_path=folder_path,
+            saved_paths=saved_paths,
+        )
+        if verbose:
+            print(f"Saved: {identifier} ({len(cols)} cols)")
+
+
+    freq_df = pd.DataFrame(sorted_feats, columns=["feature", "count"])
+
+    freq_df_k = freq_df[freq_df["feature"].isin(k_base)].copy()
+    freq_df_k = freq_df_k.sort_values("count", ascending=True)
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.barh(freq_df_k["feature"], freq_df_k["count"])
+
+    ax.set_title(f"Top-{k} most frequent features")
+    ax.set_xlabel("Frequency across 'full' feature sets")
+
+    plt.tight_layout()
+
+    if save_plot_flag:
+        save_plot(
+            fig=fig,
+            rel_dir=plot_rel_dir,
+            filename=plot_filename,
+            paper_dirs=paper_dirs,
+            close=True,
+        )
+    else:
+        plt.show()
+
+    return saved_paths, freq_df_k

@@ -1,0 +1,15 @@
+{
+  "identifier": "5_most_frequent_last_confirm",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "has_xyx",
+    "mean_first_fixation_duration__wrong_mean",
+    "num_label_visits__distance_furthest",
+    "num_label_visits__wrong_mean",
+    "last_before_confirm_answer_A",
+    "last_before_confirm_answer_B",
+    "last_before_confirm_answer_C",
+    "last_before_confirm_answer_D",
+    "last_before_confirm_question"
+  ]
+}
