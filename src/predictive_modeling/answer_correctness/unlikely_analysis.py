@@ -21,13 +21,6 @@ def build_prediction_overview_df(
     """
     df = result.test_df.copy().reset_index(drop=True)
 
-    if len(df) != len(result.y_true):
-        raise ValueError("Length mismatch between test_df and y_true.")
-    if len(df) != len(result.y_pred):
-        raise ValueError("Length mismatch between test_df and y_pred.")
-    if len(df) != len(result.y_prob):
-        raise ValueError("Length mismatch between test_df and y_prob.")
-
     df[true_col] = np.asarray(result.y_true).astype(int)
     df[pred_col] = np.asarray(result.y_pred).astype(int)
     df[prob_col] = np.asarray(result.y_prob).astype(float)
@@ -94,202 +87,6 @@ def get_unlikely_items(
         "high_prob_wrong": high_prob_wrong,
         "low_prob_right": low_prob_right,
     }
-
-
-
-def summarize_unlikely_items(
-    result,
-    *,
-    target_col: str = Con.IS_CORRECT_COLUMN,
-    prob_col: str = "pred_prob_correct",
-    high_thresh: float = 0.80,
-    low_thresh: float = 0.20,
-) -> pd.DataFrame:
-    """
-    Return a compact numeric overview of unlikely items.
-    """
-    out = get_unlikely_items(
-        result,
-        target_col=target_col,
-        prob_col=prob_col,
-        high_thresh=high_thresh,
-        low_thresh=low_thresh,
-    )
-
-    df = out["overview_df"]
-    hpw = out["high_prob_wrong"]
-    lpr = out["low_prob_right"]
-
-    n_total = len(df)
-    n_right = int((df[target_col] == 1).sum())
-    n_wrong = int((df[target_col] == 0).sum())
-
-    return pd.DataFrame([
-        {
-            "group": "high_prob_wrong",
-            "n": len(hpw),
-            "pct_of_all": len(hpw) / n_total if n_total else np.nan,
-            "pct_of_wrong_items": len(hpw) / n_wrong if n_wrong else np.nan,
-            "mean_prob_correct": hpw[prob_col].mean() if len(hpw) else np.nan,
-            "min_prob_correct": hpw[prob_col].min() if len(hpw) else np.nan,
-            "max_prob_correct": hpw[prob_col].max() if len(hpw) else np.nan,
-        },
-        {
-            "group": "low_prob_right",
-            "n": len(lpr),
-            "pct_of_all": len(lpr) / n_total if n_total else np.nan,
-            "pct_of_right_items": len(lpr) / n_right if n_right else np.nan,
-            "mean_prob_correct": lpr[prob_col].mean() if len(lpr) else np.nan,
-            "min_prob_correct": lpr[prob_col].min() if len(lpr) else np.nan,
-            "max_prob_correct": lpr[prob_col].max() if len(lpr) else np.nan,
-        },
-    ])
-
-
-
-def get_most_extreme_unlikely_items(
-    result,
-    *,
-    target_col: str = Con.IS_CORRECT_COLUMN,
-    prob_col: str = "pred_prob_correct",
-    top_n: int = 20,
-) -> dict[str, pd.DataFrame]:
-    """
-    Get the most extreme unlikely items in both directions.
-    """
-    df = build_prediction_overview_df(
-        result,
-        target_col=target_col,
-        prob_col=prob_col,
-    )
-
-    high_prob_wrong = (
-        df[df[target_col].astype(int) == 0]
-        .sort_values(prob_col, ascending=False)
-        .head(top_n)
-        .copy()
-    )
-
-    low_prob_right = (
-        df[df[target_col].astype(int) == 1]
-        .sort_values(prob_col, ascending=True)
-        .head(top_n)
-        .copy()
-    )
-
-    return {
-        "most_high_prob_wrong": high_prob_wrong,
-        "most_low_prob_right": low_prob_right,
-    }
-
-
-
-def summarize_unlikely_by_group(
-    result,
-    *,
-    group_col: str,
-    target_col: str = Con.IS_CORRECT_COLUMN,
-    prob_col: str = "pred_prob_correct",
-    high_thresh: float = 0.80,
-    low_thresh: float = 0.20,
-    min_n: int = 5,
-) -> pd.DataFrame:
-    """
-    Summarize unlikely items by participant, text, question, etc.
-    """
-    df = build_prediction_overview_df(
-        result,
-        target_col=target_col,
-        prob_col=prob_col,
-    )
-
-    df["high_prob_wrong"] = (
-        (df[target_col].astype(int) == 0) & (df[prob_col] >= high_thresh)
-    ).astype(int)
-
-    df["low_prob_right"] = (
-        (df[target_col].astype(int) == 1) & (df[prob_col] <= low_thresh)
-    ).astype(int)
-
-    out = (
-        df.groupby(group_col)
-        .agg(
-            n_items=(target_col, "size"),
-            actual_accuracy=(target_col, "mean"),
-            mean_prob_correct=(prob_col, "mean"),
-            n_high_prob_wrong=("high_prob_wrong", "sum"),
-            n_low_prob_right=("low_prob_right", "sum"),
-        )
-        .reset_index()
-    )
-
-    out["pct_high_prob_wrong"] = out["n_high_prob_wrong"] / out["n_items"]
-    out["pct_low_prob_right"] = out["n_low_prob_right"] / out["n_items"]
-
-    out = out[out["n_items"] >= min_n].copy()
-
-    return out.sort_values(
-        ["n_high_prob_wrong", "n_low_prob_right", "n_items"],
-        ascending=[False, False, False],
-    ).reset_index(drop=True)
-
-
-
-def compare_unlikely_feature_means(
-    result,
-    *,
-    feature_cols: Sequence[str],
-    target_col: str = Con.IS_CORRECT_COLUMN,
-    prob_col: str = "pred_prob_correct",
-    high_thresh: float = 0.80,
-    low_thresh: float = 0.20,
-) -> dict[str, pd.DataFrame]:
-    """
-    Compare feature means of unlikely groups against the full test set.
-    """
-    out = get_unlikely_items(
-        result,
-        target_col=target_col,
-        prob_col=prob_col,
-        high_thresh=high_thresh,
-        low_thresh=low_thresh,
-    )
-
-    full_df = out["overview_df"]
-    hpw = out["high_prob_wrong"]
-    lpr = out["low_prob_right"]
-
-    full_means = full_df[list(feature_cols)].mean(numeric_only=True)
-    result_dict = {}
-
-    if len(hpw):
-        hpw_means = hpw[list(feature_cols)].mean(numeric_only=True)
-        result_dict["high_prob_wrong_feature_diff"] = (
-            pd.DataFrame({
-                "overall_mean": full_means,
-                "group_mean": hpw_means,
-                "diff_vs_overall": hpw_means - full_means,
-            })
-            .sort_values("diff_vs_overall", key=lambda s: s.abs(), ascending=False)
-            .reset_index()
-            .rename(columns={"index": "feature"})
-        )
-
-    if len(lpr):
-        lpr_means = lpr[list(feature_cols)].mean(numeric_only=True)
-        result_dict["low_prob_right_feature_diff"] = (
-            pd.DataFrame({
-                "overall_mean": full_means,
-                "group_mean": lpr_means,
-                "diff_vs_overall": lpr_means - full_means,
-            })
-            .sort_values("diff_vs_overall", key=lambda s: s.abs(), ascending=False)
-            .reset_index()
-            .rename(columns={"index": "feature"})
-        )
-
-    return result_dict
-
 
 
 
@@ -551,26 +348,25 @@ def summarize_unlikely_items_with_viz(
 
 
 
-def analyze_unlikely_feature_patterns(
+
+def summarize_feature_means_for_probability_outcome_groups(
     result,
     *,
-    feature_cols,
-    target_col="is_correct",
-    prob_col="pred_prob_correct",
-    high_thresh=0.80,
-    low_thresh=0.20,
-    top_k_features=15,
-    show_distributions=False,
-):
+    feature_cols: list[str],
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    prob_col: str = "pred_prob_correct",
+    high_thresh: float = 0.80,
+    low_thresh: float = 0.20,
+    include_counts: bool = True,
+) -> pd.DataFrame:
     """
-    Analyze whether unlikely cases differ systematically in feature space.
+    For each requested feature, compute mean values in four groups:
 
-    Produces:
-    - Feature deviation tables
-    - Bar plots of strongest differences
-    - Optional distribution plots
+    - HP_W: high predicted probability, actually wrong
+    - HP_R: high predicted probability, actually right
+    - LP_W: low predicted probability, actually wrong
+    - LP_R: low predicted probability, actually right
     """
-
     unlikely = get_unlikely_items(
         result,
         target_col=target_col,
@@ -579,232 +375,114 @@ def analyze_unlikely_feature_patterns(
         low_thresh=low_thresh,
     )
 
-    df = unlikely["overview_df"]
-    hpw = unlikely["high_prob_wrong"]
-    lpr = unlikely["low_prob_right"]
+    df = unlikely["overview_df"].copy()
 
-    # -----------------------------
-    # 1. Compute feature means
-    # -----------------------------
-    full_means = df[feature_cols].mean(numeric_only=True)
+    hp_w_mask = (df[prob_col] >= high_thresh) & (df[target_col] == 0)
+    hp_r_mask = (df[prob_col] >= high_thresh) & (df[target_col] == 1)
+    lp_w_mask = (df[prob_col] <= low_thresh) & (df[target_col] == 0)
+    lp_r_mask = (df[prob_col] <= low_thresh) & (df[target_col] == 1)
 
-    hpw_means = hpw[feature_cols].mean(numeric_only=True) if len(hpw) else None
-    lpr_means = lpr[feature_cols].mean(numeric_only=True) if len(lpr) else None
+    rows = []
+    for feature in feature_cols:
+        row = {
+            "feature": feature,
+            "mean_HP_W": df.loc[hp_w_mask, feature].mean(),
+            "mean_HP_R": df.loc[hp_r_mask, feature].mean(),
+            "mean_LP_W": df.loc[lp_w_mask, feature].mean(),
+            "mean_LP_R": df.loc[lp_r_mask, feature].mean(),
+        }
 
-    results = {}
+        if include_counts:
+            row.update({
+                "n_HP_W": int(hp_w_mask.sum()),
+                "n_HP_R": int(hp_r_mask.sum()),
+                "n_LP_W": int(lp_w_mask.sum()),
+                "n_LP_R": int(lp_r_mask.sum()),
+            })
 
-    # -----------------------------
-    # 2. Build comparison tables
-    # -----------------------------
-    if hpw_means is not None:
-        hpw_df = pd.DataFrame({
-            "feature": feature_cols,
-            "overall_mean": full_means.values,
-            "hpw_mean": hpw_means.values,
-        })
-        hpw_df["diff_vs_overall"] = hpw_df["hpw_mean"] - hpw_df["overall_mean"]
-        hpw_df["abs_diff"] = hpw_df["diff_vs_overall"].abs()
+        rows.append(row)
 
-        hpw_df = hpw_df.sort_values("abs_diff", ascending=False).reset_index(drop=True)
+    summary_df = pd.DataFrame(rows)
 
-        print("\n=== HIGH PROB WRONG: FEATURE DEVIATIONS ===")
-        display(hpw_df.head(30))
-
-        results["hpw_feature_diff"] = hpw_df
-
-    if lpr_means is not None:
-        lpr_df = pd.DataFrame({
-            "feature": feature_cols,
-            "overall_mean": full_means.values,
-            "lpr_mean": lpr_means.values,
-        })
-        lpr_df["diff_vs_overall"] = lpr_df["lpr_mean"] - lpr_df["overall_mean"]
-        lpr_df["abs_diff"] = lpr_df["diff_vs_overall"].abs()
-
-        lpr_df = lpr_df.sort_values("abs_diff", ascending=False).reset_index(drop=True)
-
-        print("\n=== LOW PROB RIGHT: FEATURE DEVIATIONS ===")
-        display(lpr_df.head(30))
-
-        results["lpr_feature_diff"] = lpr_df
-
-    # -----------------------------
-    # 3. Visualization: top features
-    # -----------------------------
-    def plot_top_features(df_diff, title):
-        top_df = df_diff.head(top_k_features).copy()
-        top_df = top_df.sort_values("diff_vs_overall", ascending=True)
-
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.barh(top_df["feature"], top_df["diff_vs_overall"])
-        ax.set_title(title)
-        ax.set_xlabel("Difference vs overall mean")
-        plt.tight_layout()
-        plt.show()
-
-    if "hpw_feature_diff" in results:
-        plot_top_features(
-            results["hpw_feature_diff"],
-            "High-prob-wrong: strongest feature deviations"
-        )
-
-    if "lpr_feature_diff" in results:
-        plot_top_features(
-            results["lpr_feature_diff"],
-            "Low-prob-right: strongest feature deviations"
-        )
-
-    # -----------------------------
-    # 4. Optional: feature distributions
-    # -----------------------------
-    if show_distributions and "hpw_feature_diff" in results:
-        print("\n=== DISTRIBUTIONS (TOP FEATURES, HPW) ===")
-        for feat in results["hpw_feature_diff"]["feature"].head(5):
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.hist(df[feat], bins=30, alpha=0.5, label="all")
-            ax.hist(hpw[feat], bins=30, alpha=0.5, label="high_prob_wrong")
-            ax.set_title(feat)
-            ax.legend()
-            plt.tight_layout()
-            plt.show()
-
-    if show_distributions and "lpr_feature_diff" in results:
-        print("\n=== DISTRIBUTIONS (TOP FEATURES, LPR) ===")
-        for feat in results["lpr_feature_diff"]["feature"].head(5):
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.hist(df[feat], bins=30, alpha=0.5, label="all")
-            ax.hist(lpr[feat], bins=30, alpha=0.5, label="low_prob_right")
-            ax.set_title(feat)
-            ax.legend()
-            plt.tight_layout()
-            plt.show()
-
-    return results
+    return summary_df
 
 
 
-
-def analyze_unlikely_feature_patterns_with_scaling(
-    result,
-    *,
-    model,  # <-- pass the fitted model
-    feature_cols,
-    target_col="is_correct",
-    prob_col="pred_prob_correct",
-    high_thresh=0.80,
-    low_thresh=0.20,
-    top_k_features=15,
+def rank_feature_separation_between_probability_outcome_groups(
+    feature_group_means_df: pd.DataFrame,
 ):
-    """
-    Compare feature deviations:
-    1) raw (original units)
-    2) standardized (model space, using scaler_)
+    df = feature_group_means_df.copy()
 
-    This lets you distinguish:
-    - behavioral magnitude (raw)
-    - model relevance (scaled)
-    """
+    df["abs_HP_W_minus_LP_W"] = (
+        df["mean_HP_W"] - df["mean_LP_W"]
+    ).abs()
 
-    unlikely = get_unlikely_items(
-        result,
-        target_col=target_col,
-        prob_col=prob_col,
-        high_thresh=high_thresh,
-        low_thresh=low_thresh,
+    df["abs_LP_R_minus_HP_R"] = (
+        df["mean_LP_R"] - df["mean_HP_R"]
+    ).abs()
+
+    top_hpw_lpw = (
+        df.sort_values("abs_HP_W_minus_LP_W", ascending=False)
+        [["feature", "mean_HP_W", "mean_LP_W", "abs_HP_W_minus_LP_W"]]
+        .reset_index(drop=True)
     )
 
-    df = unlikely["overview_df"]
-    hpw = unlikely["high_prob_wrong"]
-    lpr = unlikely["low_prob_right"]
-
-    # -----------------------------
-    # 1. RAW FEATURES (as before)
-    # -----------------------------
-    def compute_diff(df_all, df_group, feature_cols):
-        overall = df_all[feature_cols].mean(numeric_only=True)
-        group = df_group[feature_cols].mean(numeric_only=True)
-
-        out = pd.DataFrame({
-            "feature": feature_cols,
-            "overall_mean": overall.values,
-            "group_mean": group.values,
-        })
-        out["diff"] = out["group_mean"] - out["overall_mean"]
-        out["abs_diff"] = out["diff"].abs()
-        return out.sort_values("abs_diff", ascending=False).reset_index(drop=True)
-
-    raw_results = {}
-    if len(hpw):
-        raw_results["hpw"] = compute_diff(df, hpw, feature_cols)
-    if len(lpr):
-        raw_results["lpr"] = compute_diff(df, lpr, feature_cols)
-
-    # -----------------------------
-    # 2. STANDARDIZED FEATURES
-    # -----------------------------
-    if model.scaler_ is None:
-        raise RuntimeError("Model scaler_ not fitted.")
-
-    X_scaled = model.scaler_.transform(df[feature_cols])
-    X_scaled = pd.DataFrame(X_scaled, columns=feature_cols, index=df.index)
-
-    X_scaled_hpw = X_scaled.loc[hpw.index] if len(hpw) else None
-    X_scaled_lpr = X_scaled.loc[lpr.index] if len(lpr) else None
-
-    scaled_results = {}
-
-    def compute_scaled_diff(X_all, X_group):
-        overall = X_all.mean()
-        group = X_group.mean()
-
-        out = pd.DataFrame({
-            "feature": X_all.columns,
-            "overall_mean_scaled": overall.values,
-            "group_mean_scaled": group.values,
-        })
-        out["diff_scaled"] = out["group_mean_scaled"] - out["overall_mean_scaled"]
-        out["abs_diff_scaled"] = out["diff_scaled"].abs()
-        return out.sort_values("abs_diff_scaled", ascending=False).reset_index(drop=True)
-
-    if X_scaled_hpw is not None:
-        scaled_results["hpw"] = compute_scaled_diff(X_scaled, X_scaled_hpw)
-
-    if X_scaled_lpr is not None:
-        scaled_results["lpr"] = compute_scaled_diff(X_scaled, X_scaled_lpr)
-
-    # -----------------------------
-    # 3. PLOTTING
-    # -----------------------------
-    def plot(df_diff, col, title):
-        top = df_diff.head(top_k_features).copy()
-        top = top.sort_values(col, ascending=True)
-
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.barh(top["feature"], top[col])
-        ax.set_title(title)
-        ax.set_xlabel(col)
-        plt.tight_layout()
-        plt.show()
-
-    print("\n=== RAW (BEHAVIORAL SPACE) ===")
-    if "hpw" in raw_results:
-        display(raw_results["hpw"].head(20))
-        plot(raw_results["hpw"], "diff", "HPW (raw)")
-
-    if "lpr" in raw_results:
-        display(raw_results["lpr"].head(20))
-        plot(raw_results["lpr"], "diff", "LPR (raw)")
-
-    print("\n=== STANDARDIZED (MODEL SPACE) ===")
-    if "hpw" in scaled_results:
-        display(scaled_results["hpw"].head(20))
-        plot(scaled_results["hpw"], "diff_scaled", "HPW (scaled)")
-
-    if "lpr" in scaled_results:
-        display(scaled_results["lpr"].head(20))
-        plot(scaled_results["lpr"], "diff_scaled", "LPR (scaled)")
+    top_lpr_hpr = (
+        df.sort_values("abs_LP_R_minus_HP_R", ascending=False)
+        [["feature", "mean_LP_R", "mean_HP_R", "abs_LP_R_minus_HP_R"]]
+        .reset_index(drop=True)
+    )
 
     return {
-        "raw": raw_results,
-        "scaled": scaled_results,
+        "full_df": df,
+        "top_hpw_lpw": top_hpw_lpw,
+        "top_lpr_hpr": top_lpr_hpr,
     }
+
+
+
+def plot_feature_group_separation(
+    feature_group_means_df,
+    top_n: int = 20,
+    figsize=(10, 6),
+):
+    df = feature_group_means_df.copy()
+
+    df["abs_HP_W_minus_LP_W"] = (
+        df["mean_HP_W"] - df["mean_LP_W"]
+    ).abs()
+
+    df["abs_LP_R_minus_HP_R"] = (
+        df["mean_LP_R"] - df["mean_HP_R"]
+    ).abs()
+
+    # --- HP-W vs LP-W ---
+    top1 = (
+        df.sort_values("abs_HP_W_minus_LP_W", ascending=False)
+        .head(top_n)
+        .sort_values("abs_HP_W_minus_LP_W", ascending=True)
+    )
+
+    plt.figure(figsize=figsize)
+    plt.barh(top1["feature"], top1["abs_HP_W_minus_LP_W"])
+    plt.title("Top feature differences: |HP-W − LP-W|")
+    plt.xlabel("Absolute difference")
+    plt.ylabel("Feature")
+    plt.tight_layout()
+    plt.show()
+
+    # --- LP-R vs HP-R ---
+    top2 = (
+        df.sort_values("abs_LP_R_minus_HP_R", ascending=False)
+        .head(top_n)
+        .sort_values("abs_LP_R_minus_HP_R", ascending=True)
+    )
+
+    plt.figure(figsize=figsize)
+    plt.barh(top2["feature"], top2["abs_LP_R_minus_HP_R"])
+    plt.title("Top feature differences: |LP-R − HP-R|")
+    plt.xlabel("Absolute difference")
+    plt.ylabel("Feature")
+    plt.tight_layout()
+    plt.show()
+
