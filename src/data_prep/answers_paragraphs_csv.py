@@ -208,7 +208,7 @@ def pivot_texts(df: pd.DataFrame) -> pd.DataFrame:
 def build_merged_tables(
     hunters_answers_path: str = "data/hunters.csv",
     gatherers_answers_path: str = "data/gatherers.csv",
-    ia_paragraphs_path: str = "data_raw/full/ia_P.csv",
+    ia_paragraphs_path: str = "data_raw/full/ia_Paragraph.csv",
 ):
     """
     The full pipeline:
@@ -284,7 +284,7 @@ def build_merged_tables(
 def main(
     hunters_answers_path: str = "data/hunters.csv",
     gatherers_answers_path: str = "data/gatherers.csv",
-    ia_paragraphs_path: str = "data_raw/full/ia_P.csv",
+    ia_paragraphs_path: str = "data_raw/full/ia_Paragraph.csv",
     hunters_output_path: str = "data/merged_hunters.csv",
     gatherers_output_path: str = "data/merged_gatherers.csv",
 ):

@@ -128,7 +128,7 @@ def load_raw_answers_data(ia_a_path = "data_raw/full/ia_A.csv"):
     return pd.read_csv(ia_a_path)
 
 
-def load_raw_paragraphs_data(ia_p_path = "data_raw/full/ia_P.csv"):
+def load_raw_paragraphs_data(ia_p_path = "data_raw/full/ia_Paragraph.csv"):
     """
     Load raw interest area level paragraphs data from CSV file.
     """
@@ -1244,7 +1244,7 @@ def _attach_last_label_features_if_available(
 
 
 def main(
-    ia_answers_path: str = "data_raw/full/ia_A.csv",
+    ia_answers_path: str = "data_raw/full/ia_Answer.csv",
     hunters_output_path: str = "data/hunters.csv",
     gatherers_output_path: str = "data/gatherers.csv",
     base_function_names: list = None,

@@ -14,3 +14,5 @@ archive/merged_hunters.csv
 
 __pycache__/
 *.pyc
+
+/.vscode
