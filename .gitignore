@@ -11,3 +11,6 @@ archive/merged_hunters.csv
 /reports/plots/participent_correctness_coeffs/derived_features_correctness_log_reg/
 /reports/plots/participent_correctness_coeffs/full_features_correctness_log_reg/
 /.idea/
+
+__pycache__/
+*.pyc
