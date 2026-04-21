@@ -1,5 +1,12 @@
-import os
+import sys
+import os 
+
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import List, Optional
@@ -26,10 +33,9 @@ def save_plot(
     Optionally mirrors to each directory in paper_dirs:
         <paper_dir>/figures/<rel_dir>/<filename>.<ext>
     """
-    root = project_root()
     rel_dir = _clean_path_part(rel_dir) or ""
 
-    main_dir = root / "reports" / "plots" / rel_dir
+    main_dir = PROJECT_ROOT / "reports" / "plots" / rel_dir
     main_dir.mkdir(parents=True, exist_ok=True)
 
     main_path = main_dir / f"{filename}.{ext}"
@@ -39,7 +45,7 @@ def save_plot(
 
     if paper_dirs:
         for p in paper_dirs:
-            paper_dir = root / p / "figures" / rel_dir
+            paper_dir = PROJECT_ROOT / p / "figures" / rel_dir
             paper_dir.mkdir(parents=True, exist_ok=True)
 
             paper_path = paper_dir / f"{filename}.{ext}"
@@ -68,10 +74,9 @@ def save_df_csv(
     Optionally mirrors to each directory in paper_dirs:
         <paper_dir>/report_data/<rel_dir>/<filename>.csv
     """
-    root = project_root()
     rel_dir = _clean_path_part(rel_dir) or ""
 
-    main_dir = root / "reports" / "report_data" / rel_dir
+    main_dir = PROJECT_ROOT / "reports" / "report_data" / rel_dir
     main_dir.mkdir(parents=True, exist_ok=True)
 
     main_path = main_dir / f"{filename}.csv"
@@ -81,7 +86,7 @@ def save_df_csv(
 
     if paper_dirs:
         for p in paper_dirs:
-            paper_dir = root / p / "report_data" / rel_dir
+            paper_dir = PROJECT_ROOT / p / "report_data" / rel_dir
             paper_dir.mkdir(parents=True, exist_ok=True)
 
             paper_path = paper_dir / f"{filename}.csv"

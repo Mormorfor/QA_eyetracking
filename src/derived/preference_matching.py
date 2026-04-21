@@ -26,11 +26,11 @@ def compute_trial_matching(
     predicted answer can be defined in two ways:
 
       1) extreme_mode="polarity"
-         - direction="high": argmax(metric) among A–D
-         - direction="low" : argmin(metric) among A–D
+         - direction="high": argmax(metric) among A-D
+         - direction="low" : argmin(metric) among A-D
 
       2) extreme_mode="relative"
-         - argmax(|metric - trial_mean(metric)|) among A–D
+         - argmax(|metric - trial_mean(metric)|) among A-D
            (direction ignored)
 
     matching := selected_answer_label == pred_label
@@ -75,24 +75,27 @@ def compute_trial_matching(
         .agg(
             metric_value=(metric_col, "first"),
             selected_label=(C.SELECTED_ANSWER_LABEL_COLUMN, "first"),
-            **({C.IS_CORRECT_COLUMN: (C.IS_CORRECT_COLUMN, "first")} if has_correct else {}),
+            **(
+                {C.IS_CORRECT_COLUMN: (C.IS_CORRECT_COLUMN, "first")}
+                if has_correct
+                else {}
+            ),
         )
     )
 
     answer_areas = [f"{C.ANSWER_PREFIX}{lab}" for lab in C.ANSWER_LABELS]
     area = area[area[C.AREA_LABEL_COLUMN].isin(answer_areas)].copy()
 
-    area["answer_label"] = area[C.AREA_LABEL_COLUMN].str.replace(C.ANSWER_PREFIX, "", regex=False)
-
-    wide = (
-        area.pivot_table(
-            index=[C.TRIAL_ID, C.PARTICIPANT_ID],
-            columns="answer_label",
-            values="metric_value",
-            aggfunc="first",
-        )
-        .reset_index()
+    area["answer_label"] = area[C.AREA_LABEL_COLUMN].str.replace(
+        C.ANSWER_PREFIX, "", regex=False
     )
+
+    wide = area.pivot_table(
+        index=[C.TRIAL_ID, C.PARTICIPANT_ID],
+        columns="answer_label",
+        values="metric_value",
+        aggfunc="first",
+    ).reset_index()
 
     for lab in C.ANSWER_LABELS:
         if lab not in wide.columns:
@@ -101,7 +104,9 @@ def compute_trial_matching(
     M = wide[C.ANSWER_LABELS].to_numpy(dtype=float)
 
     if extreme_mode == "polarity":
-        idx = np.nanargmax(M, axis=1) if direction == "high" else np.nanargmin(M, axis=1)
+        idx = (
+            np.nanargmax(M, axis=1) if direction == "high" else np.nanargmin(M, axis=1)
+        )
     elif extreme_mode == "relative":
         mu = np.nanmean(M, axis=1)
         dev = np.abs(M - mu[:, None])
@@ -119,7 +124,9 @@ def compute_trial_matching(
 
     out = wide.merge(meta, on=[C.TRIAL_ID, C.PARTICIPANT_ID], how="left")
 
-    out[out_col] = np.where(out["selected_label"] == out["pred_label"], "matching", "not_matching")
+    out[out_col] = np.where(
+        out["selected_label"] == out["pred_label"], "matching", "not_matching"
+    )
 
     core = [C.TRIAL_ID, C.PARTICIPANT_ID, "selected_label", "pred_label", out_col]
     if has_correct:

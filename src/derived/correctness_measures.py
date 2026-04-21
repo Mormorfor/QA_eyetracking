@@ -20,6 +20,7 @@ from src.statistics.correctness_measures_tests import (
 # Small reusable primitives
 # -----------------------------
 
+
 def sequence_len_literal_eval(x) -> int:
     """Sequences come as string representations of lists/tuples. Invalid -> 0."""
     if x is None:
@@ -59,7 +60,9 @@ def wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
     return (max(0.0, center - half), min(1.0, center + half))
 
 
-def summarize_binary_by_group(trial_df: pd.DataFrame, group_col: str, outcome_col: str) -> pd.DataFrame:
+def summarize_binary_by_group(
+    trial_df: pd.DataFrame, group_col: str, outcome_col: str
+) -> pd.DataFrame:
     """
     Expects one row per trial. Produces n/k/accuracy/Wilson CI per group.
     """
@@ -86,6 +89,7 @@ def summarize_binary_by_group(trial_df: pd.DataFrame, group_col: str, outcome_co
 # Trial-level feature builders
 # -----------------------------
 
+
 def build_trial_df_for_seq_len_threshold(
     df: pd.DataFrame,
     threshold: int,
@@ -96,12 +100,13 @@ def build_trial_df_for_seq_len_threshold(
     d[correct_col] = d[correct_col].astype(int)
     d["_seq_len"] = d[seq_col].apply(sequence_len_literal_eval)
 
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(seq_len=("_seq_len", "first"), is_correct=(correct_col, "first"))
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        seq_len=("_seq_len", "first"), is_correct=(correct_col, "first")
     )
 
-    trial_df["group"] = np.where(trial_df["seq_len"] > threshold, f"> {threshold}", f"≤ {threshold}")
+    trial_df["group"] = np.where(
+        trial_df["seq_len"] > threshold, f"> {threshold}", f"≤ {threshold}"
+    )
     return trial_df
 
 
@@ -131,14 +136,17 @@ def build_trial_df_for_back_and_forth_pattern(
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, seq_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
     d["_seq"] = d[seq_col].apply(parse_seq)
-    d["_has_pattern"] = d["_seq"].apply(lambda s: bool(pattern_fn(s)) if s is not None else False)
-
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(has_pattern=("_has_pattern", "first"), is_correct=(correct_col, "first"))
+    d["_has_pattern"] = d["_seq"].apply(
+        lambda s: bool(pattern_fn(s)) if s is not None else False
     )
 
-    trial_df["group"] = np.where(trial_df["has_pattern"], f"{pattern_name} present", f"{pattern_name} absent")
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        has_pattern=("_has_pattern", "first"), is_correct=(correct_col, "first")
+    )
+
+    trial_df["group"] = np.where(
+        trial_df["has_pattern"], f"{pattern_name} present", f"{pattern_name} absent"
+    )
     return trial_df
 
 
@@ -146,8 +154,12 @@ def compute_trial_mean_dwell_per_word(
     df: pd.DataFrame,
     dwell_col: str = Con.IA_DWELL_TIME,
 ) -> pd.Series:
-    total_dwell = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform("sum")
-    n_words = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform("count")
+    total_dwell = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
+        "sum"
+    )
+    n_words = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
+        "count"
+    )
     return total_dwell / n_words
 
 
@@ -161,18 +173,21 @@ def build_trial_df_for_mean_dwell_threshold(
     d[correct_col] = d[correct_col].astype(int)
     d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col)
 
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(trial_mean_dwell=("_trial_mean_dwell", "first"), is_correct=(correct_col, "first"))
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        trial_mean_dwell=("_trial_mean_dwell", "first"),
+        is_correct=(correct_col, "first"),
     )
 
-    trial_df["group"] = np.where(trial_df["trial_mean_dwell"] <= threshold, f"≤ {threshold}", f"> {threshold}")
+    trial_df["group"] = np.where(
+        trial_df["trial_mean_dwell"] <= threshold, f"≤ {threshold}", f"> {threshold}"
+    )
     return trial_df
 
 
 # -----------------------------
 # Public "compute summaries + tests"
 # -----------------------------
+
 
 def compute_seq_len_threshold_summary(
     df: pd.DataFrame,
@@ -185,13 +200,19 @@ def compute_seq_len_threshold_summary(
 
     # enforce plotting order (stable)
     order = [f"≤ {threshold}", f"> {threshold}"]
-    trial_df["group"] = pd.Categorical(trial_df["group"], categories=order, ordered=True)
+    trial_df["group"] = pd.Categorical(
+        trial_df["group"], categories=order, ordered=True
+    )
 
-    summary_df = summarize_binary_by_group(trial_df, group_col="group", outcome_col="is_correct").sort_values("group")
+    summary_df = summarize_binary_by_group(
+        trial_df, group_col="group", outcome_col="is_correct"
+    ).sort_values("group")
 
     test_res = None
     if add_significance:
-        test_res = correctness_by_seq_len_threshold_test(df=df, threshold=threshold, seq_col=seq_col, correct_col=correct_col)
+        test_res = correctness_by_seq_len_threshold_test(
+            df=df, threshold=threshold, seq_col=seq_col, correct_col=correct_col
+        )
 
     return summary_df.reset_index(drop=True), test_res
 
@@ -206,16 +227,24 @@ def compute_back_and_forth_pattern_summary(
     pattern_name = "XYXY" if use_xyxy else "XYX"
     pattern_fn = has_back_and_forth_xyxy if use_xyxy else has_back_and_forth_xyx
 
-    trial_df = build_trial_df_for_back_and_forth_pattern(df, seq_col, correct_col, use_xyxy=use_xyxy)
+    trial_df = build_trial_df_for_back_and_forth_pattern(
+        df, seq_col, correct_col, use_xyxy=use_xyxy
+    )
 
     order = [f"{pattern_name} absent", f"{pattern_name} present"]
-    trial_df["group"] = pd.Categorical(trial_df["group"], categories=order, ordered=True)
+    trial_df["group"] = pd.Categorical(
+        trial_df["group"], categories=order, ordered=True
+    )
 
-    summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values("group")
+    summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values(
+        "group"
+    )
 
     test_res = None
     if add_significance:
-        test_res = correctness_by_sequence_pattern_test(df=df, pattern_fn=pattern_fn, seq_col=seq_col, correct_col=correct_col)
+        test_res = correctness_by_sequence_pattern_test(
+            df=df, pattern_fn=pattern_fn, seq_col=seq_col, correct_col=correct_col
+        )
 
     return summary_df.reset_index(drop=True), test_res, pattern_name
 
@@ -227,15 +256,23 @@ def compute_trial_mean_dwell_threshold_summary(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict]]:
-    trial_df = build_trial_df_for_mean_dwell_threshold(df, threshold, dwell_col, correct_col)
+    trial_df = build_trial_df_for_mean_dwell_threshold(
+        df, threshold, dwell_col, correct_col
+    )
 
     order = [f"≤ {threshold}", f"> {threshold}"]
-    trial_df["group"] = pd.Categorical(trial_df["group"], categories=order, ordered=True)
+    trial_df["group"] = pd.Categorical(
+        trial_df["group"], categories=order, ordered=True
+    )
 
-    summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values("group")
+    summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values(
+        "group"
+    )
 
     test_res = None
     if add_significance:
-        test_res = correctness_by_trial_mean_dwell_threshold_test(df=df, threshold=threshold, dwell_col=dwell_col, correct_col=correct_col)
+        test_res = correctness_by_trial_mean_dwell_threshold_test(
+            df=df, threshold=threshold, dwell_col=dwell_col, correct_col=correct_col
+        )
 
     return summary_df.reset_index(drop=True), test_res
