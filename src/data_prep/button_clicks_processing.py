@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import os
+import sys
+
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import ast
 from functools import reduce
 from pathlib import Path
 from typing import Sequence, Tuple
-
 import pandas as pd
+
 import src.constants as Con
 
 
@@ -36,7 +45,9 @@ def truncate_recordings_at_first_malformed_trial(
         .copy()
     )
 
-    trial_answers[Con.ALL_ANSWERS_LIST] = trial_answers[answers_col].apply(safe_parse_answers)
+    trial_answers[Con.ALL_ANSWERS_LIST] = trial_answers[answers_col].apply(
+        safe_parse_answers
+    )
     trial_answers[Con.IS_MALFORMED] = trial_answers[Con.ALL_ANSWERS_LIST].isna()
 
     bad_trial_rows = trial_answers.loc[trial_answers[Con.IS_MALFORMED]].copy()
@@ -50,9 +61,8 @@ def truncate_recordings_at_first_malformed_trial(
 
     out = df.merge(malformed_summary_df, on=recording_col, how="left")
 
-    keep_mask = (
-        out[Con.FIRST_MALFORMED_TRIAL].isna()
-        | (out[trial_col] < out[Con.FIRST_MALFORMED_TRIAL])
+    keep_mask = out[Con.FIRST_MALFORMED_TRIAL].isna() | (
+        out[trial_col] < out[Con.FIRST_MALFORMED_TRIAL]
     )
 
     cleaned_df = out.loc[keep_mask].copy().drop(columns=[Con.FIRST_MALFORMED_TRIAL])
@@ -67,7 +77,6 @@ def truncate_recordings_at_first_malformed_trial(
             print(malformed_summary_df.head(10))
 
     return cleaned_df, malformed_summary_df, bad_trial_rows
-
 
 
 def build_trial_answers_df(
@@ -91,20 +100,19 @@ def build_trial_answers_df(
         lambda x: ast.literal_eval(x) if pd.notna(x) else []
     )
 
-    trial_answers[Con.PREV_ALL_ANSWERS_LIST] = (
-        trial_answers.groupby(participant_col)[Con.ALL_ANSWERS_LIST].shift(1)
-    )
+    trial_answers[Con.PREV_ALL_ANSWERS_LIST] = trial_answers.groupby(participant_col)[
+        Con.ALL_ANSWERS_LIST
+    ].shift(1)
 
     trial_answers[Con.TRIAL_ANSWERS] = trial_answers[Con.ALL_ANSWERS_LIST]
 
     mask = trial_answers[Con.PREV_ALL_ANSWERS_LIST].notna()
     trial_answers.loc[mask, Con.TRIAL_ANSWERS] = trial_answers.loc[mask].apply(
-        lambda row: row[Con.ALL_ANSWERS_LIST][len(row[Con.PREV_ALL_ANSWERS_LIST]):],
+        lambda row: row[Con.ALL_ANSWERS_LIST][len(row[Con.PREV_ALL_ANSWERS_LIST]) :],
         axis=1,
     )
 
     return trial_answers
-
 
 
 def extract_click_timestamps(
@@ -163,11 +171,15 @@ def extract_click_timestamps(
         axis=1,
     )
 
-    part[Con.MATCH_TIMESTAMPS] = part[Con.MATCH_TIMESTAMPS_1] + part[Con.MATCH_TIMESTAMPS_2]
+    part[Con.MATCH_TIMESTAMPS] = (
+        part[Con.MATCH_TIMESTAMPS_1] + part[Con.MATCH_TIMESTAMPS_2]
+    )
     part = part[keys + [Con.MATCH_TIMESTAMPS]].explode(Con.MATCH_TIMESTAMPS)
     part = part.rename(columns={Con.MATCH_TIMESTAMPS: Con.MATCH_TIMESTAMP})
 
-    part[Con.MATCH_TIMESTAMP] = pd.to_numeric(part[Con.MATCH_TIMESTAMP], errors="coerce")
+    part[Con.MATCH_TIMESTAMP] = pd.to_numeric(
+        part[Con.MATCH_TIMESTAMP], errors="coerce"
+    )
     part = part.dropna(subset=[Con.MATCH_TIMESTAMP]).copy()
     part[Con.MATCH_TIMESTAMP] = part[Con.MATCH_TIMESTAMP].astype(int)
 
@@ -179,7 +191,6 @@ def extract_click_timestamps(
     )
 
     return grouped
-
 
 
 def extract_fixation_timestamps_with_ia(
@@ -198,7 +209,9 @@ def extract_fixation_timestamps_with_ia(
     out[Con.FIXATION_TIMESTAMP] = (
         out[label_col].astype(str).str.extract(r"Fixation:\s*(\d+)\s*ms", expand=False)
     )
-    out[Con.FIXATION_TIMESTAMP] = pd.to_numeric(out[Con.FIXATION_TIMESTAMP], errors="coerce")
+    out[Con.FIXATION_TIMESTAMP] = pd.to_numeric(
+        out[Con.FIXATION_TIMESTAMP], errors="coerce"
+    )
     out = out.dropna(subset=[Con.FIXATION_TIMESTAMP]).copy()
     out[Con.FIXATION_TIMESTAMP] = out[Con.FIXATION_TIMESTAMP].astype(int)
 
@@ -212,7 +225,6 @@ def extract_fixation_timestamps_with_ia(
     )
 
     return fixation_df
-
 
 
 def join_on_participant_trial(
@@ -265,7 +277,6 @@ def join_on_participant_trial(
     return merged
 
 
-
 def extract_last_fixations_before_clicks(
     df: pd.DataFrame,
     fixation_col: str = Con.FIXATION_TIMESTAMPS_IA,
@@ -315,7 +326,6 @@ def extract_last_fixations_before_clicks(
         axis=1,
     )
     return out
-
 
 
 def build_trial_level_df(
@@ -376,11 +386,10 @@ def build_trial_level_df(
     return trial_level_df, diagnostics
 
 
-
 def run_trial_level_pipeline(
-    fix_csv_path: str | Path = "../data_raw/full/fixations_A.csv",
-    fix_tsv_path: str | Path = "../data_raw/unused/Fixations reports/fixations_A.tsv",
-    output_csv_path: str | Path = "trial_level_df.csv",
+    fix_csv_path: Path = None,
+    fix_tsv_path: Path = None,
+    output_csv_path: Path = None,
     fix_tsv_encoding: str = "utf-16",
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -388,9 +397,18 @@ def run_trial_level_pipeline(
     Load inputs, run the full pipeline, save the final trial-level dataframe,
     and return it.
     """
-    fix_csv_path = Path(fix_csv_path)
-    fix_tsv_path = Path(fix_tsv_path)
-    output_csv_path = Path(output_csv_path)
+
+    if fix_csv_path == None:
+        fix_csv_path = PROJECT_ROOT / "data_raw" / "full" / "fixations_Answers.csv"
+
+    if fix_tsv_path == None:
+        fix_tsv_path = (
+            PROJECT_ROOT / "data_raw" / "tsv" / "Fixations reports" / "fixations_A.tsv"
+        )
+
+    if output_csv_path == None:
+        output_csv_path = PROJECT_ROOT / "data" / "button_clicks_data.csv"
+
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     if verbose:

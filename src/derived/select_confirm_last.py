@@ -1,3 +1,12 @@
+import os
+import sys
+
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import ast
 import pandas as pd
 
@@ -38,7 +47,6 @@ def _extract_last_ia_from_tuple_list(x):
     except Exception:
         return pd.NA
 
-
     # tuples_ = ast.literal_eval(x)
     # last_item = tuples_[-1]
     # ia = last_item[1]
@@ -60,9 +68,7 @@ def extract_last_areas_from_trial_level_df(
 
     directly from tuple-list columns in the trial-level CSV.
     """
-    out = trial_df[
-        [participant_col, trial_col, select_fix_col, confirm_fix_col]
-    ].copy()
+    out = trial_df[[participant_col, trial_col, select_fix_col, confirm_fix_col]].copy()
 
     out["last_ia_before_last_select"] = out[select_fix_col].apply(
         _extract_last_ia_from_tuple_list
@@ -98,11 +104,11 @@ def attach_area_labels(
     - last_ia_before_confirm
     """
 
-    ia_small = ia_df[
-        [participant_col, trial_col, ia_id_col, area_label_col]
-    ].copy()
+    ia_small = ia_df[[participant_col, trial_col, ia_id_col, area_label_col]].copy()
 
-    ia_small[ia_id_col] = pd.to_numeric(ia_small[ia_id_col], errors="coerce").astype("Int64")
+    ia_small[ia_id_col] = pd.to_numeric(ia_small[ia_id_col], errors="coerce").astype(
+        "Int64"
+    )
 
     valid_pairs = ia_small[[participant_col, trial_col]].drop_duplicates()
 
@@ -122,15 +128,19 @@ def attach_area_labels(
         how="inner",
     )
 
-    select_lookup = ia_small.rename(columns={
-        ia_id_col: "last_ia_before_last_select",
-        area_label_col: "area_label_before_last_select",
-    })
+    select_lookup = ia_small.rename(
+        columns={
+            ia_id_col: "last_ia_before_last_select",
+            area_label_col: "area_label_before_last_select",
+        }
+    )
 
-    confirm_lookup = ia_small.rename(columns={
-        ia_id_col: "last_ia_before_confirm",
-        area_label_col: "area_label_before_confirm",
-    })
+    confirm_lookup = ia_small.rename(
+        columns={
+            ia_id_col: "last_ia_before_confirm",
+            area_label_col: "area_label_before_confirm",
+        }
+    )
 
     out = extracted.merge(
         select_lookup,
@@ -157,13 +167,29 @@ def attach_area_labels(
 
 
 def get_last_areas_from_trial_level_csv(
-    trial_level_path="../data/select_confirm.csv",
-    hunt_path="../data/hunters.csv",
-    gath_path="../data/gatherers.csv",
-    out_hunt_path="../data/hunters_last.csv",
-    out_gath_path="../data/gatherers_last.csv",
+    trial_level_path: Path = None,
+    hunt_path: Path = None,
+    gath_path: Path = None,
+    out_hunt_path: Path = None,
+    out_gath_path: Path = None,
     verbose=True,
 ):
+    
+    if trial_level_path == None:
+        trial_level_path = PROJECT_ROOT / "data" / "button_clicks_data.csv"
+    
+    if hunt_path == None:
+        hunt_path = PROJECT_ROOT / "data" / "hunters.csv"
+
+    if gath_path == None:
+        gath_path = PROJECT_ROOT / "data" / "gatherers.csv"
+    
+    if out_hunt_path == None:
+        out_hunt_path = PROJECT_ROOT / "data" / "hunters_last.csv"
+    
+    if out_gath_path == None:
+        out_gath_path = PROJECT_ROOT / "data" / "gatherers_last.csv"
+
     if verbose:
         print("Loading data...")
 

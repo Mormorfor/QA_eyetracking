@@ -1,32 +1,11 @@
-"""
-answers_paragraphs_csv.py
+import os
+import sys
 
-Builds wide CSVs that combine:
-- answer-level dwell-time features (per area, plus selected answer)
-  from the hunters/gatherers CSVs produced by data_csv_generation.py
-- paragraph-level dwell-time features (auxiliary span types) from ia_P
+from pathlib import Path
 
-Expected inputs
----------------
-1) Answers feature CSVs (already processed by data_csv_generation.main):
-   - hunters_answers_path
-   - gatherers_answers_path
-   These files must contain (among others):
-       TRIAL_ID, PARTICIPANT_ID,
-       TEXT_ID_WITH_Q_COLUMN,
-       AREA_LABEL_COLUMN,
-       AREA_SCREEN_LOCATION,
-       MEAN_DWELL_TIME,
-       SELECTED_ANSWER_LABEL_COLUMN,
-       SELECTED_ANSWER_POSITION_COLUMN.
-
-2) Raw paragraphs IA CSV: ia_paragraphs_path (usually "full/ia_P.csv")
-
-Outputs
--------
-- data/merged_hunters.csv
-- data/merged_gatherers.csv
-"""
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import os
 import pandas as pd
@@ -42,18 +21,22 @@ from src.data_prep.data_csv_generation import (
 # Answer-side helpers
 # ---------------------------------------------------------------------------
 
+
 def load_answer_features(
-    hunters_answers_path: str,
-    gatherers_answers_path: str,
+    hunters_answers_path: Path = None,
+    gatherers_answers_path: Path = None,
 ):
     """
     Load hunters and gatherers answers CSVs that were produced by
     data_csv_generation.main().
 
-    Returns
-    -------
-    df_hunters, df_gatherers : DataFrame, DataFrame
     """
+    if hunters_answers_path == None:
+        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
+
+    if gatherers_answers_path == None:
+        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
+
     print(f"Loading processed hunters answers from: {hunters_answers_path}")
     df_h = pd.read_csv(hunters_answers_path)
 
@@ -63,7 +46,9 @@ def load_answer_features(
     return df_h, df_g
 
 
-def create_mean_area_dwell_time_answers_from_processed(df: pd.DataFrame) -> pd.DataFrame:
+def create_mean_area_dwell_time_answers_from_processed(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
     """
     Construct an area-level answers table from the processed IA CSV.
 
@@ -134,22 +119,15 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
-    sel = (
-        df[
-            idx_cols
-            + [
-                C.SELECTED_ANSWER_LABEL_COLUMN,
-                C.SELECTED_ANSWER_POSITION_COLUMN,
-            ]
+    sel = df[
+        idx_cols
+        + [
+            C.SELECTED_ANSWER_LABEL_COLUMN,
+            C.SELECTED_ANSWER_POSITION_COLUMN,
         ]
-        .drop_duplicates()
-    )
+    ].drop_duplicates()
 
-    ans_wide = (
-        dwell_wide
-        .merge(loc_wide, on=idx_cols)
-        .merge(sel, on=idx_cols)
-    )
+    ans_wide = dwell_wide.merge(loc_wide, on=idx_cols).merge(sel, on=idx_cols)
 
     def _get_dwell_selected(row):
         label = row[C.SELECTED_ANSWER_LABEL_COLUMN]
@@ -171,17 +149,16 @@ def pivot_answers(df: pd.DataFrame) -> pd.DataFrame:
 # Paragraph / text-side helpers
 # ---------------------------------------------------------------------------
 
+
 def create_mean_area_dwell_time_text(df: pd.DataFrame) -> pd.DataFrame:
     """
     Mean dwell time per (trial, participant, auxiliary_span_type) for paragraphs.
     """
     df = df.copy()
-    return (
-        df.groupby(
-            [C.TRIAL_ID, C.PARTICIPANT_ID, C.AUXILIARY_SPAN_TYPE_COLUMN],
-            as_index=False,
-        ).agg(**{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")})
-    )
+    return df.groupby(
+        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AUXILIARY_SPAN_TYPE_COLUMN],
+        as_index=False,
+    ).agg(**{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")})
 
 
 def pivot_texts(df: pd.DataFrame) -> pd.DataFrame:
@@ -191,24 +168,22 @@ def pivot_texts(df: pd.DataFrame) -> pd.DataFrame:
     Input: output of create_mean_area_dwell_time_text(df).
     Output: one row per (TRIAL_ID, PARTICIPANT_ID) with columns per AUXILIARY_SPAN_TYPE_COLUMN.
     """
-    return (
-        df.pivot(
-            index=[C.TRIAL_ID, C.PARTICIPANT_ID],
-            columns=C.AUXILIARY_SPAN_TYPE_COLUMN,
-            values=C.MEAN_DWELL_TIME,
-        )
-        .reset_index()
-    )
+    return df.pivot(
+        index=[C.TRIAL_ID, C.PARTICIPANT_ID],
+        columns=C.AUXILIARY_SPAN_TYPE_COLUMN,
+        values=C.MEAN_DWELL_TIME,
+    ).reset_index()
 
 
 # ---------------------------------------------------------------------------
 # Main script logic
 # ---------------------------------------------------------------------------
 
+
 def build_merged_tables(
-    hunters_answers_path: str = "data/hunters.csv",
-    gatherers_answers_path: str = "data/gatherers.csv",
-    ia_paragraphs_path: str = "data_raw/full/ia_Paragraph.csv",
+    hunters_answers_path: Path = None,
+    gatherers_answers_path: Path = None,
+    ia_paragraphs_path: Path = None,
 ):
     """
     The full pipeline:
@@ -224,6 +199,14 @@ def build_merged_tables(
     5) Merge answers + texts for hunters and gatherers separately.
     """
 
+    if hunters_answers_path == None:
+        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
+
+    if gatherers_answers_path == None:
+        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
+
+    if ia_paragraphs_path == None:
+        ia_paragraphs_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Paragraph.csv"
 
     df_A_h_processed, df_A_g_processed = load_answer_features(
         hunters_answers_path=hunters_answers_path,
@@ -291,6 +274,22 @@ def main(
     """
     run the pipeline and save CSVs.
     """
+
+    if hunters_answers_path == None:
+        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
+
+    if gatherers_answers_path == None:
+        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
+
+    if ia_paragraphs_path == None:
+        ia_paragraphs_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Paragraph.csv"
+    
+    if hunters_output_path == None:
+        hunters_output_path = PROJECT_ROOT / "data" / "hunt_paragrath_answer_merge.csv"
+
+    if gatherers_output_path == None:
+        gatherers_output_path = PROJECT_ROOT / "data" / "gath_paragrath_answer_merge.csv"
+
     merged_h, merged_g = build_merged_tables(
         hunters_answers_path=hunters_answers_path,
         gatherers_answers_path=gatherers_answers_path,
