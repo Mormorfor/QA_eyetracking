@@ -19,6 +19,8 @@ All plotting lives in:
 import os
 import warnings
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,6 +29,7 @@ from matplotlib.lines import Line2D
 from pymer4.models import Lmer
 
 from src import constants as C
+from src.data_paths import GATH_PARAGRAPH_AND_ANSWERS, HUNT_PARAGRAPH_AND_ANSWERS
 
 # Silence specific FutureWarnings from pymer4
 warnings.filterwarnings(
@@ -63,9 +66,10 @@ TEXT_GROUP_ID = C.TEXT_ID_WITH_Q_COLUMN
 # Data loading utilities
 # ---------------------------------------------------------------------------
 
+
 def load_merged_data(
-    hunters_path: str = "output_data/merged_hunters.csv",
-    gatherers_path: str = "output_data/merged_gatherers.csv",
+    hunters_path: Path = HUNT_PARAGRAPH_AND_ANSWERS,
+    gatherers_path: Path = GATH_PARAGRAPH_AND_ANSWERS,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Load merged hunters & gatherers CSVs produced by answers_paragraphs_csv.py.
@@ -85,7 +89,6 @@ def load_merged_data(
     print(f"Loading gatherers data from: {gatherers_path}")
     merged_g = pd.read_csv(gatherers_path)
 
-
     return merged_h, merged_g
 
 
@@ -96,10 +99,10 @@ def _answer_col(label: str) -> str:
     return f"{C.ANSWER_PREFIX}{label}"
 
 
-
 # ---------------------------------------------------------------------------
 # Mixed models without slopes
 # ---------------------------------------------------------------------------
+
 
 def calc_corr_mixed_answ_separated(
     df: pd.DataFrame,
@@ -137,7 +140,9 @@ def calc_corr_mixed_answ_separated(
         f"{answer_col} ~ {predictors} "
         f"+ (1|{C.PARTICIPANT_ID}) + (1|{TEXT_GROUP_ID})"
     )
-    print(f"Fitting model (separated by answer selected) for answer {answer_label}: {formula}")
+    print(
+        f"Fitting model (separated by answer selected) for answer {answer_label}: {formula}"
+    )
     model = Lmer(formula, data=df_sub)
     result = model.fit()
     return model, result
@@ -226,8 +231,7 @@ def plot_fixed_effects(
     """
     effects = pd.concat(
         [
-            m.coefs.loc[terms, ["Estimate", "SE", "P-val"]]
-            .assign(
+            m.coefs.loc[terms, ["Estimate", "SE", "P-val"]].assign(
                 answer=a,
                 term=lambda d: d.index,
                 ci_low=lambda d: d["Estimate"] - 1.96 * d["SE"],
@@ -278,9 +282,7 @@ def plot_fixed_effects(
 
     ax.axhline(0, ls="--", lw=1, color="gray")
     ax.set_xticks(x)
-    ax.set_xticklabels(
-        [t.capitalize() for t in terms]
-    )
+    ax.set_xticklabels([t.capitalize() for t in terms])
     ax.set_ylabel("Coefficient")
     ax.set_title(f"Fixed effects by span — {h_or_g} ({separated_label})")
 
@@ -336,11 +338,10 @@ def plot_fixed_effects(
     plt.show()
 
 
-
-
 # ---------------------------------------------------------------------------
 # Mixed models with slopes
 # ---------------------------------------------------------------------------
+
 
 def build_model_with_slopes(
     df: pd.DataFrame,
@@ -384,8 +385,6 @@ def build_model_with_slopes(
     return m
 
 
-
-
 def participant_effects(model: Lmer, terms: list[str] = TERMS) -> pd.DataFrame:
     """
     Extract participant-specific random intercepts and slopes,
@@ -416,7 +415,6 @@ def participant_effects(model: Lmer, terms: list[str] = TERMS) -> pd.DataFrame:
     return out
 
 
-
 def _signif_code(p: float) -> str:
     """Return significance stars for a p-value."""
     if p < 1e-3:
@@ -429,7 +427,6 @@ def _signif_code(p: float) -> str:
         return ""
     else:
         return ""
-
 
 
 def plot_participant_effects(
@@ -519,8 +516,7 @@ def plot_participant_effects(
     plt.scatter(x, d, color="black", s=10)
     plt.axhline(0, color="black", lw=1)
     plt.title(
-        f"Random intercepts — {answer_label} "
-        f"({h_or_g}, {sep_label}, {corr_label})"
+        f"Random intercepts — {answer_label} " f"({h_or_g}, {sep_label}, {corr_label})"
     )
     plt.xlabel("Participant (sorted)")
     plt.ylabel("Random intercept")
@@ -599,9 +595,11 @@ def plot_participant_effects(
         print(f"Saved slope plot for {t} to: {fname_term}")
         plt.show()
 
+
 # ---------------------------------------------------------------------------
 # Significance heatmap plotting
 # ---------------------------------------------------------------------------
+
 
 def _holm_adjust(pvals):
     """
@@ -645,7 +643,7 @@ def plot_text_to_answer_significance_heatmap(
     terms,
     title,
     alpha=0.05,
-    adjust="holm",      # "holm" or None
+    adjust="holm",  # "holm" or None
     save_path=None,
     show=False,
 ):
@@ -725,5 +723,3 @@ def plot_text_to_answer_significance_heatmap(
         plt.show()
 
     plt.close(fig)
-
-

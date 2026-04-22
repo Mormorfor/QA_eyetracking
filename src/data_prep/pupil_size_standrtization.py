@@ -1,4 +1,3 @@
-import os
 import sys
 
 from pathlib import Path
@@ -9,20 +8,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 import pandas as pd
-import numpy as np
-import ast
 
 from src import constants as C
+from src.data_paths import FIX_ANSWERS_PATH, PARTICIPANT_PUPILS_PATH
 from src.data_prep.data_csv_generation import scale_pupil_area_to_mm
 
 
-def load_raw_answers_fix_data(ia_a_path : Path = None):
+def load_raw_answers_fix_data(ia_a_path: Path = FIX_ANSWERS_PATH):
     """
     Load raw fixation level answers data from CSV file.
     """
-    if ia_a_path == None:
-        ia_a_path = PROJECT_ROOT / "data_raw" /" full" /" fixations_Answers.csv"
-
     return pd.read_csv(ia_a_path)
 
 
@@ -55,11 +50,10 @@ def compute_participant_pupil_stats(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def main():
-
-    input_path = PROJECT_ROOT / "data_raw" / "full" / "fixations_Answers.csv"
-    output_path = PROJECT_ROOT / "data" / "participant_pupils.csv"
-
+def main(
+    input_path: Path = FIX_ANSWERS_PATH,
+    output_path: Path = PARTICIPANT_PUPILS_PATH,
+):
     df = load_raw_answers_fix_data(input_path)
     participant_pupil_stats = compute_participant_pupil_stats(df)
     participant_pupil_stats.to_csv(output_path, index=False)

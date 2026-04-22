@@ -10,8 +10,9 @@ import pandas as pd
 import sequence_visualisations as SV
 
 # 1) Load processed hunters / gatherers
-df_h = pd.read_csv("output_data/hunters.csv")
-df_g = pd.read_csv("output_data/gatherers.csv")
+from src.data_paths import HUNTERS_PROCESSED_PATH, GATHERERS_PROCESSED_PATH
+df_h = pd.read_csv(HUNTERS_PROCESSED_PATH)
+df_g = pd.read_csv(GATHERERS_PROCESSED_PATH)
 
 # 2) Build one-row-per-trial table with sequences
 data_rows_h = SV.build_sequence_rows(
@@ -85,7 +86,7 @@ LEGEND_MAPPING_LABEL = {
 # Colors for AREA_SCREEN_LOCATION-style sequences
 # (question, answer_0(top), answer_1(left), answer_2(right), answer_3(bottom))
 # Use constants.AREA_LABEL_CHOICES to keep it in sync.
-_LOC_CHOICES = C.AREA_LOC_CHOICES  # ['question', 'answer_0(top)', ..., ...]
+_LOC_CHOICES = C.LOC_CHOICES  # ['question', 'answer_0(top)', ..., ...]
 
 CATEGORIES_LOC = {
     "question": _LOC_CHOICES[0] and "#74a9cf",

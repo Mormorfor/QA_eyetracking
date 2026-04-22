@@ -3,7 +3,7 @@
   "columns": [
     "area_dwell_proportion__correct",
     "has_xyx",
-    "mean_first_fixation_duration__wrong_mean",
+    "mean_max_fix_pupil_size_z__wrong_mean",
     "last_before_select_answer_A",
     "last_before_select_answer_B",
     "last_before_select_answer_C",

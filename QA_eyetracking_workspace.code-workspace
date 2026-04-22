@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "papers/correctness_prediction"
+		}
+	],
+	"settings": {
+		"git.autoRepositoryDetection": "subFolders"
+	}
+}

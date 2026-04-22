@@ -6,13 +6,13 @@
     "num_label_visits__wrong_mean",
     "last_visited_answer_D",
     "mean_first_fixation_duration__wrong_mean",
-    "has_xyx",
-    "last_visited_answer_C",
-    "mean_max_fix_pupil_size_z__wrong_mean",
-    "num_label_visits__distance_furthest",
-    "skip_rate__distance_closest",
     "num_label_visits__contrast",
+    "last_visited_answer_C",
+    "has_xyx",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "skip_rate__distance_closest",
     "mean_max_fix_pupil_size_z__contrast",
+    "has_xyxy",
     "first_encounter_avg_pupil_size_z__distance_closest"
   ]
 }

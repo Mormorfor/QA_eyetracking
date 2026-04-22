@@ -7,10 +7,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import os
 import pandas as pd
 
 from src import constants as C
+from src.data_paths import (
+    GATHERERS_PROCESSED_PATH,
+    HUNTERS_PROCESSED_PATH,
+    IA_PARAGRAPH_PATH,
+    GATH_PARAGRAPH_AND_ANSWERS,
+    HUNT_PARAGRAPH_AND_ANSWERS,
+)
 from src.data_prep.data_csv_generation import (
     load_raw_paragraphs_data,
     split_hunters_and_gatherers,
@@ -23,20 +29,14 @@ from src.data_prep.data_csv_generation import (
 
 
 def load_answer_features(
-    hunters_answers_path: Path = None,
-    gatherers_answers_path: Path = None,
+    hunters_answers_path: Path = HUNTERS_PROCESSED_PATH,
+    gatherers_answers_path: Path = GATHERERS_PROCESSED_PATH,
 ):
     """
     Load hunters and gatherers answers CSVs that were produced by
     data_csv_generation.main().
 
     """
-    if hunters_answers_path == None:
-        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
-
-    if gatherers_answers_path == None:
-        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
-
     print(f"Loading processed hunters answers from: {hunters_answers_path}")
     df_h = pd.read_csv(hunters_answers_path)
 
@@ -181,9 +181,9 @@ def pivot_texts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_merged_tables(
-    hunters_answers_path: Path = None,
-    gatherers_answers_path: Path = None,
-    ia_paragraphs_path: Path = None,
+    hunters_answers_path: Path = HUNTERS_PROCESSED_PATH,
+    gatherers_answers_path: Path = GATHERERS_PROCESSED_PATH,
+    ia_paragraphs_path: Path = IA_PARAGRAPH_PATH,
 ):
     """
     The full pipeline:
@@ -198,16 +198,6 @@ def build_merged_tables(
        - pivot to wide format (texts)
     5) Merge answers + texts for hunters and gatherers separately.
     """
-
-    if hunters_answers_path == None:
-        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
-
-    if gatherers_answers_path == None:
-        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
-
-    if ia_paragraphs_path == None:
-        ia_paragraphs_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Paragraph.csv"
-
     df_A_h_processed, df_A_g_processed = load_answer_features(
         hunters_answers_path=hunters_answers_path,
         gatherers_answers_path=gatherers_answers_path,
@@ -265,31 +255,15 @@ def build_merged_tables(
 
 
 def main(
-    hunters_answers_path: str = "data/hunters.csv",
-    gatherers_answers_path: str = "data/gatherers.csv",
-    ia_paragraphs_path: str = "data_raw/full/ia_Paragraph.csv",
-    hunters_output_path: str = "data/merged_hunters.csv",
-    gatherers_output_path: str = "data/merged_gatherers.csv",
+    hunters_answers_path: Path = HUNTERS_PROCESSED_PATH,
+    gatherers_answers_path: Path = GATHERERS_PROCESSED_PATH,
+    ia_paragraphs_path: Path = IA_PARAGRAPH_PATH,
+    hunters_output_path: Path = HUNT_PARAGRAPH_AND_ANSWERS,
+    gatherers_output_path: Path = GATH_PARAGRAPH_AND_ANSWERS,
 ):
     """
     run the pipeline and save CSVs.
     """
-
-    if hunters_answers_path == None:
-        hunters_answers_path = PROJECT_ROOT / "data" / "gunters.csv"
-
-    if gatherers_answers_path == None:
-        gatherers_answers_path = PROJECT_ROOT / "data" / "gatherers.csv"
-
-    if ia_paragraphs_path == None:
-        ia_paragraphs_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Paragraph.csv"
-    
-    if hunters_output_path == None:
-        hunters_output_path = PROJECT_ROOT / "data" / "hunt_paragrath_answer_merge.csv"
-
-    if gatherers_output_path == None:
-        gatherers_output_path = PROJECT_ROOT / "data" / "gath_paragrath_answer_merge.csv"
-
     merged_h, merged_g = build_merged_tables(
         hunters_answers_path=hunters_answers_path,
         gatherers_answers_path=gatherers_answers_path,

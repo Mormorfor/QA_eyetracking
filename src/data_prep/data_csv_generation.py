@@ -16,6 +16,16 @@ import itertools
 from collections import Counter
 
 from src import constants as C
+from src.data_paths import (
+    FIX_ANSWERS_PATH,
+    GATHERERS_PROCESSED_PATH,
+    HUNTERS_PROCESSED_PATH,
+    GATHERERS_LAST_PATH,
+    HUNTERS_LAST_PATH,
+    IA_ANSWERS_PATH,
+    IA_PARAGRAPH_PATH,
+    PARTICIPANT_PUPILS_PATH,
+)
 from src.derived.pupil_norm import zscore_pupil_by_participant
 
 # ===========================================================================
@@ -128,21 +138,17 @@ from src.derived.pupil_norm import zscore_pupil_by_participant
 # ---------------------------------------------------------------------------
 
 
-def load_raw_answers_data(ia_a_path: Path = None):
+def load_raw_answers_data(ia_a_path: Path = IA_ANSWERS_PATH):
     """
     Load raw interest area level answers data from CSV file.
     """
-    if ia_a_path is None:
-        ia_a_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Answers.csv"
     return pd.read_csv(ia_a_path)
 
 
-def load_raw_paragraphs_data(ia_p_path: Path = None):
+def load_raw_paragraphs_data(ia_p_path: Path = IA_PARAGRAPH_PATH):
     """
     Load raw interest area level paragraphs data from CSV file.
     """
-    if ia_p_path is None:
-        ia_p_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Paragraph.csv"
     return pd.read_csv(ia_p_path)
 
 
@@ -384,7 +390,7 @@ def scale_pupil_area_to_mm(
 
 def add_zscored_pupil_columns(
     df: pd.DataFrame,
-    stats_csv_path: Path = None,
+    stats_csv_path: Path = PARTICIPANT_PUPILS_PATH,
 ) -> pd.DataFrame:
     """
     1) Convert IA pupil columns to mm (stored back into original columns)
@@ -392,8 +398,6 @@ def add_zscored_pupil_columns(
     3) Store z-scored values into new <column>_z columns
 
     """
-    if stats_csv_path == None:
-        stats_csv_path = PROJECT_ROOT / "data" / "participant_pupils.csv"
     out = df.copy()
     out = out.reset_index()
 
@@ -623,7 +627,7 @@ def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def create_fixation_sequence_tags(df, fix_path: Path = None):
+def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
     """
     Build fixation sequences per trial/participant in terms of area labels and locations.
 
@@ -655,9 +659,6 @@ def create_fixation_sequence_tags(df, fix_path: Path = None):
       in INTEREST_AREA_FIXATION_SEQUENCE for the same participant-trial.
     - `C.NEAREST_IA = 'CURRENT_FIX_NEAREST_INTEREST_AREA'`
     """
-
-    if fix_path == None:
-        fix_path = PROJECT_ROOT / "data_raw" / "full" / "fixations_Answers.csv"
 
     fixations_df = pd.read_csv(fix_path)
     result = []
@@ -1178,7 +1179,7 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
 
 def _attach_last_label_features_if_available(
     df: pd.DataFrame,
-    last_labels_path: str,
+    last_labels_path: Path,
     select_col_in_file: str = "area_label_before_last_select",
     confirm_col_in_file: str = "area_label_before_confirm",
     verbose: bool = True,
@@ -1229,9 +1230,9 @@ def _attach_last_label_features_if_available(
 
 
 def main(
-    ia_answers_path: Path = None,
-    hunters_output_path: Path = None,
-    gatherers_output_path: Path = None,
+    ia_answers_path: Path = IA_ANSWERS_PATH,
+    hunters_output_path: Path = HUNTERS_PROCESSED_PATH,
+    gatherers_output_path: Path = GATHERERS_PROCESSED_PATH,
     base_function_names: list = None,
     group_function_names: list = None,
     verbose: bool = True,
@@ -1246,16 +1247,6 @@ def main(
     5. Save output CSV files.
 
     """
-
-    if ia_answers_path is None:
-        ia_answers_path = PROJECT_ROOT / "data_raw" / "full" / "ia_Answers.csv"
-
-    if hunters_output_path is None:
-        hunters_output_path = PROJECT_ROOT / "data" / "hunters.csv"
-
-    if gatherers_output_path is None:
-        gatherers_output_path = PROJECT_ROOT / "data" / "gatherers.csv"
-
     os.makedirs(os.path.dirname(hunters_output_path), exist_ok=True)
     os.makedirs(os.path.dirname(gatherers_output_path), exist_ok=True)
 
@@ -1286,7 +1277,7 @@ def main(
 
     df_h = _attach_last_label_features_if_available(
         df_h,
-        "data/hunters_last.csv",
+        HUNTERS_LAST_PATH,
         verbose=verbose,
     )
 
@@ -1305,7 +1296,7 @@ def main(
 
     df_g = _attach_last_label_features_if_available(
         df_g,
-        "data/gatherers_last.csv",
+        GATHERERS_LAST_PATH,
         verbose=verbose,
     )
 

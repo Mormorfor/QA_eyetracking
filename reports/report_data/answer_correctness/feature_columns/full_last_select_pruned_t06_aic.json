@@ -1,26 +1,24 @@
 {
   "identifier": "full_last_select_pruned_t06_aic",
   "columns": [
-    "area_dwell_proportion__correct",
-    "num_label_visits__wrong_mean",
     "last_before_select_answer_A",
     "num_label_visits__contrast",
+    "num_label_visits__wrong_mean",
+    "area_dwell_proportion__correct",
     "mean_first_fixation_duration__wrong_mean",
-    "num_label_visits__distance_furthest",
-    "last_before_select_answer_D",
-    "skip_rate__distance_closest",
-    "area_dwell_proportion__distance_furthest",
-    "has_xyx",
-    "skip_rate__contrast",
-    "mean_max_fix_pupil_size_z__wrong_mean",
     "last_before_select_answer_B",
-    "first_encounter_avg_pupil_size_z__correct",
-    "mean_avg_fix_pupil_size_z__distance_furthest",
+    "skip_rate__contrast",
+    "area_dwell_proportion__distance_furthest",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "last_before_select_answer_C",
+    "num_label_visits__distance_furthest",
+    "has_xyx",
+    "skip_rate__distance_closest",
     "mean_fixations_count__distance_furthest",
     "mean_fixations_count__contrast",
-    "mean_max_fix_pupil_size_z__contrast",
-    "first_encounter_avg_pupil_size_z__distance_closest",
+    "first_encounter_avg_pupil_size_z__correct",
     "has_xyxy",
-    "mean_min_fix_pupil_size_z__distance_closest"
+    "first_encounter_avg_pupil_size_z__distance_closest",
+    "last_before_select_question"
   ]
 }

@@ -16,6 +16,11 @@ from typing import Sequence, Tuple
 import pandas as pd
 
 import src.constants as Con
+from src.data_paths import (
+    BUTTON_CLICKS_PATH,
+    FIX_A_TSV_PATH,
+    FIX_ANSWERS_PATH,
+)
 
 
 def truncate_recordings_at_first_malformed_trial(
@@ -387,9 +392,9 @@ def build_trial_level_df(
 
 
 def run_trial_level_pipeline(
-    fix_csv_path: Path = None,
-    fix_tsv_path: Path = None,
-    output_csv_path: Path = None,
+    fix_csv_path: Path = FIX_ANSWERS_PATH,
+    fix_tsv_path: Path = FIX_A_TSV_PATH,
+    output_csv_path: Path = BUTTON_CLICKS_PATH,
     fix_tsv_encoding: str = "utf-16",
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -397,18 +402,6 @@ def run_trial_level_pipeline(
     Load inputs, run the full pipeline, save the final trial-level dataframe,
     and return it.
     """
-
-    if fix_csv_path == None:
-        fix_csv_path = PROJECT_ROOT / "data_raw" / "full" / "fixations_Answers.csv"
-
-    if fix_tsv_path == None:
-        fix_tsv_path = (
-            PROJECT_ROOT / "data_raw" / "tsv" / "Fixations reports" / "fixations_A.tsv"
-        )
-
-    if output_csv_path == None:
-        output_csv_path = PROJECT_ROOT / "data" / "button_clicks_data.csv"
-
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     if verbose:

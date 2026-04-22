@@ -6,18 +6,18 @@
     "num_label_visits__contrast",
     "mean_first_fixation_duration__wrong_mean",
     "num_label_visits__distance_furthest",
-    "num_label_visits__distance_closest",
-    "has_xyx",
     "skip_rate__contrast",
     "mean_max_fix_pupil_size_z__wrong_mean",
+    "num_label_visits__distance_closest",
+    "has_xyx",
     "area_dwell_proportion__distance_furthest",
     "skip_rate__distance_closest",
+    "skip_rate__correct",
     "first_encounter_avg_pupil_size_z__correct",
-    "mean_avg_fix_pupil_size_z__distance_furthest",
-    "mean_fixations_count__contrast",
     "mean_fixations_count__distance_furthest",
-    "mean_max_fix_pupil_size_z__contrast",
-    "mean_min_fix_pupil_size_z__distance_closest",
-    "first_encounter_avg_pupil_size_z__distance_closest"
+    "mean_fixations_count__contrast",
+    "has_xyxy",
+    "mean_avg_fix_pupil_size_z__distance_furthest",
+    "skip_rate__distance_furthest"
   ]
 }

@@ -1,6 +1,5 @@
 # src/derived/pupil_norm.py
 
-import os
 import sys
 
 from pathlib import Path
@@ -11,11 +10,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import pandas as pd
 
+from src.data_paths import PARTICIPANT_PUPILS_PATH
+
+
 def zscore_pupil_by_participant(
     df: pd.DataFrame,
     pupil_col: str,
     participant_col: str,
-    stats_csv_path: Path = None,
+    stats_csv_path: Path = PARTICIPANT_PUPILS_PATH,
     out_col: str = None,
 ) -> pd.DataFrame:
     """
@@ -23,11 +25,6 @@ def zscore_pupil_by_participant(
 
     pupil_z = (pupil - participant_mean) / participant_std
     """
-
-    if stats_csv_path == None:
-        stats_csv_path = PROJECT_ROOT / "data" / "participant_pupils.csv"
-
-
     if out_col is None:
         out_col = f"{pupil_col}_z"
 

@@ -1,4 +1,3 @@
-import os
 import sys
 
 from pathlib import Path
@@ -9,6 +8,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import ast
 import pandas as pd
+
+from src.data_paths import (
+    BUTTON_CLICKS_PATH,
+    GATHERERS_LAST_PATH,
+    GATHERERS_PROCESSED_PATH,
+    HUNTERS_LAST_PATH,
+    HUNTERS_PROCESSED_PATH,
+)
 
 
 def _parse_tuple_list(x):
@@ -167,29 +174,13 @@ def attach_area_labels(
 
 
 def get_last_areas_from_trial_level_csv(
-    trial_level_path: Path = None,
-    hunt_path: Path = None,
-    gath_path: Path = None,
-    out_hunt_path: Path = None,
-    out_gath_path: Path = None,
+    trial_level_path: Path = BUTTON_CLICKS_PATH,
+    hunt_path: Path = HUNTERS_PROCESSED_PATH,
+    gath_path: Path = GATHERERS_PROCESSED_PATH,
+    out_hunt_path: Path = HUNTERS_LAST_PATH,
+    out_gath_path: Path = GATHERERS_LAST_PATH,
     verbose=True,
 ):
-    
-    if trial_level_path == None:
-        trial_level_path = PROJECT_ROOT / "data" / "button_clicks_data.csv"
-    
-    if hunt_path == None:
-        hunt_path = PROJECT_ROOT / "data" / "hunters.csv"
-
-    if gath_path == None:
-        gath_path = PROJECT_ROOT / "data" / "gatherers.csv"
-    
-    if out_hunt_path == None:
-        out_hunt_path = PROJECT_ROOT / "data" / "hunters_last.csv"
-    
-    if out_gath_path == None:
-        out_gath_path = PROJECT_ROOT / "data" / "gatherers_last.csv"
-
     if verbose:
         print("Loading data...")
 

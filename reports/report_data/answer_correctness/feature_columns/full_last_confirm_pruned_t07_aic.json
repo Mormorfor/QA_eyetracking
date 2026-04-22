@@ -6,20 +6,21 @@
     "num_label_visits__wrong_mean",
     "last_before_confirm_answer_B",
     "mean_first_fixation_duration__wrong_mean",
-    "has_xyx",
     "skip_rate__contrast",
+    "has_xyx",
     "last_before_confirm_answer_C",
     "first_encounter_avg_pupil_size_z__correct",
     "area_dwell_proportion__distance_furthest",
+    "num_label_visits__contrast",
     "skip_rate__distance_closest",
-    "mean_fixations_count__contrast",
     "num_label_visits__distance_furthest",
-    "num_label_visits__distance_closest",
     "skip_rate__correct",
+    "last_before_confirm_question",
     "mean_max_fix_pupil_size_z__wrong_mean",
-    "first_encounter_avg_pupil_size_z__distance_closest",
+    "mean_fixations_count__contrast",
     "mean_fixations_count__distance_furthest",
     "skip_rate__distance_furthest",
-    "has_xyxy"
+    "num_label_visits__distance_closest",
+    "first_encounter_avg_pupil_size_z__distance_closest"
   ]
 }
