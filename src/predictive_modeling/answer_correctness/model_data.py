@@ -11,6 +11,7 @@ from src.predictive_modeling.common.feature_builders import (
     build_area_metric_pivot,
     add_answer_correct_wrong_contrast_columns,
     build_trial_level_categorical_feature,
+    build_trial_level_constant_numeric_features,
 )
 
 from src.predictive_modeling.common.prepared_dataset import PreparedTrialDataset
@@ -235,10 +236,11 @@ def build_trial_level_model_df(
     include_last_visited_answer_features: bool = True,
     include_last_lbl_before_confirm_features: bool = True,
     include_last_lbl_before_select_features: bool = True,
+    numeric_feature_cols: Sequence[str] = (Con.NUM_OF_SELECTS,),
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
-    dwell_col: str = Con.MEAN_DWELL_TIME,
+    dwell_col: str = Con.IA_DWELL_TIME,
 ) -> pd.DataFrame:
     """
     Build the final one-row-per-trial modeling dataframe.
@@ -309,6 +311,13 @@ def build_trial_level_model_df(
             prefix="last_before_select",
         )
         out = out.merge(last_before_select_df, on=list(TRIAL_ID_COLS), how="left")
+
+    if numeric_feature_cols:
+        numeric_df = build_trial_level_constant_numeric_features(
+            df=df,
+            feature_cols=numeric_feature_cols,
+        )
+        out = out.merge(numeric_df, on=list(TRIAL_ID_COLS), how="left")
 
     return out
 

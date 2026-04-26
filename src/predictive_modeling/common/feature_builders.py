@@ -125,6 +125,33 @@ def add_answer_correct_wrong_contrast_columns(
 
     return out
 
+def build_trial_level_constant_numeric_features(
+    df: pd.DataFrame,
+    feature_cols: Sequence[str],
+) -> pd.DataFrame:
+    """
+    Collapse numeric columns that are constant within a trial-participant pair
+    into one row per trial.
+
+    Returns:
+        one row per trial with columns:
+            TRIAL_ID_COLS + feature_cols
+    """
+    feature_cols = list(feature_cols)
+    cols_needed = list(TRIAL_ID_COLS) + feature_cols
+
+    out = (
+        df[cols_needed]
+        .groupby(list(TRIAL_ID_COLS), as_index=False)
+        .agg({c: "first" for c in feature_cols})
+    )
+
+    for c in feature_cols:
+        out[c] = pd.to_numeric(out[c], errors="coerce")
+
+    return out
+
+
 def build_trial_level_categorical_feature(
     df: pd.DataFrame,
     feature_col: str,
