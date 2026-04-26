@@ -8,6 +8,9 @@
 		}
 	],
 	"settings": {
-		"git.autoRepositoryDetection": "subFolders"
+		"git.autoRepositoryDetection": "subFolders",
+		"workbench.editorAssociations": {
+			"file:/**/*.csv": "jupyter-data-wrangler"
+		}
 	}
 }

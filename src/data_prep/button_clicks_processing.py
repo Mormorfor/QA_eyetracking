@@ -269,6 +269,10 @@ def join_on_participant_trial(
                     cur = cur.rename(columns={alias: trial_col})
                     break
 
+        cur[participant_col] = (
+            cur[participant_col].astype("string").str.strip().str.lower()
+        )
+
         normalized_dfs.append(cur)
 
     merged = reduce(
@@ -362,8 +366,14 @@ def build_trial_level_df(
 
     fixation_df = extract_fixation_timestamps_with_ia(fix_csv)
 
+    num_of_selects_df = (
+        fix_csv[[Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.NUM_OF_SELECTS]]
+        .drop_duplicates(subset=[Con.PARTICIPANT_ID, Con.TRIAL_ID])
+        .reset_index(drop=True)
+    )
+
     trial_level_df = join_on_participant_trial(
-        [trial_answers, click_df, fixation_df, confirm_df]
+        [trial_answers, click_df, fixation_df, confirm_df, num_of_selects_df]
     )
 
     trial_level_df = extract_last_fixations_before_clicks(
@@ -379,6 +389,10 @@ def build_trial_level_df(
         output_col=Con.LAST_FIXATIONS_BEFORE_CONFIRM,
     )
 
+    trial_level_df[Con.NUM_OF_SELECTS_DERIVED] = trial_level_df[
+        Con.SELECT_ANS_TIMESTAMPS
+    ].apply(lambda x: len(x) if isinstance(x, list) else 0)
+
     diagnostics = {
         "malformed_summary_df": malformed_summary_df,
         "bad_trial_rows": bad_trial_rows,
@@ -386,6 +400,7 @@ def build_trial_level_df(
         "click_df": click_df,
         "confirm_df": confirm_df,
         "fixation_df": fixation_df,
+        "num_of_selects_df": num_of_selects_df,
     }
 
     return trial_level_df, diagnostics

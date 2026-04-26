@@ -263,6 +263,9 @@ class TrialLevelJuliaGLMERModel:
         self.model = jl.seval(
             'fit_glmm_binomial(j_formula, j_df_train; wcol="obs_weight")'
         )
+        # self.model = jl.seval(
+        #     'fit_glmm_binomial(j_formula, j_df_train; wcol=nothing)'
+        # )
 
     # ------------------------------------------------------------------
     # Predict probabilities
