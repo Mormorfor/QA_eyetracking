@@ -6,43 +6,134 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from src import constants as Con
+from src.data_paths import HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR
 
 #--------------------------------
 # Splits
 #--------------------------------
+
+# user-facing regime name -> fold-file regime suffix
+_REGIME_SUFFIX = {
+    "new_item": "_seen_subject_unseen_item",
+    "new_subject": "_unseen_subject_seen_item",
+    "both": "_unseen_subject_unseen_item",
+    "new_item_and_subject": "_unseen_subject_unseen_item",  # alias for "both"
+}
+
+_FOLD_DIRS = {
+    "hunters": HUNTERS_FOLDS_DIR,
+    "gatherers": GATHERERS_REFOLDED_DIR,
+}
+
+
 def group_vise_train_test_split(
     df: pd.DataFrame,
-    test_size: float = 0.2,
-    random_state: int = 42,
-    group_cols: Sequence[str] = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    if group_cols is None:
-        raise ValueError("group_cols must be provided.")
+    *,
+    test_regimes: Sequence[str],
+    test_split: str = "test",
+    fold: Optional[int] = None,
+    sources: Sequence[str] = ("hunters", "gatherers"),
+    n_folds: int = 10,
+    random_state: Optional[int] = None,
+    df_participant_col: str = Con.PARTICIPANT_ID,
+    df_text_col: str = Con.TEXT_ID_COLUMN,
+    fold_participant_col: str = "participant_id",
+    fold_text_col: str = "unique_paragraph_id",
+) -> Tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """
+    Fold-based train/test split.
 
-    # unique group combinations as tuples
-    groups = (
-        df[list(group_cols)]
-        .dropna()
-        .drop_duplicates()
-        .itertuples(index=False, name=None)
-    )
-    groups = list(groups)
+    Selects one fold (random unless `fold` is provided), then for that fold:
+      - train rows come from the `train_train` regime,
+      - test rows come from the requested (test_split, test_regime) combinations.
+
+    Trial-set membership is read from the precomputed fold files of the chosen
+    `sources` (hunters fold + gatherers-refolded fold by default), and matched
+    onto `df` via (participant_id, text_id).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain `df_participant_col` and `df_text_col`.
+    test_regimes : Sequence[str]
+        Any subset of {"new_item", "new_subject", "both"}. "new_item_and_subject"
+        is accepted as an alias for "both".
+    test_split : str
+        "test", "val", or "both".
+    fold : int, optional
+        Fold index in [0, n_folds). If None, picked uniformly at random.
+    sources : Sequence[str]
+        Which fold-file directories to merge for the trial assignments. Any
+        subset of {"hunters", "gatherers"}.
+
+    Returns
+    -------
+    (train_df, test_df, info)
+        info dict reports the chosen fold, regime labels, and row counts.
+    """
+    test_regimes = list(test_regimes)
+    if not test_regimes:
+        raise ValueError(
+            "test_regimes must contain at least one of "
+            f"{sorted(set(_REGIME_SUFFIX) - {'new_item_and_subject'})}"
+        )
+    bad = [r for r in test_regimes if r not in _REGIME_SUFFIX]
+    if bad:
+        raise ValueError(f"Unknown test_regime(s): {bad}")
+    if test_split not in ("test", "val", "both"):
+        raise ValueError("test_split must be one of 'test', 'val', 'both'")
+    bad_src = [s for s in sources if s not in _FOLD_DIRS]
+    if bad_src:
+        raise ValueError(f"Unknown source(s): {bad_src}")
 
     rng = np.random.default_rng(random_state)
-    rng.shuffle(groups)
+    if fold is None:
+        fold = int(rng.integers(0, n_folds))
 
-    n_groups = len(groups)
-    n_test = max(1, int(round(test_size * n_groups)))
+    splits = ("test", "val") if test_split == "both" else (test_split,)
+    test_regime_labels = {
+        f"{s}{_REGIME_SUFFIX[r]}" for s in splits for r in test_regimes
+    }
 
-    test_groups = set(groups[:n_test])
-    train_groups = set(groups[n_test:])
+    fold_dfs = []
+    for src in sources:
+        path = _FOLD_DIRS[src] / f"fold_{fold}_trial_ids_by_regime.csv"
+        fold_dfs.append(
+            pd.read_csv(path)[[fold_participant_col, fold_text_col, "regime"]]
+        )
+    fold_info = pd.concat(fold_dfs, ignore_index=True).drop_duplicates()
 
-    group_tuples = df[list(group_cols)].apply(tuple, axis=1)
+    out = df.copy()
+    out[df_participant_col] = out[df_participant_col].astype(str).str.strip().str.lower()
+    out[df_text_col] = out[df_text_col].astype(str).str.strip().str.lower()
+    fold_info[fold_participant_col] = (
+        fold_info[fold_participant_col].astype(str).str.strip().str.lower()
+    )
+    fold_info[fold_text_col] = (
+        fold_info[fold_text_col].astype(str).str.strip().str.lower()
+    )
+    fold_info = fold_info.rename(
+        columns={
+            fold_participant_col: df_participant_col,
+            fold_text_col: df_text_col,
+        }
+    )
 
-    train_df = df[group_tuples.isin(train_groups)].copy()
-    test_df = df[group_tuples.isin(test_groups)].copy()
+    out = out.merge(fold_info, on=[df_participant_col, df_text_col], how="inner")
 
-    return train_df, test_df
+    train_df = out[out["regime"] == "train_train"].drop(columns=["regime"]).copy()
+    test_df = out[out["regime"].isin(test_regime_labels)].drop(columns=["regime"]).copy()
+
+    info = {
+        "fold": fold,
+        "sources": tuple(sources),
+        "test_regimes": tuple(test_regimes),
+        "test_split": test_split,
+        "fold_test_regime_labels": tuple(sorted(test_regime_labels)),
+        "n_train": len(train_df),
+        "n_test": len(test_df),
+    }
+    return train_df, test_df, info
 
 
 

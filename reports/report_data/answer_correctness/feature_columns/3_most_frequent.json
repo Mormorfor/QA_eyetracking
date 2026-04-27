@@ -1,8 +1,0 @@
-{
-  "identifier": "3_most_frequent",
-  "columns": [
-    "area_dwell_proportion__correct",
-    "has_xyx",
-    "mean_max_fix_pupil_size_z__wrong_mean"
-  ]
-}

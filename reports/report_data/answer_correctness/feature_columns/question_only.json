@@ -1,0 +1,15 @@
+{
+  "identifier": "question_only",
+  "columns": [
+    "mean_dwell_time__question",
+    "mean_fixations_count__question",
+    "mean_first_fixation_duration__question",
+    "skip_rate__question",
+    "area_dwell_proportion__question",
+    "mean_avg_fix_pupil_size_z__question",
+    "mean_max_fix_pupil_size_z__question",
+    "mean_min_fix_pupil_size_z__question",
+    "first_encounter_avg_pupil_size_z__question",
+    "num_label_visits__question"
+  ]
+}

@@ -1,9 +1,0 @@
-{
-  "identifier": "second_selected_no_last",
-  "columns": [
-    "area_dwell_proportion__correct",
-    "area_dwell_proportion__distance_closest",
-    "num_label_visits__correct",
-    "num_label_visits__distance_closest"
-  ]
-}

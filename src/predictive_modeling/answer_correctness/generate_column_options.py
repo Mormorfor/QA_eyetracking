@@ -8,6 +8,7 @@ from collections import Counter
 import pandas as pd
 
 import src.constants as Con
+from predictive_modeling.answer_correctness import feature_groups as fg
 from predictive_modeling.answer_correctness.run_model_bundles import run_full_features_correctness_bundle, _split_tag
 from predictive_modeling.common.feature_selection import correlation_prune_features, aic_forward_select_logit
 
@@ -99,154 +100,39 @@ def _save_one(
     return path
 
 
-def generate_feature_column_files(
-    trial_df: pd.DataFrame,
-    folder_path: str = COL_SAVE_PATH,
-    target_col: str = Con.IS_CORRECT_COLUMN,
-    corr_thresholds: Sequence[float] = (0.5, 0.6, 0.7, 0.8),
-    standardize_aic: bool = True,
-    verbose: bool = True,
-) -> Dict[str, Any]:
-    """
-    Generate and save a full collection of feature-column JSON files.
+# ==========================================================================
+# Feature-set generators
+# ==========================================================================
+#
+# Each generator below builds and saves one logical group of feature-column
+# JSONs. The generators are independent so any group can be rerun on its
+# own without recomputing the others. The orchestrator
+# `generate_all_feature_column_sets` runs every group.
+#
+# Naming scheme:
+#   baseline_last_*       group 1: each LAST_* alone
+#   baseline_last_all     group 2: LAST_ANSWER + LAST_CONFIRM + LAST_SELECT
+#   all_no_last           group 3: ALL_FEATURES_NO_LAST
+#   all_last_<x>          group 4: ALL_FEATURES_NO_LAST + LAST_<X>
+#   all_last_all          group 5: full ALL_FEATURES
+#   <base>_pruned_t<thr>  groups 6, 8: correlation-pruned at threshold
+#   <base>_aic            groups 7, 8: AIC forward-selected
+#   derived_with_num_selects  group 9
+#   question_only         group 10: PER_QUESTION_COLS
+#   area_only             group 11: AREA_COLS
+#   select_1[_last_*]     group 12: SELECT_1_COLS curated subset (5 variants)
 
-    Saves:
+DEFAULT_CORR_THRESHOLDS: Tuple[float, ...] = (0.5, 0.7, 0.9)
 
-    Baselines
-    ---------
-    1) baseline_last_ans
-    2) baseline_last_confirm
-    3) baseline_last_select
 
-    No-optimization sets
-    --------------------
-    4) full_no_last
-    5) full_last_all
-    6) selected_no_last
-    7) selected_last_all
-
-    Correlation-pruned sets
-    -----------------------
-    8) full_no_last_pruned_t{thr}
-    9) full_last_ans_pruned_t{thr}
-       full_last_confirm_pruned_t{thr}
-       full_last_select_pruned_t{thr}
-
-    AIC-after-pruning sets
-    ----------------------
-    10) ..._aic versions for every pruned set above
-
-    Returns a dictionary with:
-    - saved_paths
-    - prune_logs
-    - aic_logs
-    - aic_models
-    """
-
-    # ------------------------------------------------------------------
-    # Last-based feature groups
-    # ------------------------------------------------------------------
-    LAST_ANS_VISITED_COLUMNS = [
-        "last_visited_answer_A",
-        "last_visited_answer_B",
-        "last_visited_answer_C",
-        "last_visited_answer_D",
-    ]
-
-    LAST_CONF = [
-        "last_before_confirm_answer_A",
-        "last_before_confirm_answer_B",
-        "last_before_confirm_answer_C",
-        "last_before_confirm_answer_D",
-        "last_before_confirm_question",
-    ]
-
-    LAST_SELECT = [
-        "last_before_select_answer_A",
-        "last_before_select_answer_B",
-        "last_before_select_answer_C",
-        "last_before_select_answer_D",
-        "last_before_select_question",
-    ]
-
-    LAST_ALL = _dedupe_keep_order(
-        LAST_ANS_VISITED_COLUMNS + LAST_CONF + LAST_SELECT
-    )
-
-    # ------------------------------------------------------------------
-    # Full feature set
-    # ------------------------------------------------------------------
-    METRIC_COLUMNS = [
-        Con.MEAN_DWELL_TIME,
-        Con.MEAN_FIXATIONS_COUNT,
-        Con.MEAN_FIRST_FIXATION_DURATION,
-        Con.SKIP_RATE,
-        Con.AREA_DWELL_PROPORTION,
-        Con.MEAN_AVG_FIX_PUPIL_SIZE_Z,
-        Con.MEAN_MAX_FIX_PUPIL_SIZE_Z,
-        Con.MEAN_MIN_FIX_PUPIL_SIZE_Z,
-        Con.FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z,
-        Con.NUM_LABEL_VISITS,
-    ]
-
-    DERIVED_COLS = [
-        "seq_len",
-        "has_xyx",
-        "has_xyxy",
-        "trial_mean_dwell",
-    ]
-
-    AREA_COLS = (
-        [f"{m}__correct" for m in METRIC_COLUMNS]
-        + [f"{m}__wrong_mean" for m in METRIC_COLUMNS]
-        + [f"{m}__contrast" for m in METRIC_COLUMNS]
-        + [f"{m}__distance_furthest" for m in METRIC_COLUMNS]
-        + [f"{m}__distance_closest" for m in METRIC_COLUMNS]
-    )
-
-    FULL_NO_LAST = _dedupe_keep_order(AREA_COLS + DERIVED_COLS)
-    FULL_LAST_ALL = _dedupe_keep_order(FULL_NO_LAST + LAST_ALL)
-
-    # ------------------------------------------------------------------
-    # Manually selected set
-    # ------------------------------------------------------------------
-    SELECTED_METRIC_COLUMNS = [
-        Con.SKIP_RATE,
-        Con.AREA_DWELL_PROPORTION,
-        Con.NUM_LABEL_VISITS,
-    ]
-
-    SELECTED_COLS = (
-        [f"{m}__correct" for m in SELECTED_METRIC_COLUMNS]
-        + [f"{m}__wrong_mean" for m in SELECTED_METRIC_COLUMNS]
-        + [
-            "seq_len",
-            "has_xyx",
-        ]
-    )
-
-    SELECTED_NO_LAST = _dedupe_keep_order(SELECTED_COLS)
-    SELECTED_LAST_ALL = _dedupe_keep_order(SELECTED_NO_LAST + LAST_ALL)
-
+def _save_set_collection(
+    sets: Dict[str, Sequence[str]],
+    folder_path: str,
+    verbose: bool,
+) -> Dict[str, Path]:
+    """Save a {identifier: cols} mapping and return {identifier: path}."""
     saved_paths: Dict[str, Path] = {}
-    prune_logs: Dict[str, Any] = {}
-    aic_logs: Dict[str, Any] = {}
-    aic_models: Dict[str, Any] = {}
-
-    # ------------------------------------------------------------------
-    # 1-7: raw sets
-    # ------------------------------------------------------------------
-    raw_sets: Dict[str, List[str]] = {
-        "baseline_last_ans": LAST_ANS_VISITED_COLUMNS,
-        "baseline_last_confirm": LAST_CONF,
-        "baseline_last_select": LAST_SELECT,
-        "full_no_last": FULL_NO_LAST,
-        "full_last_all": FULL_LAST_ALL,
-        "selected_no_last": SELECTED_NO_LAST,
-        "selected_last_all": SELECTED_LAST_ALL,
-    }
-
-    for identifier, cols in raw_sets.items():
+    for identifier, cols in sets.items():
         _save_one(
             columns=cols,
             identifier=identifier,
@@ -255,245 +141,391 @@ def generate_feature_column_files(
         )
         if verbose:
             print(f"Saved: {identifier} ({len(cols)} cols)")
+    return saved_paths
 
-    # ------------------------------------------------------------------
-    # 8-10: pruned sets and AIC versions
-    # ------------------------------------------------------------------
-    prune_bases: Dict[str, List[str]] = {
-        "full_no_last": FULL_NO_LAST,
-        "full_last_ans": _dedupe_keep_order(FULL_NO_LAST + LAST_ANS_VISITED_COLUMNS),
-        "full_last_confirm": _dedupe_keep_order(FULL_NO_LAST + LAST_CONF),
-        "full_last_select": _dedupe_keep_order(FULL_NO_LAST + LAST_SELECT),
-    }
 
-    for base_name, candidate_cols in prune_bases.items():
-        for threshold in corr_thresholds:
-            thr_tag = _threshold_to_tag(threshold)
-
-            pruned_identifier = f"{base_name}_pruned_t{thr_tag}"
-
-            kept_cols, dropped_cols, prune_log = correlation_prune_features(
-                df=trial_df,
-                feature_cols=candidate_cols,
-                target_col=target_col,
-                corr_threshold=threshold,
-                verbose=False,
+def _generate_pruned_for_base(
+    trial_df: pd.DataFrame,
+    base_name: str,
+    base_cols: Sequence[str],
+    folder_path: str,
+    target_col: str,
+    corr_thresholds: Sequence[float],
+    verbose: bool,
+) -> Dict[str, Path]:
+    """Correlation-prune `base_cols` at each threshold and save."""
+    saved_paths: Dict[str, Path] = {}
+    base_cols = _dedupe_keep_order(base_cols)
+    for threshold in corr_thresholds:
+        thr_tag = _threshold_to_tag(threshold)
+        identifier = f"{base_name}_pruned_t{thr_tag}"
+        kept_cols, _, _ = correlation_prune_features(
+            df=trial_df,
+            feature_cols=base_cols,
+            target_col=target_col,
+            corr_threshold=threshold,
+            verbose=False,
+        )
+        _save_one(kept_cols, identifier, folder_path, saved_paths)
+        if verbose:
+            print(
+                f"Saved: {identifier} "
+                f"({len(kept_cols)} kept / {len(base_cols)} input)"
             )
+    return saved_paths
 
-            _save_one(
-                columns=kept_cols,
-                identifier=pruned_identifier,
-                folder_path=folder_path,
-                saved_paths=saved_paths,
-            )
 
-            prune_logs[pruned_identifier] = {
-                "threshold": threshold,
-                "base_name": base_name,
-                "n_input": len(candidate_cols),
-                "n_kept": len(kept_cols),
-                "n_dropped": len(dropped_cols),
-                "dropped_cols": dropped_cols,
-                "prune_log": prune_log,
-            }
+def _generate_aic_for_base(
+    trial_df: pd.DataFrame,
+    base_name: str,
+    base_cols: Sequence[str],
+    folder_path: str,
+    target_col: str,
+    standardize: bool,
+    verbose: bool,
+) -> Dict[str, Path]:
+    """AIC forward-select on `base_cols` and save."""
+    saved_paths: Dict[str, Path] = {}
+    base_cols = _dedupe_keep_order(base_cols)
+    identifier = f"{base_name}_aic"
+    aic_cols, _, _ = aic_forward_select_logit(
+        df=trial_df,
+        feature_cols=base_cols,
+        target_col=target_col,
+        standardize=standardize,
+        verbose=False,
+    )
+    _save_one(aic_cols, identifier, folder_path, saved_paths)
+    if verbose:
+        print(
+            f"Saved: {identifier} "
+            f"({len(aic_cols)} after AIC / {len(base_cols)} input)"
+        )
+    return saved_paths
 
-            if verbose:
-                print(
-                    f"Saved: {pruned_identifier} "
-                    f"({len(kept_cols)} kept / {len(candidate_cols)} input)"
-                )
 
-            aic_identifier = f"{pruned_identifier}_aic"
+def _all_with_last(last_cols: Sequence[str]) -> List[str]:
+    return _dedupe_keep_order(list(fg.ALL_FEATURES_NO_LAST) + list(last_cols))
 
-            aic_cols, aic_log, aic_model = aic_forward_select_logit(
-                df=trial_df,
-                feature_cols=kept_cols,
-                target_col=target_col,
-                standardize=standardize_aic,
-                verbose=False,
-            )
 
-            _save_one(
-                columns=aic_cols,
-                identifier=aic_identifier,
-                folder_path=folder_path,
-                saved_paths=saved_paths,
-            )
+def _base_with_last_variants(
+    base_cols: Sequence[str],
+    base_identifier: str,
+) -> Dict[str, List[str]]:
+    """
+    {identifier: cols} for `base_cols` itself + each LAST_* variant.
 
-            aic_logs[aic_identifier] = {
-                "threshold": threshold,
-                "base_name": base_name,
-                "n_input_to_aic": len(kept_cols),
-                "n_selected_by_aic": len(aic_cols),
-                "aic_log": aic_log,
-            }
-            aic_models[aic_identifier] = aic_model
-
-            if verbose:
-                print(
-                    f"Saved: {aic_identifier} "
-                    f"({len(aic_cols)} cols after AIC)"
-                )
-
+    Use this when adding a new curated feature set that should be saved
+    in five flavours (no_last / last_ans / last_confirm / last_select / last_all).
+    """
+    base = list(base_cols)
     return {
-        "saved_paths": saved_paths,
-        "prune_logs": prune_logs,
-        "aic_logs": aic_logs,
-        "aic_models": aic_models,
+        base_identifier: _dedupe_keep_order(base),
+        f"{base_identifier}_last_ans": _dedupe_keep_order(base + list(fg.LAST_ANSWER)),
+        f"{base_identifier}_last_confirm": _dedupe_keep_order(base + list(fg.LAST_CONFIRM)),
+        f"{base_identifier}_last_select": _dedupe_keep_order(base + list(fg.LAST_SELECT)),
+        f"{base_identifier}_last_all": _dedupe_keep_order(base + list(fg.LAST_ALL)),
     }
 
 
-
-def selected_with_last_variations():
-    LAST_ANS = [
-        "last_visited_answer_A",
-        "last_visited_answer_B",
-        "last_visited_answer_C",
-        "last_visited_answer_D",
-    ]
-
-    LAST_CONF = [
-        "last_before_confirm_answer_A",
-        "last_before_confirm_answer_B",
-        "last_before_confirm_answer_C",
-        "last_before_confirm_answer_D",
-        "last_before_confirm_question",
-    ]
-
-    LAST_SELECT = [
-        "last_before_select_answer_A",
-        "last_before_select_answer_B",
-        "last_before_select_answer_C",
-        "last_before_select_answer_D",
-        "last_before_select_question",
-    ]
-
-    SELECTED_NO_LAST = [
-        "skip_rate__correct",
-        "skip_rate__wrong_mean",
-        "area_dwell_proportion__correct",
-        "area_dwell_proportion__wrong_mean",
-        "num_label_visits__correct",
-        "num_label_visits__wrong_mean",
-        "seq_len",
-        "has_xyx",
-    ]
-
-    # --------------------------------------
-    # Save each combination
-    # --------------------------------------
-    _save_one(
-        columns=SELECTED_NO_LAST + LAST_ANS,
-        identifier="selected_last_ans_only",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
-
-    _save_one(
-        columns=SELECTED_NO_LAST + LAST_CONF,
-        identifier="selected_last_confirm_only",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
-
-    _save_one(
-        columns=SELECTED_NO_LAST + LAST_SELECT,
-        identifier="selected_last_select_only",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
+def _last_with_last_groups() -> Dict[str, List[str]]:
+    """{base_identifier: last_cols} for the four with-last variants."""
+    return {
+        "all_last_ans": list(fg.LAST_ANSWER),
+        "all_last_confirm": list(fg.LAST_CONFIRM),
+        "all_last_select": list(fg.LAST_SELECT),
+        "all_last_all": list(fg.LAST_ALL),
+    }
 
 
-def second_manual_selected():
-    SECOND_SELECTED = [
-        "area_dwell_proportion__correct",
-        "area_dwell_proportion__distance_closest",
-        "num_label_visits__correct",
-        "num_label_visits__distance_closest",
-    ]
+# --------------------------------------------------------------------------
+# Group 1: each LAST_* alone
+# --------------------------------------------------------------------------
+def generate_baseline_last_only_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {
+        "baseline_last_ans": fg.LAST_ANSWER,
+        "baseline_last_confirm": fg.LAST_CONFIRM,
+        "baseline_last_select": fg.LAST_SELECT,
+    }
+    return _save_set_collection(sets, folder_path, verbose)
 
-    LAST_ANS = [
-        "last_visited_answer_A",
-        "last_visited_answer_B",
-        "last_visited_answer_C",
-        "last_visited_answer_D",
-    ]
 
-    LAST_CONF = [
-        "last_before_confirm_answer_A",
-        "last_before_confirm_answer_B",
-        "last_before_confirm_answer_C",
-        "last_before_confirm_answer_D",
-        "last_before_confirm_question",
-    ]
+# --------------------------------------------------------------------------
+# Group 2: all three LAST_* together
+# --------------------------------------------------------------------------
+def generate_baseline_last_all_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {"baseline_last_all": fg.LAST_ALL}
+    return _save_set_collection(sets, folder_path, verbose)
 
-    LAST_SELECT = [
-        "last_before_select_answer_A",
-        "last_before_select_answer_B",
-        "last_before_select_answer_C",
-        "last_before_select_answer_D",
-        "last_before_select_question",
-    ]
 
-    LAST_ALL = LAST_ANS + LAST_CONF + LAST_SELECT
+# --------------------------------------------------------------------------
+# Group 3: all features minus LAST_*
+# --------------------------------------------------------------------------
+def generate_all_no_last_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {"all_no_last": fg.ALL_FEATURES_NO_LAST}
+    return _save_set_collection(sets, folder_path, verbose)
 
-    # --------------------------------------
-    # Save variants
-    # --------------------------------------
 
-    # 1) no last
-    _save_one(
-        columns=SECOND_SELECTED,
-        identifier="second_selected_no_last",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
+# --------------------------------------------------------------------------
+# Group 4: all features + each LAST_* separately
+# --------------------------------------------------------------------------
+def generate_all_with_each_last_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {
+        "all_last_ans": _all_with_last(fg.LAST_ANSWER),
+        "all_last_confirm": _all_with_last(fg.LAST_CONFIRM),
+        "all_last_select": _all_with_last(fg.LAST_SELECT),
+    }
+    return _save_set_collection(sets, folder_path, verbose)
 
-    # 2) all last together
-    _save_one(
-        columns=SECOND_SELECTED + LAST_ALL,
-        identifier="second_selected_last_all",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
 
-    # 3) last answer only
-    _save_one(
-        columns=SECOND_SELECTED + LAST_ANS,
-        identifier="second_selected_last_ans",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
+# --------------------------------------------------------------------------
+# Group 5: all features + every LAST_*
+# --------------------------------------------------------------------------
+def generate_all_with_last_all_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {"all_last_all": fg.ALL_FEATURES}
+    return _save_set_collection(sets, folder_path, verbose)
 
-    # 4) last confirm only
-    _save_one(
-        columns=SECOND_SELECTED + LAST_CONF,
-        identifier="second_selected_last_confirm",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
-    )
 
-    # 5) last select only
-    _save_one(
-        columns=SECOND_SELECTED + LAST_SELECT,
-        identifier="second_selected_last_select",
-        folder_path=COL_SAVE_PATH,
-        saved_paths={},
+# --------------------------------------------------------------------------
+# Group 6: all features no last - correlation pruned at multiple thresholds
+# --------------------------------------------------------------------------
+def generate_pruned_no_last_sets(
+    trial_df: pd.DataFrame,
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    return _generate_pruned_for_base(
+        trial_df=trial_df,
+        base_name="all_no_last",
+        base_cols=fg.ALL_FEATURES_NO_LAST,
+        folder_path=folder_path,
+        target_col=target_col,
+        corr_thresholds=corr_thresholds,
+        verbose=verbose,
     )
 
 
-def sequence_only():
-    SEQ_ONLY = ["seq_len", "has_xyx", "has_xyxy", "trial_mean_dwell"]
+# --------------------------------------------------------------------------
+# Group 7: all features no last - AIC forward-selected
+# --------------------------------------------------------------------------
+def generate_aic_no_last_set(
+    trial_df: pd.DataFrame,
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    standardize: bool = True,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    return _generate_aic_for_base(
+        trial_df=trial_df,
+        base_name="all_no_last",
+        base_cols=fg.ALL_FEATURES_NO_LAST,
+        folder_path=folder_path,
+        target_col=target_col,
+        standardize=standardize,
+        verbose=verbose,
+    )
 
-    LAST_ANS = [
-        "last_visited_answer_A",
-        "last_visited_answer_B",
-        "last_visited_answer_C",
-        "last_visited_answer_D",
-    ]
 
-    _save_one(SEQ_ONLY, "sequence_only", COL_SAVE_PATH, {})
-    _save_one(SEQ_ONLY + LAST_ANS, "sequence_last_ans", COL_SAVE_PATH, {})
+# --------------------------------------------------------------------------
+# Group 8: groups 6 and 7 across the four LAST_* inclusion versions
+# --------------------------------------------------------------------------
+def generate_pruned_with_last_sets(
+    trial_df: pd.DataFrame,
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    saved_paths: Dict[str, Path] = {}
+    for base_name, last_cols in _last_with_last_groups().items():
+        saved_paths.update(
+            _generate_pruned_for_base(
+                trial_df=trial_df,
+                base_name=base_name,
+                base_cols=_all_with_last(last_cols),
+                folder_path=folder_path,
+                target_col=target_col,
+                corr_thresholds=corr_thresholds,
+                verbose=verbose,
+            )
+        )
+    return saved_paths
+
+
+def generate_aic_with_last_sets(
+    trial_df: pd.DataFrame,
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    standardize: bool = True,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    saved_paths: Dict[str, Path] = {}
+    for base_name, last_cols in _last_with_last_groups().items():
+        saved_paths.update(
+            _generate_aic_for_base(
+                trial_df=trial_df,
+                base_name=base_name,
+                base_cols=_all_with_last(last_cols),
+                folder_path=folder_path,
+                target_col=target_col,
+                standardize=standardize,
+                verbose=verbose,
+            )
+        )
+    return saved_paths
+
+
+# --------------------------------------------------------------------------
+# Group 9: derived columns + NUM_OF_SELECTS
+# --------------------------------------------------------------------------
+def generate_derived_with_num_selects_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {
+        "derived_with_num_selects": fg.DERIVED_COLS + [Con.NUM_OF_SELECTS],
+    }
+    return _save_set_collection(sets, folder_path, verbose)
+
+
+# --------------------------------------------------------------------------
+# Group 10: question features only (per-metric '__question' columns)
+# --------------------------------------------------------------------------
+def generate_question_only_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {"question_only": fg.PER_QUESTION_COLS}
+    return _save_set_collection(sets, folder_path, verbose)
+
+
+# --------------------------------------------------------------------------
+# Group 11: AREA_COLS only (correct/wrong_mean/contrast/distance_*)
+# --------------------------------------------------------------------------
+def generate_area_only_set(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {"area_only": fg.AREA_COLS}
+    return _save_set_collection(sets, folder_path, verbose)
+
+
+# --------------------------------------------------------------------------
+# Group 12: SELECT_1 curated subset + each LAST_* variant
+# --------------------------------------------------------------------------
+def generate_select_1_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = _base_with_last_variants(
+        fg.SELECT_1_COLS, "select_1"
+    )
+    return _save_set_collection(sets, folder_path, verbose)
+
+
+# --------------------------------------------------------------------------
+# Orchestrator: run every group
+# --------------------------------------------------------------------------
+def generate_all_feature_column_sets(
+    trial_df: pd.DataFrame,
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
+    standardize_aic: bool = True,
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    """
+    Run every feature-set generator (groups 1-11). Returns a single
+    {identifier: saved_path} dict. Individual generators can be called
+    directly for partial reruns.
+    """
+    saved_paths: Dict[str, Path] = {}
+
+    # 1, 2: pure last baselines
+    saved_paths.update(generate_baseline_last_only_sets(folder_path, verbose=verbose))
+    saved_paths.update(generate_baseline_last_all_set(folder_path, verbose=verbose))
+
+    # 3, 4, 5: all features + last variations
+    saved_paths.update(generate_all_no_last_set(folder_path, verbose=verbose))
+    saved_paths.update(generate_all_with_each_last_sets(folder_path, verbose=verbose))
+    saved_paths.update(generate_all_with_last_all_set(folder_path, verbose=verbose))
+
+    # 6, 7: pruning + AIC on no-last
+    saved_paths.update(
+        generate_pruned_no_last_sets(
+            trial_df, folder_path,
+            target_col=target_col,
+            corr_thresholds=corr_thresholds,
+            verbose=verbose,
+        )
+    )
+    saved_paths.update(
+        generate_aic_no_last_set(
+            trial_df, folder_path,
+            target_col=target_col,
+            standardize=standardize_aic,
+            verbose=verbose,
+        )
+    )
+
+    # 8: pruning + AIC across the four with-last bases
+    saved_paths.update(
+        generate_pruned_with_last_sets(
+            trial_df, folder_path,
+            target_col=target_col,
+            corr_thresholds=corr_thresholds,
+            verbose=verbose,
+        )
+    )
+    saved_paths.update(
+        generate_aic_with_last_sets(
+            trial_df, folder_path,
+            target_col=target_col,
+            standardize=standardize_aic,
+            verbose=verbose,
+        )
+    )
+
+    # 9, 10, 11: focused subsets
+    saved_paths.update(generate_derived_with_num_selects_set(folder_path, verbose=verbose))
+    saved_paths.update(generate_question_only_set(folder_path, verbose=verbose))
+    saved_paths.update(generate_area_only_set(folder_path, verbose=verbose))
+
+    # 12: SELECT_1 curated subset + each LAST_* variant
+    saved_paths.update(generate_select_1_sets(folder_path, verbose=verbose))
+
+    return saved_paths
 
 
 
@@ -505,7 +537,7 @@ def _dir_has_any_files(path: Path) -> bool:
 
 
 def _correctness_output_exists(
-    split_group_cols: Sequence[str],
+    test_regimes: Sequence[str],
     subdir: Optional[str] = None,
     results_base_dir: str | Path = "../reports/plots",
     verbose: bool = False,
@@ -514,7 +546,7 @@ def _correctness_output_exists(
         _answer_correctness_rel_dir(
             model_family="logreg",
             subdir=subdir,
-            split_tag=_split_tag(split_group_cols),
+            split_tag=_split_tag(test_regimes),
         )
     )
 
@@ -535,7 +567,11 @@ def _correctness_output_exists(
 def run_correctness_bundle_for_saved_column_sets(
     df,
     columns_folder: str | Path,
-    split_group_cols=None,
+    test_regimes: Optional[Sequence[str]] = None,
+    *,
+    test_split: str = "test",
+    fold: Optional[int] = None,
+    sources: Sequence[str] = ("hunters", "gatherers"),
     paper_dirs=None,
     save: bool = False,
     coef_ci_method: str = "wald",
@@ -566,8 +602,8 @@ def run_correctness_bundle_for_saved_column_sets(
     metadata_df : pd.DataFrame
         simple run summary
     """
-    if split_group_cols is None:
-        split_group_cols = [Con.PARTICIPANT_ID]
+    if test_regimes is None:
+        test_regimes = ["new_subject"]
 
     columns_folder = Path(columns_folder)
 
@@ -592,7 +628,7 @@ def run_correctness_bundle_for_saved_column_sets(
         already_exists = False
         if not rerun:
             already_exists = _correctness_output_exists(
-                split_group_cols=split_group_cols,
+                test_regimes=test_regimes,
                 subdir=identifier,
                 results_base_dir=results_base_dir,
                 verbose=verbose,
@@ -619,8 +655,11 @@ def run_correctness_bundle_for_saved_column_sets(
 
         out = run_full_features_correctness_bundle(
             df=df,
+            test_regimes=test_regimes,
+            test_split=test_split,
+            fold=fold,
+            sources=sources,
             feature_cols=feature_cols,
-            split_group_cols=split_group_cols,
             paper_dirs=paper_dirs,
             subdir=identifier,
             run_identifier=identifier,
@@ -640,6 +679,10 @@ def run_correctness_bundle_for_saved_column_sets(
 
     metadata_df = pd.DataFrame(run_rows).sort_values("identifier").reset_index(drop=True)
     return results_by_identifier, metadata_df
+
+
+
+
 
 
 def plot_feature_frequency_from_full_jsons(

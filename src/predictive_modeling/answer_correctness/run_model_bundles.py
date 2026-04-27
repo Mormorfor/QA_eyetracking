@@ -42,24 +42,29 @@ from src.viz.plot_output import save_df_csv, _answer_correctness_rel_dir
 
 
 
-def _split_tag(split_group_cols: Sequence[str]) -> str:
-    return "+".join(split_group_cols)
+def _split_tag(test_regimes: Sequence[str]) -> str:
+    return "+".join(test_regimes)
 
 
 def build_train_test_trial_dfs(
     df: pd.DataFrame,
-    split_group_cols: Sequence[str],
+    test_regimes: Sequence[str],
+    *,
+    test_split: str = "test",
+    fold: Optional[int] = None,
+    sources: Sequence[str] = ("hunters", "gatherers"),
     pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
     pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
-    test_size: float = 0.2,
     random_state: int = 42,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    train_raw, test_raw = group_vise_train_test_split(
+) -> tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+    train_raw, test_raw, split_info = group_vise_train_test_split(
         df,
-        test_size=test_size,
+        test_regimes=test_regimes,
+        test_split=test_split,
+        fold=fold,
+        sources=sources,
         random_state=random_state,
-        group_cols=list(split_group_cols),
     )
 
     train_df = build_trial_level_model_df(
@@ -84,7 +89,7 @@ def build_train_test_trial_dfs(
         include_last_visited_answer_features=True,
     )
 
-    return train_df, test_df
+    return train_df, test_df, split_info
 
 
 def _build_full_trial_df(
@@ -253,7 +258,11 @@ def _plot_feature_corr(
 
 def run_full_features_correctness_bundle(
     df: pd.DataFrame,
-    split_group_cols: Sequence[str],
+    test_regimes: Sequence[str],
+    *,
+    test_split: str = "test",
+    fold: Optional[int] = None,
+    sources: Sequence[str] = ("hunters", "gatherers"),
     feature_cols: Optional[Sequence[str]] = None,
     pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
     pref_extreme_mode: str = "polarity",
@@ -265,27 +274,28 @@ def run_full_features_correctness_bundle(
     close: bool = False,
     subdir: Optional[str] = None,
     run_identifier: str = "",
-    test_size: float = 0.2,
     random_state: int = 42,
 ) -> Dict[str, Any]:
     model = TrialLevelLogRegModel()
     model_name = model.name
     model_family = "logreg"
 
-    split_tag = _split_tag(split_group_cols)
+    split_tag = _split_tag(test_regimes)
     base_dir = _answer_correctness_rel_dir(
         model_family=model_family,
         subdir=subdir,
         split_tag=split_tag,
     )
 
-    train_df, test_df = build_train_test_trial_dfs(
+    train_df, test_df, split_info = build_train_test_trial_dfs(
         df=df,
-        split_group_cols=split_group_cols,
+        test_regimes=test_regimes,
+        test_split=test_split,
+        fold=fold,
+        sources=sources,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
         keep_cols=None,
-        test_size=test_size,
         random_state=random_state,
     )
 
@@ -363,6 +373,7 @@ def run_full_features_correctness_bundle(
         "test_df": test_df,
         "trial_df": trial_df,
         "split_tag": split_tag,
+        "split_info": split_info,
         "base_rel_dir": base_dir,
         "summary_csv": summary_paths,
         "paths": {
@@ -522,7 +533,11 @@ def run_full_features_correctness_bundle(
 
 def run_full_features_correctness_julia_glmer_bundle(
     df: pd.DataFrame,
-    split_group_cols: Sequence[str],
+    test_regimes: Sequence[str],
+    *,
+    test_split: str = "test",
+    fold: Optional[int] = None,
+    sources: Sequence[str] = ("hunters", "gatherers"),
     feature_cols: Optional[Sequence[str]] = None,
     pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
     pref_extreme_mode: str = "polarity",
@@ -533,7 +548,6 @@ def run_full_features_correctness_julia_glmer_bundle(
     subdir: Optional[str] = None,
     use_rfx: bool = False,
     run_identifier: str = "",
-    test_size: float = 0.2,
     random_state: int = 42,
     participant_effects_mode: str = "slopes",
     text_effects_mode: str = "slopes",
@@ -545,7 +559,7 @@ def run_full_features_correctness_julia_glmer_bundle(
     model_name = model.name
     model_family = "julia"
 
-    split_tag = _split_tag(split_group_cols)
+    split_tag = _split_tag(test_regimes)
     base_dir = _answer_correctness_rel_dir(
         model_family=model_family,
         subdir=subdir,
@@ -554,13 +568,15 @@ def run_full_features_correctness_julia_glmer_bundle(
 
     keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
 
-    train_df, test_df = build_train_test_trial_dfs(
+    train_df, test_df, split_info = build_train_test_trial_dfs(
         df=df,
-        split_group_cols=split_group_cols,
+        test_regimes=test_regimes,
+        test_split=test_split,
+        fold=fold,
+        sources=sources,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
-        test_size=test_size,
         random_state=random_state,
     )
 
@@ -657,6 +673,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         "test_df": test_df,
         "trial_df": trial_df,
         "split_tag": split_tag,
+        "split_info": split_info,
         "base_rel_dir": base_dir,
         "summary_csv": summary_paths,
         "formula": formula,

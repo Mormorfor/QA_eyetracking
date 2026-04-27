@@ -109,17 +109,19 @@ def _answer_correctness_rel_dir(
     split_tag: Optional[str] = None,
     fit_all: bool = False,
 ) -> str:
-    parts = ["answer_correctness", model_family]
+    parts = ["answer_correctness"]
 
     subdir = _clean_path_part(subdir)
     split_tag = _clean_path_part(split_tag)
-
-    if subdir:
-        parts.append(subdir)
 
     if fit_all:
         parts.append("full_fit")
     elif split_tag:
         parts.append(split_tag)
+
+    parts.append(model_family)
+
+    if subdir:
+        parts.append(subdir)
 
     return "/".join(parts)
