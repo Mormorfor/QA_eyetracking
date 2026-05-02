@@ -1,0 +1,14 @@
+{
+  "identifier": "5_most_frequent_last_ans",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "has_xyx",
+    "last_before_confirm_answer_B",
+    "last_visited_answer_A",
+    "last_visited_answer_B",
+    "last_visited_answer_C",
+    "last_visited_answer_D"
+  ]
+}

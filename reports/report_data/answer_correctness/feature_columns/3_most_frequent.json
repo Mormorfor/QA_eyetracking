@@ -1,0 +1,8 @@
+{
+  "identifier": "3_most_frequent",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D"
+  ]
+}

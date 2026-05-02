@@ -1,0 +1,18 @@
+{
+  "identifier": "general_pruned_t05_aic",
+  "columns": [
+    "area_dwell_proportion__correct",
+    "num_label_visits__wrong_mean",
+    "num_label_visits__contrast",
+    "mean_first_fixation_duration__wrong_mean",
+    "has_xyx",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "skip_rate__distance_closest",
+    "ANSWER_PRESS_NUMBER",
+    "has_xyxy",
+    "mean_max_fix_pupil_size_z__contrast",
+    "mean_fixations_count__question",
+    "first_encounter_avg_pupil_size_z__distance_closest",
+    "mean_min_fix_pupil_size_z__distance_closest"
+  ]
+}

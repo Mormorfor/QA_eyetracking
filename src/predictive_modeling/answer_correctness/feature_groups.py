@@ -11,7 +11,6 @@ from typing import List
 
 from src import constants as Con
 
-
 # ---------------------------------------------------------------------------
 # Base metric columns
 # ---------------------------------------------------------------------------
@@ -64,17 +63,15 @@ AREA_COLS: List[str] = (
 #   PER_LABEL_COLS:     question + answers (everything in Con.LABEL_CHOICES)
 # ---------------------------------------------------------------------------
 
-PER_QUESTION_COLS: List[str] = [
-    f"{m}__question" for m in METRIC_COLUMNS
-]
+PER_QUESTION_COLS: List[str] = [f"{m}__question" for m in METRIC_COLUMNS]
 
-PER_ANSWER_COLS: List[str] = [
-    f"{m}__{Con.ANSWER_PREFIX}{letter}"
-    for m in METRIC_COLUMNS
-    for letter in Con.ANSWER_LABELS
-]
+# PER_ANSWER_COLS: List[str] = [
+#     f"{m}__{Con.ANSWER_PREFIX}{letter}"
+#     for m in METRIC_COLUMNS
+#     for letter in Con.ANSWER_LABELS
+# ]
 
-PER_LABEL_COLS: List[str] = PER_QUESTION_COLS + PER_ANSWER_COLS
+# PER_LABEL_COLS: List[str] = PER_QUESTION_COLS + PER_ANSWER_COLS
 
 
 # ---------------------------------------------------------------------------
@@ -141,21 +138,15 @@ RT_TFD_VARIANTS: List[str] = ["pure", "normalized"]
 RT_TFD_INTERACTION_SEP: str = "__x__"
 
 RT_COLS: List[str] = [
-    f"RT_{v}_{r}"
-    for v in RT_TFD_VARIANTS
-    for r in RT_TFD_ANSWER_REGIONS
+    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
 ]
 
 TFD_COLS: List[str] = [
-    f"TFD_{v}_{r}"
-    for v in RT_TFD_VARIANTS
-    for r in RT_TFD_ANSWER_REGIONS
+    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
 ]
 
 TIME_SINCE_OFFSET_COLS: List[str] = [
-    f"TimeSinceOffset_{v}_{r}"
-    for v in RT_TFD_VARIANTS
-    for r in RT_TFD_ANSWER_REGIONS
+    f"TimeSinceOffset_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
 ]
 
 RT_INTERACTION_COLS: List[str] = [
@@ -182,7 +173,7 @@ RT_TFD_INTERACTION_COLS: List[str] = RT_INTERACTION_COLS + TFD_INTERACTION_COLS
 
 ALL_FEATURES_NO_LAST: List[str] = (
     AREA_COLS
-    + PER_LABEL_COLS
+    + PER_QUESTION_COLS
     + DERIVED_COLS
     + [Con.NUM_OF_SELECTS]
     + RT_COLS
@@ -193,8 +184,16 @@ ALL_FEATURES_NO_LAST: List[str] = (
 )
 
 ALL_FEATURES: List[str] = (
-    ALL_FEATURES_NO_LAST
-    + LAST_ANSWER
-    + LAST_CONFIRM
-    + LAST_SELECT
+    ALL_FEATURES_NO_LAST + LAST_ANSWER + LAST_CONFIRM + LAST_SELECT
+)
+
+
+# ---------------------------------------------------------------------------
+# General features
+#   = ALL_FEATURES_NO_LAST minus RT/TFD/TSO base columns and their
+#     interaction terms. Used as the "general" base for additive groupings.
+# ---------------------------------------------------------------------------
+
+GENERAL_FEATURES: List[str] = (
+    AREA_COLS + PER_QUESTION_COLS + DERIVED_COLS + [Con.NUM_OF_SELECTS]
 )

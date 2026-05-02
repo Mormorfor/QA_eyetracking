@@ -1,0 +1,26 @@
+{
+  "identifier": "complete_pruned_t05_aic",
+  "columns": [
+    "last_visited_answer_A",
+    "last_before_select_answer_A",
+    "num_label_visits__wrong_mean",
+    "area_dwell_proportion__correct",
+    "last_before_confirm_answer_B",
+    "mean_first_fixation_duration__wrong_mean",
+    "num_label_visits__contrast",
+    "last_before_select_answer_D",
+    "mean_max_fix_pupil_size_z__wrong_mean",
+    "has_xyx",
+    "ANSWER_PRESS_NUMBER",
+    "RT_pure_outside__x__RT_pure_answer_B",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "mean_max_fix_pupil_size_z__contrast",
+    "RT_normalized_question",
+    "last_before_select_question",
+    "last_before_confirm_answer_D",
+    "last_visited_answer_C",
+    "skip_rate__distance_closest",
+    "has_xyxy",
+    "last_before_select_answer_B"
+  ]
+}
