@@ -100,6 +100,28 @@ def _save_one(
     return path
 
 
+def _should_skip(identifier: str, folder_path: str, rerun: bool) -> bool:
+    """True if `rerun=False` and the identifier's JSON already exists on disk."""
+    if rerun:
+        return False
+    return (Path(folder_path) / f"{identifier}.json").exists()
+
+
+def _record_skip(
+    identifier: str,
+    folder_path: str,
+    saved_paths: Dict[str, Path],
+    *,
+    verbose: bool,
+    skip_msg: str = "Skipping",
+) -> Path:
+    path = Path(folder_path) / f"{identifier}.json"
+    saved_paths[identifier] = path
+    if verbose:
+        print(f"{skip_msg}: {identifier} (file exists)")
+    return path
+
+
 # ==========================================================================
 # Feature-set generators
 # ==========================================================================
@@ -129,10 +151,15 @@ def _save_set_collection(
     sets: Dict[str, Sequence[str]],
     folder_path: str,
     verbose: bool,
+    *,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     """Save a {identifier: cols} mapping and return {identifier: path}."""
     saved_paths: Dict[str, Path] = {}
     for identifier, cols in sets.items():
+        if _should_skip(identifier, folder_path, rerun):
+            _record_skip(identifier, folder_path, saved_paths, verbose=verbose)
+            continue
         _save_one(
             columns=cols,
             identifier=identifier,
@@ -152,6 +179,8 @@ def _generate_pruned_for_base(
     target_col: str,
     corr_thresholds: Sequence[float],
     verbose: bool,
+    *,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     """Correlation-prune `base_cols` at each threshold and save."""
     saved_paths: Dict[str, Path] = {}
@@ -159,6 +188,9 @@ def _generate_pruned_for_base(
     for threshold in corr_thresholds:
         thr_tag = _threshold_to_tag(threshold)
         identifier = f"{base_name}_pruned_t{thr_tag}"
+        if _should_skip(identifier, folder_path, rerun):
+            _record_skip(identifier, folder_path, saved_paths, verbose=verbose)
+            continue
         kept_cols, _, _ = correlation_prune_features(
             df=trial_df,
             feature_cols=base_cols,
@@ -183,11 +215,16 @@ def _generate_aic_for_base(
     target_col: str,
     standardize: bool,
     verbose: bool,
+    *,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     """AIC forward-select on `base_cols` and save."""
     saved_paths: Dict[str, Path] = {}
     base_cols = _dedupe_keep_order(base_cols)
     identifier = f"{base_name}_aic"
+    if _should_skip(identifier, folder_path, rerun):
+        _record_skip(identifier, folder_path, saved_paths, verbose=verbose)
+        return saved_paths
     aic_cols, _, _ = aic_forward_select_logit(
         df=trial_df,
         feature_cols=base_cols,
@@ -245,13 +282,14 @@ def generate_baseline_last_only_sets(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {
         "baseline_last_ans": fg.LAST_ANSWER,
         "baseline_last_confirm": fg.LAST_CONFIRM,
         "baseline_last_select": fg.LAST_SELECT,
     }
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -261,9 +299,10 @@ def generate_baseline_last_all_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"baseline_last_all": fg.LAST_ALL}
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -273,9 +312,10 @@ def generate_all_no_last_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"all_no_last": fg.ALL_FEATURES_NO_LAST}
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -285,13 +325,14 @@ def generate_all_with_each_last_sets(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {
         "all_last_ans": _all_with_last(fg.LAST_ANSWER),
         "all_last_confirm": _all_with_last(fg.LAST_CONFIRM),
         "all_last_select": _all_with_last(fg.LAST_SELECT),
     }
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -301,9 +342,10 @@ def generate_all_with_last_all_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"all_last_all": fg.ALL_FEATURES}
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -316,6 +358,7 @@ def generate_pruned_no_last_sets(
     target_col: str = Con.IS_CORRECT_COLUMN,
     corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     return _generate_pruned_for_base(
         trial_df=trial_df,
@@ -325,6 +368,7 @@ def generate_pruned_no_last_sets(
         target_col=target_col,
         corr_thresholds=corr_thresholds,
         verbose=verbose,
+        rerun=rerun,
     )
 
 
@@ -338,6 +382,7 @@ def generate_aic_no_last_set(
     target_col: str = Con.IS_CORRECT_COLUMN,
     standardize: bool = True,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     return _generate_aic_for_base(
         trial_df=trial_df,
@@ -347,6 +392,7 @@ def generate_aic_no_last_set(
         target_col=target_col,
         standardize=standardize,
         verbose=verbose,
+        rerun=rerun,
     )
 
 
@@ -360,6 +406,7 @@ def generate_pruned_with_last_sets(
     target_col: str = Con.IS_CORRECT_COLUMN,
     corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     saved_paths: Dict[str, Path] = {}
     for base_name, last_cols in _last_with_last_groups().items():
@@ -372,6 +419,7 @@ def generate_pruned_with_last_sets(
                 target_col=target_col,
                 corr_thresholds=corr_thresholds,
                 verbose=verbose,
+                rerun=rerun,
             )
         )
     return saved_paths
@@ -384,6 +432,7 @@ def generate_aic_with_last_sets(
     target_col: str = Con.IS_CORRECT_COLUMN,
     standardize: bool = True,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     saved_paths: Dict[str, Path] = {}
     for base_name, last_cols in _last_with_last_groups().items():
@@ -396,6 +445,7 @@ def generate_aic_with_last_sets(
                 target_col=target_col,
                 standardize=standardize,
                 verbose=verbose,
+                rerun=rerun,
             )
         )
     return saved_paths
@@ -408,11 +458,12 @@ def generate_derived_with_num_selects_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {
         "derived_with_num_selects": fg.DERIVED_COLS + [Con.NUM_OF_SELECTS],
     }
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -422,9 +473,10 @@ def generate_question_only_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"question_only": fg.PER_QUESTION_COLS}
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -434,9 +486,10 @@ def generate_area_only_set(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"area_only": fg.AREA_COLS}
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -446,11 +499,73 @@ def generate_select_1_sets(
     folder_path: str = COL_SAVE_PATH,
     *,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = _base_with_last_variants(
         fg.SELECT_1_COLS, "select_1"
     )
-    return _save_set_collection(sets, folder_path, verbose)
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
+
+
+# --------------------------------------------------------------------------
+# Group 13: RT / TFD / TimeSinceOffset baselines
+#   - one baseline per metric type (RT / TFD / TimeSinceOffset)
+#   - one baseline with all three combined
+# --------------------------------------------------------------------------
+def generate_baseline_rt_tfd_offset_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+    rerun: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {
+        "baseline_rt": fg.RT_COLS,
+        "baseline_tfd": fg.TFD_COLS,
+        "baseline_time_since_offset": fg.TIME_SINCE_OFFSET_COLS,
+        "baseline_rt_tfd_offset": fg.RT_TFD_OFFSET_COLS,
+    }
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
+
+
+# --------------------------------------------------------------------------
+# Group 14: each metric type with its paragraph x answer interaction terms
+# --------------------------------------------------------------------------
+def generate_rt_or_tfd_with_interactions_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+    rerun: bool = True,
+) -> Dict[str, Path]:
+    sets: Dict[str, Sequence[str]] = {
+        "rt_with_interactions": list(fg.RT_COLS) + list(fg.RT_INTERACTION_COLS),
+        "tfd_with_interactions": list(fg.TFD_COLS) + list(fg.TFD_INTERACTION_COLS),
+    }
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
+
+
+# --------------------------------------------------------------------------
+# Group 15: ALL_FEATURES minus each new RT / TFD / interaction group
+# --------------------------------------------------------------------------
+def generate_all_minus_rt_tfd_groups_sets(
+    folder_path: str = COL_SAVE_PATH,
+    *,
+    verbose: bool = True,
+    rerun: bool = True,
+) -> Dict[str, Path]:
+    def _exclude(cols: Sequence[str], exclude_cols: Sequence[str]) -> List[str]:
+        excl = set(exclude_cols)
+        return [c for c in cols if c not in excl]
+
+    sets: Dict[str, Sequence[str]] = {
+        "all_no_rt": _exclude(fg.ALL_FEATURES, fg.RT_COLS),
+        "all_no_tfd": _exclude(fg.ALL_FEATURES, fg.TFD_COLS),
+        "all_no_time_since_offset": _exclude(
+            fg.ALL_FEATURES, fg.TIME_SINCE_OFFSET_COLS
+        ),
+        "all_no_rt_interactions": _exclude(fg.ALL_FEATURES, fg.RT_INTERACTION_COLS),
+        "all_no_tfd_interactions": _exclude(fg.ALL_FEATURES, fg.TFD_INTERACTION_COLS),
+    }
+    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
 # --------------------------------------------------------------------------
@@ -464,22 +579,40 @@ def generate_all_feature_column_sets(
     corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
     standardize_aic: bool = True,
     verbose: bool = True,
+    rerun: bool = True,
 ) -> Dict[str, Path]:
     """
-    Run every feature-set generator (groups 1-11). Returns a single
+    Run every feature-set generator (groups 1-15). Returns a single
     {identifier: saved_path} dict. Individual generators can be called
     directly for partial reruns.
+
+    rerun : bool
+        If False, skip identifiers whose JSON already exists in
+        `folder_path` — including the (potentially expensive) pruning and
+        AIC computations they would otherwise trigger. The skipped
+        identifiers are still recorded in the returned dict pointing at
+        their existing files.
     """
     saved_paths: Dict[str, Path] = {}
 
     # 1, 2: pure last baselines
-    saved_paths.update(generate_baseline_last_only_sets(folder_path, verbose=verbose))
-    saved_paths.update(generate_baseline_last_all_set(folder_path, verbose=verbose))
+    saved_paths.update(
+        generate_baseline_last_only_sets(folder_path, verbose=verbose, rerun=rerun)
+    )
+    saved_paths.update(
+        generate_baseline_last_all_set(folder_path, verbose=verbose, rerun=rerun)
+    )
 
     # 3, 4, 5: all features + last variations
-    saved_paths.update(generate_all_no_last_set(folder_path, verbose=verbose))
-    saved_paths.update(generate_all_with_each_last_sets(folder_path, verbose=verbose))
-    saved_paths.update(generate_all_with_last_all_set(folder_path, verbose=verbose))
+    saved_paths.update(
+        generate_all_no_last_set(folder_path, verbose=verbose, rerun=rerun)
+    )
+    saved_paths.update(
+        generate_all_with_each_last_sets(folder_path, verbose=verbose, rerun=rerun)
+    )
+    saved_paths.update(
+        generate_all_with_last_all_set(folder_path, verbose=verbose, rerun=rerun)
+    )
 
     # 6, 7: pruning + AIC on no-last
     saved_paths.update(
@@ -488,6 +621,7 @@ def generate_all_feature_column_sets(
             target_col=target_col,
             corr_thresholds=corr_thresholds,
             verbose=verbose,
+            rerun=rerun,
         )
     )
     saved_paths.update(
@@ -496,6 +630,7 @@ def generate_all_feature_column_sets(
             target_col=target_col,
             standardize=standardize_aic,
             verbose=verbose,
+            rerun=rerun,
         )
     )
 
@@ -506,6 +641,7 @@ def generate_all_feature_column_sets(
             target_col=target_col,
             corr_thresholds=corr_thresholds,
             verbose=verbose,
+            rerun=rerun,
         )
     )
     saved_paths.update(
@@ -514,16 +650,46 @@ def generate_all_feature_column_sets(
             target_col=target_col,
             standardize=standardize_aic,
             verbose=verbose,
+            rerun=rerun,
         )
     )
 
     # 9, 10, 11: focused subsets
-    saved_paths.update(generate_derived_with_num_selects_set(folder_path, verbose=verbose))
-    saved_paths.update(generate_question_only_set(folder_path, verbose=verbose))
-    saved_paths.update(generate_area_only_set(folder_path, verbose=verbose))
+    saved_paths.update(
+        generate_derived_with_num_selects_set(folder_path, verbose=verbose, rerun=rerun)
+    )
+    saved_paths.update(
+        generate_question_only_set(folder_path, verbose=verbose, rerun=rerun)
+    )
+    saved_paths.update(
+        generate_area_only_set(folder_path, verbose=verbose, rerun=rerun)
+    )
 
     # 12: SELECT_1 curated subset + each LAST_* variant
-    saved_paths.update(generate_select_1_sets(folder_path, verbose=verbose))
+    saved_paths.update(
+        generate_select_1_sets(folder_path, verbose=verbose, rerun=rerun)
+    )
+
+    # 13: RT / TFD / TimeSinceOffset baselines (each alone + all three combined)
+    saved_paths.update(
+        generate_baseline_rt_tfd_offset_sets(
+            folder_path, verbose=verbose, rerun=rerun
+        )
+    )
+
+    # 14: RT and TFD with their paragraph x answer interaction terms
+    saved_paths.update(
+        generate_rt_or_tfd_with_interactions_sets(
+            folder_path, verbose=verbose, rerun=rerun
+        )
+    )
+
+    # 15: ALL_FEATURES minus each new RT / TFD / interaction group
+    saved_paths.update(
+        generate_all_minus_rt_tfd_groups_sets(
+            folder_path, verbose=verbose, rerun=rerun
+        )
+    )
 
     return saved_paths
 

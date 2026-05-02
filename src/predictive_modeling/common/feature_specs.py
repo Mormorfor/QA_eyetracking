@@ -13,6 +13,18 @@ DERIVED_BASE_FEATURES = [
     "trial_mean_dwell",
 ]
 
+# Standalone answer-region columns produced by build_trial_level_rt_tfd_features.
+RT_TFD_ANSWER_METRICS = (
+    "RT_pure",
+    "RT_normalized",
+    "TFD_pure",
+    "TFD_normalized",
+    "TimeSinceOffset_pure",
+    "TimeSinceOffset_normalized",
+)
+RT_TFD_ANSWER_REGIONS = ("question", "answer_A", "answer_B", "answer_C", "answer_D")
+RT_TFD_INTERACTION_SEP = "__x__"
+
 
 def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
     """
@@ -70,15 +82,36 @@ def get_last_visited_feature_cols(df: pd.DataFrame) -> List[str]:
     return sorted(c for c in df.columns if c.startswith("last_visited_"))
 
 
+def get_rt_tfd_feature_cols(df: pd.DataFrame) -> List[str]:
+    """
+    Feature columns produced by build_trial_level_rt_tfd_features:
+      - per-area answer features:  f"{metric}_{region}" for metric in
+        RT_TFD_ANSWER_METRICS and region in RT_TFD_ANSWER_REGIONS.
+      - paragraph x answer interaction columns (any column containing
+        RT_TFD_INTERACTION_SEP).
+    """
+    cols: List[str] = []
+    for metric in RT_TFD_ANSWER_METRICS:
+        for region in RT_TFD_ANSWER_REGIONS:
+            col = f"{metric}_{region}"
+            if col in df.columns:
+                cols.append(col)
+    cols.extend(sorted(c for c in df.columns if RT_TFD_INTERACTION_SEP in c))
+    return cols
+
+
 def get_full_feature_cols(df: pd.DataFrame) -> List[str]:
     """
     Return the full model feature set:
       - area features
       - derived features
       - last visited one-hot features
+      - RT / TFD / TimeSinceOffset features (per-area answer + paragraph x answer
+        interactions)
     """
     cols: List[str] = []
     cols.extend(get_area_feature_cols(df))
     cols.extend(get_derived_feature_cols(df))
     cols.extend(get_last_visited_feature_cols(df))
+    cols.extend(get_rt_tfd_feature_cols(df))
     return cols

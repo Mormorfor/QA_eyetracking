@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Sequence, Tuple, Optional, List, Dict, Any
 
 import pandas as pd
 
 from src import constants as Con
+from src.data_paths import READY_ALL_FEATURES_PATH
 
 from src.predictive_modeling.common.data_utils import group_vise_train_test_split
 from src.predictive_modeling.common.feature_specs import get_full_feature_cols
 
 from src.predictive_modeling.answer_correctness.model_data import (
     build_trial_level_model_df,
+    load_all_features,
 )
 from src.predictive_modeling.answer_correctness.evaluation_core import (
     evaluate_models_on_prepared_split, fit_model_on_prepared_full_data,
@@ -46,6 +49,66 @@ def _split_tag(test_regimes: Sequence[str]) -> str:
     return "+".join(test_regimes)
 
 
+def _build_full_trial_df(
+    df: pd.DataFrame,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
+    pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    return build_trial_level_model_df(
+        df=df,
+        pref_specs=pref_specs,
+        pref_extreme_mode=pref_extreme_mode,
+        keep_cols=keep_cols,
+        target_col=Con.IS_CORRECT_COLUMN,
+        include_area_features=True,
+        include_derived_features=True,
+        include_last_visited_answer_features=True,
+    )
+
+
+def _load_or_build_full_trial_df(
+    df: pd.DataFrame,
+    *,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
+    pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    Return the full trial-level feature DataFrame.
+
+    Loads from READY_ALL_FEATURES_PATH if it exists; otherwise builds via
+    `_build_full_trial_df`. When loading from cache, `pref_specs` /
+    `pref_extreme_mode` are ignored (those only affect a fresh build — re-run
+    `save_all_features` to refresh the cache). Any `keep_cols` not already
+    present in the cached frame are merged from `df` on (participant, trial).
+    """
+    cache_path = Path(READY_ALL_FEATURES_PATH)
+    if cache_path.exists():
+        if verbose:
+            print(f"Loading cached features from {cache_path}")
+        trial_df = load_all_features()
+        keep = list(keep_cols) if keep_cols is not None else []
+        missing = [c for c in keep if c not in trial_df.columns]
+        if missing:
+            extra = (
+                df[[Con.PARTICIPANT_ID, Con.TRIAL_ID] + missing]
+                .drop_duplicates(subset=[Con.PARTICIPANT_ID, Con.TRIAL_ID])
+            )
+            trial_df = trial_df.merge(
+                extra, on=[Con.PARTICIPANT_ID, Con.TRIAL_ID], how="left"
+            )
+        return trial_df
+
+    return _build_full_trial_df(
+        df=df,
+        pref_specs=pref_specs,
+        pref_extreme_mode=pref_extreme_mode,
+        keep_cols=keep_cols,
+    )
+
+
 def build_train_test_trial_dfs(
     df: pd.DataFrame,
     test_regimes: Sequence[str],
@@ -66,6 +129,20 @@ def build_train_test_trial_dfs(
         sources=sources,
         random_state=random_state,
     )
+
+    if Path(READY_ALL_FEATURES_PATH).exists():
+        trial_full = _load_or_build_full_trial_df(
+            df=df,
+            pref_specs=pref_specs,
+            pref_extreme_mode=pref_extreme_mode,
+            keep_cols=keep_cols,
+        )
+        key_cols = [Con.PARTICIPANT_ID, Con.TRIAL_ID]
+        train_keys = train_raw[key_cols].drop_duplicates()
+        test_keys = test_raw[key_cols].drop_duplicates()
+        train_df = trial_full.merge(train_keys, on=key_cols, how="inner")
+        test_df = trial_full.merge(test_keys, on=key_cols, how="inner")
+        return train_df, test_df, split_info
 
     train_df = build_trial_level_model_df(
         df=train_raw,
@@ -90,24 +167,6 @@ def build_train_test_trial_dfs(
     )
 
     return train_df, test_df, split_info
-
-
-def _build_full_trial_df(
-    df: pd.DataFrame,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
-    keep_cols: Optional[Sequence[str]] = None,
-) -> pd.DataFrame:
-    return build_trial_level_model_df(
-        df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
-        keep_cols=keep_cols,
-        target_col=Con.IS_CORRECT_COLUMN,
-        include_area_features=True,
-        include_derived_features=True,
-        include_last_visited_answer_features=True,
-    )
 
 
 def _resolve_feature_cols(
@@ -350,7 +409,7 @@ def run_full_features_correctness_bundle(
         close=close,
     )
 
-    trial_df = _build_full_trial_df(
+    trial_df = _load_or_build_full_trial_df(
         df=df,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
@@ -650,7 +709,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         close=close,
     )
 
-    trial_df = _build_full_trial_df(
+    trial_df = _load_or_build_full_trial_df(
         df=df,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,
@@ -716,7 +775,7 @@ def run_full_features_correctness_julia_glmer_fit_all(
         fit_all=True,
     )
 
-    fit_df = _build_full_trial_df(
+    fit_df = _load_or_build_full_trial_df(
         df=df,
         pref_specs=pref_specs,
         pref_extreme_mode=pref_extreme_mode,

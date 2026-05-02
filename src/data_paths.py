@@ -72,6 +72,7 @@ PARTICIPANT_PUPILS_PATH = DATA_DIR / "participant_pupils.csv"
 BUTTON_CLICKS_PATH = DATA_DIR / "button_clicks_data.csv"
 STRANGE_TRIALS_PATH = DATA_DIR / "strange_trials.csv"
 RT_AND_TFD_PATH = DATA_DIR / "RT_and_TFD.csv"
+READY_ALL_FEATURES_PATH = DATA_DIR / "ready_all_features.csv"
 
 # ---------------------------------------------------------------------------
 # Cross-validation folds (data/*Folds)

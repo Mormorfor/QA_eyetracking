@@ -125,6 +125,58 @@ SELECT_1_COLS: List[str] = (
 
 
 # ---------------------------------------------------------------------------
+# RT / TFD / TimeSinceOffset feature groups
+# (column names produced by build_trial_level_rt_tfd_features in model_data.py)
+# ---------------------------------------------------------------------------
+
+RT_TFD_ANSWER_REGIONS: List[str] = [
+    "question",
+    "answer_A",
+    "answer_B",
+    "answer_C",
+    "answer_D",
+]
+RT_TFD_PARAGRAPH_REGIONS: List[str] = ["outside", "distractor", "critical"]
+RT_TFD_VARIANTS: List[str] = ["pure", "normalized"]
+RT_TFD_INTERACTION_SEP: str = "__x__"
+
+RT_COLS: List[str] = [
+    f"RT_{v}_{r}"
+    for v in RT_TFD_VARIANTS
+    for r in RT_TFD_ANSWER_REGIONS
+]
+
+TFD_COLS: List[str] = [
+    f"TFD_{v}_{r}"
+    for v in RT_TFD_VARIANTS
+    for r in RT_TFD_ANSWER_REGIONS
+]
+
+TIME_SINCE_OFFSET_COLS: List[str] = [
+    f"TimeSinceOffset_{v}_{r}"
+    for v in RT_TFD_VARIANTS
+    for r in RT_TFD_ANSWER_REGIONS
+]
+
+RT_INTERACTION_COLS: List[str] = [
+    f"RT_{v}_{p}{RT_TFD_INTERACTION_SEP}RT_{v}_{a}"
+    for v in RT_TFD_VARIANTS
+    for p in RT_TFD_PARAGRAPH_REGIONS
+    for a in RT_TFD_ANSWER_REGIONS
+]
+
+TFD_INTERACTION_COLS: List[str] = [
+    f"TFD_{v}_{p}{RT_TFD_INTERACTION_SEP}TFD_{v}_{a}"
+    for v in RT_TFD_VARIANTS
+    for p in RT_TFD_PARAGRAPH_REGIONS
+    for a in RT_TFD_ANSWER_REGIONS
+]
+
+RT_TFD_OFFSET_COLS: List[str] = RT_COLS + TFD_COLS + TIME_SINCE_OFFSET_COLS
+RT_TFD_INTERACTION_COLS: List[str] = RT_INTERACTION_COLS + TFD_INTERACTION_COLS
+
+
+# ---------------------------------------------------------------------------
 # Aggregate "all features" sets
 # ---------------------------------------------------------------------------
 
@@ -133,6 +185,11 @@ ALL_FEATURES_NO_LAST: List[str] = (
     + PER_LABEL_COLS
     + DERIVED_COLS
     + [Con.NUM_OF_SELECTS]
+    + RT_COLS
+    + TFD_COLS
+    + TIME_SINCE_OFFSET_COLS
+    + RT_INTERACTION_COLS
+    + TFD_INTERACTION_COLS
 )
 
 ALL_FEATURES: List[str] = (

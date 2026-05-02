@@ -1,11 +1,13 @@
 # model_data.py
 
+from pathlib import Path
 from typing import Sequence, Optional, Tuple, List
 import ast
 import pandas as pd
 import numpy as np
 
 from src import constants as Con
+from src.data_paths import READY_ALL_FEATURES_PATH
 
 from src.predictive_modeling.common.feature_builders import (
     build_area_metric_pivot,
@@ -29,7 +31,31 @@ from src.derived.correctness_measures import (
 
 from src.derived.preference_matching import compute_trial_matching
 
+from src.derived.reading_times import (
+    ANSWER_REGIONS as RT_ANSWER_REGIONS,
+    PARAGRAPH_REGIONS as RT_PARAGRAPH_REGIONS,
+)
+
 from src.constants import TRIAL_ID_COLS
+
+# Standalone answer-region metric prefixes (column = f"{metric}_{region}").
+ANSWER_RT_TFD_METRICS = (
+    "RT_pure",
+    "RT_normalized",
+    "TFD_pure",
+    "TFD_normalized",
+    "TimeSinceOffset_pure",
+    "TimeSinceOffset_normalized",
+)
+# Paragraph metrics that can interact with answer-region columns (no RT/TFD mixing).
+# TimeSinceOffset has no paragraph counterpart, so it produces no interactions.
+PARA_X_ANS_INTERACTION_METRICS = (
+    "RT_pure",
+    "RT_normalized",
+    "TFD_pure",
+    "TFD_normalized",
+)
+RT_TFD_INTERACTION_SEP = "__x__"
 
 # ---------------------------------------------------------------------
 # Small helpers
@@ -195,6 +221,84 @@ def build_trial_level_derived_features(
 
 
 # ---------------------------------------------------------------------
+# RT / TFD / TimeSinceOffset features
+# ---------------------------------------------------------------------
+
+def build_trial_level_rt_tfd_features(
+    df: pd.DataFrame,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    keep_cols: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """
+    Trial-level features derived from the RT_and_TFD merge:
+
+    - One feature per answer region per metric — column name f"{metric}_{region}"
+      for region in ANSWER_REGIONS and metric in ANSWER_RT_TFD_METRICS
+      (RT/TFD/TimeSinceOffset, pure & normalized).
+    - Paragraph × answer interaction terms within the same metric kind and
+      variant (no RT/TFD mixing) — column name
+      f"{metric}_{para}__x__{metric}_{ans}" for metric in
+      PARA_X_ANS_INTERACTION_METRICS. TimeSinceOffset has no paragraph
+      counterpart, so it produces no interactions.
+
+    Paragraph base columns are not emitted as standalone features.
+    """
+    keep_cols = _deduplicate_keep_cols(keep_cols)
+
+    answer_cols = [
+        f"{m}_{r}"
+        for m in ANSWER_RT_TFD_METRICS
+        for r in RT_ANSWER_REGIONS
+        if f"{m}_{r}" in df.columns
+    ]
+    paragraph_cols = [
+        f"{m}_{r}"
+        for m in PARA_X_ANS_INTERACTION_METRICS
+        for r in RT_PARAGRAPH_REGIONS
+        if f"{m}_{r}" in df.columns
+    ]
+
+    cols = list(TRIAL_ID_COLS) + keep_cols + [target_col] + answer_cols + paragraph_cols
+    cols = list(dict.fromkeys(cols))
+
+    trial = (
+        df[cols]
+        .drop_duplicates(subset=list(TRIAL_ID_COLS))
+        .dropna(subset=[target_col])
+        .reset_index(drop=True)
+        .copy()
+    )
+    trial[target_col] = pd.to_numeric(trial[target_col], errors="coerce").astype(int)
+
+    for c in answer_cols + paragraph_cols:
+        trial[c] = pd.to_numeric(trial[c], errors="coerce")
+
+    interaction_cols: dict[str, pd.Series] = {}
+    for metric in PARA_X_ANS_INTERACTION_METRICS:
+        for p_region in RT_PARAGRAPH_REGIONS:
+            p_col = f"{metric}_{p_region}"
+            if p_col not in trial.columns:
+                continue
+            for a_region in RT_ANSWER_REGIONS:
+                a_col = f"{metric}_{a_region}"
+                if a_col not in trial.columns:
+                    continue
+                interaction_cols[f"{p_col}{RT_TFD_INTERACTION_SEP}{a_col}"] = (
+                    trial[p_col] * trial[a_col]
+                )
+
+    if interaction_cols:
+        trial = pd.concat(
+            [trial, pd.DataFrame(interaction_cols, index=trial.index)], axis=1
+        )
+
+    if paragraph_cols:
+        trial = trial.drop(columns=paragraph_cols)
+
+    return trial
+
+
+# ---------------------------------------------------------------------
 # Last visited categorical features
 # ---------------------------------------------------------------------
 
@@ -236,6 +340,7 @@ def build_trial_level_model_df(
     include_last_visited_answer_features: bool = True,
     include_last_lbl_before_confirm_features: bool = True,
     include_last_lbl_before_select_features: bool = True,
+    include_rt_tfd_features: bool = True,
     numeric_feature_cols: Sequence[str] = (Con.NUM_OF_SELECTS,),
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
@@ -312,6 +417,17 @@ def build_trial_level_model_df(
         )
         out = out.merge(last_before_select_df, on=list(TRIAL_ID_COLS), how="left")
 
+    if include_rt_tfd_features:
+        rt_tfd_df = build_trial_level_rt_tfd_features(
+            df=df,
+            target_col=target_col,
+        )
+        out = out.merge(
+            rt_tfd_df.drop(columns=[c for c in [target_col] if c in rt_tfd_df.columns]),
+            on=list(TRIAL_ID_COLS),
+            how="left",
+        )
+
     if numeric_feature_cols:
         numeric_df = build_trial_level_constant_numeric_features(
             df=df,
@@ -320,6 +436,56 @@ def build_trial_level_model_df(
         out = out.merge(numeric_df, on=list(TRIAL_ID_COLS), how="left")
 
     return out
+
+
+# ---------------------------------------------------------------------
+# Cached full feature CSV
+# ---------------------------------------------------------------------
+
+def save_all_features(
+    df: pd.DataFrame,
+    output_path: Path = READY_ALL_FEATURES_PATH,
+    pref_specs: Optional[Sequence[Tuple[str, str]]] = tuple(Con.PREF_SPECS),
+    pref_extreme_mode: str = "polarity",
+    keep_cols: Optional[Sequence[str]] = None,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    Build the full trial-level feature DataFrame (every include_* flag turned on)
+    and save it to `output_path` as CSV. The CSV can later be read back with
+    `load_all_features`.
+    """
+    trial_df = build_trial_level_model_df(
+        df=df,
+        pref_specs=pref_specs,
+        pref_extreme_mode=pref_extreme_mode,
+        keep_cols=keep_cols,
+        target_col=target_col,
+        include_area_features=True,
+        include_derived_features=True,
+        include_last_visited_answer_features=True,
+        include_last_lbl_before_confirm_features=True,
+        include_last_lbl_before_select_features=True,
+        include_rt_tfd_features=True,
+    )
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    trial_df.to_csv(output_path, index=False)
+    if verbose:
+        print(
+            f"Saved {len(trial_df)} trials x {len(trial_df.columns)} cols "
+            f"to {output_path}"
+        )
+    return trial_df
+
+
+def load_all_features(path: Path = READY_ALL_FEATURES_PATH) -> pd.DataFrame:
+    """
+    Load the cached full feature DataFrame produced by `save_all_features`.
+    """
+    return pd.read_csv(Path(path))
 
 
 # ---------------------------------------------------------------------
@@ -341,6 +507,7 @@ def make_area_only_dataset(
         include_area_features=True,
         include_derived_features=False,
         include_last_visited_answer_features=False,
+        include_rt_tfd_features=False,
     )
 
     feature_cols = get_area_feature_cols(trial_df)
@@ -373,6 +540,7 @@ def make_derived_dataset(
         include_area_features=False,
         include_derived_features=True,
         include_last_visited_answer_features=include_last_visited_features,
+        include_rt_tfd_features=False,
     )
 
     feature_cols = get_derived_feature_cols(trial_df)
@@ -413,6 +581,7 @@ def make_full_dataset(
         include_area_features=True,
         include_derived_features=True,
         include_last_visited_answer_features=True,
+        include_rt_tfd_features=True,
     )
 
     feature_cols = get_full_feature_cols(trial_df)
