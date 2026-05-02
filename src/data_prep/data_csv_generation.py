@@ -25,6 +25,7 @@ from src.data_paths import (
     IA_ANSWERS_PATH,
     IA_PARAGRAPH_PATH,
     PARTICIPANT_PUPILS_PATH,
+    RT_AND_TFD_PATH,
 )
 from src.derived.pupil_norm import zscore_pupil_by_participant
 
@@ -1229,6 +1230,39 @@ def _attach_last_label_features_if_available(
     return df
 
 
+def _attach_rt_and_tfd_features_if_available(
+    df: pd.DataFrame,
+    rt_and_tfd_path: Path = RT_AND_TFD_PATH,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    If a precomputed RT_and_TFD file exists, merge in all RT_pure_/RT_normalized_/
+    TFD_pure_/TFD_normalized_ columns at trial level on (participant_id, TRIAL_INDEX).
+    """
+    path = Path(rt_and_tfd_path)
+
+    if not path.exists():
+        if verbose:
+            print(f"RT_and_TFD file not found, skipping merge: {rt_and_tfd_path}")
+        return df
+
+    if verbose:
+        print(f"Merging RT_and_TFD features from: {rt_and_tfd_path}")
+
+    rt_df = pd.read_csv(path)
+
+    merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
+    missing_cols = [col for col in merge_cols if col not in rt_df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Missing required merge columns in {rt_and_tfd_path}: {missing_cols}"
+        )
+
+    rt_df = rt_df.drop_duplicates(subset=merge_cols)
+    df = df.merge(rt_df, on=merge_cols, how="left")
+    return df
+
+
 def main(
     ia_answers_path: Path = IA_ANSWERS_PATH,
     hunters_output_path: Path = HUNTERS_PROCESSED_PATH,
@@ -1281,6 +1315,8 @@ def main(
         verbose=verbose,
     )
 
+    df_h = _attach_rt_and_tfd_features_if_available(df_h, verbose=verbose)
+
     if verbose:
         print(f"Saving hunters features to: {hunters_output_path}")
     df_h.to_csv(hunters_output_path, index=False)
@@ -1299,6 +1335,8 @@ def main(
         GATHERERS_LAST_PATH,
         verbose=verbose,
     )
+
+    df_g = _attach_rt_and_tfd_features_if_available(df_g, verbose=verbose)
 
     if verbose:
         print(f"Saving gatherers features to: {gatherers_output_path}")
