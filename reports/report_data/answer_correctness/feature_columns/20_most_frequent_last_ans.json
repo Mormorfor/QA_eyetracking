@@ -1,0 +1,27 @@
+{
+  "identifier": "20_most_frequent_last_ans",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "has_xyx",
+    "last_before_confirm_answer_B",
+    "last_before_select_answer_A",
+    "last_before_select_answer_D",
+    "last_before_select_question",
+    "last_visited_answer_A",
+    "num_label_visits__contrast",
+    "skip_rate__distance_closest",
+    "area_dwell_proportion__correct",
+    "mean_first_fixation_duration__wrong_mean",
+    "mean_max_fix_pupil_size_z__contrast",
+    "RT_normalized_critical__x__RT_normalized_answer_B",
+    "area_dwell_proportion__distance_furthest",
+    "last_before_confirm_answer_D",
+    "last_before_confirm_question",
+    "last_before_select_answer_C",
+    "last_visited_answer_C",
+    "last_visited_answer_B",
+    "last_visited_answer_D"
+  ]
+}

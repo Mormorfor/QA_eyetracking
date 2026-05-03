@@ -134,7 +134,7 @@ RT_TFD_ANSWER_REGIONS: List[str] = [
     "answer_D",
 ]
 RT_TFD_PARAGRAPH_REGIONS: List[str] = ["outside", "distractor", "critical"]
-RT_TFD_VARIANTS: List[str] = ["pure", "normalized"]
+RT_TFD_VARIANTS: List[str] = ["normalized"] # ["pure", "normalized"]
 RT_TFD_INTERACTION_SEP: str = "__x__"
 
 RT_COLS: List[str] = [
