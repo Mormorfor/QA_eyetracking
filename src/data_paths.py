@@ -61,6 +61,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 HUNTERS_PROCESSED_PATH = DATA_DIR / "hunters.csv"
 GATHERERS_PROCESSED_PATH = DATA_DIR / "gatherers.csv"
+ALL_PARTICIPANTS_PROCESSED_PATH = DATA_DIR / "all_participants.csv"
 
 HUNTERS_LAST_PATH = DATA_DIR / "hunters_last.csv"
 GATHERERS_LAST_PATH = DATA_DIR / "gatherers_last.csv"
@@ -73,6 +74,20 @@ BUTTON_CLICKS_PATH = DATA_DIR / "button_clicks_data.csv"
 STRANGE_TRIALS_PATH = DATA_DIR / "strange_trials.csv"
 RT_AND_TFD_PATH = DATA_DIR / "RT_and_TFD.csv"
 READY_ALL_FEATURES_PATH = DATA_DIR / "ready_all_features.csv"
+
+# ---------------------------------------------------------------------------
+# Experiment data (data/Experiment)
+# ---------------------------------------------------------------------------
+
+EXPERIMENT_DIR = DATA_DIR / "Experiment"
+
+N1_BASE_PATH = EXPERIMENT_DIR / "n1_base.csv"
+N2_BASE_PATH = EXPERIMENT_DIR / "n2_base.csv"
+N3_BASE_PATH = EXPERIMENT_DIR / "n3_base.csv"
+
+EXPERIMENT_TEXT_COMPLETED_PATH = EXPERIMENT_DIR / "experiment_text_completed.csv"
+TEXTS_MANUAL_REPHRASINGS_PATH = EXPERIMENT_DIR / "texts_manual_rephrasings.csv"
+TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 
 # ---------------------------------------------------------------------------
 # Cross-validation folds (data/*Folds)
@@ -96,4 +111,6 @@ FOLD_TRIAL_IDS_FILENAME_TEMPLATE = "fold_{fold_idx}_trial_ids_by_regime.csv"
 # Feature-columns generation
 # ---------------------------------------------------------------------------
 
-COL_SAVE_PATH = PROJECT_ROOT / "reports" / "report_data" / "answer_correctness" / "feature_columns"
+COL_SAVE_PATH = (
+    PROJECT_ROOT / "reports" / "report_data" / "answer_correctness" / "feature_columns"
+)

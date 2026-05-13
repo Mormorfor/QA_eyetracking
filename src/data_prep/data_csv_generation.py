@@ -17,6 +17,7 @@ from collections import Counter
 
 from src import constants as C
 from src.data_paths import (
+    ALL_PARTICIPANTS_PROCESSED_PATH,
     FIX_ANSWERS_PATH,
     GATHERERS_PROCESSED_PATH,
     HUNTERS_PROCESSED_PATH,
@@ -1263,36 +1264,67 @@ def _attach_rt_and_tfd_features_if_available(
     return df
 
 
+def _process_and_save(
+    df: pd.DataFrame,
+    base_funcs,
+    group_funcs,
+    output_path: Path,
+    last_labels_path=None,
+    label: str = "",
+    verbose: bool = True,
+):
+    """Run base + group pipelines on `df`, attach optional last-label and
+    RT/TFD features, then save to `output_path`."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    if verbose:
+        print(f"\nProcessing {label} (row-level)…")
+    out = add_base_features(df, base_funcs, verbose=verbose)
+
+    if verbose:
+        print(f"Applying group-level features for {label}…")
+    out = generate_new_row_features(group_funcs, out)
+
+    if last_labels_path is not None:
+        out = _attach_last_label_features_if_available(
+            out, last_labels_path, verbose=verbose,
+        )
+
+    out = _attach_rt_and_tfd_features_if_available(out, verbose=verbose)
+
+    if verbose:
+        print(f"Saving {label} features to: {output_path}")
+    out.to_csv(output_path, index=False)
+
+
 def main(
     ia_answers_path: Path = IA_ANSWERS_PATH,
     hunters_output_path: Path = HUNTERS_PROCESSED_PATH,
     gatherers_output_path: Path = GATHERERS_PROCESSED_PATH,
+    all_participants_output_path: Path = ALL_PARTICIPANTS_PROCESSED_PATH,
+    split_hunters_gatherers: bool = True,
+    remove_repeats: bool = True,
+    remove_practice: bool = True,
     base_function_names: list = None,
     group_function_names: list = None,
     verbose: bool = True,
 ):
     """
-    Full preprocessing pipeline:
+    Full preprocessing pipeline.
 
-    1. Load raw answers data.
-    2. Split into hunters and gatherers.
-    3. Apply base per-row features.
-    4. Apply group-level features.
-    5. Save output CSV files.
+    If `split_hunters_gatherers` is True (default):
+        - Filter trials according to `remove_repeats` / `remove_practice`,
+          split into hunters and gatherers based on question preview,
+          and save two CSVs (hunters_output_path, gatherers_output_path).
 
+    Otherwise:
+        - Process all trials together (no filtering) and save a single CSV
+          to all_participants_output_path.
     """
-    os.makedirs(os.path.dirname(hunters_output_path), exist_ok=True)
-    os.makedirs(os.path.dirname(gatherers_output_path), exist_ok=True)
-
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
 
     df_answers = load_raw_answers_data(ia_answers_path)
-
-    if verbose:
-        print("Splitting into hunters and gatherers…")
-
-    df_hunters, df_gatherers = split_hunters_and_gatherers(df_answers)
 
     if verbose:
         print("\nResolving processing function lists…")
@@ -1300,47 +1332,45 @@ def main(
     base_funcs = resolve_base_functions(base_function_names)
     group_funcs = resolve_group_functions(group_function_names)
 
-    # Hunters
-    if verbose:
-        print("\nProcessing hunters (row-level)…")
-    df_h = add_base_features(df_hunters, base_funcs, verbose=verbose)
+    if split_hunters_gatherers:
+        if verbose:
+            print("Splitting into hunters and gatherers…")
 
-    if verbose:
-        print("Applying group-level features for hunters…")
-    df_h = generate_new_row_features(group_funcs, df_h)
+        df_hunters, df_gatherers = split_hunters_and_gatherers(
+            df_answers,
+            remove_repeats=remove_repeats,
+            remove_practice=remove_practice,
+        )
 
-    df_h = _attach_last_label_features_if_available(
-        df_h,
-        HUNTERS_LAST_PATH,
-        verbose=verbose,
-    )
+        _process_and_save(
+            df_hunters,
+            base_funcs=base_funcs,
+            group_funcs=group_funcs,
+            output_path=hunters_output_path,
+            last_labels_path=HUNTERS_LAST_PATH,
+            label="hunters",
+            verbose=verbose,
+        )
 
-    df_h = _attach_rt_and_tfd_features_if_available(df_h, verbose=verbose)
-
-    if verbose:
-        print(f"Saving hunters features to: {hunters_output_path}")
-    df_h.to_csv(hunters_output_path, index=False)
-
-    # Gatherers
-    if verbose:
-        print("\nProcessing gatherers (row-level)…")
-    df_g = add_base_features(df_gatherers, base_funcs, verbose=verbose)
-
-    if verbose:
-        print("Applying group-level features for gatherers…")
-    df_g = generate_new_row_features(group_funcs, df_g)
-
-    df_g = _attach_last_label_features_if_available(
-        df_g,
-        GATHERERS_LAST_PATH,
-        verbose=verbose,
-    )
-
-    df_g = _attach_rt_and_tfd_features_if_available(df_g, verbose=verbose)
-
-    if verbose:
-        print(f"Saving gatherers features to: {gatherers_output_path}")
-    df_g.to_csv(gatherers_output_path, index=False)
+        _process_and_save(
+            df_gatherers,
+            base_funcs=base_funcs,
+            group_funcs=group_funcs,
+            output_path=gatherers_output_path,
+            last_labels_path=GATHERERS_LAST_PATH,
+            label="gatherers",
+            verbose=verbose,
+        )
+    else:
+        _process_and_save(
+            df_answers,
+            base_funcs=base_funcs,
+            group_funcs=group_funcs,
+            output_path=all_participants_output_path,
+            last_labels_path=None,
+            label="all_participants",
+            verbose=verbose,
+        )
 
     if verbose:
         print("\n✓ Done.\n")
