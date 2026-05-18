@@ -1,12 +1,13 @@
-
 # ---------------------------------------------------------------------------
 # Pre-existing column name constants
 # ---------------------------------------------------------------------------
 
-ARTICLE_COLUMN = 'article_id'
-DIFFICULTY_COLUMN = 'difficulty_level'
-BATCH_COLUMN = 'article_batch'
-PARAGRAPH_COLUMN = 'paragraph_id'
+ARTICLE_COLUMN = "article_id"
+DIFFICULTY_COLUMN = "difficulty_level"
+BATCH_COLUMN = "article_batch"
+PARAGRAPH_COLUMN = "paragraph_id"
+
+LIST_COLUMN = "list_number"
 
 REPEATED_TRIAL_COLUMN = "repeated_reading_trial"
 PRACTICE_TRIAL_COLUMN = "practice_trial"
@@ -17,8 +18,8 @@ CORRECT_ANSWER_POSITION_COLUMN = "correct_answer_position"
 ANSWERS_ORDER_COLUMN = "answers_order"
 
 INTEREST_AREA_ID = "IA_ID"
-TRIAL_ID = 'TRIAL_INDEX'
-PARTICIPANT_ID = 'participant_id'
+TRIAL_ID = "TRIAL_INDEX"
+PARTICIPANT_ID = "participant_id"
 
 IA_DWELL_TIME = "IA_DWELL_TIME"
 IA_FIXATIONS_COUNT = "IA_FIXATION_COUNT"
@@ -30,7 +31,7 @@ INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
 SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
 
-DOMINANT_EYE_COLUMN = 'EYE_TRACKED'
+DOMINANT_EYE_COLUMN = "EYE_TRACKED"
 IA_AVERAGE_FIX_PUPIL_SIZE = "IA_AVERAGE_FIX_PUPIL_SIZE"
 IA_MAX_FIX_PUPIL_SIZE = "IA_MAX_FIX_PUPIL_SIZE"
 IA_MIN_FIX_PUPIL_SIZE = "IA_MIN_FIX_PUPIL_SIZE"
@@ -65,7 +66,7 @@ FIX_SEQUENCE_BY_LOCATION = "fix_by_loc"
 SIMPLIFIED_FIX_SEQ_BY_LABEL = "simpl_fix_by_label"
 SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 
-STRATEGY_COL = 'strategy'
+STRATEGY_COL = "strategy"
 
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
@@ -92,12 +93,18 @@ FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z = "first_encounter_avg_pupil_size_z"
 ANSWER_PREFIX = "answer_"
 ANSWER_LABELS = ["A", "B", "C", "D"]
 
-#must mantain consistent ordering + consistency with ANSWER_LABEL_CHOICES
+# must mantain consistent ordering + consistency with ANSWER_LABEL_CHOICES
 
-LOC_CHOICES = ['question', 'answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)']
+LOC_CHOICES = [
+    "question",
+    "answer_0(top)",
+    "answer_1(left)",
+    "answer_2(right)",
+    "answer_3(bottom)",
+]
 
-#DO NOT CHANGE
-LABEL_CHOICES = ['question', 'answer_A', 'answer_B', 'answer_C', 'answer_D']
+# DO NOT CHANGE
+LABEL_CHOICES = ["question", "answer_A", "answer_B", "answer_C", "answer_D"]
 
 NUM_LABEL_VISITS = "num_label_visits"
 NUM_LOC_VISITS = "num_loc_visits"
@@ -174,8 +181,8 @@ PREF_SPECS = [
 # ---------------------------------------------------------------------------
 
 CURRENT_FIX_PUPIL_SIZE = "CURRENT_FIX_PUPIL"
-NEAREST_IA = 'CURRENT_FIX_NEAREST_INTEREST_AREA'
-CURRENT_FIX_LABEL = "CURRENT_FIX_LABEL" #contains current fix ms!
+NEAREST_IA = "CURRENT_FIX_NEAREST_INTEREST_AREA"
+CURRENT_FIX_LABEL = "CURRENT_FIX_LABEL"  # contains current fix ms!
 CURRENT_FIX_INTEREST_AREAS = "CURRENT_FIX_INTEREST_AREAS"
 
 
