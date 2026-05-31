@@ -68,10 +68,6 @@ def _deduplicate_keep_cols(
     return [c for c in keep_cols if c not in TRIAL_ID_COLS]
 
 
-def _safe_pref_feature_name(metric_col: str, direction: str) -> str:
-    return f"pref_matching__{metric_col}__{direction}"
-
-
 def _build_trial_core(
     df: pd.DataFrame,
     target_col: str = Con.IS_CORRECT_COLUMN,
@@ -152,8 +148,6 @@ def build_trial_level_derived_features(
     df: pd.DataFrame,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     dwell_col: str = Con.MEAN_DWELL_TIME,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     target_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
@@ -190,29 +184,6 @@ def build_trial_level_derived_features(
             "_trial_mean_dwell": "trial_mean_dwell",
         })
     )
-
-    pref_specs = list(pref_specs) if pref_specs is not None else []
-
-    for metric_col, direction in pref_specs:
-        pref_df = compute_trial_matching(
-            df=df,
-            metric_col=metric_col,
-            direction=direction,
-            extreme_mode=pref_extreme_mode,
-            out_col="pref_group",
-        )
-
-        feat_col = _safe_pref_feature_name(metric_col, direction)
-
-        pref_df = pref_df[list(TRIAL_ID_COLS) + ["pref_group"]].copy()
-        pref_df[feat_col] = (pref_df["pref_group"] == "matching").astype(int)
-        pref_df = pref_df.drop(columns=["pref_group"])
-
-        out = out.merge(pref_df, on=list(TRIAL_ID_COLS), how="left")
-
-    pref_cols = [c for c in out.columns if c.startswith("pref_matching__")]
-    if pref_cols:
-        out[pref_cols] = out[pref_cols].fillna(0).astype(int)
 
     out["has_xyx"] = out["has_xyx"].astype(int)
     out["has_xyxy"] = out["has_xyxy"].astype(int)
@@ -331,9 +302,7 @@ def build_trial_level_last_visited_features(
 
 def build_trial_level_model_df(
     df: pd.DataFrame,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
-    pref_extreme_mode: str = "polarity",
-    keep_cols: Optional[Sequence[str]] = None,
+    keep_cols: Optional[Sequence[str]] = [Con.TEXT_ID_WITH_Q_COLUMN],
     target_col: str = Con.IS_CORRECT_COLUMN,
     include_area_features: bool = True,
     include_derived_features: bool = True,
@@ -381,8 +350,6 @@ def build_trial_level_model_df(
             df=df,
             seq_col=seq_col,
             dwell_col=dwell_col,
-            pref_specs=pref_specs,
-            pref_extreme_mode=pref_extreme_mode,
             keep_cols=None,
             target_col=target_col,
         )
@@ -445,9 +412,7 @@ def build_trial_level_model_df(
 def save_all_features(
     df: pd.DataFrame,
     output_path: Path = READY_ALL_FEATURES_PATH,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = tuple(Con.PREF_SPECS),
-    pref_extreme_mode: str = "polarity",
-    keep_cols: Optional[Sequence[str]] = None,
+    keep_cols: Optional[Sequence[str]] = [Con.TEXT_ID_WITH_Q_COLUMN],
     target_col: str = Con.IS_CORRECT_COLUMN,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -458,8 +423,6 @@ def save_all_features(
     """
     trial_df = build_trial_level_model_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=target_col,
         include_area_features=True,
@@ -522,8 +485,6 @@ def make_area_only_dataset(
 
 def make_derived_dataset(
     df: pd.DataFrame,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     target_col: str = Con.IS_CORRECT_COLUMN,
     include_last_visited_features: bool = False,
@@ -533,8 +494,6 @@ def make_derived_dataset(
     """
     trial_df = build_trial_level_model_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=target_col,
         include_area_features=False,
@@ -564,8 +523,6 @@ def make_derived_dataset(
 
 def make_full_dataset(
     df: pd.DataFrame,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = None,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     target_col: str = Con.IS_CORRECT_COLUMN,
 ) -> PreparedTrialDataset:
@@ -574,8 +531,6 @@ def make_full_dataset(
     """
     trial_df = build_trial_level_model_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=target_col,
         include_area_features=True,
