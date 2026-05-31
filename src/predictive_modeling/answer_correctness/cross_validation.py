@@ -136,8 +136,6 @@ def evaluate_one_fold_on_regimes(
     *,
     model_builder: Callable[[], Any],
     target_col: str,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     train_regime: str = "train_train",
     eval_regimes: Optional[Sequence[str]] = None,
@@ -153,7 +151,6 @@ def evaluate_one_fold_on_regimes(
     """
     Fit on train_regime and evaluate on each requested regime.
     """
-    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
 
     if eval_regimes is None:
         eval_regimes = [
@@ -168,8 +165,6 @@ def evaluate_one_fold_on_regimes(
     train_raw = df[df["regime"] == train_regime].copy()
     train_df = build_trial_level_model_df(
         df=train_raw,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=target_col,
         include_area_features=True,
@@ -185,8 +180,6 @@ def evaluate_one_fold_on_regimes(
         eval_raw = df[df["regime"] == regime].copy()
         eval_df = build_trial_level_model_df(
             df=eval_raw,
-            pref_specs=pref_specs,
-            pref_extreme_mode=pref_extreme_mode,
             keep_cols=keep_cols,
             target_col=target_col,
             include_area_features=True,
@@ -247,8 +240,6 @@ def run_cross_validation_on_predefined_folds(
     df_text_col: str = Con.TEXT_ID_COLUMN,
     eval_regimes: Optional[Sequence[str]] = None,
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
@@ -261,7 +252,6 @@ def run_cross_validation_on_predefined_folds(
     Run cross-validation using predefined fold assignment CSVs.
     Stores both accuracy and balanced_accuracy in the summary tables.
     """
-    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
     fold_dir = Path(fold_dir)
 
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
@@ -291,8 +281,6 @@ def run_cross_validation_on_predefined_folds(
                 df=df_fold,
                 model_builder=model_builder,
                 target_col=target_col,
-                pref_specs=pref_specs,
-                pref_extreme_mode=pref_extreme_mode,
                 keep_cols=keep_cols,
                 eval_regimes=eval_regimes,
                 coef_ci_method=coef_ci_method,

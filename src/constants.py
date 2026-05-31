@@ -135,6 +135,11 @@ AREA_DWELL_PROPORTION = "area_dwell_proportion"
 
 NUM_OF_SELECTS = "ANSWER_PRESS_NUMBER"
 
+# Raw trial-level total answering RT column (time from showing answers to the
+# confirm click) and the friendlier feature name it is exposed under.
+CONFIRM_FINAL_ANSWER_RT = "CONFIRM_FINAL_ANSWER_RT"
+TOTAL_ANSWERING_RT = "total_answering_RT"
+
 
 AREA_METRIC_COLUMNS_MODELING = [
     MEAN_DWELL_TIME,

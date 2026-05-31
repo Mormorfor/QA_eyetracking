@@ -28,8 +28,6 @@ def evaluate_logreg_on_answer_correctness_leave_one_trial_out(
     split_fn: Callable = leave_one_trial_out_for_participant,
     target_col: str = Con.IS_CORRECT_COLUMN,
     feature_cols: Optional[Sequence[str]] = None,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
@@ -47,12 +45,8 @@ def evaluate_logreg_on_answer_correctness_leave_one_trial_out(
     Dict[str, CorrectnessEvaluationResult]
         results[participant_id] = evaluation result for that participant
     """
-    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
-
     trial_df = build_trial_level_model_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=target_col,
         include_area_features=True,

@@ -51,14 +51,10 @@ def _split_tag(test_regimes: Sequence[str]) -> str:
 
 def _build_full_trial_df(
     df: pd.DataFrame,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     return build_trial_level_model_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
@@ -70,8 +66,6 @@ def _build_full_trial_df(
 def _load_or_build_full_trial_df(
     df: pd.DataFrame,
     *,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     keep_cols: Optional[Sequence[str]] = None,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -79,8 +73,7 @@ def _load_or_build_full_trial_df(
     Return the full trial-level feature DataFrame.
 
     Loads from READY_ALL_FEATURES_PATH if it exists; otherwise builds via
-    `_build_full_trial_df`. When loading from cache, `pref_specs` /
-    `pref_extreme_mode` are ignored (those only affect a fresh build — re-run
+    `_build_full_trial_df`. — re-run
     `save_all_features` to refresh the cache). Any `keep_cols` not already
     present in the cached frame are merged from `df` on (participant, trial).
     """
@@ -103,8 +96,6 @@ def _load_or_build_full_trial_df(
 
     return _build_full_trial_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
     )
 
@@ -116,8 +107,7 @@ def build_train_test_trial_dfs(
     test_split: str = "test",
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
+
     keep_cols: Optional[Sequence[str]] = None,
     random_state: int = 42,
 ) -> tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
@@ -133,8 +123,6 @@ def build_train_test_trial_dfs(
     if Path(READY_ALL_FEATURES_PATH).exists():
         trial_full = _load_or_build_full_trial_df(
             df=df,
-            pref_specs=pref_specs,
-            pref_extreme_mode=pref_extreme_mode,
             keep_cols=keep_cols,
         )
         key_cols = [Con.PARTICIPANT_ID, Con.TRIAL_ID]
@@ -146,8 +134,6 @@ def build_train_test_trial_dfs(
 
     train_df = build_trial_level_model_df(
         df=train_raw,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
@@ -157,8 +143,6 @@ def build_train_test_trial_dfs(
 
     test_df = build_trial_level_model_df(
         df=test_raw,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
@@ -323,8 +307,6 @@ def run_full_features_correctness_bundle(
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
     feature_cols: Optional[Sequence[str]] = None,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
     save: bool = True,
@@ -352,8 +334,6 @@ def run_full_features_correctness_bundle(
         test_split=test_split,
         fold=fold,
         sources=sources,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=None,
         random_state=random_state,
     )
@@ -411,8 +391,6 @@ def run_full_features_correctness_bundle(
 
     trial_df = _load_or_build_full_trial_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=None,
     )
 
@@ -445,150 +423,6 @@ def run_full_features_correctness_bundle(
     }
 
 
-# def run_full_features_correctness_glmer_bundle(
-#     df: pd.DataFrame,
-#     split_group_cols: Sequence[str],
-#     feature_cols: Optional[Sequence[str]] = None,
-#     pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-#     pref_extreme_mode: str = "polarity",
-#     save: bool = True,
-#     paper_dirs: Optional[List[str]] = None,
-#     dpi: int = 300,
-#     close: bool = False,
-#     subdir: Optional[str] = None,
-#     use_rfx: bool = False,
-#     run_identifier: str = "",
-#     test_size: float = 0.2,
-#     random_state: int = 42,
-# ) -> Dict[str, Any]:
-#     model = TrialLevelGLMERModel()
-#     model_name = model.name
-#     model_family = "glmer"
-#
-#     split_tag = _split_tag(split_group_cols)
-#     base_dir = _answer_correctness_rel_dir(
-#         model_family=model_family,
-#         subdir=subdir,
-#         split_tag=split_tag,
-#     )
-#
-#     keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
-#
-#     train_df, test_df = build_train_test_trial_dfs(
-#         df=df,
-#         split_group_cols=split_group_cols,
-#         pref_specs=pref_specs,
-#         pref_extreme_mode=pref_extreme_mode,
-#         keep_cols=keep_cols,
-#         test_size=test_size,
-#         random_state=random_state,
-#     )
-#
-#     feat_cols = _resolve_feature_cols(train_df, feature_cols)
-#
-#     results = evaluate_models_on_prepared_split(
-#         models=[model],
-#         train_df=train_df,
-#         test_df=test_df,
-#         target_col=Con.IS_CORRECT_COLUMN,
-#         feature_cols=feat_cols,
-#         fit_kwargs_by_model={
-#             model_name: {
-#                 "participant_col": Con.PARTICIPANT_ID,
-#                 "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-#             }
-#         },
-#         predict_kwargs_by_model={
-#             model_name: {
-#                 "target_col": Con.IS_CORRECT_COLUMN,
-#                 "participant_col": Con.PARTICIPANT_ID,
-#                 "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-#                 "use_rfx": use_rfx,
-#             }
-#         },
-#         predict_proba_kwargs_by_model={
-#             model_name: {
-#                 "target_col": Con.IS_CORRECT_COLUMN,
-#                 "participant_col": Con.PARTICIPANT_ID,
-#                 "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-#                 "use_rfx": use_rfx,
-#             }
-#         },
-#     )
-#
-#     show_correctness_model_results(results)
-#     res = results[model_name]
-#
-#     formula = model.get_formula()
-#     print(f"Model formula: {formula}")
-#
-#     summary_paths = None
-#     if save:
-#         summary_paths = _save_summary_csv(
-#             results=results,
-#             model_name=model_name,
-#             trained_feature_cols=model.raw_feature_cols_,
-#             base_dir=base_dir,
-#             run_identifier=run_identifier,
-#             paper_dirs=paper_dirs,
-#             formula=formula,
-#         )
-#
-#     cm_paths, cm_paths2 = _plot_confusions(
-#         y_true=res.y_true,
-#         y_pred=res.y_pred,
-#         model_name=model_name,
-#         base_dir=base_dir,
-#         save=save,
-#         paper_dirs=paper_dirs,
-#         close=close,
-#     )
-#
-#     coef_paths, coef_sig_paths = _plot_coef_summaries(
-#         coef_summary=res.coef_summary,
-#         model_name=model_name,
-#         base_dir=base_dir,
-#         save=save,
-#         paper_dirs=paper_dirs,
-#         dpi=dpi,
-#         close=close,
-#     )
-#
-#     trial_df = _build_full_trial_df(
-#         df=df,
-#         pref_specs=pref_specs,
-#         pref_extreme_mode=pref_extreme_mode,
-#         keep_cols=keep_cols,
-#     )
-#
-#     corr_paths = _plot_feature_corr(
-#         trial_df=trial_df,
-#         corr_feature_cols=model.raw_feature_cols_,
-#         base_dir=base_dir,
-#         save=save,
-#         paper_dirs=paper_dirs,
-#         dpi=dpi,
-#         close=close,
-#     )
-#
-#     return {
-#         "results": results,
-#         "train_df": train_df,
-#         "test_df": test_df,
-#         "trial_df": trial_df,
-#         "split_tag": split_tag,
-#         "base_rel_dir": base_dir,
-#         "summary_csv": summary_paths,
-#         "formula": formula,
-#         "paths": {
-#             "confusion_norm": cm_paths,
-#             "confusion_unnorm": cm_paths2,
-#             "coef_all": coef_paths,
-#             "coef_significant": coef_sig_paths,
-#             "correlation": corr_paths,
-#         },
-#     }
-
 
 def run_full_features_correctness_julia_glmer_bundle(
     df: pd.DataFrame,
@@ -598,8 +432,6 @@ def run_full_features_correctness_julia_glmer_bundle(
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
     feature_cols: Optional[Sequence[str]] = None,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     save: bool = True,
     paper_dirs: Optional[List[str]] = None,
     dpi: int = 300,
@@ -633,8 +465,6 @@ def run_full_features_correctness_julia_glmer_bundle(
         test_split=test_split,
         fold=fold,
         sources=sources,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
         random_state=random_state,
     )
@@ -711,8 +541,6 @@ def run_full_features_correctness_julia_glmer_bundle(
 
     trial_df = _load_or_build_full_trial_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=keep_cols,
     )
 
@@ -749,8 +577,6 @@ def run_full_features_correctness_julia_glmer_bundle(
 def run_full_features_correctness_julia_glmer_fit_all(
     df: pd.DataFrame,
     feature_cols: Optional[Sequence[str]] = None,
-    pref_specs: Optional[Sequence[Tuple[str, str]]] = Con.PREF_SPECS,
-    pref_extreme_mode: str = "polarity",
     save: bool = True,
     paper_dirs: Optional[List[str]] = None,
     dpi: int = 300,
@@ -761,8 +587,6 @@ def run_full_features_correctness_julia_glmer_fit_all(
     participant_effects_mode: str = "slopes",
     text_effects_mode: str = "slopes",
 ) -> Dict[str, Any]:
-    pref_specs = pref_specs if pref_specs is not None else Con.PREF_SPECS
-
     model = TrialLevelJuliaGLMERModel()
     model.participant_effects_mode = participant_effects_mode
     model.text_effects_mode = text_effects_mode
@@ -777,8 +601,6 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     fit_df = _load_or_build_full_trial_df(
         df=df,
-        pref_specs=pref_specs,
-        pref_extreme_mode=pref_extreme_mode,
         keep_cols=[Con.TEXT_ID_WITH_Q_COLUMN],
     )
 

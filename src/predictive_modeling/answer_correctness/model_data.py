@@ -47,15 +47,6 @@ ANSWER_RT_TFD_METRICS = (
     "TimeSinceOffset_pure",
     "TimeSinceOffset_normalized",
 )
-# Paragraph metrics that can interact with answer-region columns (no RT/TFD mixing).
-# TimeSinceOffset has no paragraph counterpart, so it produces no interactions.
-PARA_X_ANS_INTERACTION_METRICS = (
-    "RT_pure",
-    "RT_normalized",
-    "TFD_pure",
-    "TFD_normalized",
-)
-RT_TFD_INTERACTION_SEP = "__x__"
 
 # ---------------------------------------------------------------------
 # Small helpers
@@ -203,33 +194,27 @@ def build_trial_level_rt_tfd_features(
     """
     Trial-level features derived from the RT_and_TFD merge:
 
-    - One feature per answer region per metric — column name f"{metric}_{region}"
-      for region in ANSWER_REGIONS and metric in ANSWER_RT_TFD_METRICS
-      (RT/TFD/TimeSinceOffset, pure & normalized).
-    - Paragraph × answer interaction terms within the same metric kind and
-      variant (no RT/TFD mixing) — column name
-      f"{metric}_{para}__x__{metric}_{ans}" for metric in
-      PARA_X_ANS_INTERACTION_METRICS. TimeSinceOffset has no paragraph
-      counterpart, so it produces no interactions.
-
-    Paragraph base columns are not emitted as standalone features.
+    - One feature per region per metric — column name f"{metric}_{region}"
+      for region in ANSWER_REGIONS + PARAGRAPH_REGIONS and metric in
+      ANSWER_RT_TFD_METRICS (RT/TFD/TimeSinceOffset, pure & normalized).
+      Paragraph regions (outside, distractor, critical) have no TimeSinceOffset
+      counterpart, so those columns are simply absent.
+    - For each metric, correct/wrong contrast columns derived from the answer
+      regions (answer_A is correct) — column names f"{metric}_correct",
+      f"{metric}_wrong_mean", f"{metric}_contrast", f"{metric}_distance_furthest"
+      and f"{metric}_distance_closest". The "question" and paragraph regions are
+      left untouched.
     """
     keep_cols = _deduplicate_keep_cols(keep_cols)
 
-    answer_cols = [
+    metric_cols = [
         f"{m}_{r}"
         for m in ANSWER_RT_TFD_METRICS
-        for r in RT_ANSWER_REGIONS
-        if f"{m}_{r}" in df.columns
-    ]
-    paragraph_cols = [
-        f"{m}_{r}"
-        for m in PARA_X_ANS_INTERACTION_METRICS
-        for r in RT_PARAGRAPH_REGIONS
+        for r in tuple(RT_ANSWER_REGIONS) + tuple(RT_PARAGRAPH_REGIONS)
         if f"{m}_{r}" in df.columns
     ]
 
-    cols = list(TRIAL_ID_COLS) + keep_cols + [target_col] + answer_cols + paragraph_cols
+    cols = list(TRIAL_ID_COLS) + keep_cols + [target_col] + metric_cols
     cols = list(dict.fromkeys(cols))
 
     trial = (
@@ -241,30 +226,27 @@ def build_trial_level_rt_tfd_features(
     )
     trial[target_col] = pd.to_numeric(trial[target_col], errors="coerce").astype(int)
 
-    for c in answer_cols + paragraph_cols:
+    for c in metric_cols:
         trial[c] = pd.to_numeric(trial[c], errors="coerce")
 
-    interaction_cols: dict[str, pd.Series] = {}
-    for metric in PARA_X_ANS_INTERACTION_METRICS:
-        for p_region in RT_PARAGRAPH_REGIONS:
-            p_col = f"{metric}_{p_region}"
-            if p_col not in trial.columns:
-                continue
-            for a_region in RT_ANSWER_REGIONS:
-                a_col = f"{metric}_{a_region}"
-                if a_col not in trial.columns:
-                    continue
-                interaction_cols[f"{p_col}{RT_TFD_INTERACTION_SEP}{a_col}"] = (
-                    trial[p_col] * trial[a_col]
-                )
-
-    if interaction_cols:
-        trial = pd.concat(
-            [trial, pd.DataFrame(interaction_cols, index=trial.index)], axis=1
+    # Correct/wrong contrast columns over the answer regions (answer_A is correct).
+    # Column names are f"{metric}_{region}", so the separator here is a single "_".
+    # Only metrics whose four answer-region columns are all present can be
+    # contrasted (the builder assumes the columns exist).
+    contrast_answer_regions = ("answer_A", "answer_B", "answer_C", "answer_D")
+    contrast_metrics = [
+        m
+        for m in ANSWER_RT_TFD_METRICS
+        if all(f"{m}_{r}" in trial.columns for r in contrast_answer_regions)
+    ]
+    if contrast_metrics:
+        trial = add_answer_correct_wrong_contrast_columns(
+            df_pivot=trial,
+            metric_cols=contrast_metrics,
+            sep="_",
+            correct_label="answer_A",
+            wrong_labels=("answer_B", "answer_C", "answer_D"),
         )
-
-    if paragraph_cols:
-        trial = trial.drop(columns=paragraph_cols)
 
     return trial
 
@@ -310,6 +292,7 @@ def build_trial_level_model_df(
     include_last_lbl_before_confirm_features: bool = True,
     include_last_lbl_before_select_features: bool = True,
     include_rt_tfd_features: bool = True,
+    include_total_answering_rt: bool = True,
     numeric_feature_cols: Sequence[str] = (Con.NUM_OF_SELECTS,),
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
@@ -402,6 +385,15 @@ def build_trial_level_model_df(
         )
         out = out.merge(numeric_df, on=list(TRIAL_ID_COLS), how="left")
 
+    # Trial-level total answering RT, taken from the raw CONFIRM_FINAL_ANSWER_RT
+    # column and exposed under the friendlier name TOTAL_ANSWERING_RT.
+    if include_total_answering_rt and Con.CONFIRM_FINAL_ANSWER_RT in df.columns:
+        total_rt_df = build_trial_level_constant_numeric_features(
+            df=df,
+            feature_cols=[Con.CONFIRM_FINAL_ANSWER_RT],
+        ).rename(columns={Con.CONFIRM_FINAL_ANSWER_RT: Con.TOTAL_ANSWERING_RT})
+        out = out.merge(total_rt_df, on=list(TRIAL_ID_COLS), how="left")
+
     return out
 
 
@@ -431,6 +423,7 @@ def save_all_features(
         include_last_lbl_before_confirm_features=True,
         include_last_lbl_before_select_features=True,
         include_rt_tfd_features=True,
+        include_total_answering_rt=True,
     )
 
     output_path = Path(output_path)

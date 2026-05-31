@@ -5,7 +5,6 @@ import pandas as pd
 
 from src import constants as Con
 
-
 DERIVED_BASE_FEATURES = [
     "seq_len",
     "has_xyx",
@@ -23,7 +22,23 @@ RT_TFD_ANSWER_METRICS = (
     "TimeSinceOffset_normalized",
 )
 RT_TFD_ANSWER_REGIONS = ("question", "answer_A", "answer_B", "answer_C", "answer_D")
-RT_TFD_INTERACTION_SEP = "__x__"
+RT_TFD_PARAGRAPH_REGIONS = ("outside", "distractor", "critical")
+# Correct/wrong contrast suffixes derived from the answer regions.
+RT_TFD_CONTRAST_SUFFIXES = (
+    Con.CORRECT_SUFFIX,
+    Con.WRONG_MEAN_SUFFIX,
+    Con.CONTRAST_SUFFIX,
+    Con.DISTANCE_FURTHEST_SUFFIX,
+    Con.DISTANCE_CLOSEST_SUFFIX,
+)
+# Correct/wrong contrast suffixes derived from the answer regions.
+RT_TFD_CONTRAST_SUFFIXES = (
+    Con.CORRECT_SUFFIX,
+    Con.WRONG_MEAN_SUFFIX,
+    Con.CONTRAST_SUFFIX,
+    Con.DISTANCE_FURTHEST_SUFFIX,
+    Con.DISTANCE_CLOSEST_SUFFIX,
+)
 
 
 def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
@@ -85,18 +100,27 @@ def get_last_visited_feature_cols(df: pd.DataFrame) -> List[str]:
 def get_rt_tfd_feature_cols(df: pd.DataFrame) -> List[str]:
     """
     Feature columns produced by build_trial_level_rt_tfd_features:
-      - per-area answer features:  f"{metric}_{region}" for metric in
-        RT_TFD_ANSWER_METRICS and region in RT_TFD_ANSWER_REGIONS.
-      - paragraph x answer interaction columns (any column containing
-        RT_TFD_INTERACTION_SEP).
+      - per-region features:  f"{metric}_{region}" for metric in
+        RT_TFD_ANSWER_METRICS and region in
+        RT_TFD_ANSWER_REGIONS + RT_TFD_PARAGRAPH_REGIONS. Paragraph regions
+        (outside, distractor, critical) have no TimeSinceOffset counterpart,
+        so those columns are simply absent.
+      - correct/wrong contrast features derived from the answer regions:
+        f"{metric}_{suffix}" for suffix in RT_TFD_CONTRAST_SUFFIXES.
+      - the trial-level total answering RT (Con.TOTAL_ANSWERING_RT).
     """
     cols: List[str] = []
     for metric in RT_TFD_ANSWER_METRICS:
-        for region in RT_TFD_ANSWER_REGIONS:
+        for region in RT_TFD_ANSWER_REGIONS + RT_TFD_PARAGRAPH_REGIONS:
             col = f"{metric}_{region}"
             if col in df.columns:
                 cols.append(col)
-    cols.extend(sorted(c for c in df.columns if RT_TFD_INTERACTION_SEP in c))
+        for suffix in RT_TFD_CONTRAST_SUFFIXES:
+            col = f"{metric}_{suffix}"
+            if col in df.columns:
+                cols.append(col)
+    if Con.TOTAL_ANSWERING_RT in df.columns:
+        cols.append(Con.TOTAL_ANSWERING_RT)
     return cols
 
 
@@ -106,8 +130,7 @@ def get_full_feature_cols(df: pd.DataFrame) -> List[str]:
       - area features
       - derived features
       - last visited one-hot features
-      - RT / TFD / TimeSinceOffset features (per-area answer + paragraph x answer
-        interactions)
+      - RT / TFD / TimeSinceOffset features (per-region: answer + paragraph)
     """
     cols: List[str] = []
     cols.extend(get_area_feature_cols(df))

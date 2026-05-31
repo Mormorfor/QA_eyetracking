@@ -167,6 +167,11 @@ def _rt_family_groups() -> Dict[str, List[str]]:
         "tfd": list(fg.TFD_COLS),
         "tso": list(fg.TIME_SINCE_OFFSET_COLS),
         "rt_tfd_tso": list(fg.RT_TFD_OFFSET_COLS),
+        # per-answer RT/TFD/TSO (raw answer_A-D columns; not in ALL_FEATURES)
+        "rt_per_answer": list(fg.RT_PER_ANSWER_COLS),
+        "tfd_per_answer": list(fg.TFD_PER_ANSWER_COLS),
+        "tso_per_answer": list(fg.TIME_SINCE_OFFSET_PER_ANSWER_COLS),
+        "rt_tfd_tso_per_answer": list(fg.RT_TFD_OFFSET_PER_ANSWER_COLS),
     }
 
 

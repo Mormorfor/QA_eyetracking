@@ -105,66 +105,78 @@ LAST_ALL: List[str] = LAST_ANSWER + LAST_CONFIRM + LAST_SELECT
 
 
 # ---------------------------------------------------------------------------
-# Manually curated feature subsets
-# ---------------------------------------------------------------------------
-
-SELECT_1_METRIC_COLUMNS: List[str] = [
-    Con.SKIP_RATE,
-    Con.AREA_DWELL_PROPORTION,
-    Con.NUM_LABEL_VISITS,
-]
-
-SELECT_1_COLS: List[str] = (
-    [f"{m}__{Con.CORRECT_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
-    + [f"{m}__{Con.WRONG_MEAN_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
-    + ["seq_len", "has_xyx"]
-)
-
-
-# ---------------------------------------------------------------------------
 # RT / TFD / TimeSinceOffset feature groups
 # (column names produced by build_trial_level_rt_tfd_features in model_data.py)
 # ---------------------------------------------------------------------------
 
-RT_TFD_ANSWER_REGIONS: List[str] = [
-    "question",
-    "answer_A",
-    "answer_B",
-    "answer_C",
-    "answer_D",
-]
 RT_TFD_PARAGRAPH_REGIONS: List[str] = ["outside", "distractor", "critical"]
-RT_TFD_VARIANTS: List[str] = ["normalized"] # ["pure", "normalized"]
-RT_TFD_INTERACTION_SEP: str = "__x__"
+RT_TFD_VARIANTS: List[str] = ["normalized"]  # ["pure", "normalized"]
 
-RT_COLS: List[str] = [
-    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
+# Correct/wrong contrast suffixes derived from the answer regions.
+RT_TFD_CONTRAST_SUFFIXES: List[str] = [
+    Con.CORRECT_SUFFIX,
+    Con.WRONG_MEAN_SUFFIX,
+    Con.CONTRAST_SUFFIX,
+    Con.DISTANCE_FURTHEST_SUFFIX,
+    Con.DISTANCE_CLOSEST_SUFFIX,
 ]
+
+# Regions kept as standalone columns in the aggregate feature sets: the question
+# and paragraph regions. The four answer regions (answer_A-D) are represented
+# through the correct/wrong contrast suffixes instead, mirroring AREA_COLS (which
+# excludes per-answer columns and keeps only the contrast + question variants).
+RT_TFD_NON_ANSWER_REGIONS: List[str] = ["question"] + RT_TFD_PARAGRAPH_REGIONS
+
+RT_COLS: List[str] = (
+    [f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS]
+    + [f"RT_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
+)
 
 TFD_COLS: List[str] = [
-    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
-]
+    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS
+] + [f"TFD_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
 
+# TimeSinceOffset has no paragraph counterpart, so among the non-answer regions
+# only "question" applies; it still gets the answer-region contrast columns
+# (computed from answer_A-D).
 TIME_SINCE_OFFSET_COLS: List[str] = [
-    f"TimeSinceOffset_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_ANSWER_REGIONS
+    f"TimeSinceOffset_{v}_question" for v in RT_TFD_VARIANTS
+] + [
+    f"TimeSinceOffset_{v}_{s}"
+    for v in RT_TFD_VARIANTS
+    for s in RT_TFD_CONTRAST_SUFFIXES
 ]
 
-RT_INTERACTION_COLS: List[str] = [
-    f"RT_{v}_{p}{RT_TFD_INTERACTION_SEP}RT_{v}_{a}"
-    for v in RT_TFD_VARIANTS
-    for p in RT_TFD_PARAGRAPH_REGIONS
-    for a in RT_TFD_ANSWER_REGIONS
-]
-
-TFD_INTERACTION_COLS: List[str] = [
-    f"TFD_{v}_{p}{RT_TFD_INTERACTION_SEP}TFD_{v}_{a}"
-    for v in RT_TFD_VARIANTS
-    for p in RT_TFD_PARAGRAPH_REGIONS
-    for a in RT_TFD_ANSWER_REGIONS
-]
 
 RT_TFD_OFFSET_COLS: List[str] = RT_COLS + TFD_COLS + TIME_SINCE_OFFSET_COLS
-RT_TFD_INTERACTION_COLS: List[str] = RT_INTERACTION_COLS + TFD_INTERACTION_COLS
+
+
+# ---------------------------------------------------------------------------
+# Per-answer RT / TFD / TimeSinceOffset groups (raw answer_A-D columns).
+# Available as standalone named groups for targeted experiments, but
+# deliberately NOT part of ALL_FEATURES / GENERAL_FEATURES (those use the
+# correct/wrong contrast representation of the answers instead).
+# ---------------------------------------------------------------------------
+
+RT_TFD_PER_ANSWER_REGIONS: List[str] = ["answer_A", "answer_B", "answer_C", "answer_D"]
+
+RT_PER_ANSWER_COLS: List[str] = [
+    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_PER_ANSWER_REGIONS
+]
+
+TFD_PER_ANSWER_COLS: List[str] = [
+    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_PER_ANSWER_REGIONS
+]
+
+TIME_SINCE_OFFSET_PER_ANSWER_COLS: List[str] = [
+    f"TimeSinceOffset_{v}_{r}"
+    for v in RT_TFD_VARIANTS
+    for r in RT_TFD_PER_ANSWER_REGIONS
+]
+
+RT_TFD_OFFSET_PER_ANSWER_COLS: List[str] = (
+    RT_PER_ANSWER_COLS + TFD_PER_ANSWER_COLS + TIME_SINCE_OFFSET_PER_ANSWER_COLS
+)
 
 
 # ---------------------------------------------------------------------------
@@ -179,8 +191,6 @@ ALL_FEATURES_NO_LAST: List[str] = (
     + RT_COLS
     + TFD_COLS
     + TIME_SINCE_OFFSET_COLS
-    + RT_INTERACTION_COLS
-    + TFD_INTERACTION_COLS
 )
 
 ALL_FEATURES: List[str] = (
@@ -196,4 +206,21 @@ ALL_FEATURES: List[str] = (
 
 GENERAL_FEATURES: List[str] = (
     AREA_COLS + PER_QUESTION_COLS + DERIVED_COLS + [Con.NUM_OF_SELECTS]
+)
+
+
+# ---------------------------------------------------------------------------
+# Manually curated feature subsets
+# ---------------------------------------------------------------------------
+
+SELECT_1_METRIC_COLUMNS: List[str] = [
+    Con.SKIP_RATE,
+    Con.AREA_DWELL_PROPORTION,
+    Con.NUM_LABEL_VISITS,
+]
+
+SELECT_1_COLS: List[str] = (
+    [f"{m}__{Con.CORRECT_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
+    + [f"{m}__{Con.WRONG_MEAN_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
+    + ["seq_len", "has_xyx"]
 )
