@@ -773,3 +773,284 @@ def run_all_trial_mean_dwell_continuous_plots(
         "all_participants": _run_for_group(all_participants, "all_participants"),
     }
 
+
+
+# ------------------------------------------
+# Total answering reading time
+# ------------------------------------------
+
+def plot_correctness_by_total_answering_rt_continuous(
+    df: pd.DataFrame,
+    rt_col: str = "total_answering_RT",
+    correct_col: str = Con.IS_CORRECT_COLUMN,
+    figsize: Tuple[int, int] = (7, 4),
+    save: bool = False,
+    h_or_g: str = "hunters",
+    title: Optional[str] = None,
+    output_root: str = "../reports/plots/correctness_measures",
+    report_root: str = "../reports/report_data",
+    bin_width: Optional[float] = None,
+    n_bins: Optional[int] = 10,
+    min_n_per_bin: int = 10,
+    x_max: Optional[float] = None,
+    show_ci: bool = True,
+) -> Tuple[plt.Figure, pd.DataFrame]:
+    """
+    Plot correctness rate as a function of total answering reading time.
+
+    Since total_answering_RT is continuous, the function bins trials by RT and
+    computes correctness rate within each bin.
+
+    Returns
+    -------
+    fig, summary_df
+        summary_df contains:
+        bin_left, bin_right, bin_center, n, k_correct, accuracy, ci_low, ci_high
+    """
+    required_cols = [Con.TRIAL_ID, Con.PARTICIPANT_ID, rt_col, correct_col]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required column(s): {missing_cols}")
+
+    def _wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
+        if n <= 0:
+            return (np.nan, np.nan)
+        phat = k / n
+        denom = 1 + (z**2) / n
+        center = (phat + (z**2) / (2 * n)) / denom
+        half = (z / denom) * np.sqrt(
+            (phat * (1 - phat) + (z**2) / (4 * n)) / n
+        )
+        return (max(0.0, center - half), min(1.0, center + half))
+
+    d = df[required_cols].copy()
+    d[rt_col] = pd.to_numeric(d[rt_col], errors="coerce")
+    d[correct_col] = pd.to_numeric(d[correct_col], errors="coerce")
+    d = d.dropna(subset=[rt_col, correct_col]).copy()
+    d[correct_col] = d[correct_col].astype(int)
+
+    # If the dataframe is word-/IA-level, the same trial can appear in multiple rows.
+    # We collapse to one row per participant-trial before calculating accuracy.
+    trial_df = (
+        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
+        .agg(
+            total_answering_rt=(rt_col, "first"),
+            is_correct=(correct_col, "first"),
+        )
+    )
+
+    trial_df["total_answering_rt_sec"] = trial_df["total_answering_rt"] / 1000
+
+    if x_max is not None:
+        trial_df = trial_df[trial_df["total_answering_rt_sec"] <= float(x_max)].copy()
+
+    x = trial_df["total_answering_rt_sec"].to_numpy()
+
+    if len(x) == 0:
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.set_title(title or f"{h_or_g}: Correctness by total answering RT")
+        ax.set_xlabel("Total answering time (s)")
+        ax.set_ylabel("Correctness rate")
+        ax.set_ylim(0, 1)
+        fig.tight_layout()
+
+        empty_summary = pd.DataFrame(
+            columns=[
+                "bin_left",
+                "bin_right",
+                "bin_center",
+                "n",
+                "k_correct",
+                "accuracy",
+                "ci_low",
+                "ci_high",
+            ]
+        )
+        return fig, empty_summary
+
+    xmin = float(np.nanmin(x))
+    xmax = float(np.nanmax(x))
+
+    if bin_width is not None:
+        bw = float(bin_width)
+        start = np.floor(xmin / bw) * bw
+        end = np.ceil(xmax / bw) * bw
+
+        if end == start:
+            end = start + bw
+
+        edges = np.arange(start, end + bw, bw)
+
+    else:
+        nb = int(n_bins) if n_bins is not None else 10
+        nb = max(nb, 2)
+        edges = np.linspace(xmin, xmax, nb + 1)
+
+    # If all RT values are identical, create one valid bin around that value.
+    if len(np.unique(edges)) < 2:
+        edges = np.array([xmin - 0.5, xmax + 0.5], dtype=float)
+
+    bin_idx = np.digitize(
+        trial_df["total_answering_rt_sec"].to_numpy(),
+        edges,
+        right=False,
+    ) - 1
+
+    # Include values that fall exactly on the rightmost edge in the final bin.
+    bin_idx[bin_idx == len(edges) - 1] = len(edges) - 2
+
+    valid = (bin_idx >= 0) & (bin_idx < len(edges) - 1)
+    trial_df = trial_df.loc[valid].copy()
+    trial_df["_bin"] = bin_idx[valid]
+
+    agg = (
+        trial_df.groupby("_bin", as_index=False)
+        .agg(
+            n=("is_correct", "size"),
+            k_correct=("is_correct", "sum"),
+        )
+        .sort_values("_bin")
+        .reset_index(drop=True)
+    )
+
+    agg["bin_left"] = agg["_bin"].apply(lambda i: float(edges[int(i)]))
+    agg["bin_right"] = agg["_bin"].apply(lambda i: float(edges[int(i) + 1]))
+    agg["bin_center"] = (agg["bin_left"] + agg["bin_right"]) / 2.0
+
+    if min_n_per_bin is not None and min_n_per_bin > 1:
+        agg = agg[agg["n"] >= int(min_n_per_bin)].copy()
+
+    agg["accuracy"] = agg["k_correct"] / agg["n"]
+
+    cis = agg.apply(
+        lambda r: _wilson_ci(int(r["k_correct"]), int(r["n"])),
+        axis=1,
+    )
+    agg["ci_low"] = [c[0] for c in cis]
+    agg["ci_high"] = [c[1] for c in cis]
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.plot(
+        agg["bin_center"],
+        agg["accuracy"],
+        marker="o",
+    )
+
+    if show_ci and len(agg) > 0 and agg["ci_low"].notna().any():
+        ax.fill_between(
+            agg["bin_center"].to_numpy(),
+            agg["ci_low"].to_numpy(),
+            agg["ci_high"].to_numpy(),
+            alpha=0.2,
+        )
+
+    default_title = f"{h_or_g}: Correctness by total answering RT"
+    ax.set_title(title or default_title)
+    ax.set_xlabel("Total answering time (s)")
+    ax.set_ylabel("Correctness rate")
+    ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+
+    if save:
+        plot_dir = os.path.join(
+            output_root,
+            "correctness_by_total_answering_rt_continuous",
+        )
+        data_dir = os.path.join(
+            report_root,
+            "correctness_by_total_answering_rt_continuous",
+        )
+        os.makedirs(plot_dir, exist_ok=True)
+        os.makedirs(data_dir, exist_ok=True)
+
+        if bin_width is not None:
+            suffix = f"bw_{bin_width}"
+        else:
+            suffix = f"nbins_{int(n_bins) if n_bins is not None else 10}"
+
+        if x_max is not None:
+            suffix += f"__xmax_{x_max}"
+
+        base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_bin}"
+
+        fig.savefig(os.path.join(plot_dir, f"{base_name}.png"), dpi=300)
+        agg.to_csv(
+            os.path.join(data_dir, f"{base_name}__summary.csv"),
+            index=False,
+        )
+
+    return fig, agg[
+        [
+            "bin_left",
+            "bin_right",
+            "bin_center",
+            "n",
+            "k_correct",
+            "accuracy",
+            "ci_low",
+            "ci_high",
+        ]
+    ]
+
+
+def run_all_total_answering_rt_continuous_plots(
+    hunters: pd.DataFrame,
+    gatherers: pd.DataFrame,
+    output_root: str = "../reports/plots/correctness_measures",
+    report_root: str = "../reports/report_data",
+    save_plots: bool = True,
+    print_summaries: bool = False,
+    rt_col: str = "CONFIRM_FINAL_ANSWER_RT",
+    correct_col: str = Con.IS_CORRECT_COLUMN,
+    bin_width: Optional[float] = None,
+    n_bins: Optional[int] = 10,
+    min_n_per_bin: int = 10,
+    x_max: Optional[float] = None,
+    show_ci: bool = True,
+) -> Dict[str, Dict[str, object]]:
+    """
+    Continuous total-answering-RT plots for:
+      - hunters
+      - gatherers
+      - all_participants
+
+    Returns results[group] = {"fig": fig, "summary": df}
+    """
+
+    def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[str, object]:
+        fig, summary = plot_correctness_by_total_answering_rt_continuous(
+            df=df,
+            rt_col=rt_col,
+            correct_col=correct_col,
+            h_or_g=group_name,
+            save=save_plots,
+            output_root=output_root,
+            report_root=report_root,
+            bin_width=bin_width,
+            n_bins=n_bins,
+            min_n_per_bin=min_n_per_bin,
+            x_max=x_max,
+            show_ci=show_ci,
+        )
+
+        if print_summaries:
+            print(f"\n=== {group_name.upper()} — continuous total answering RT ===")
+            print(summary.head(10))
+
+            if len(summary) > 0:
+                print(f"... ({len(summary)} bins total)")
+
+        return {
+            "fig": fig,
+            "summary": summary,
+        }
+
+    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
+    return {
+        "hunters": _run_for_group(hunters, "hunters"),
+        "gatherers": _run_for_group(gatherers, "gatherers"),
+        "all_participants": _run_for_group(all_participants, "all_participants"),
+    }

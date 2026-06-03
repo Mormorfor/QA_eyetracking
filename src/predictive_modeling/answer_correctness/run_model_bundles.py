@@ -59,7 +59,6 @@ def _build_full_trial_df(
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_answer_features=True,
     )
 
 
@@ -138,7 +137,6 @@ def build_train_test_trial_dfs(
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_answer_features=True,
     )
 
     test_df = build_trial_level_model_df(
@@ -147,7 +145,6 @@ def build_train_test_trial_dfs(
         target_col=Con.IS_CORRECT_COLUMN,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_answer_features=True,
     )
 
     return train_df, test_df, split_info

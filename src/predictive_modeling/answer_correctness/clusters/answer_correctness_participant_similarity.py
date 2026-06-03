@@ -127,7 +127,7 @@ def default_feature_families() -> Dict[str, FamilyRule]:
         "dwell":      lambda f: "dwell" in f.lower(),
         "skip":       lambda f: "skip" in f.lower(),
         "fixation":   lambda f: "fix" in f.lower(),
-        "sequence":   lambda f: f in {"seq_len", "has_xyx", "has_xyxy"},
+        "sequence":   lambda f: f in {"seq_len", "has_xyx", "has_xyxy", "longest_alt_answer_run"},
         "other":      lambda f: True,
     }
 

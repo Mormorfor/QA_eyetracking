@@ -9,6 +9,7 @@ DERIVED_BASE_FEATURES = [
     "seq_len",
     "has_xyx",
     "has_xyxy",
+    "longest_alt_answer_run",
     "trial_mean_dwell",
 ]
 

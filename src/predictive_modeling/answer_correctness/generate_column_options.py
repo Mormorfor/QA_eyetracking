@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 from viz.plot_output import _answer_correctness_rel_dir, save_plot
 from src.predictive_modeling.answer_correctness.feature_groups import (
     LAST_ALL,
-    LAST_ANSWER,
     LAST_CONFIRM,
     LAST_SELECT,
 )
@@ -154,10 +153,12 @@ DEFAULT_CORR_THRESHOLDS: Tuple[float, ...] = (0.5, 0.7, 0.9)
 
 def _last_groups() -> Dict[str, List[str]]:
     return {
-        "last_ans": list(fg.LAST_ANSWER),
-        "last_confirm": list(fg.LAST_CONFIRM),
-        "last_select": list(fg.LAST_SELECT),
+        "last_confirm": list(fg.LAST_CONFIRM_LONG),
+        "last_confirm_compact": list(fg.LAST_CONFIRM_COMPACT),
+        "last_select": list(fg.LAST_SELECT_LONG),
+        "last_select_compact": list(fg.LAST_SELECT_COMPACT),
         "last_all": list(fg.LAST_ALL),
+        "last_all_compact": list(fg.LAST_ALL_COMPACT),
     }
 
 
@@ -383,9 +384,10 @@ def generate_general_plus_rt_family_sets(
 
 # --------------------------------------------------------------------------
 # Group 5: groups 3 and 4 augmented with RT / TFD / both interaction terms
-#   For each base in (last_ans, last_confirm, last_select, last_all,
-#   rt, tfd, tso, rt_tfd_tso) we add each of (rt_int, tfd_int, rt_tfd_int)
-#   on top of `general + base`. 8 * 3 = 24 sets.
+#   For each base in (last_confirm, last_confirm_compact, last_select,
+#   last_select_compact, last_all, last_all_compact, rt, tfd, tso,
+#   rt_tfd_tso) we add each of (rt_int, tfd_int, rt_tfd_int) on top of
+#   `general + base`. 10 * 3 = 30 sets.
 # --------------------------------------------------------------------------
 def generate_general_plus_addons_with_interactions_sets(
     folder_path: str = COL_SAVE_PATH,
@@ -921,7 +923,6 @@ def generate_k_most_frequent_feature_sets_from_full_files(
     the given substring filters and saves:
 
     - k_most_frequent
-    - k_most_frequent_last_ans
     - k_most_frequent_last_confirm
     - k_most_frequent_last_select
     - k_most_frequent_last_all
@@ -1004,8 +1005,7 @@ def generate_k_most_frequent_feature_sets_from_full_files(
     # ------------------------------------------------------------------
     feature_sets = {
         f"{k}_most_frequent": k_base,
-        f"{k}_most_frequent_last_ans": _dedupe_keep_order(k_base + LAST_ANSWER),
-        f"{k}_most_frequent_last_confirm": _dedupe_keep_order(k_base + LAST_SELECT),
+        f"{k}_most_frequent_last_confirm": _dedupe_keep_order(k_base + LAST_CONFIRM),
         f"{k}_most_frequent_last_select": _dedupe_keep_order(k_base + LAST_SELECT),
         f"{k}_most_frequent_last_all": _dedupe_keep_order(k_base + LAST_ALL),
     }

@@ -26,6 +26,7 @@ from src.predictive_modeling.common.feature_specs import (
 from src.derived.correctness_measures import (
     has_back_and_forth_xyx,
     has_back_and_forth_xyxy,
+    longest_alternating_answer_run,
     compute_trial_mean_dwell_per_word,
 )
 
@@ -153,6 +154,9 @@ def build_trial_level_derived_features(
     d["_seq_len"] = d["_seq"].apply(lambda s: len(s) if isinstance(s, (list, tuple)) else 0)
     d["_has_xyx"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False)
     d["_has_xyxy"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False)
+    d["_longest_alt_answer_run"] = d["_seq"].apply(
+        lambda s: longest_alternating_answer_run(s) if s is not None else 0
+    )
     d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col=dwell_col)
 
     agg_dict = {
@@ -160,6 +164,7 @@ def build_trial_level_derived_features(
         "_seq_len": "first",
         "_has_xyx": "first",
         "_has_xyxy": "first",
+        "_longest_alt_answer_run": "first",
         "_trial_mean_dwell": "first",
     }
     for c in keep_cols:
@@ -172,12 +177,14 @@ def build_trial_level_derived_features(
             "_seq_len": "seq_len",
             "_has_xyx": "has_xyx",
             "_has_xyxy": "has_xyxy",
+            "_longest_alt_answer_run": "longest_alt_answer_run",
             "_trial_mean_dwell": "trial_mean_dwell",
         })
     )
 
     out["has_xyx"] = out["has_xyx"].astype(int)
     out["has_xyxy"] = out["has_xyxy"].astype(int)
+    out["longest_alt_answer_run"] = out["longest_alt_answer_run"].astype(int)
 
     return out
 
@@ -261,7 +268,13 @@ def build_trial_level_last_visited_features(
     prefix: str = "last_visited",
 ) -> pd.DataFrame:
     """
-    One-hot encode the last visited label at trial level.
+    One-hot encode the last visited label at trial level, and add semantic
+    indicator columns derived from those dummies (answer_A is the correct
+    answer, answer_B/C/D are wrong):
+
+      * f"{prefix}_correct"  -- last label is the correct answer (answer_A)
+      * f"{prefix}_wrong"    -- last label is a wrong answer (answer_B/C/D)
+      * f"{prefix}_question" -- last label is the question
     """
     out = build_trial_level_categorical_feature(
         df=df,
@@ -274,6 +287,18 @@ def build_trial_level_last_visited_features(
     dummy_cols = [c for c in out.columns if c not in TRIAL_ID_COLS]
     if dummy_cols:
         out[dummy_cols] = out[dummy_cols].fillna(0).astype(int)
+
+    def _dummy(label: str) -> pd.Series:
+        col = f"{prefix}_{label}"
+        if col in out.columns:
+            return out[col]
+        return pd.Series(0, index=out.index, dtype=int)
+
+    out[f"{prefix}_correct"] = _dummy("answer_A")
+    out[f"{prefix}_wrong"] = (
+        _dummy("answer_B") | _dummy("answer_C") | _dummy("answer_D")
+    ).astype(int)
+    out[f"{prefix}_question"] = _dummy("question")
 
     return out
 
@@ -288,7 +313,6 @@ def build_trial_level_model_df(
     target_col: str = Con.IS_CORRECT_COLUMN,
     include_area_features: bool = True,
     include_derived_features: bool = True,
-    include_last_visited_answer_features: bool = True,
     include_last_lbl_before_confirm_features: bool = True,
     include_last_lbl_before_select_features: bool = True,
     include_rt_tfd_features: bool = True,
@@ -342,14 +366,6 @@ def build_trial_level_model_df(
             on=list(TRIAL_ID_COLS),
             how="left",
         )
-
-    if include_last_visited_answer_features:
-        last_visited_df = build_trial_level_last_visited_features(
-            df=df,
-            feature_col=Con.LAST_VISITED_LABEL,
-            prefix="last_visited",
-        )
-        out = out.merge(last_visited_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_last_lbl_before_confirm_features:
         last_before_confirm_df = build_trial_level_last_visited_features(
@@ -419,7 +435,6 @@ def save_all_features(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_answer_features=True,
         include_last_lbl_before_confirm_features=True,
         include_last_lbl_before_select_features=True,
         include_rt_tfd_features=True,
@@ -462,7 +477,6 @@ def make_area_only_dataset(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=False,
-        include_last_visited_answer_features=False,
         include_rt_tfd_features=False,
     )
 
@@ -480,7 +494,6 @@ def make_derived_dataset(
     df: pd.DataFrame,
     keep_cols: Optional[Sequence[str]] = None,
     target_col: str = Con.IS_CORRECT_COLUMN,
-    include_last_visited_features: bool = False,
 ) -> PreparedTrialDataset:
     """
     Build a prepared dataset for derived-feature logistic regression.
@@ -491,20 +504,10 @@ def make_derived_dataset(
         target_col=target_col,
         include_area_features=False,
         include_derived_features=True,
-        include_last_visited_answer_features=include_last_visited_features,
         include_rt_tfd_features=False,
     )
 
     feature_cols = get_derived_feature_cols(trial_df)
-    if include_last_visited_features:
-        feature_cols = get_full_feature_cols(
-            trial_df[[c for c in trial_df.columns if c in (list(trial_df.columns))]]
-        )
-        feature_cols = [c for c in feature_cols if c in trial_df.columns and not c.endswith("__correct")]
-
-        # keep only derived + last_visited, not area features
-        area_cols = set(get_area_feature_cols(trial_df))
-        feature_cols = [c for c in feature_cols if c not in area_cols]
 
     return PreparedTrialDataset(
         df=trial_df,
@@ -528,7 +531,6 @@ def make_full_dataset(
         target_col=target_col,
         include_area_features=True,
         include_derived_features=True,
-        include_last_visited_answer_features=True,
         include_rt_tfd_features=True,
     )
 

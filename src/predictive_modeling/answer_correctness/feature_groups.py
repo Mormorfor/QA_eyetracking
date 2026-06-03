@@ -37,6 +37,7 @@ DERIVED_COLS: List[str] = [
     "seq_len",
     "has_xyx",
     "has_xyxy",
+    "longest_alt_answer_run",
     "trial_mean_dwell",
 ]
 
@@ -78,30 +79,45 @@ PER_QUESTION_COLS: List[str] = [f"{m}__question" for m in METRIC_COLUMNS]
 # Last-visited / last-before-action one-hot groups
 # ---------------------------------------------------------------------------
 
-LAST_ANSWER: List[str] = [
-    "last_visited_answer_A",
-    "last_visited_answer_B",
-    "last_visited_answer_C",
-    "last_visited_answer_D",
-]
+# Each "last before action" feature comes in two flavors:
+#   * LONG    -- the original one-hot encoding, one column per label.
+#   * COMPACT -- the collapsed correct / wrong / question indicators.
 
-LAST_CONFIRM: List[str] = [
+LAST_CONFIRM_LONG: List[str] = [
     "last_before_confirm_answer_A",
     "last_before_confirm_answer_B",
     "last_before_confirm_answer_C",
-    "last_before_confirm_answer_D",
+    #"last_before_confirm_answer_D",
     "last_before_confirm_question",
 ]
 
-LAST_SELECT: List[str] = [
+LAST_CONFIRM_COMPACT: List[str] = [
+    "last_before_confirm_correct",
+    #"last_before_confirm_wrong",
+    "last_before_confirm_question",
+]
+
+LAST_SELECT_LONG: List[str] = [
     "last_before_select_answer_A",
     "last_before_select_answer_B",
     "last_before_select_answer_C",
-    "last_before_select_answer_D",
+    #"last_before_select_answer_D",
     "last_before_select_question",
 ]
 
-LAST_ALL: List[str] = LAST_ANSWER + LAST_CONFIRM + LAST_SELECT
+LAST_SELECT_COMPACT: List[str] = [
+    "last_before_select_correct",
+    #"last_before_select_wrong",
+    "last_before_select_question",
+]
+
+# Backwards-compatible aliases: the bare names default to the original
+# (long / one-hot) form.
+LAST_CONFIRM: List[str] = LAST_CONFIRM_LONG
+LAST_SELECT: List[str] = LAST_SELECT_LONG
+
+LAST_ALL: List[str] = LAST_CONFIRM_LONG + LAST_SELECT_LONG
+LAST_ALL_COMPACT: List[str] = LAST_CONFIRM_COMPACT + LAST_SELECT_COMPACT
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +210,7 @@ ALL_FEATURES_NO_LAST: List[str] = (
 )
 
 ALL_FEATURES: List[str] = (
-    ALL_FEATURES_NO_LAST + LAST_ANSWER + LAST_CONFIRM + LAST_SELECT
+    ALL_FEATURES_NO_LAST + LAST_CONFIRM + LAST_SELECT
 )
 
 
@@ -213,14 +229,12 @@ GENERAL_FEATURES: List[str] = (
 # Manually curated feature subsets
 # ---------------------------------------------------------------------------
 
-SELECT_1_METRIC_COLUMNS: List[str] = [
-    Con.SKIP_RATE,
-    Con.AREA_DWELL_PROPORTION,
-    Con.NUM_LABEL_VISITS,
-]
-
 SELECT_1_COLS: List[str] = (
-    [f"{m}__{Con.CORRECT_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
-    + [f"{m}__{Con.WRONG_MEAN_SUFFIX}" for m in SELECT_1_METRIC_COLUMNS]
-    + ["seq_len", "has_xyx"]
+    ['area_dwell_proportion__correct', 'area_dwell_proportion__question', 
+    'skip_rate__correct', 
+    'has_xyx', 'ANSWER_PRESS_NUMBER',
+    'num_label_visits__correct', 'num_label_visits__contrast',
+    'mean_fixations_count__question', 'mean_fixations_count__wrong_mean', 
+    'mean_max_fix_pupil_size_z__correct'
+    ]
 )

@@ -124,6 +124,47 @@ def has_back_and_forth_xyxy(seq) -> bool:
     return (a == c) and (b == d) and (a != b)
 
 
+def longest_alternating_answer_run(seq, exclude_label: str = "question") -> int:
+    """
+    Length of the longest contiguous run that strictly alternates between two
+    distinct answer labels (an "x y x y x ..." pattern), where x and y are any
+    two distinct labels other than ``exclude_label`` (the question).
+
+    The ``exclude_label`` breaks a run (it is not part of the alternation), as
+    does any repeat (``x x``) or a switch to a third symbol.
+
+    Examples (answers a, b, c; q = question):
+        [a, b, a, b, a]      -> 5
+        [a, b, c]            -> 2   (a,b and b,c are each 2-symbol runs)
+        [a, b, q, a, b, a]   -> 3   (the question breaks the run)
+        [a, a, a]            -> 1   (an answer, but no alternation)
+        [q, q] / [] / None   -> 0   (no answers)
+    """
+    if seq is None:
+        return 0
+
+    best = 0
+    run = 0
+    for i, cur in enumerate(seq):
+        if cur == exclude_label:
+            run = 0
+            continue
+        if run == 0:
+            run = 1
+        else:
+            prev = seq[i - 1]
+            if cur == prev:
+                run = 1
+            elif run >= 2 and cur != seq[i - 2]:
+                # alternation switches to a new pair (prev, cur)
+                run = 2
+            else:
+                run += 1
+        if run > best:
+            best = run
+    return best
+
+
 def build_trial_df_for_back_and_forth_pattern(
     df: pd.DataFrame,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,

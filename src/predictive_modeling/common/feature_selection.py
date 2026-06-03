@@ -4,6 +4,8 @@ import statsmodels.api as sm
 
 from typing import Optional, Sequence, Any
 
+from src import constants as Con
+
 
 
 def correlation_prune_features(
@@ -198,3 +200,123 @@ def aic_forward_select_logit(
         current_model = best_model
 
     return selected, pd.DataFrame(log_rows), current_model
+
+
+
+def elasticnet_select_logit(
+    df: pd.DataFrame,
+    feature_cols: Sequence[str],
+    target_col: str,
+    *,
+    group_col: Optional[str] = Con.PARTICIPANT_ID,
+    l1_ratios: Sequence[float] = (0.3, 0.5, 0.8, 1.0),
+    n_Cs: int = 20,
+    n_splits: int = 5,
+    standardize: bool = True,
+    class_weight: Optional[str] = "balanced",
+    scoring: str = "balanced_accuracy",
+    max_iter: int = 20000,
+    random_state: int = 42,
+    verbose: bool = True,
+) -> tuple[list[str], pd.DataFrame, Any]:
+    """
+    Embedded feature selection via cross-validated elastic-net logistic regression.
+
+    Fits an L1/L2-penalised logistic regression, tuning the penalty strength (C)
+    and the L1/L2 mix (l1_ratio) by cross-validation. Features whose coefficient
+    is shrunk exactly to zero are dropped; the rest are returned as `selected`.
+
+    Robust to the collinearity that destabilises greedy/AIC selection: the L2
+    component keeps correlated features together rather than arbitrarily zeroing
+    one of them.
+
+    Cross-validation is group-aware when `group_col` is present in `df` (folds
+    split by participant, so selection reflects generalisation to new subjects);
+    otherwise it falls back to stratified K-fold.
+
+    Note: penalised coefficients are biased (shrunk) -- use this to SELECT, then
+    refit a plain model (e.g. via the correctness bundle / TrialLevelLogRegModel)
+    on `selected` for interpretation and CIs.
+
+    Returns
+    -------
+    selected_cols : list[str]
+        Features with non-zero coefficients in the refit best model.
+    coef_log : pd.DataFrame
+        One row per feature: coef, abs_coef, selected (sorted by abs_coef).
+    model : sklearn LogisticRegressionCV
+        The fitted estimator (best C in `model.C_`, best l1_ratio in
+        `model.l1_ratio_`).
+    """
+    from sklearn.linear_model import LogisticRegressionCV
+    from sklearn.model_selection import GroupKFold, StratifiedKFold
+
+    feature_cols = [c for c in feature_cols if c in df.columns]
+
+    X = df[feature_cols].apply(pd.to_numeric, errors="coerce").fillna(0.0)
+    y = pd.to_numeric(df[target_col], errors="coerce")
+
+    valid = y.notna()
+    X = X.loc[valid].copy()
+    y = y.loc[valid].astype(int).copy()
+
+    if standardize:
+        X = (X - X.mean()) / X.std(ddof=0)
+        X = X.fillna(0.0)
+
+    # Group-aware CV when possible, so selection targets new-subject generalisation.
+    if group_col is not None and group_col in df.columns:
+        groups = df.loc[valid, group_col].to_numpy()
+        n_groups = pd.unique(groups).size
+        splits = min(n_splits, n_groups)
+        cv = list(GroupKFold(n_splits=splits).split(X, y, groups=groups))
+        cv_desc = f"GroupKFold(n_splits={splits}) by '{group_col}'"
+    else:
+        splits = min(n_splits, int(y.value_counts().min()))
+        cv = list(
+            StratifiedKFold(
+                n_splits=splits, shuffle=True, random_state=random_state
+            ).split(X, y)
+        )
+        cv_desc = f"StratifiedKFold(n_splits={splits})"
+
+    model = LogisticRegressionCV(
+        penalty="elasticnet",
+        solver="saga",
+        l1_ratios=list(l1_ratios),
+        Cs=n_Cs,
+        cv=cv,
+        scoring=scoring,
+        class_weight=class_weight,
+        max_iter=max_iter,
+        random_state=random_state,
+        n_jobs=-1,
+        refit=True,
+    )
+    model.fit(X.to_numpy(dtype=float), y.to_numpy())
+
+    coef = model.coef_.reshape(-1)
+    coef_log = (
+        pd.DataFrame(
+            {
+                "feature": feature_cols,
+                "coef": coef,
+                "abs_coef": np.abs(coef),
+                "selected": coef != 0,
+            }
+        )
+        .sort_values("abs_coef", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    selected = coef_log.loc[coef_log["selected"], "feature"].tolist()
+
+    if verbose:
+        print(
+            f"Elastic-net selection | {cv_desc} | scoring={scoring}\n"
+            f"  best l1_ratio={float(model.l1_ratio_[0]):.2f}, "
+            f"best C={float(model.C_[0]):.4g}\n"
+            f"  selected {len(selected)} / {len(feature_cols)} features"
+        )
+
+    return selected, coef_log, model

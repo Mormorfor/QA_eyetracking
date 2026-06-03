@@ -1,12 +1,15 @@
 # data_utils.py
 
-from typing import Sequence, Tuple, List, Optional
+from typing import Sequence, Tuple, List, Optional, Mapping, Any
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from src import constants as Con
 from src.data_paths import HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR
+
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
 
 #--------------------------------
 # Splits
@@ -332,6 +335,92 @@ def bootstrap_logreg_coef_cis(
     })
     out["sig_ci"] = (out["ci_low"] > 0) | (out["ci_high"] < 0)
     return out
+
+
+#--------------------------------
+# Multicollinearity (VIF)
+#--------------------------------
+
+def compute_vif(
+    df: pd.DataFrame,
+    feature_cols: Sequence[str],
+    *,
+    add_intercept: bool = True,
+) -> pd.DataFrame:
+    """
+    Variance Inflation Factor for each feature, on any DataFrame + column set.
+
+    VIF_j = 1 / (1 - R^2_j), where R^2_j comes from regressing feature j on all
+    the other features (plus an intercept). It measures how much feature j is
+    linearly explained by the rest.
+
+    Reading it:
+      * VIF ~ 1      uncorrelated with the others
+      * VIF > 5      worth a look, > 10 serious multicollinearity
+      * VIF == inf   exactly redundant -- e.g. a complete one-hot dummy set,
+                     which is collinear with the intercept (the "dummy trap")
+
+    """
+    
+
+    cols = [c for c in feature_cols if c in df.columns]
+    missing = [c for c in feature_cols if c not in df.columns]
+    if missing:
+        print(f"compute_vif: skipping {len(missing)} column(s) not in df: {missing}")
+
+    X = df[cols].apply(pd.to_numeric, errors="coerce").fillna(0.0)
+    nonconst = [c for c in cols if float(X[c].std()) > 0.0]
+    const_cols = [c for c in cols if c not in nonconst]
+
+    Xv = X[nonconst]
+    if add_intercept:
+        Xv = add_constant(Xv, has_constant="add")  # const prepended as column 0
+    arr = Xv.to_numpy(dtype=float)
+    offset = 1 if add_intercept else 0
+
+    vifs: dict[str, float] = {}
+    notes: dict[str, str] = {}
+    with np.errstate(divide="ignore"):  # 1/(1-1) -> inf for redundant columns
+        for j, col in enumerate(nonconst):
+            vifs[col] = float(variance_inflation_factor(arr, j + offset))
+            notes[col] = ""
+
+    for c in const_cols:
+        vifs[c] = np.inf
+        notes[c] = "constant"
+
+    out = pd.DataFrame(
+        {"VIF": pd.Series(vifs), "note": pd.Series(notes)}
+    ).sort_values("VIF", ascending=False)
+    return out
+
+
+def vif_from_bundle(
+    bundle: Mapping[str, Any],
+    model_name: str = "trial_level_log_reg",
+    *,
+    data: str = "train",
+    add_intercept: bool = True,
+) -> pd.DataFrame:
+    """
+    VIF for the exact feature set a correctness bundle fit.
+
+    ``bundle`` is the dict returned by ``run_full_features_correctness_bundle``.
+    The feature list is read from the fitted model's ``coef_summary`` (so it is
+    exactly what was modelled), and the design matrix is taken from the bundle's
+    ``train_df`` (default), ``test_df``, or full ``trial_df`` via ``data=
+    "train"|"test"|"all"``.
+    """
+    res = bundle["results"][model_name]
+    if getattr(res, "coef_summary", None) is None:
+        raise ValueError(f"Model '{model_name}' has no coef_summary to read features from.")
+    feats = list(res.coef_summary["feature"])
+
+    key = {"train": "train_df", "test": "test_df", "all": "trial_df"}.get(data)
+    if key is None:
+        raise ValueError(f"data must be 'train', 'test', or 'all' (got {data!r}).")
+
+    return compute_vif(bundle[key], feats, add_intercept=add_intercept)
 
 
 def summarize_random_effects(re_df: pd.DataFrame) -> pd.DataFrame:

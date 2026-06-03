@@ -3,7 +3,6 @@ Public plotting API.
 
 """
 
-
 from src.viz.visualisations_area_matrices import (
     matrix_plot_ABCD,
     label_vs_loc_mat,
@@ -54,7 +53,6 @@ from src.viz.visualisations_dominant_eye import (
 from src.viz.visualisations_preference_correctness import (
     plot_correctness_by_matching,
     run_all_matching_correctness_plots,
-
 )
 
 from src.viz.visualisations_area_significance_heatmaps import (
@@ -73,6 +71,8 @@ from src.viz.visualisations_correctness_measures import (
     run_all_trial_mean_dwell_threshold_plots,
     plot_correctness_by_trial_mean_dwell_continuous,
     run_all_trial_mean_dwell_continuous_plots,
+    plot_correctness_by_total_answering_rt_continuous,
+    run_all_total_answering_rt_continuous_plots,
 )
 
 __all__ = [
@@ -107,7 +107,7 @@ __all__ = [
     "plot_time_segment_fixation_count",
     "plot_time_segment_skip_rate",
     "run_all_time_segment_plots",
-    #eye dominance
+    # eye dominance
     "build_dominant_strategy_by_eye",
     "plot_dominant_strategies_by_eye_sorted",
     "run_dominant_strategy_eye_analysis",
@@ -127,5 +127,6 @@ __all__ = [
     "run_all_trial_mean_dwell_threshold_plots",
     "plot_correctness_by_trial_mean_dwell_continuous",
     "run_all_trial_mean_dwell_continuous_plots",
-
+    "plot_correctness_by_total_answering_rt_continuous",
+    "run_all_total_answering_rt_continuous_plots",
 ]
