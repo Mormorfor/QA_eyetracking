@@ -234,6 +234,7 @@ def _plot_coef_summaries(
     paper_dirs: Optional[List[str]],
     dpi: int,
     close: bool,
+    figsize: Optional[Tuple[int, int]] = None,
 ):
     coef_paths = []
     coef_sig_paths = []
@@ -251,6 +252,7 @@ def _plot_coef_summaries(
             dpi=dpi,
             close=close,
             significant_only=False,
+            figsize=figsize,
         )
 
         _, _, coef_sig_paths = plot_coef_summary_barh(
@@ -265,6 +267,7 @@ def _plot_coef_summaries(
             dpi=dpi,
             close=close,
             significant_only=True,
+            figsize=figsize,
         )
 
     return coef_paths, coef_sig_paths
@@ -313,6 +316,7 @@ def run_full_features_correctness_bundle(
     subdir: Optional[str] = None,
     run_identifier: str = "",
     random_state: int = 42,
+    coef_figsize: Optional[Tuple[int, int]] = None,
 ) -> Dict[str, Any]:
     model = TrialLevelLogRegModel()
     model_name = model.name
@@ -384,6 +388,7 @@ def run_full_features_correctness_bundle(
         paper_dirs=paper_dirs,
         dpi=dpi,
         close=close,
+        figsize=coef_figsize,
     )
 
     trial_df = _load_or_build_full_trial_df(

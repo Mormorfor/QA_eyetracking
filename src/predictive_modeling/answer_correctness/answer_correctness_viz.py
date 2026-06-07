@@ -207,7 +207,7 @@ def plot_coef_summary_barh(
     title: Optional[str] = None,
     model_name: Optional[str] = None,
     h_or_g: Optional[str] = "all_participants",
-    figsize: Tuple[int, int] = (9, 7),
+    figsize: Optional[Tuple[int, int]] = None,
     save: bool = False,
     rel_dir: str = "answer_correctness/coefficients",
     filename: Optional[str] = None,
@@ -253,13 +253,17 @@ def plot_coef_summary_barh(
     df = df.sort_values("abs_coef", ascending=False).head(int(top_k)).copy()
     df = df.sort_values(value_col, ascending=True)
 
-    n_bars = len(df)
-    row_height = 0.30
-    min_height = 6
-    max_height = 30
-    height = min(max(min_height, n_bars * row_height), max_height)
+    if figsize is not None:
+        width, height = figsize
+    else:
+        n_bars = len(df)
+        row_height = 0.30
+        min_height = 6
+        max_height = 30
+        width = 9
+        height = min(max(min_height, n_bars * row_height), max_height)
 
-    fig, ax = plt.subplots(figsize=(figsize[0], height))
+    fig, ax = plt.subplots(figsize=(width, height))
 
     y = np.arange(len(df))
     x = df[value_col].to_numpy()
@@ -950,6 +954,10 @@ def plot_correctness_run_comparison(
     paper_dirs: Optional[List[str]] = None,
     dpi: int = 300,
     close: bool = False,
+    ytick_fontsize: Optional[float] = None,
+    label_wrap: Optional[int] = None,
+    label_split_on_sep: bool = False,
+    label_fields: Sequence[str] = ("run_identifier", "model_family", "n_features"),
 ):
     """
     Create a horizontal bar plot comparing runs by balanced accuracy.
@@ -969,6 +977,24 @@ def plot_correctness_run_comparison(
     top_n:
         Optionally only plot the top N runs.
 
+    ytick_fontsize:
+        Font size for the y-axis (run label) tick text. If None, uses the
+        matplotlib default.
+
+    label_wrap:
+        If set, wrap each y-axis label to this maximum character width,
+        breaking onto multiple lines.
+
+    label_split_on_sep:
+        If True, put each "|"-separated part of the label on its own line.
+        Takes precedence over label_wrap when the label contains "|".
+
+    label_fields:
+        Which fields (and in what order) make up the auto-generated label
+        when label_col is None. Choose from "run_identifier", "model_family",
+        "n_features". E.g. ("run_identifier", "n_features") drops the model
+        family (the "logreg" part).
+
     Returns
     -------
     fig, plot_df, saved_paths
@@ -978,11 +1004,25 @@ def plot_correctness_run_comparison(
 
     if label_col is None:
         def make_label(row):
-            run_id = row["run_identifier"] if "run_identifier" in row and pd.notna(row["run_identifier"]) and str(row["run_identifier"]).strip() else None
-            model_family = row["model_family"] if "model_family" in row and pd.notna(row["model_family"]) else None
-            n_features = row["n_features"] if "n_features" in row and pd.notna(row["n_features"]) else None
+            field_parts = {
+                "run_identifier": (
+                    row["run_identifier"]
+                    if "run_identifier" in row and pd.notna(row["run_identifier"]) and str(row["run_identifier"]).strip()
+                    else None
+                ),
+                "model_family": (
+                    row["model_family"]
+                    if "model_family" in row and pd.notna(row["model_family"])
+                    else None
+                ),
+                "n_features": (
+                    str(row["n_features"]) + " features"
+                    if "n_features" in row and pd.notna(row["n_features"])
+                    else None
+                ),
+            }
 
-            parts = [p for p in [run_id, model_family, str(n_features) + " features"] if p]
+            parts = [field_parts[f] for f in label_fields if field_parts.get(f)]
             return " | ".join(parts)
 
         df["_plot_label"] = df.apply(make_label, axis=1)
@@ -996,11 +1036,26 @@ def plot_correctness_run_comparison(
 
     df = df.sort_values(metric_col, ascending=True)
 
+    def wrap_label(text: str) -> str:
+        text = str(text)
+        if label_split_on_sep and "|" in text:
+            return "\n".join(part.strip() for part in text.split("|"))
+        if label_wrap is not None:
+            import textwrap
+            return "\n".join(textwrap.wrap(text, width=label_wrap)) or text
+        return text
+
+    df = df.copy()
+    df[label_col] = df[label_col].map(wrap_label)
+
     fig, ax = plt.subplots(figsize=figsize)
     ax.barh(df[label_col].astype(str), df[metric_col])
     ax.set_xlabel(metric_col.replace("_", " ").title())
     ax.set_ylabel("Run")
     ax.set_title(title or f"Comparison of runs by {metric_col.replace('_', ' ')}")
+
+    if ytick_fontsize is not None:
+        ax.tick_params(axis="y", labelsize=ytick_fontsize)
 
     for i, val in enumerate(df[metric_col]):
         ax.text(val, i, f" {val:.3f}", va="center")
