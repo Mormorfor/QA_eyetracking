@@ -1,0 +1,9 @@
+{
+  "identifier": "baseline_last_ans",
+  "columns": [
+    "last_visited_answer_A",
+    "last_visited_answer_B",
+    "last_visited_answer_C",
+    "last_visited_answer_D"
+  ]
+}

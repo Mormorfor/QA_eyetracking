@@ -1,0 +1,23 @@
+{
+  "identifier": "select_1_plus_tfd",
+  "columns": [
+    "skip_rate__correct",
+    "area_dwell_proportion__correct",
+    "num_label_visits__correct",
+    "skip_rate__wrong_mean",
+    "area_dwell_proportion__wrong_mean",
+    "num_label_visits__wrong_mean",
+    "seq_len",
+    "has_xyx",
+    "TFD_pure_question",
+    "TFD_pure_answer_A",
+    "TFD_pure_answer_B",
+    "TFD_pure_answer_C",
+    "TFD_pure_answer_D",
+    "TFD_normalized_question",
+    "TFD_normalized_answer_A",
+    "TFD_normalized_answer_B",
+    "TFD_normalized_answer_C",
+    "TFD_normalized_answer_D"
+  ]
+}

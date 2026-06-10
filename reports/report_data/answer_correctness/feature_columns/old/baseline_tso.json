@@ -1,0 +1,15 @@
+{
+  "identifier": "baseline_tso",
+  "columns": [
+    "TimeSinceOffset_pure_question",
+    "TimeSinceOffset_pure_answer_A",
+    "TimeSinceOffset_pure_answer_B",
+    "TimeSinceOffset_pure_answer_C",
+    "TimeSinceOffset_pure_answer_D",
+    "TimeSinceOffset_normalized_question",
+    "TimeSinceOffset_normalized_answer_A",
+    "TimeSinceOffset_normalized_answer_B",
+    "TimeSinceOffset_normalized_answer_C",
+    "TimeSinceOffset_normalized_answer_D"
+  ]
+}

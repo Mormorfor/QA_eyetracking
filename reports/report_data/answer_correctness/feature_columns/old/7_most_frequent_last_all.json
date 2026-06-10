@@ -1,0 +1,23 @@
+{
+  "identifier": "7_most_frequent_last_all",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "has_xyx",
+    "last_before_confirm_answer_B",
+    "last_before_select_answer_A",
+    "last_before_select_answer_D",
+    "last_visited_answer_A",
+    "last_visited_answer_B",
+    "last_visited_answer_C",
+    "last_visited_answer_D",
+    "last_before_confirm_answer_A",
+    "last_before_confirm_answer_C",
+    "last_before_confirm_answer_D",
+    "last_before_confirm_question",
+    "last_before_select_answer_B",
+    "last_before_select_answer_C",
+    "last_before_select_question"
+  ]
+}

@@ -31,6 +31,12 @@ def collect_and_plot_correctness_runs(
     label_wrap: Optional[int] = None,
     label_split_on_sep: bool = False,
     label_fields: Sequence[str] = ("run_identifier", "model_family", "n_features"),
+    clean_labels: bool = True,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    value_fmt: str = "{:.3f}",
+    show_values: bool = True,
 ) -> Dict[str, Any]:
     """
     Convenience wrapper:
@@ -74,6 +80,12 @@ def collect_and_plot_correctness_runs(
         label_wrap=label_wrap,
         label_split_on_sep=label_split_on_sep,
         label_fields=label_fields,
+        clean_labels=clean_labels,
+        label_replacements=label_replacements,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        value_fmt=value_fmt,
+        show_values=show_values,
     )
 
     return {

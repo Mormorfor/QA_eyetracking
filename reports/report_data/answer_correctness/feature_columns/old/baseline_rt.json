@@ -1,0 +1,15 @@
+{
+  "identifier": "baseline_rt",
+  "columns": [
+    "RT_pure_question",
+    "RT_pure_answer_A",
+    "RT_pure_answer_B",
+    "RT_pure_answer_C",
+    "RT_pure_answer_D",
+    "RT_normalized_question",
+    "RT_normalized_answer_A",
+    "RT_normalized_answer_B",
+    "RT_normalized_answer_C",
+    "RT_normalized_answer_D"
+  ]
+}

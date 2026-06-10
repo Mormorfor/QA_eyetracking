@@ -1,0 +1,17 @@
+{
+  "identifier": "10_most_frequent_last_confirm",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "has_xyx",
+    "last_before_confirm_answer_B",
+    "last_before_select_answer_A",
+    "last_before_select_answer_D",
+    "last_before_select_question",
+    "last_visited_answer_A",
+    "num_label_visits__contrast",
+    "last_before_select_answer_B",
+    "last_before_select_answer_C"
+  ]
+}

@@ -1,13 +1,15 @@
 {
   "identifier": "select_1",
   "columns": [
-    "skip_rate__correct",
     "area_dwell_proportion__correct",
+    "area_dwell_proportion__question",
+    "skip_rate__correct",
+    "has_xyx",
+    "ANSWER_PRESS_NUMBER",
     "num_label_visits__correct",
-    "skip_rate__wrong_mean",
-    "area_dwell_proportion__wrong_mean",
-    "num_label_visits__wrong_mean",
-    "seq_len",
-    "has_xyx"
+    "num_label_visits__contrast",
+    "mean_fixations_count__question",
+    "mean_fixations_count__wrong_mean",
+    "mean_max_fix_pupil_size_z__correct"
   ]
 }

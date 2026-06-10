@@ -1,0 +1,15 @@
+{
+  "identifier": "baseline_tfd",
+  "columns": [
+    "TFD_pure_question",
+    "TFD_pure_answer_A",
+    "TFD_pure_answer_B",
+    "TFD_pure_answer_C",
+    "TFD_pure_answer_D",
+    "TFD_normalized_question",
+    "TFD_normalized_answer_A",
+    "TFD_normalized_answer_B",
+    "TFD_normalized_answer_C",
+    "TFD_normalized_answer_D"
+  ]
+}

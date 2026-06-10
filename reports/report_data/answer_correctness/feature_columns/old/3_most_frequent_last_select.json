@@ -1,0 +1,13 @@
+{
+  "identifier": "3_most_frequent_last_select",
+  "columns": [
+    "ANSWER_PRESS_NUMBER",
+    "RT_normalized_question",
+    "TFD_normalized_outside__x__TFD_normalized_answer_D",
+    "last_before_select_answer_A",
+    "last_before_select_answer_B",
+    "last_before_select_answer_C",
+    "last_before_select_answer_D",
+    "last_before_select_question"
+  ]
+}

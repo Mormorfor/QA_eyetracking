@@ -958,6 +958,12 @@ def plot_correctness_run_comparison(
     label_wrap: Optional[int] = None,
     label_split_on_sep: bool = False,
     label_fields: Sequence[str] = ("run_identifier", "model_family", "n_features"),
+    clean_labels: bool = True,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    value_fmt: str = "{:.3f}",
+    show_values: bool = True,
 ):
     """
     Create a horizontal bar plot comparing runs by balanced accuracy.
@@ -994,6 +1000,28 @@ def plot_correctness_run_comparison(
         when label_col is None. Choose from "run_identifier", "model_family",
         "n_features". E.g. ("run_identifier", "n_features") drops the model
         family (the "logreg" part).
+
+    clean_labels:
+        If True (default), tidy y-axis labels for presentation: apply
+        ``label_replacements`` then replace remaining underscores with spaces
+        and collapse repeated whitespace.
+
+    label_replacements:
+        Optional {find: replace} mapping applied to each label before the
+        underscore cleanup. Use it for full control over wording, e.g.
+        {"correct+mean_wrong RT": "Correct vs. mean-wrong RT", "RT": "reaction time"}.
+
+    xlabel / ylabel:
+        Axis-label overrides for presentation. If None, the x-axis is derived
+        from ``metric_col`` (underscores -> spaces, title-cased) and the y-axis
+        is left blank (the per-bar labels are self-explanatory). Pass an empty
+        string to force a blank axis label.
+
+    value_fmt:
+        Format string for the per-bar value annotations. Default "{:.3f}".
+
+    show_values:
+        If True (default), annotate each bar with its metric value.
 
     Returns
     -------
@@ -1036,8 +1064,20 @@ def plot_correctness_run_comparison(
 
     df = df.sort_values(metric_col, ascending=True)
 
-    def wrap_label(text: str) -> str:
+    import re
+
+    def clean_label(text: str) -> str:
         text = str(text)
+        if label_replacements:
+            for find, replace in label_replacements.items():
+                text = text.replace(find, replace)
+        if clean_labels:
+            text = text.replace("_", " ")
+            text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def wrap_label(text: str) -> str:
+        text = clean_label(text)
         if label_split_on_sep and "|" in text:
             return "\n".join(part.strip() for part in text.split("|"))
         if label_wrap is not None:
@@ -1050,15 +1090,19 @@ def plot_correctness_run_comparison(
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.barh(df[label_col].astype(str), df[metric_col])
-    ax.set_xlabel(metric_col.replace("_", " ").title())
-    ax.set_ylabel("Run")
+    ax.set_xlabel(xlabel if xlabel is not None else metric_col.replace("_", " ").title())
+    ax.set_ylabel(ylabel if ylabel is not None else "")
     ax.set_title(title or f"Comparison of runs by {metric_col.replace('_', ' ')}")
 
     if ytick_fontsize is not None:
         ax.tick_params(axis="y", labelsize=ytick_fontsize)
 
-    for i, val in enumerate(df[metric_col]):
-        ax.text(val, i, f" {val:.3f}", va="center")
+    if show_values:
+        # Extend the x-axis so the value annotations don't spill past the frame.
+        x_min, x_max = ax.get_xlim()
+        ax.set_xlim(x_min, x_max + (x_max - x_min) * 0.08)
+        for i, val in enumerate(df[metric_col]):
+            ax.text(val, i, " " + value_fmt.format(val), va="center")
 
     plt.tight_layout()
 
@@ -1077,49 +1121,3 @@ def plot_correctness_run_comparison(
 
     return fig, df, saved_paths
 
-
-#
-#
-# def save_feature_columns(
-#         columns: List[str],
-#         identifier: str,
-#         folder_path: str,
-# ) -> Path:
-#     """
-#     Save feature columns with an identifier.
-#
-#     - File name = {identifier}.json
-#     - File content includes both identifier and columns
-#     """
-#     folder = Path(folder_path)
-#     folder.mkdir(parents=True, exist_ok=True)
-#
-#     filepath = folder / f"{identifier}.json"
-#
-#     payload: Dict[str, Any] = {
-#         "identifier": identifier,
-#         "columns": columns,
-#     }
-#
-#     with open(filepath, "w", encoding="utf-8") as f:
-#         json.dump(payload, f, indent=2)
-#
-#     return filepath
-#
-#
-# def load_feature_columns(filepath: str) -> List[str]:
-#     """
-#     Load only the feature columns from file.
-#     """
-#     with open(filepath, "r", encoding="utf-8") as f:
-#         payload = json.load(f)
-#
-#     return payload["columns"]
-#
-#
-# def load_feature_config(filepath: str) -> Dict[str, Any]:
-#     """
-#     Load full config (identifier + columns).
-#     """
-#     with open(filepath, "r", encoding="utf-8") as f:
-#         return json.load(f)
