@@ -139,6 +139,8 @@ NUM_OF_SELECTS = "ANSWER_PRESS_NUMBER"
 # confirm click) and the friendlier feature name it is exposed under.
 CONFIRM_FINAL_ANSWER_RT = "CONFIRM_FINAL_ANSWER_RT"
 TOTAL_ANSWERING_RT = "total_answering_RT"
+TOTAL_ANSWERING_RT_NORMALIZED = "total_answering_RT_normalized"
+
 
 
 AREA_METRIC_COLUMNS_MODELING = [

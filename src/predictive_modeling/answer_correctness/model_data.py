@@ -404,10 +404,18 @@ def build_trial_level_model_df(
     # Trial-level total answering RT, taken from the raw CONFIRM_FINAL_ANSWER_RT
     # column and exposed under the friendlier name TOTAL_ANSWERING_RT.
     if include_total_answering_rt and Con.CONFIRM_FINAL_ANSWER_RT in df.columns:
+        feature_cols = [Con.CONFIRM_FINAL_ANSWER_RT]
+
+        if Con.TOTAL_ANSWERING_RT_NORMALIZED in df.columns:
+            feature_cols.append(Con.TOTAL_ANSWERING_RT_NORMALIZED)
+
         total_rt_df = build_trial_level_constant_numeric_features(
             df=df,
-            feature_cols=[Con.CONFIRM_FINAL_ANSWER_RT],
-        ).rename(columns={Con.CONFIRM_FINAL_ANSWER_RT: Con.TOTAL_ANSWERING_RT})
+            feature_cols=feature_cols,
+        ).rename(columns={
+            Con.CONFIRM_FINAL_ANSWER_RT: Con.TOTAL_ANSWERING_RT,
+        })
+
         out = out.merge(total_rt_df, on=list(TRIAL_ID_COLS), how="left")
 
     return out

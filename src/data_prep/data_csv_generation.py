@@ -144,14 +144,14 @@ def load_raw_answers_data(ia_a_path: Path = IA_ANSWERS_PATH):
     """
     Load raw interest area level answers data from CSV file.
     """
-    return pd.read_csv(ia_a_path)
+    return pd.read_csv(ia_a_path, engine="python")
 
 
 def load_raw_paragraphs_data(ia_p_path: Path = IA_PARAGRAPH_PATH):
     """
     Load raw interest area level paragraphs data from CSV file.
     """
-    return pd.read_csv(ia_p_path)
+    return pd.read_csv(ia_p_path, engine="python")
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +423,25 @@ def add_zscored_pupil_columns(
     return out
 
 
+def add_total_answering_RT_normalized(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create total_answering_RT_normalized by dividing total_answering_RT
+    by the total number of words on the answer screen:
+    question_len + 1_len + 2_len + 3_len + 4_len.
+    """
+    out = df.copy()
+
+    len_cols = ["question_len", "1_len", "2_len", "3_len", "4_len"]
+
+    out["total_words_on_screen"] = out[len_cols].sum(axis=1)
+
+    out[C.TOTAL_ANSWERING_RT_NORMALIZED] = pd.to_numeric(
+        out[C.CONFIRM_FINAL_ANSWER_RT], errors="coerce"
+    ) / out["total_words_on_screen"].replace(0, np.nan)
+
+    return out
+
+
 # ---------------------------------------------------------------------------
 #  Group Features Creation
 # ---------------------------------------------------------------------------
@@ -625,8 +644,6 @@ def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return result.reset_index(drop=True)
-
-
 
 
 def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
@@ -933,6 +950,11 @@ FUNCTION_REGISTRY = {
     },
     "add_zscored_pupil_columns": {
         "callable": add_zscored_pupil_columns,
+        "default_kwargs": {},
+        "kind": "base",
+    },
+    "add_total_answering_RT_normalized": {
+        "callable": add_total_answering_RT_normalized,
         "default_kwargs": {},
         "kind": "base",
     },
@@ -1287,7 +1309,9 @@ def _process_and_save(
 
     if last_labels_path is not None:
         out = _attach_last_label_features_if_available(
-            out, last_labels_path, verbose=verbose,
+            out,
+            last_labels_path,
+            verbose=verbose,
         )
 
     out = _attach_rt_and_tfd_features_if_available(out, verbose=verbose)

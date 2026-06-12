@@ -59,6 +59,11 @@ from src.viz.visualisations_area_significance_heatmaps import (
     plot_pairwise_significance_heatmap,
 )
 
+from src.viz.visualisations_last_label import (
+    plot_last_label_before_confirm_freq,
+    run_all_last_label_before_confirm_plots,
+)
+
 
 from src.viz.visualisations_correctness_measures import (
     plot_correctness_by_sequence_len_threshold,
@@ -116,6 +121,9 @@ __all__ = [
     "run_all_matching_correctness_plots",
     # area significance heatmaps
     "plot_pairwise_significance_heatmap",
+    # last label before confirm
+    "plot_last_label_before_confirm_freq",
+    "run_all_last_label_before_confirm_plots",
     # correctness measures
     "plot_correctness_by_sequence_len_threshold",
     "run_all_correctness_seq_len_threshold_plots",

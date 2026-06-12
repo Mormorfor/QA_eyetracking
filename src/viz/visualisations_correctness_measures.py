@@ -23,10 +23,10 @@ from src.viz.viz_helpers import (
     save_plot_and_report,
 )
 
-
 # ------------------------------------------
 # Sequence Length Measures
 # ------------------------------------------
+
 
 def plot_correctness_by_sequence_len_threshold(
     df: pd.DataFrame,
@@ -110,7 +110,9 @@ def run_all_correctness_seq_len_threshold_plots(
     results[group][threshold] = {"fig": fig, "summary": summary_df, "test": test_dict}
     """
 
-    def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[int, Dict[str, object]]:
+    def _run_for_group(
+        df: pd.DataFrame, group_name: str
+    ) -> Dict[int, Dict[str, object]]:
         group_results: Dict[int, Dict[str, object]] = {}
 
         for t in thresholds:
@@ -145,7 +147,6 @@ def run_all_correctness_seq_len_threshold_plots(
     }
 
 
-
 def plot_correctness_by_sequence_len_continuous(
     df: pd.DataFrame,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
@@ -154,6 +155,8 @@ def plot_correctness_by_sequence_len_continuous(
     save: bool = False,
     h_or_g: str = "hunters",
     title: Optional[str] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     max_len: Optional[int] = None,
@@ -192,9 +195,8 @@ def plot_correctness_by_sequence_len_continuous(
     d[correct_col] = d[correct_col].astype(int)
     d["_seq_len"] = d[seq_col].apply(_seq_len)
 
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(seq_len=("_seq_len", "first"), is_correct=(correct_col, "first"))
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        seq_len=("_seq_len", "first"), is_correct=(correct_col, "first")
     )
 
     if max_len is not None:
@@ -245,9 +247,13 @@ def plot_correctness_by_sequence_len_continuous(
         )
 
     default_title = f"{h_or_g}: Correctness by sequence length (continuous)"
+    default_x_label = "Sequence length"
+    default_y_label = "Correctness rate"
+
     ax.set_title(title or default_title)
-    ax.set_xlabel("Sequence length")
-    ax.set_ylabel("Correctness rate")
+    ax.set_xlabel(x_label or default_x_label)
+    ax.set_ylabel(y_label or default_y_label)
+
     ax.set_ylim(0, 1)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -280,6 +286,9 @@ def run_all_correctness_seq_len_continuous_plots(
     max_len: Optional[int] = None,
     min_n_per_len: int = 5,
     show_ci: bool = True,
+    title: Optional[str] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
 ) -> Dict[str, Dict[str, object]]:
     """
     Continuous seq-length plots for:
@@ -302,6 +311,9 @@ def run_all_correctness_seq_len_continuous_plots(
             max_len=max_len,
             min_n_per_len=min_n_per_len,
             show_ci=show_ci,
+            title=title,
+            x_label=x_label,
+            y_label=y_label,
         )
 
         if print_summaries:
@@ -321,11 +333,10 @@ def run_all_correctness_seq_len_continuous_plots(
     }
 
 
-
-
 # ------------------------------------------
 # XYX / XYXY detection
 # ------------------------------------------
+
 
 def plot_correctness_by_back_and_forth_pattern(
     df: pd.DataFrame,
@@ -425,7 +436,9 @@ def run_all_back_and_forth_pattern_plots(
         )
 
         if print_summaries:
-            print(f"\n=== {group_name.upper()} — pattern: {'XYXY' if use_xyxy else 'XYX'} ===")
+            print(
+                f"\n=== {group_name.upper()} — pattern: {'XYXY' if use_xyxy else 'XYX'} ==="
+            )
             print(summary)
             if test_res is not None and test_res.get("p_value") is not None:
                 print(f"p={test_res.get('p_value')}")
@@ -444,6 +457,7 @@ def run_all_back_and_forth_pattern_plots(
 # ------------------------------------------
 # Mean Dwell per word
 # ------------------------------------------
+
 
 def plot_correctness_by_trial_mean_dwell_threshold(
     df: pd.DataFrame,
@@ -491,8 +505,12 @@ def plot_correctness_by_trial_mean_dwell_threshold(
     fig.tight_layout()
 
     if save:
-        plot_dir = os.path.join(output_root, "correctness_by_trial_mean_dwell_threshold")
-        data_dir = os.path.join(report_root, "correctness_by_trial_mean_dwell_threshold")
+        plot_dir = os.path.join(
+            output_root, "correctness_by_trial_mean_dwell_threshold"
+        )
+        data_dir = os.path.join(
+            report_root, "correctness_by_trial_mean_dwell_threshold"
+        )
         base_name = f"{h_or_g}__thresh_{threshold}"
         save_plot_and_report(
             fig=fig,
@@ -530,7 +548,9 @@ def run_all_trial_mean_dwell_threshold_plots(
     results[group][threshold] = {"fig": fig, "summary": summary_df, "test": test_dict}
     """
 
-    def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[float, Dict[str, object]]:
+    def _run_for_group(
+        df: pd.DataFrame, group_name: str
+    ) -> Dict[float, Dict[str, object]]:
         group_results: Dict[float, Dict[str, object]] = {}
 
         for t in thresholds:
@@ -565,7 +585,6 @@ def run_all_trial_mean_dwell_threshold_plots(
     }
 
 
-
 def plot_correctness_by_trial_mean_dwell_continuous(
     df: pd.DataFrame,
     dwell_col: str = Con.IA_DWELL_TIME,
@@ -593,6 +612,7 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     Returns (fig, summary_df) where summary_df has:
       bin_left, bin_right, bin_center, n, k_correct, accuracy, ci_low, ci_high
     """
+
     def _wilson_ci(k: int, n: int, z: float = 1.96):
         if n <= 0:
             return (np.nan, np.nan)
@@ -605,13 +625,17 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, dwell_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
 
-    total_dwell = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform("sum")
-    n_words = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform("count")
+    total_dwell = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
+        "sum"
+    )
+    n_words = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
+        "count"
+    )
     d["_trial_mean_dwell"] = total_dwell / n_words
 
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(trial_mean_dwell=("_trial_mean_dwell", "first"), is_correct=(correct_col, "first"))
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        trial_mean_dwell=("_trial_mean_dwell", "first"),
+        is_correct=(correct_col, "first"),
     )
 
     if x_max is not None:
@@ -620,13 +644,24 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     x = trial_df["trial_mean_dwell"].to_numpy()
     if len(x) == 0:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.set_title(title or f"{h_or_g}: Correctness by mean dwell per word (continuous)")
+        ax.set_title(
+            title or f"{h_or_g}: Correctness by mean dwell per word (continuous)"
+        )
         ax.set_xlabel("Trial mean dwell per word")
         ax.set_ylabel("Correctness rate")
         ax.set_ylim(0, 1)
         fig.tight_layout()
         return fig, pd.DataFrame(
-            columns=["bin_left", "bin_right", "bin_center", "n", "k_correct", "accuracy", "ci_low", "ci_high"]
+            columns=[
+                "bin_left",
+                "bin_right",
+                "bin_center",
+                "n",
+                "k_correct",
+                "accuracy",
+                "ci_low",
+                "ci_high",
+            ]
         )
 
     xmin = float(np.nanmin(x))
@@ -647,7 +682,9 @@ def plot_correctness_by_trial_mean_dwell_continuous(
 
     # assign each trial into a bin index
     # right=False means [left, right)
-    bin_idx = np.digitize(trial_df["trial_mean_dwell"].to_numpy(), edges, right=False) - 1
+    bin_idx = (
+        np.digitize(trial_df["trial_mean_dwell"].to_numpy(), edges, right=False) - 1
+    )
     # keep only valid bins
     valid = (bin_idx >= 0) & (bin_idx < len(edges) - 1)
     trial_df = trial_df.loc[valid].copy()
@@ -696,8 +733,12 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     fig.tight_layout()
 
     if save:
-        plot_dir = os.path.join(output_root, "correctness_by_trial_mean_dwell_continuous")
-        data_dir = os.path.join(report_root, "correctness_by_trial_mean_dwell_continuous")
+        plot_dir = os.path.join(
+            output_root, "correctness_by_trial_mean_dwell_continuous"
+        )
+        data_dir = os.path.join(
+            report_root, "correctness_by_trial_mean_dwell_continuous"
+        )
         os.makedirs(plot_dir, exist_ok=True)
         os.makedirs(data_dir, exist_ok=True)
 
@@ -714,7 +755,6 @@ def plot_correctness_by_trial_mean_dwell_continuous(
         agg.to_csv(os.path.join(data_dir, f"{base_name}__summary.csv"), index=False)
 
     return fig, agg
-
 
 
 def run_all_trial_mean_dwell_continuous_plots(
@@ -774,10 +814,10 @@ def run_all_trial_mean_dwell_continuous_plots(
     }
 
 
-
 # ------------------------------------------
 # Total answering reading time
 # ------------------------------------------
+
 
 def plot_correctness_by_total_answering_rt_continuous(
     df: pd.DataFrame,
@@ -787,6 +827,8 @@ def plot_correctness_by_total_answering_rt_continuous(
     save: bool = False,
     h_or_g: str = "hunters",
     title: Optional[str] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     bin_width: Optional[float] = None,
@@ -818,9 +860,7 @@ def plot_correctness_by_total_answering_rt_continuous(
         phat = k / n
         denom = 1 + (z**2) / n
         center = (phat + (z**2) / (2 * n)) / denom
-        half = (z / denom) * np.sqrt(
-            (phat * (1 - phat) + (z**2) / (4 * n)) / n
-        )
+        half = (z / denom) * np.sqrt((phat * (1 - phat) + (z**2) / (4 * n)) / n)
         return (max(0.0, center - half), min(1.0, center + half))
 
     d = df[required_cols].copy()
@@ -831,12 +871,9 @@ def plot_correctness_by_total_answering_rt_continuous(
 
     # If the dataframe is word-/IA-level, the same trial can appear in multiple rows.
     # We collapse to one row per participant-trial before calculating accuracy.
-    trial_df = (
-        d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False)
-        .agg(
-            total_answering_rt=(rt_col, "first"),
-            is_correct=(correct_col, "first"),
-        )
+    trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
+        total_answering_rt=(rt_col, "first"),
+        is_correct=(correct_col, "first"),
     )
 
     trial_df["total_answering_rt_sec"] = trial_df["total_answering_rt"] / 1000
@@ -890,11 +927,14 @@ def plot_correctness_by_total_answering_rt_continuous(
     if len(np.unique(edges)) < 2:
         edges = np.array([xmin - 0.5, xmax + 0.5], dtype=float)
 
-    bin_idx = np.digitize(
-        trial_df["total_answering_rt_sec"].to_numpy(),
-        edges,
-        right=False,
-    ) - 1
+    bin_idx = (
+        np.digitize(
+            trial_df["total_answering_rt_sec"].to_numpy(),
+            edges,
+            right=False,
+        )
+        - 1
+    )
 
     # Include values that fall exactly on the rightmost edge in the final bin.
     bin_idx[bin_idx == len(edges) - 1] = len(edges) - 2
@@ -946,9 +986,13 @@ def plot_correctness_by_total_answering_rt_continuous(
         )
 
     default_title = f"{h_or_g}: Correctness by total answering RT"
+    default_x_label = "Total answering time (s)"
+    default_y_label = "Correctness rate"
+
     ax.set_title(title or default_title)
-    ax.set_xlabel("Total answering time (s)")
-    ax.set_ylabel("Correctness rate")
+    ax.set_xlabel(x_label or default_x_label)
+    ax.set_ylabel(y_label or default_y_label)
+
     ax.set_ylim(0, 1)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -981,18 +1025,21 @@ def plot_correctness_by_total_answering_rt_continuous(
             index=False,
         )
 
-    return fig, agg[
-        [
-            "bin_left",
-            "bin_right",
-            "bin_center",
-            "n",
-            "k_correct",
-            "accuracy",
-            "ci_low",
-            "ci_high",
-        ]
-    ]
+    return (
+        fig,
+        agg[
+            [
+                "bin_left",
+                "bin_right",
+                "bin_center",
+                "n",
+                "k_correct",
+                "accuracy",
+                "ci_low",
+                "ci_high",
+            ]
+        ],
+    )
 
 
 def run_all_total_answering_rt_continuous_plots(
@@ -1009,6 +1056,9 @@ def run_all_total_answering_rt_continuous_plots(
     min_n_per_bin: int = 10,
     x_max: Optional[float] = None,
     show_ci: bool = True,
+    title: Optional[str] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
 ) -> Dict[str, Dict[str, object]]:
     """
     Continuous total-answering-RT plots for:
@@ -1033,6 +1083,9 @@ def run_all_total_answering_rt_continuous_plots(
             min_n_per_bin=min_n_per_bin,
             x_max=x_max,
             show_ci=show_ci,
+            title=title,
+            x_label=x_label,
+            y_label=y_label,
         )
 
         if print_summaries:
