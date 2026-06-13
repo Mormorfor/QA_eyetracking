@@ -216,10 +216,32 @@ def plot_coef_summary_barh(
     close: bool = False,
     significant_only: bool = True,
     significance_eps: float = 0.0,
+    # ---- presentation touch-ups (all optional, defaults preserve behavior) ----
+    feature_label_map: Optional[Mapping[str, str]] = None,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    clean_labels: bool = False,
+    label_wrap: Optional[int] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    bar_color: Optional[str] = None,
+    bar_thickness: Optional[float] = None,
+    title_fontsize: Optional[float] = None,
+    label_fontsize: Optional[float] = None,
+    tick_fontsize: Optional[float] = None,
 ):
     """
     Horizontal bar plot of top coefficients (by absolute magnitude), overlay 95% CI error bars.
     Can exclude insignificant.
+
+    Presentation touch-ups (optional, off by default):
+        feature_label_map / label_replacements / clean_labels / label_wrap
+            tidy the y-axis feature names (see ``_format_comparison_labels``).
+        xlabel / ylabel
+            axis-label overrides (default: ``value_col`` / "feature").
+        bar_color
+            single bar color.
+        title_fontsize / label_fontsize / tick_fontsize
+            font sizes for the title, axis labels and tick labels.
     """
 
     df = coef_summary.copy()
@@ -256,28 +278,50 @@ def plot_coef_summary_barh(
     if figsize is not None:
         width, height = figsize
     else:
+        # Height scales with the number of bars; few-feature models stay short
+        # instead of becoming a single fat block in a tall frame.
         n_bars = len(df)
-        row_height = 0.30
-        min_height = 6
+        row_height = 0.55
+        min_height = 1.8
         max_height = 30
         width = 9
-        height = min(max(min_height, n_bars * row_height), max_height)
+        height = min(max(min_height, n_bars * row_height + 1.0), max_height)
 
     fig, ax = plt.subplots(figsize=(width, height))
 
     y = np.arange(len(df))
     x = df[value_col].to_numpy()
 
-    ax.barh(y, x)
+    barh_kwargs = {}
+    if bar_color is not None:
+        barh_kwargs["color"] = bar_color
+    if bar_thickness is not None:
+        barh_kwargs["height"] = bar_thickness
+
+    ax.barh(y, x, **barh_kwargs)
+    # Keep a consistent margin around the bars so a single bar isn't flush to
+    # the frame edges.
+    ax.set_ylim(-0.6, len(df) - 0.4)
     ax.axvline(0, linewidth=1)
 
+    display_labels = _format_comparison_labels(
+        df["feature"].tolist(),
+        label_map=feature_label_map,
+        label_replacements=label_replacements,
+        clean_labels=clean_labels,
+        label_wrap=label_wrap,
+    )
     ax.set_yticks(y)
-    ax.set_yticklabels(df["feature"].tolist())
+    ax.set_yticklabels(display_labels)
 
-    ax.set_xlabel(value_col)
-    ax.set_ylabel("feature")
+    ax.set_xlabel(xlabel if xlabel is not None else value_col,
+                  fontsize=label_fontsize)
+    ax.set_ylabel(ylabel if ylabel is not None else "feature",
+                  fontsize=label_fontsize)
+    if tick_fontsize is not None:
+        ax.tick_params(axis="both", labelsize=tick_fontsize)
     if title:
-        ax.set_title(title)
+        ax.set_title(title, fontsize=title_fontsize)
 
     lo = df["ci_low"].to_numpy()
     hi = df["ci_high"].to_numpy()
@@ -1120,4 +1164,373 @@ def plot_correctness_run_comparison(
         plt.close(fig)
 
     return fig, df, saved_paths
+
+
+# ---------------------------------------------------------------------
+# Staged cross-validation model comparison (presentation bar chart)
+# ---------------------------------------------------------------------
+
+def _format_comparison_labels(
+    models: Sequence[str],
+    *,
+    label_map: Optional[Mapping[str, str]] = None,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    clean_labels: bool = True,
+    label_wrap: Optional[int] = None,
+) -> List[str]:
+    """Turn raw model identifiers into presentation-ready bar labels.
+
+    Order of operations per label: explicit ``label_map`` lookup (falls back to
+    the raw identifier) -> ``label_replacements`` substring swaps -> underscore
+    cleanup (if ``clean_labels``) -> optional wrapping to ``label_wrap`` chars.
+    """
+    import re
+    import textwrap
+
+    out: List[str] = []
+    for model in models:
+        text = str(label_map[model]) if (label_map and model in label_map) else str(model)
+        if label_replacements:
+            for find, replace in label_replacements.items():
+                text = text.replace(find, replace)
+        if clean_labels:
+            text = text.replace("_", " ")
+            text = re.sub(r"\s+", " ", text).strip()
+        if label_wrap is not None:
+            text = "\n".join(textwrap.wrap(text, width=label_wrap)) or text
+        out.append(text)
+    return out
+
+
+def plot_cv_model_comparison_staged(
+    comparison_df: pd.DataFrame,
+    *,
+    model_col: str = "model",
+    mean_col: str = "mean_metric",
+    ci_low_col: str = "ci_low",
+    ci_high_col: str = "ci_high",
+    # ---- labels --------------------------------------------------------
+    label_map: Optional[Mapping[str, str]] = None,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    clean_labels: bool = True,
+    label_wrap: Optional[int] = None,
+    # ---- figure / axes -------------------------------------------------
+    figsize: Tuple[float, float] = (9.0, 6.0),
+    xlim: Optional[Tuple[float, float]] = None,
+    xlabel: Optional[str] = "Balanced accuracy",
+    ylabel: Optional[str] = None,
+    title: Optional[str] = None,
+    stage_titles: Optional[Sequence[str]] = None,
+    # ---- fonts ---------------------------------------------------------
+    title_fontsize: float = 16,
+    xlabel_fontsize: float = 14,
+    ylabel_fontsize: float = 14,
+    tick_fontsize: float = 12,
+    value_fontsize: float = 12,
+    # ---- bars ----------------------------------------------------------
+    base_color: str = "#4C72B0",
+    highlight_color: str = "#DD8452",
+    bar_height: float = 0.62,
+    bar_edgecolor: str = "none",
+    bar_alpha: float = 1.0,
+    # ---- error bars (CIs) ---------------------------------------------
+    show_ci: bool = True,
+    capsize: float = 4,
+    error_color: str = "#333333",
+    error_linewidth: float = 1.4,
+    # ---- value annotations --------------------------------------------
+    show_values: bool = True,
+    value_fmt: str = "{:.3f}",
+    value_pad: float = 0.006,
+    annotate_ci: bool = False,
+    ci_fmt: str = "[{:.3f}, {:.3f}]",
+    # ---- pending (not-yet-revealed) styling ---------------------------
+    show_all_labels: bool = True,
+    revealed_label_color: str = "#000000",
+    pending_label_color: str = "#BBBBBB",
+    # ---- reference (chance) line --------------------------------------
+    chance_line: Optional[float] = None,
+    chance_label: Optional[str] = None,
+    chance_label_pos: str = "bottom",
+    chance_color: str = "#888888",
+    chance_linestyle: str = "--",
+    # ---- grid ----------------------------------------------------------
+    grid: bool = True,
+    grid_axis: str = "x",
+    grid_alpha: float = 0.4,
+    # ---- staging / saving ---------------------------------------------
+    n_stages: Optional[int] = None,
+    save: bool = False,
+    rel_dir: str = "answer_correctness/cross_val_comp",
+    filename: str = "cross_val_comparison",
+    regime: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+) -> Dict[str, Any]:
+    """
+    Build a horizontal bar chart comparing models by a cross-validated metric
+    (with confidence intervals), revealed in stages.
+
+    The models are sorted low -> high and one bar is revealed per stage, from
+    lowest to highest. The newly added bar is drawn in ``highlight_color`` while
+    previously revealed bars use ``base_color``. Every stage uses identical
+    figure size, axis limits and y-tick labels (all category labels are always
+    shown when ``show_all_labels``), so the saved frames do not jump between
+    stages -- suitable for an animated/click-through conference slide.
+
+    Parameters
+    ----------
+    comparison_df:
+        One row per model with the mean metric and CI bounds, e.g. the output of
+        ``build_cv_model_comparison_df`` (columns ``model``, ``mean_metric``,
+        ``ci_low``, ``ci_high``). Sorting is handled internally.
+    label_map:
+        ``{model_identifier: pretty label}`` for full manual control of bar
+        labels. Identifiers not present fall back to the raw model name.
+    label_replacements / clean_labels / label_wrap:
+        Further label tidying applied after ``label_map`` (see
+        ``_format_comparison_labels``).
+    xlim:
+        Fixed x-axis limits shared by every stage. If None, computed from the CI
+        extents (plus padding and room for value annotations).
+    stage_titles:
+        Optional per-stage titles (length = number of stages). Overrides
+        ``title`` for the stages it covers.
+    chance_line:
+        If set (e.g. 0.5), draw a vertical reference line at this value.
+
+    Returns
+    -------
+    dict with:
+        "figs"        : list of matplotlib Figures, one per stage
+        "plot_df"     : the sorted dataframe with the resolved "_label" column
+        "saved_paths" : {stage_number: [paths]} (empty unless save=True)
+    """
+    df = comparison_df.copy()
+    df = df.dropna(subset=[mean_col]).reset_index(drop=True)
+    df = df.sort_values(mean_col, ascending=True).reset_index(drop=True)
+
+    n_models = len(df)
+    if n_models == 0:
+        raise ValueError("comparison_df has no rows to plot.")
+
+    labels = _format_comparison_labels(
+        df[model_col].tolist(),
+        label_map=label_map,
+        label_replacements=label_replacements,
+        clean_labels=clean_labels,
+        label_wrap=label_wrap,
+    )
+    df["_label"] = labels
+
+    means = df[mean_col].to_numpy(dtype=float)
+    lows = df[ci_low_col].to_numpy(dtype=float) if ci_low_col in df else means
+    highs = df[ci_high_col].to_numpy(dtype=float) if ci_high_col in df else means
+    y_pos = np.arange(n_models)
+
+    # Asymmetric error magnitudes (clipped to be non-negative).
+    err_low = np.clip(means - lows, 0, None)
+    err_high = np.clip(highs - means, 0, None)
+
+    # Shared x-limits so frames don't jump.
+    if xlim is None:
+        lo = float(np.min(lows))
+        hi = float(np.max(highs))
+        span = max(hi - lo, 1e-6)
+        x_lo = max(0.0, lo - span * 0.12)
+        # leave headroom on the right for value annotations
+        x_hi = hi + span * (0.28 if show_values else 0.12)
+        if chance_line is not None:
+            x_lo = min(x_lo, chance_line - span * 0.05)
+            x_hi = max(x_hi, chance_line + span * 0.05)
+        xlim = (x_lo, x_hi)
+
+    if n_stages is None:
+        n_stages = n_models
+    n_stages = int(max(1, min(n_stages, n_models)))
+
+    figs: List[Any] = []
+    saved_paths: Dict[int, List[str]] = {}
+
+    for stage in range(1, n_stages + 1):
+        fig, ax = plt.subplots(figsize=figsize)
+
+        revealed = np.arange(stage)
+        colors = [base_color] * (stage - 1) + [highlight_color]
+
+        ax.barh(
+            y_pos[revealed],
+            means[revealed],
+            height=bar_height,
+            color=colors,
+            edgecolor=bar_edgecolor,
+            alpha=bar_alpha,
+            zorder=2,
+        )
+
+        if show_ci:
+            ax.errorbar(
+                means[revealed],
+                y_pos[revealed],
+                xerr=np.vstack([err_low[revealed], err_high[revealed]]),
+                fmt="none",
+                ecolor=error_color,
+                elinewidth=error_linewidth,
+                capsize=capsize,
+                zorder=3,
+            )
+
+        if chance_line is not None:
+            ax.axvline(
+                chance_line,
+                color=chance_color,
+                linestyle=chance_linestyle,
+                linewidth=1.3,
+                zorder=1,
+            )
+            if chance_label:
+                if chance_label_pos == "top":
+                    y_anno, va_anno = n_models - 0.55, "top"
+                else:  # "bottom" (default) — sits by the x-axis, clear of the title
+                    y_anno, va_anno = -0.45, "bottom"
+                ax.text(
+                    chance_line,
+                    y_anno,
+                    " " + chance_label,
+                    color=chance_color,
+                    va=va_anno,
+                    ha="left",
+                    fontsize=tick_fontsize,
+                )
+
+        # Fixed geometry across stages.
+        ax.set_xlim(*xlim)
+        ax.set_ylim(-0.5, n_models - 0.5)
+        ax.set_yticks(y_pos)
+
+        if show_all_labels:
+            ax.set_yticklabels(df["_label"].tolist(), fontsize=tick_fontsize)
+            for i, tick in enumerate(ax.get_yticklabels()):
+                tick.set_color(
+                    revealed_label_color if i < stage else pending_label_color
+                )
+        else:
+            tick_labels = [
+                lbl if i < stage else "" for i, lbl in enumerate(df["_label"].tolist())
+            ]
+            ax.set_yticklabels(tick_labels, fontsize=tick_fontsize)
+            for tick in ax.get_yticklabels():
+                tick.set_color(revealed_label_color)
+
+        ax.tick_params(axis="x", labelsize=tick_fontsize)
+
+        if xlabel is not None:
+            ax.set_xlabel(xlabel, fontsize=xlabel_fontsize)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel, fontsize=ylabel_fontsize)
+
+        stage_title = title
+        if stage_titles is not None and stage - 1 < len(stage_titles):
+            stage_title = stage_titles[stage - 1]
+        if stage_title is not None:
+            ax.set_title(stage_title, fontsize=title_fontsize)
+
+        if grid:
+            ax.grid(axis=grid_axis, alpha=grid_alpha, zorder=0)
+            ax.set_axisbelow(True)
+
+        if show_values:
+            for i in revealed:
+                x_anno = (highs[i] if show_ci else means[i]) + value_pad
+                text = value_fmt.format(means[i])
+                if annotate_ci:
+                    text += " " + ci_fmt.format(lows[i], highs[i])
+                ax.text(
+                    x_anno,
+                    y_pos[i],
+                    text,
+                    va="center",
+                    ha="left",
+                    fontsize=value_fontsize,
+                )
+
+        fig.tight_layout()
+
+        if save:
+            stage_fname = (
+                f"{filename}_{regime}_stage{stage}" if regime else f"{filename}_stage{stage}"
+            )
+            stage_paths = save_plot(
+                fig=fig,
+                rel_dir=rel_dir,
+                filename=stage_fname,
+                dpi=dpi,
+                paper_dirs=paper_dirs,
+                close=False,
+            )
+            saved_paths[stage] = stage_paths
+
+        if close:
+            plt.close(fig)
+        else:
+            figs.append(fig)
+
+    return {
+        "figs": figs,
+        "plot_df": df,
+        "saved_paths": saved_paths,
+    }
+
+
+def build_coef_comparison_table(
+    coef_by_model: Mapping[str, pd.DataFrame],
+    *,
+    model_label_map: Optional[Mapping[str, str]] = None,
+    feature_label_map: Optional[Mapping[str, str]] = None,
+    label_replacements: Optional[Mapping[str, str]] = None,
+    clean_labels: bool = True,
+    decimals: Optional[int] = 4,
+) -> pd.DataFrame:
+    """
+    Stack per-model coefficient summaries into one tidy comparison table.
+
+    Each input value is a ``get_coef_summary`` DataFrame; empty entries (e.g. a
+    dummy baseline) are skipped. The output has one row per (model, feature)
+    with a ``model`` display label, the raw ``feature`` name and a cleaned
+    ``feature_label``, followed by the original coefficient columns (coef,
+    odds_ratio, CIs, sig_ci, ...). Numeric columns are rounded to ``decimals``.
+    """
+    frames: List[pd.DataFrame] = []
+    for name, coef in coef_by_model.items():
+        if coef is None or len(coef) == 0:
+            continue
+        d = coef.copy()
+        model_label = (
+            model_label_map[name] if (model_label_map and name in model_label_map) else name
+        )
+        d.insert(0, "model", model_label)
+        d.insert(1, "model_key", name)
+        d["feature_label"] = _format_comparison_labels(
+            d["feature"].tolist(),
+            label_map=feature_label_map,
+            label_replacements=label_replacements,
+            clean_labels=clean_labels,
+        )
+        frames.append(d)
+
+    if not frames:
+        return pd.DataFrame()
+
+    out = pd.concat(frames, ignore_index=True)
+
+    front = ["model", "model_key", "feature", "feature_label"]
+    rest = [c for c in out.columns if c not in front]
+    out = out[front + rest]
+
+    if decimals is not None:
+        num_cols = out.select_dtypes("number").columns
+        out[num_cols] = out[num_cols].round(decimals)
+
+    return out
 

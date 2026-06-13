@@ -25,7 +25,22 @@ def matrix_plot_simplified_visits(
     save: bool = False,
     output_root: str = "../reports/plots/simpl_visit_matrices",
     show: bool = True,
-) -> None:
+    # ---- presentation touch-ups (optional; defaults preserve behavior) ----
+    title: Optional[str] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    cmap: str = "viridis",
+    annot: bool = True,
+    fmt: str = "g",
+    area_label_map: Optional[dict] = None,
+    position_labels: Optional[list] = None,
+    cbar_label: Optional[str] = None,
+    normalize: Optional[str] = None,   # None | "row" | "col" | "all"
+    title_fontsize: Optional[float] = None,
+    label_fontsize: Optional[float] = None,
+    tick_fontsize: Optional[float] = None,
+    annot_fontsize: Optional[float] = None,
+):
     """
     Plot a heatmap of visit frequencies for a fixed-length window taken from
     the simplified fixation sequence.
@@ -157,15 +172,47 @@ def matrix_plot_simplified_visits(
     col_order = [c for c in area_order if c in pivot.columns]
     pivot = pivot.reindex(columns=col_order)
 
-    plt.figure(figsize=figsize)
-    ax = sns.heatmap(pivot, annot=True, fmt="g", cmap="viridis")
-    q_flag = " (no question)" if drop_question else " (with question)"
-    ax.set_title(
-        f"{which.capitalize()} {window_len} visits ({kind}){q_flag}\n"
-        f"{h_or_g}, selected={selected}"
+    # Optional normalization (e.g. row -> share of visits at each position).
+    if normalize == "row":
+        pivot = pivot.div(pivot.sum(axis=1).replace(0, np.nan), axis=0)
+    elif normalize == "col":
+        pivot = pivot.div(pivot.sum(axis=0).replace(0, np.nan), axis=1)
+    elif normalize == "all":
+        total = pivot.values.sum()
+        if total:
+            pivot = pivot / total
+    elif normalize is not None:
+        raise ValueError("normalize must be one of None, 'row', 'col', 'all'.")
+
+    # Pretty column labels for display (does not affect the returned pivot).
+    plot_pivot = pivot.rename(columns=area_label_map) if area_label_map else pivot
+
+    fig = plt.figure(figsize=figsize)
+    heatmap_kwargs = dict(annot=annot, fmt=fmt, cmap=cmap)
+    if cbar_label is not None:
+        heatmap_kwargs["cbar_kws"] = {"label": cbar_label}
+    if annot_fontsize is not None:
+        heatmap_kwargs["annot_kws"] = {"size": annot_fontsize}
+    ax = sns.heatmap(plot_pivot, **heatmap_kwargs)
+
+    if title is None:
+        q_flag = " (no question)" if drop_question else " (with question)"
+        title = (
+            f"{which.capitalize()} {window_len} visits ({kind}){q_flag}\n"
+            f"{h_or_g}, selected={selected}"
+        )
+    ax.set_title(title, fontsize=title_fontsize)
+    ax.set_xlabel(xlabel if xlabel is not None else "Area", fontsize=label_fontsize)
+    ax.set_ylabel(
+        ylabel if ylabel is not None else "Visit Order (position)",
+        fontsize=label_fontsize,
     )
-    ax.set_xlabel("Area")
-    ax.set_ylabel("Visit Order (position)")
+
+    if position_labels is not None:
+        ax.set_yticklabels(position_labels[: len(plot_pivot.index)], rotation=0)
+    if tick_fontsize is not None:
+        ax.tick_params(axis="both", labelsize=tick_fontsize)
+
     plt.tight_layout()
 
     if save:
@@ -173,12 +220,14 @@ def matrix_plot_simplified_visits(
         out_dir = os.path.join(output_root, mode_dir)
         os.makedirs(out_dir, exist_ok=True)
         fname = f"{h_or_g} - {selected}.png"
-        plt.savefig(os.path.join(out_dir, fname), dpi=300)
+        fig.savefig(os.path.join(out_dir, fname), dpi=300, bbox_inches="tight")
 
     if show:
         plt.show()
     else:
-        plt.close()
+        plt.close(fig)
+
+    return fig, ax, pivot
 
 
 

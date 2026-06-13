@@ -114,3 +114,15 @@ FOLD_TRIAL_IDS_FILENAME_TEMPLATE = "fold_{fold_idx}_trial_ids_by_regime.csv"
 COL_SAVE_PATH = (
     PROJECT_ROOT / "reports" / "report_data" / "answer_correctness" / "feature_columns"
 )
+
+# ---------------------------------------------------------------------------
+# Cross-validation run outputs
+# ---------------------------------------------------------------------------
+
+CROSS_VALIDATION_RUNS_DIR = (
+    PROJECT_ROOT
+    / "reports"
+    / "report_data"
+    / "answer_correctness"
+    / "cross_validation_runs"
+)

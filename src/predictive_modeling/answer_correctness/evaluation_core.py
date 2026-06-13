@@ -147,6 +147,62 @@ def evaluate_models_on_prepared_split(
     return results
 
 
+def collect_logreg_coef_summaries(
+    trial_df: pd.DataFrame,
+    feature_sets: Mapping[str, Sequence[str]],
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    model_builder=None,
+    ci_method: str = "wald",
+    ci_cluster: str = "row",
+    ci: float = 0.95,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Fit a logistic-regression model on the full ``trial_df`` once per feature
+    set and return its coefficient summary.
+
+    Intended for presentation/reporting: cross-validation runs do not retain the
+    per-fold coefficient tables once reloaded from disk, so coefficients are
+    obtained from a single full-data fit per model. Feature sets that are empty
+    (e.g. a dummy baseline) map to an empty DataFrame.
+
+    Returns
+    -------
+    Dict[str, pd.DataFrame]
+        ``{model_name: coef_summary}`` where each summary is exactly what
+        ``TrialLevelLogRegModel.get_coef_summary`` produces (feature, coef,
+        odds_ratio, abs_coef, se, ci_low, ci_high, or_ci_low, or_ci_high,
+        sig_ci, ...).
+    """
+    # Imported lazily to avoid a module-level import cycle.
+    from src.predictive_modeling.answer_correctness.models.logreg_model import (
+        TrialLevelLogRegModel,
+    )
+
+    if model_builder is None:
+        model_builder = lambda: TrialLevelLogRegModel()
+
+    summaries: Dict[str, pd.DataFrame] = {}
+    for name, cols in feature_sets.items():
+        cols = list(cols) if cols is not None else []
+        if not cols:
+            summaries[name] = pd.DataFrame()
+            continue
+
+        model = model_builder()
+        model.fit(train_df=trial_df, target_col=target_col, feature_cols=cols)
+        summaries[name] = model.get_coef_summary(
+            train_df=trial_df,
+            feature_cols=cols,
+            ci_method=ci_method,
+            ci_cluster=ci_cluster,
+            ci=ci,
+            target_col=target_col,
+        )
+
+    return summaries
+
+
 def fit_model_on_prepared_full_data(
     model,
     fit_df: pd.DataFrame,

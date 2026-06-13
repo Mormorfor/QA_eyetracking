@@ -347,6 +347,356 @@ def run_cross_validation_on_predefined_folds(
 
 
 # ---------------------------------------------------------------------
+# Combined-folds CV runner (e.g. all_participants = hunters + gatherers)
+# ---------------------------------------------------------------------
+
+def _aggregate_cv_summary(
+    rows_summary: List[Dict[str, Any]],
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build the (per-row, by-regime, overall) summary tables from raw rows."""
+    summary_df = pd.DataFrame(rows_summary)
+
+    summary_by_regime_df = (
+        summary_df.groupby(["model", "regime"], as_index=False)
+        .agg(
+            folds=("fold", "nunique"),
+            mean_accuracy=("accuracy", "mean"),
+            std_accuracy=("accuracy", "std"),
+            mean_balanced_accuracy=("balanced_accuracy", "mean"),
+            std_balanced_accuracy=("balanced_accuracy", "std"),
+            mean_n_eval=("n_eval", "mean"),
+            total_n_eval=("n_eval", "sum"),
+        )
+        .sort_values(["model", "regime"])
+        .reset_index(drop=True)
+    )
+
+    summary_overall_df = (
+        summary_df.groupby(["model"], as_index=False)
+        .agg(
+            folds=("fold", "nunique"),
+            mean_accuracy=("accuracy", "mean"),
+            std_accuracy=("accuracy", "std"),
+            mean_balanced_accuracy=("balanced_accuracy", "mean"),
+            std_balanced_accuracy=("balanced_accuracy", "std"),
+            total_n_eval=("n_eval", "sum"),
+        )
+        .sort_values(["model"])
+        .reset_index(drop=True)
+    )
+
+    return summary_df, summary_by_regime_df, summary_overall_df
+
+
+def load_combined_fold_assignment_csv(
+    fold_dirs: Sequence[str | Path],
+    fold_idx: int,
+    *,
+    fold_filename_template: str = "fold_{fold_idx}_trial_ids_by_regime.csv",
+) -> pd.DataFrame:
+    """
+    Load and vertically stack the fold-``fold_idx`` assignment CSVs from each
+    directory in ``fold_dirs``.
+
+    Used to build an "all participants" fold by combining, e.g., the hunters
+    fold_0 and the (refolded) gatherers fold_0 into a single regime-assignment
+    table. Participant ids are disjoint across the two groups, so stacking the
+    assignments is sufficient.
+    """
+    frames = []
+    for fold_dir in fold_dirs:
+        fold_path = Path(fold_dir) / fold_filename_template.format(fold_idx=fold_idx)
+        frames.append(load_fold_assignment_csv(fold_path))
+    return pd.concat(frames, ignore_index=True)
+
+
+def run_cross_validation_on_combined_folds(
+    df: pd.DataFrame,
+    *,
+    fold_dirs: Sequence[str | Path],
+    model_builders: Mapping[str, Callable[[], Any]],
+    target_col: str,
+    n_folds: int = 10,
+    fold_filename_template: str = "fold_{fold_idx}_trial_ids_by_regime.csv",
+    df_participant_col: str = Con.PARTICIPANT_ID,
+    df_text_col: str = Con.TEXT_ID_COLUMN,
+    eval_regimes: Optional[Sequence[str]] = None,
+    feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
+    keep_cols: Optional[Sequence[str]] = None,
+    coef_ci_method: str = "wald",
+    coef_ci_cluster: str = "row",
+    coef_ci: float = 0.95,
+    coef_n_boot: int = 3000,
+    coef_seed: int = 42,
+    coef_top_k: Optional[int] = None,
+) -> CrossValidationRunResult:
+    """
+    Cross-validate using predefined folds that are pooled across several fold
+    directories.
+
+    For each ``fold_idx`` the fold-``fold_idx`` assignment CSV is loaded from
+    every directory in ``fold_dirs`` and concatenated, so the same fold index
+    is matched across groups (e.g. hunters fold_0 + gatherers fold_0). ``df``
+    should be the matching pooled dataframe (e.g. ``all_participants``).
+
+    Mirrors :func:`run_cross_validation_on_predefined_folds`, including the
+    accuracy / balanced-accuracy summary tables.
+    """
+    per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
+        model_name: {} for model_name in model_builders
+    }
+
+    rows_summary: List[Dict[str, Any]] = []
+
+    for fold_idx in range(n_folds):
+        fold_assign_df = load_combined_fold_assignment_csv(
+            fold_dirs,
+            fold_idx,
+            fold_filename_template=fold_filename_template,
+        )
+
+        df_fold = attach_fold_regimes(
+            df=df,
+            fold_df=fold_assign_df,
+            df_participant_col=df_participant_col,
+            df_text_col=df_text_col,
+        )
+
+        for model_name, model_builder in model_builders.items():
+            feat_cols = None
+            if feature_cols_by_model is not None and model_name in feature_cols_by_model:
+                cols = feature_cols_by_model[model_name]
+                feat_cols = None if cols is None else list(cols)
+
+            fold_results = evaluate_one_fold_on_regimes(
+                df=df_fold,
+                model_builder=model_builder,
+                target_col=target_col,
+                keep_cols=keep_cols,
+                eval_regimes=eval_regimes,
+                coef_ci_method=coef_ci_method,
+                coef_ci_cluster=coef_ci_cluster,
+                coef_ci=coef_ci,
+                coef_n_boot=coef_n_boot,
+                coef_seed=coef_seed,
+                coef_top_k=coef_top_k,
+                feature_cols=feat_cols,
+                fold_idx=fold_idx,
+            )
+
+            per_fold_results[model_name][fold_idx] = fold_results
+
+            for regime, res in fold_results.items():
+                rows_summary.append(
+                    {
+                        "model": model_name,
+                        "fold": fold_idx,
+                        "regime": regime,
+                        "accuracy": res.accuracy,
+                        "balanced_accuracy": res.balanced_accuracy,
+                        "n_eval": res.n_eval,
+                        "n_positive": res.n_positive,
+                        "n_negative": res.n_negative,
+                    }
+                )
+
+    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(
+        rows_summary
+    )
+
+    return CrossValidationRunResult(
+        per_fold_results=per_fold_results,
+        summary_df=summary_df,
+        summary_by_regime_df=summary_by_regime_df,
+        summary_overall_df=summary_overall_df,
+    )
+
+
+def save_cross_validation_run(
+    cv_out: CrossValidationRunResult,
+    out_dir: str | Path,
+    *,
+    run_name: str = "all_participants",
+    verbose: bool = True,
+) -> Dict[str, Path]:
+    """
+    Save the summary tables of a cross-validation run as CSVs under ``out_dir``.
+
+    Writes ``{run_name}_summary.csv`` (one row per model/fold/regime),
+    ``{run_name}_summary_by_regime.csv`` and ``{run_name}_summary_overall.csv``.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    paths = {
+        "summary": out_dir / f"{run_name}_summary.csv",
+        "by_regime": out_dir / f"{run_name}_summary_by_regime.csv",
+        "overall": out_dir / f"{run_name}_summary_overall.csv",
+    }
+
+    cv_out.summary_df.to_csv(paths["summary"], index=False)
+    cv_out.summary_by_regime_df.to_csv(paths["by_regime"], index=False)
+    cv_out.summary_overall_df.to_csv(paths["overall"], index=False)
+
+    if verbose:
+        for key, path in paths.items():
+            print(f"Saved {key}: {path}")
+
+    return paths
+
+
+def update_combined_cv_run(
+    df: pd.DataFrame,
+    *,
+    out_dir: str | Path,
+    run_name: str,
+    fold_dirs: Sequence[str | Path],
+    target_col: str,
+    add_model_builders: Optional[Mapping[str, Callable[[], Any]]] = None,
+    add_feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
+    remove_models: Optional[Sequence[str]] = None,
+    n_folds: int = 10,
+    fold_filename_template: str = "fold_{fold_idx}_trial_ids_by_regime.csv",
+    df_participant_col: str = Con.PARTICIPANT_ID,
+    df_text_col: str = Con.TEXT_ID_COLUMN,
+    eval_regimes: Optional[Sequence[str]] = None,
+    keep_cols: Optional[Sequence[str]] = None,
+    coef_ci_method: str = "wald",
+    coef_ci_cluster: str = "row",
+    coef_ci: float = 0.95,
+    coef_n_boot: int = 3000,
+    coef_seed: int = 42,
+    coef_top_k: Optional[int] = None,
+    save: bool = True,
+    verbose: bool = True,
+) -> CrossValidationRunResult:
+    """
+    Incrementally update a saved combined-folds CV run, one model at a time,
+    without recomputing the models you keep.
+
+    Operates on the saved per-model/fold/regime summary rows:
+
+    1. Load the existing ``{run_name}_summary.csv`` (empty if none yet).
+    2. Drop rows for every model in ``remove_models`` *and* for every model in
+       ``add_model_builders`` (so re-adding a model replaces its old rows).
+    3. Cross-validate only the models in ``add_model_builders`` (reusing
+       :func:`run_cross_validation_on_combined_folds`) and append their rows.
+    4. Re-aggregate and (if ``save``) overwrite the saved CSVs.
+
+    Use it e.g. to swap one feature set for another::
+
+        update_combined_cv_run(
+            df=all_participants, out_dir=..., run_name="all_participants_six_models",
+            fold_dirs=[HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR],
+            target_col=Con.IS_CORRECT_COLUMN,
+            remove_models=["total_answering_RT"],
+            add_model_builders={"total_answering_RT_normalized": lambda: TrialLevelLogRegModel()},
+            add_feature_cols_by_model={"total_answering_RT_normalized": cols},
+        )
+
+    Note: the returned ``per_fold_results`` holds only the newly run models
+    (the kept models are restored from summary rows only) -- enough for the
+    metric/plot helpers, which read ``summary_df``.
+    """
+    out_dir = Path(out_dir)
+    summary_path = out_dir / f"{run_name}_summary.csv"
+
+    base = pd.read_csv(summary_path) if summary_path.exists() else pd.DataFrame()
+
+    to_drop = set(remove_models or [])
+    if add_model_builders:
+        to_drop |= set(add_model_builders.keys())  # re-added models replace old rows
+
+    if not base.empty and to_drop:
+        base = base[~base["model"].isin(to_drop)].copy()
+
+    cv_new: Optional[CrossValidationRunResult] = None
+    new_rows = pd.DataFrame()
+    if add_model_builders:
+        cv_new = run_cross_validation_on_combined_folds(
+            df=df,
+            fold_dirs=fold_dirs,
+            model_builders=add_model_builders,
+            target_col=target_col,
+            n_folds=n_folds,
+            fold_filename_template=fold_filename_template,
+            df_participant_col=df_participant_col,
+            df_text_col=df_text_col,
+            eval_regimes=eval_regimes,
+            feature_cols_by_model=add_feature_cols_by_model,
+            keep_cols=keep_cols,
+            coef_ci_method=coef_ci_method,
+            coef_ci_cluster=coef_ci_cluster,
+            coef_ci=coef_ci,
+            coef_n_boot=coef_n_boot,
+            coef_seed=coef_seed,
+            coef_top_k=coef_top_k,
+        )
+        new_rows = cv_new.summary_df
+
+    frames = [f for f in (base, new_rows) if not f.empty]
+    if not frames:
+        raise ValueError("Update produced an empty run (nothing kept, nothing added).")
+    combined = pd.concat(frames, ignore_index=True)
+
+    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(
+        combined.to_dict("records")
+    )
+
+    result = CrossValidationRunResult(
+        per_fold_results=(cv_new.per_fold_results if cv_new is not None else {}),
+        summary_df=summary_df,
+        summary_by_regime_df=summary_by_regime_df,
+        summary_overall_df=summary_overall_df,
+    )
+
+    if save:
+        save_cross_validation_run(result, out_dir, run_name=run_name, verbose=verbose)
+    if verbose:
+        if to_drop:
+            print(f"Removed/replaced: {sorted(to_drop)}")
+        if add_model_builders:
+            print(f"Ran: {sorted(add_model_builders.keys())}")
+        print(f"Models in updated run: {sorted(summary_df['model'].unique())}")
+
+    return result
+
+
+def load_cross_validation_run(
+    out_dir: str | Path,
+    *,
+    run_name: str = "all_participants",
+) -> CrossValidationRunResult:
+    """
+    Rebuild a :class:`CrossValidationRunResult` from a saved run so the metric /
+    plotting helpers can be used without re-running cross-validation.
+
+    Reads ``{run_name}_summary.csv`` (written by :func:`save_cross_validation_run`)
+    and recomputes the by-regime and overall summary tables from it. The
+    ``per_fold_results`` field is left empty -- the saved run only stores the
+    summary rows, which is all that ``summarize_cv_results_by_regime``,
+    ``build_cv_model_comparison_df`` and ``show_cv_results`` need.
+    """
+    out_dir = Path(out_dir)
+    summary_path = out_dir / f"{run_name}_summary.csv"
+    if not summary_path.exists():
+        raise FileNotFoundError(
+            f"No saved CV summary at {summary_path}. "
+            f"Run and save the cross-validation first."
+        )
+
+    rows = pd.read_csv(summary_path).to_dict("records")
+    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(rows)
+
+    return CrossValidationRunResult(
+        per_fold_results={},
+        summary_df=summary_df,
+        summary_by_regime_df=summary_by_regime_df,
+        summary_overall_df=summary_overall_df,
+    )
+
+
+# ---------------------------------------------------------------------
 # Optional helper: pooled predictions table
 # ---------------------------------------------------------------------
 
@@ -460,6 +810,64 @@ def summarize_cv_results_by_regime(
     out["ci_high"] = (out["mean_metric"] + z * out["se_metric"]).clip(upper=1.0)
     out["metric"] = metric_col
 
+    return out
+
+
+def build_cv_model_comparison_df(
+    cv_out,
+    *,
+    regime: str = "test_unseen_subject_unseen_item",
+    metric_col: str = "balanced_accuracy",
+    ci: float = 0.95,
+    models: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """
+    One row per model with the cross-fold mean of ``metric_col`` and its CI on a
+    single regime.
+
+    Aggregates :func:`summarize_cv_results_by_regime` across every model in the
+    run (or just ``models`` if given) and keeps only ``regime`` (default: the
+    "both" test regime, unseen subject x unseen item).
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        model, mean_metric, std_metric, se_metric, ci_low, ci_high,
+        n_folds, mean_n_eval, metric
+    Sorted ascending by ``mean_metric`` (low -> high), ready for staged plotting.
+    """
+    if models is None:
+        models = list(cv_out.summary_df["model"].unique())
+
+    rows: List[Dict[str, Any]] = []
+    for model_name in models:
+        per_regime = summarize_cv_results_by_regime(
+            cv_out=cv_out,
+            model_name=model_name,
+            metric_col=metric_col,
+            ci=ci,
+        )
+        match = per_regime[per_regime["regime"] == regime]
+        if match.empty:
+            continue
+        r = match.iloc[0]
+        rows.append(
+            {
+                "model": model_name,
+                "mean_metric": float(r["mean_metric"]),
+                "std_metric": float(r["std_metric"]),
+                "se_metric": float(r["se_metric"]),
+                "ci_low": float(r["ci_low"]),
+                "ci_high": float(r["ci_high"]),
+                "n_folds": int(r["n_folds"]),
+                "mean_n_eval": float(r["mean_n_eval"]),
+                "metric": metric_col,
+            }
+        )
+
+    out = pd.DataFrame(rows)
+    if not out.empty:
+        out = out.sort_values("mean_metric", ascending=True).reset_index(drop=True)
     return out
 
 
