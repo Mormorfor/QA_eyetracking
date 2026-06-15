@@ -1209,6 +1209,7 @@ def plot_cv_model_comparison_staged(
     mean_col: str = "mean_metric",
     ci_low_col: str = "ci_low",
     ci_high_col: str = "ci_high",
+    swap_models: Optional[Sequence[Tuple[str, str]]] = None,
     # ---- labels --------------------------------------------------------
     label_map: Optional[Mapping[str, str]] = None,
     label_replacements: Optional[Mapping[str, str]] = None,
@@ -1310,6 +1311,22 @@ def plot_cv_model_comparison_staged(
     df = comparison_df.copy()
     df = df.dropna(subset=[mean_col]).reset_index(drop=True)
     df = df.sort_values(mean_col, ascending=True).reset_index(drop=True)
+
+    # Optional manual reordering: swap the positions of given model pairs after
+    # the ascending sort (e.g. to switch two near-tied bars). Uses model keys.
+    if swap_models:
+        order = df[model_col].tolist()
+        for a, b in swap_models:
+            missing = [m for m in (a, b) if m not in order]
+            if missing:
+                raise ValueError(f"swap_models: model(s) not found: {missing}")
+            ia, ib = order.index(a), order.index(b)
+            order[ia], order[ib] = order[ib], order[ia]
+        df = (
+            df.set_index(model_col)
+            .loc[order]
+            .reset_index()
+        )
 
     n_models = len(df)
     if n_models == 0:
