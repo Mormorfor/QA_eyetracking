@@ -59,20 +59,27 @@ FIX_T_TSV_PATH = FIX_TSV_DIR / "fixations_T.tsv"
 
 DATA_DIR = PROJECT_ROOT / "data"
 
-HUNTERS_PROCESSED_PATH = DATA_DIR / "hunters.csv"
-GATHERERS_PROCESSED_PATH = DATA_DIR / "gatherers.csv"
-ALL_PARTICIPANTS_PROCESSED_PATH = DATA_DIR / "all_participants.csv"
+# Final IA-level data produced by the data_csv_generation pipeline.
+L1_BASED_DATA_DIR = DATA_DIR / "L1_based_data"
+# Intermediate artifacts generated on the way by that pipeline (participant
+# pupil stats, button clicks, RT/TFD, last-area labels, ...).
+AUXILIARY_DATA_DIR = L1_BASED_DATA_DIR / "Auxiliary"
 
-HUNTERS_LAST_PATH = DATA_DIR / "hunters_last.csv"
-GATHERERS_LAST_PATH = DATA_DIR / "gatherers_last.csv"
+HUNTERS_PROCESSED_PATH = L1_BASED_DATA_DIR / "hunters.csv"
+GATHERERS_PROCESSED_PATH = L1_BASED_DATA_DIR / "gatherers.csv"
+ALL_PARTICIPANTS_PROCESSED_PATH = L1_BASED_DATA_DIR / "all_participants.csv"
+
+ALL_PARTICIPANTS_LAST_PATH = AUXILIARY_DATA_DIR / "all_participants_last.csv"
+HUNTERS_LAST_PATH = AUXILIARY_DATA_DIR / "hunters_last.csv"
+GATHERERS_LAST_PATH = AUXILIARY_DATA_DIR / "gatherers_last.csv"
 
 HUNT_PARAGRAPH_AND_ANSWERS = DATA_DIR / "hunters_paragraph_answer_merge.csv"
 GATH_PARAGRAPH_AND_ANSWERS = DATA_DIR / "gatherers_paragraph_answer_merge.csv"
 
-PARTICIPANT_PUPILS_PATH = DATA_DIR / "participant_pupils.csv"
-BUTTON_CLICKS_PATH = DATA_DIR / "button_clicks_data.csv"
+PARTICIPANT_PUPILS_PATH = AUXILIARY_DATA_DIR / "participant_pupils.csv"
+BUTTON_CLICKS_PATH = AUXILIARY_DATA_DIR / "button_clicks_data.csv"
 STRANGE_TRIALS_PATH = DATA_DIR / "strange_trials.csv"
-RT_AND_TFD_PATH = DATA_DIR / "RT_and_TFD.csv"
+RT_AND_TFD_PATH = AUXILIARY_DATA_DIR / "RT_and_TFD.csv"
 READY_ALL_FEATURES_PATH = DATA_DIR / "ready_all_features.csv"
 
 # ---------------------------------------------------------------------------

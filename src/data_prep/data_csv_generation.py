@@ -17,18 +17,25 @@ from collections import Counter
 
 from src import constants as C
 from src.data_paths import (
+    ALL_PARTICIPANTS_LAST_PATH,
     ALL_PARTICIPANTS_PROCESSED_PATH,
+    BUTTON_CLICKS_PATH,
     FIX_ANSWERS_PATH,
     GATHERERS_PROCESSED_PATH,
     HUNTERS_PROCESSED_PATH,
-    GATHERERS_LAST_PATH,
-    HUNTERS_LAST_PATH,
     IA_ANSWERS_PATH,
     IA_PARAGRAPH_PATH,
     PARTICIPANT_PUPILS_PATH,
     RT_AND_TFD_PATH,
 )
-from src.derived.pupil_norm import zscore_pupil_by_participant
+from src.data_prep.button_clicks_processing import run_trial_level_pipeline
+from src.derived.pupil_norm import (
+    get_participant_pupil_stats,
+    scale_pupil_area_to_mm,
+    zscore_pupil_by_participant,
+)
+from src.derived.reading_times import build_rt_and_tfd
+from src.derived.select_confirm_last import compute_last_area_labels
 
 # ===========================================================================
 # HOW TO ADD A NEW FEATURE FUNCTION
@@ -374,32 +381,21 @@ def add_selected_answer_label(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def scale_pupil_area_to_mm(
-    pupil_area: pd.Series,
-    artificial_pupil_width_mm: float = 3.5,
-    avg_pupil_area: float = 1804.0,
-) -> pd.Series:
-    """
-    Convert pupil area (arbitrary units) to pupil diameter in mm.
-
-    Scaling:  diameter_mm = scaling_factor * sqrt(area)
-    where:    scaling_factor = artificial_pupil_width_mm / sqrt(avg_pupil_area)
-    """
-    pupil_area = pupil_area.replace(".", np.nan).astype(float)
-    scaling_factor = artificial_pupil_width_mm / np.sqrt(avg_pupil_area)
-    return scaling_factor * np.sqrt(pupil_area)
-
-
 def add_zscored_pupil_columns(
     df: pd.DataFrame,
-    stats_csv_path: Path = PARTICIPANT_PUPILS_PATH,
+    pupil_stats=None,
 ) -> pd.DataFrame:
     """
     1) Convert IA pupil columns to mm (stored back into original columns)
-    2) Z-score them using participant stats (from fixations-derived CSV)
+    2) Z-score them using participant stats
     3) Store z-scored values into new <column>_z columns
 
+    `pupil_stats` is resolved via get_participant_pupil_stats() and may be a
+    ready statistics DataFrame, or None to fall back to that resolver's
+    defaults (compute on the fly from the raw fixation data).
     """
+    pupil_stats = get_participant_pupil_stats(stats=pupil_stats)
+
     out = df.copy()
     out = out.reset_index()
 
@@ -416,7 +412,7 @@ def add_zscored_pupil_columns(
             df=out,
             pupil_col=col,
             participant_col=C.PARTICIPANT_ID,
-            stats_csv_path=stats_csv_path,
+            stats=pupil_stats,
             out_col=f"{col}_z",
         )
 
@@ -1201,104 +1197,93 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
 # ---------------------------------------------------------------------------
 
 
-def _attach_last_label_features_if_available(
+def _attach_last_label_features(
     df: pd.DataFrame,
-    last_labels_path: Path,
-    select_col_in_file: str = "area_label_before_last_select",
-    confirm_col_in_file: str = "area_label_before_confirm",
+    save_path: Path = None,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
-    If a precomputed last-label file exists, merge in:
+    Compute last-area-label features directly from the processed IA data and
+    merge in:
     - C.LAST_LBL_BEFORE_SELECT
     - C.LAST_LBL_BEFORE_CONFIRM
 
-    The source file is expected to contain participant/trial keys and
-    area-label columns derived from the last-fixation logic.
+    The features are derived on the fly (via
+    src.derived.select_confirm_last.compute_last_area_labels) rather than read
+    from a precomputed file, so no prior run of this pipeline is required. If
+    `save_path` is given, the computed (unmerged) last-label table is written
+    there as an auxiliary artifact.
     """
-    path = Path(last_labels_path)
-
-    if not path.exists():
-        if verbose:
-            print(f"Last-label file not found, skipping merge: {last_labels_path}")
-        return df
-
     if verbose:
-        print(f"Merging last-label features from: {last_labels_path}")
+        print("Computing last-area-label features…")
 
-    last_df = pd.read_csv(path)
+    last_df = compute_last_area_labels(df, verbose=verbose)
+
+    if save_path is not None:
+        _save(last_df, save_path, label="last-area labels", verbose=verbose)
 
     merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
-
     rename_map = {
-        select_col_in_file: C.LAST_LBL_BEFORE_SELECT,
-        confirm_col_in_file: C.LAST_LBL_BEFORE_CONFIRM,
+        "area_label_before_last_select": C.LAST_LBL_BEFORE_SELECT,
+        "area_label_before_confirm": C.LAST_LBL_BEFORE_CONFIRM,
     }
 
-    needed_cols = merge_cols + list(rename_map.keys())
-    missing_cols = [col for col in needed_cols if col not in last_df.columns]
-
-    if missing_cols:
-        raise ValueError(
-            f"Missing required columns in {last_labels_path}: {missing_cols}"
-        )
-
     last_df = (
-        last_df[needed_cols]
+        last_df[merge_cols + list(rename_map.keys())]
         .drop_duplicates(subset=merge_cols)
         .rename(columns=rename_map)
     )
 
-    df = df.merge(last_df, on=merge_cols, how="left")
-    return df
+    return df.merge(last_df, on=merge_cols, how="left")
 
 
-def _attach_rt_and_tfd_features_if_available(
+def _attach_rt_and_tfd_features(
     df: pd.DataFrame,
-    rt_and_tfd_path: Path = RT_AND_TFD_PATH,
+    save_path: Path = None,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
-    If a precomputed RT_and_TFD file exists, merge in all RT_pure_/RT_normalized_/
-    TFD_pure_/TFD_normalized_ columns at trial level on (participant_id, TRIAL_INDEX).
+    Compute RT_pure_/RT_normalized_/TFD_pure_/TFD_normalized_ features directly
+    from the processed IA data and merge them in at trial level on
+    (participant_id, TRIAL_INDEX).
+
+    The features are derived on the fly (via
+    src.derived.reading_times.build_rt_and_tfd) rather than read from a
+    precomputed file, so no prior run of this pipeline is required. If
+    `save_path` is given, the computed RT/TFD table is written there as an
+    auxiliary artifact.
     """
-    path = Path(rt_and_tfd_path)
-
-    if not path.exists():
-        if verbose:
-            print(f"RT_and_TFD file not found, skipping merge: {rt_and_tfd_path}")
-        return df
-
     if verbose:
-        print(f"Merging RT_and_TFD features from: {rt_and_tfd_path}")
+        print("Computing RT/TFD features…")
 
-    rt_df = pd.read_csv(path)
+    rt_df = build_rt_and_tfd(
+        all_participants=df,
+        save=save_path is not None,
+        output_path=save_path,
+        verbose=verbose,
+    )
 
     merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
-    missing_cols = [col for col in merge_cols if col not in rt_df.columns]
-    if missing_cols:
-        raise ValueError(
-            f"Missing required merge columns in {rt_and_tfd_path}: {missing_cols}"
-        )
-
     rt_df = rt_df.drop_duplicates(subset=merge_cols)
-    df = df.merge(rt_df, on=merge_cols, how="left")
-    return df
+    return df.merge(rt_df, on=merge_cols, how="left")
 
 
-def _process_and_save(
+def _process(
     df: pd.DataFrame,
     base_funcs,
     group_funcs,
-    output_path: Path,
-    last_labels_path=None,
+    add_last: bool = True,
+    add_rts: bool = True,
+    last_labels_path: Path = None,
+    rt_and_tfd_path: Path = None,
     label: str = "",
     verbose: bool = True,
-):
-    """Run base + group pipelines on `df`, attach optional last-label and
-    RT/TFD features, then save to `output_path`."""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+) -> pd.DataFrame:
+    """Run base + group pipelines on `df`, optionally attach last-label and
+    RT/TFD features (computed on the fly), and return the enriched DataFrame.
 
+    `last_labels_path` / `rt_and_tfd_path`, when given, are where the computed
+    auxiliary tables are saved."""
     if verbose:
         print(f"\nProcessing {label} (row-level)…")
     out = add_base_features(df, base_funcs, verbose=verbose)
@@ -1307,26 +1292,76 @@ def _process_and_save(
         print(f"Applying group-level features for {label}…")
     out = generate_new_row_features(group_funcs, out)
 
-    if last_labels_path is not None:
-        out = _attach_last_label_features_if_available(
-            out,
-            last_labels_path,
-            verbose=verbose,
+    if add_last:
+        out = _attach_last_label_features(
+            out, save_path=last_labels_path, verbose=verbose
         )
 
-    out = _attach_rt_and_tfd_features_if_available(out, verbose=verbose)
+    if add_rts:
+        out = _attach_rt_and_tfd_features(
+            out, save_path=rt_and_tfd_path, verbose=verbose
+        )
 
+    return out
+
+
+def _save(df: pd.DataFrame, output_path: Path, label: str = "", verbose: bool = True):
+    """Write `df` to `output_path`, creating parent directories as needed."""
+    output_path = Path(output_path)
+    os.makedirs(output_path.parent, exist_ok=True)
     if verbose:
         print(f"Saving {label} features to: {output_path}")
-    out.to_csv(output_path, index=False)
+    df.to_csv(output_path, index=False)
+
+
+def _save_splits(
+    df: pd.DataFrame,
+    split_column: str,
+    base_output_path: Path,
+    split_output_paths: dict = None,
+    verbose: bool = True,
+):
+    """Partition `df` by the unique values of `split_column` and save each subset.
+
+    The target path for a value is taken from `split_output_paths` (a
+    {value: path} mapping) when provided; otherwise it is derived from
+    `base_output_path` as "<stem>_<split_column>_<value><suffix>".
+    """
+    if split_column not in df.columns:
+        raise ValueError(
+            f"split_column '{split_column}' not found in processed data."
+        )
+
+    base_output_path = Path(base_output_path)
+    split_output_paths = split_output_paths or {}
+
+    for value, subset in df.groupby(split_column):
+        if value in split_output_paths:
+            out_path = Path(split_output_paths[value])
+        else:
+            safe_value = str(value).replace(os.sep, "_").replace(" ", "_")
+            out_path = base_output_path.with_name(
+                f"{base_output_path.stem}_{split_column}_{safe_value}"
+                f"{base_output_path.suffix}"
+            )
+        _save(subset, out_path, label=f"{split_column}={value}", verbose=verbose)
 
 
 def main(
     ia_answers_path: Path = IA_ANSWERS_PATH,
-    hunters_output_path: Path = HUNTERS_PROCESSED_PATH,
-    gatherers_output_path: Path = GATHERERS_PROCESSED_PATH,
-    all_participants_output_path: Path = ALL_PARTICIPANTS_PROCESSED_PATH,
-    split_hunters_gatherers: bool = True,
+    output_path: Path = ALL_PARTICIPANTS_PROCESSED_PATH,
+    split_column: str = None,
+    split_output_paths: dict = None,
+    add_last: bool = True,
+    add_rts: bool = True,
+    compute_pupil_stats: bool = True,
+    pupil_fixations_path: Path = FIX_ANSWERS_PATH,
+    pupil_stats_path: Path = PARTICIPANT_PUPILS_PATH,
+    rebuild_button_clicks: bool = False,
+    button_clicks_path: Path = BUTTON_CLICKS_PATH,
+    save_auxiliary: bool = True,
+    last_labels_path: Path = ALL_PARTICIPANTS_LAST_PATH,
+    rt_and_tfd_path: Path = RT_AND_TFD_PATH,
     remove_repeats: bool = True,
     remove_practice: bool = True,
     base_function_names: list = None,
@@ -1334,21 +1369,60 @@ def main(
     verbose: bool = True,
 ):
     """
-    Full preprocessing pipeline.
+    Full preprocessing pipeline. Runs end-to-end from the raw DATA_RAW reports —
+    no previously-generated file is required.
 
-    If `split_hunters_gatherers` is True (default):
-        - Filter trials according to `remove_repeats` / `remove_practice`,
-          split into hunters and gatherers based on question preview,
-          and save two CSVs (hunters_output_path, gatherers_output_path).
+    By default, all trials are processed together (after filtering repeated and
+    practice trials) and saved as a single combined CSV to `output_path`
+    (all_participants.csv).
 
-    Otherwise:
-        - Process all trials together (no filtering) and save a single CSV
-          to all_participants_output_path.
+    Intermediate ("auxiliary") artifacts are all derived on the fly and, when
+    `save_auxiliary=True`, persisted under DATA/L1_based_data/Auxiliary:
+    - participant pupil stats — computed from raw fixation data at
+      `pupil_fixations_path` when `compute_pupil_stats=True` (point this at the
+      relevant fixation report for a different raw dataset), else loaded from
+      `pupil_stats_path`. Saved to `pupil_stats_path` when freshly computed.
+    - button clicks — the one derived *input* the RT/last-label steps need. It is
+      rebuilt from raw (via button_clicks_processing.run_trial_level_pipeline)
+      when `rebuild_button_clicks=True` or when `button_clicks_path` is missing.
+    - last-area labels (`add_last`) → `last_labels_path`.
+    - RT/TFD features (`add_rts`) → `rt_and_tfd_path`.
+
+    If `split_column` is provided (e.g. C.QUESTION_PREVIEW_COLUMN to recover the
+    hunters/gatherers split), the processed DataFrame is *additionally*
+    partitioned by the unique values of that column and each partition is saved
+    as its own CSV. Use `split_output_paths` (a {value: path} mapping) to control
+    the per-split filenames, e.g.::
+
+        main(
+            split_column=C.QUESTION_PREVIEW_COLUMN,
+            split_output_paths={
+                True: HUNTERS_PROCESSED_PATH,
+                False: GATHERERS_PROCESSED_PATH,
+            },
+        )
     """
+    # Ensure the one derived input (button clicks) exists, rebuilding it from raw
+    # when forced or absent. Everything downstream reads it from this path.
+    if rebuild_button_clicks or not Path(button_clicks_path).exists():
+        if verbose:
+            reason = "forced" if rebuild_button_clicks else "missing"
+            print(f"\nBuilding button-click data from raw ({reason})…")
+        run_trial_level_pipeline(output_csv_path=Path(button_clicks_path), verbose=verbose)
+
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
 
     df_answers = load_raw_answers_data(ia_answers_path)
+
+    if remove_repeats:
+        df_answers = df_answers[
+            df_answers[C.REPEATED_TRIAL_COLUMN] == False
+        ].copy()
+    if remove_practice:
+        df_answers = df_answers[
+            df_answers[C.PRACTICE_TRIAL_COLUMN] == False
+        ].copy()
 
     if verbose:
         print("\nResolving processing function lists…")
@@ -1356,43 +1430,48 @@ def main(
     base_funcs = resolve_base_functions(base_function_names)
     group_funcs = resolve_group_functions(group_function_names)
 
-    if split_hunters_gatherers:
+    # Resolve participant pupil stats once and inject them into the pupil
+    # z-scoring base feature (only if that feature is actually being run).
+    if any(func is add_zscored_pupil_columns for func, _ in base_funcs):
+        pupil_stats = get_participant_pupil_stats(
+            stats_csv_path=pupil_stats_path,
+            fixations_path=pupil_fixations_path,
+            compute=compute_pupil_stats,
+            verbose=verbose,
+        )
+        # Persist freshly-computed stats as an auxiliary artifact (no need to
+        # re-save when they were just loaded from pupil_stats_path).
+        if save_auxiliary and compute_pupil_stats:
+            _save(pupil_stats, pupil_stats_path, label="participant pupils", verbose=verbose)
+        base_funcs = [
+            (func, {**kwargs, "pupil_stats": pupil_stats})
+            if func is add_zscored_pupil_columns
+            else (func, kwargs)
+            for func, kwargs in base_funcs
+        ]
+
+    processed = _process(
+        df_answers,
+        base_funcs=base_funcs,
+        group_funcs=group_funcs,
+        add_last=add_last,
+        add_rts=add_rts,
+        last_labels_path=last_labels_path if save_auxiliary else None,
+        rt_and_tfd_path=rt_and_tfd_path if save_auxiliary else None,
+        label="all_participants",
+        verbose=verbose,
+    )
+
+    _save(processed, output_path, label="all_participants", verbose=verbose)
+
+    if split_column is not None:
         if verbose:
-            print("Splitting into hunters and gatherers…")
-
-        df_hunters, df_gatherers = split_hunters_and_gatherers(
-            df_answers,
-            remove_repeats=remove_repeats,
-            remove_practice=remove_practice,
-        )
-
-        _process_and_save(
-            df_hunters,
-            base_funcs=base_funcs,
-            group_funcs=group_funcs,
-            output_path=hunters_output_path,
-            last_labels_path=HUNTERS_LAST_PATH,
-            label="hunters",
-            verbose=verbose,
-        )
-
-        _process_and_save(
-            df_gatherers,
-            base_funcs=base_funcs,
-            group_funcs=group_funcs,
-            output_path=gatherers_output_path,
-            last_labels_path=GATHERERS_LAST_PATH,
-            label="gatherers",
-            verbose=verbose,
-        )
-    else:
-        _process_and_save(
-            df_answers,
-            base_funcs=base_funcs,
-            group_funcs=group_funcs,
-            output_path=all_participants_output_path,
-            last_labels_path=None,
-            label="all_participants",
+            print(f"\nSaving splits by column: {split_column}…")
+        _save_splits(
+            processed,
+            split_column=split_column,
+            base_output_path=output_path,
+            split_output_paths=split_output_paths,
             verbose=verbose,
         )
 
@@ -1401,4 +1480,15 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    # Full rebuild from raw: writes all_participants.csv plus hunters.csv and
+    # gatherers.csv (via the question-preview split) into L1_based_data, and the
+    # auxiliary artifacts into L1_based_data/Auxiliary.
+    main(
+        split_column=C.QUESTION_PREVIEW_COLUMN,
+        split_output_paths={
+            True: HUNTERS_PROCESSED_PATH,
+            False: GATHERERS_PROCESSED_PATH,
+        },
+    )
+
+

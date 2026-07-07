@@ -9,9 +9,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import pandas as pd
 
-from src import constants as C
 from src.data_paths import FIX_ANSWERS_PATH, PARTICIPANT_PUPILS_PATH
-from src.data_prep.data_csv_generation import scale_pupil_area_to_mm
+from src.derived.pupil_norm import compute_participant_pupil_stats
 
 
 def load_raw_answers_fix_data(ia_a_path: Path = FIX_ANSWERS_PATH):
@@ -19,35 +18,6 @@ def load_raw_answers_fix_data(ia_a_path: Path = FIX_ANSWERS_PATH):
     Load raw fixation level answers data from CSV file.
     """
     return pd.read_csv(ia_a_path)
-
-
-def compute_participant_pupil_stats(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute per-participant mean and SD of pupil size (in mm).
-
-    Steps:
-    1. Clean pupil size column (replace '.' with NaN, cast to float)
-    2. Scale pupil area to mm
-    3. Compute mean and SD per participant
-    """
-    df_local = df.copy()
-
-    df_local["pupil_mm"] = scale_pupil_area_to_mm(
-        df_local[C.CURRENT_FIX_PUPIL_SIZE]
-    )
-
-    stats = (
-        df_local
-        .groupby(C.PARTICIPANT_ID)["pupil_mm"]
-        .agg(
-            pupil_mean="mean",
-            pupil_sd="std"
-        )
-        .reset_index()
-    )
-
-    return stats
-
 
 
 def main(

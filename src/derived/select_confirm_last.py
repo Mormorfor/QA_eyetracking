@@ -173,6 +173,32 @@ def attach_area_labels(
     ]
 
 
+def compute_last_area_labels(
+    ia_df: pd.DataFrame,
+    trial_level_path: Path = BUTTON_CLICKS_PATH,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """Compute last-area-label features for an in-memory IA-level DataFrame.
+
+    Unlike `get_last_areas_from_trial_level_csv`, this does not assume a
+    hunters/gatherers split or a pre-existing processed CSV: it operates on
+    whatever trials are present in `ia_df` (typically the combined
+    all-participants processed data).
+
+    Returns one row per (participant_id, TRIAL_INDEX) with:
+      - last_ia_before_last_select / area_label_before_last_select
+      - last_ia_before_confirm     / area_label_before_confirm
+    """
+    if verbose:
+        print("Extracting last IAs from trial-level data...")
+    trial_df = pd.read_csv(trial_level_path)
+    extracted = extract_last_areas_from_trial_level_df(trial_df)
+
+    if verbose:
+        print("Attaching area labels...")
+    return attach_area_labels(extracted, ia_df)
+
+
 def get_last_areas_from_trial_level_csv(
     trial_level_path: Path = BUTTON_CLICKS_PATH,
     hunt_path: Path = HUNTERS_PROCESSED_PATH,

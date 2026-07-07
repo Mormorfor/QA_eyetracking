@@ -303,16 +303,18 @@ def compute_run_based_rt(
 
 
 def build_rt_and_tfd(
+    all_participants: pd.DataFrame | None = None,
     hunters_path: Path = HUNTERS_PROCESSED_PATH,
     gatherers_path: Path = GATHERERS_PROCESSED_PATH,
     paragraph_ia_path: Path = IA_PARAGRAPH_PATH,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     output_path: Path = RT_AND_TFD_PATH,
+    save: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Build RT/TFD features and save to CSV.
+    """Build RT/TFD features and (optionally) save to CSV.
 
-    Answer regions (hunters + gatherers, by `area_label`):
+    Answer regions (all processed IA data, by `area_label`):
       - TFD via per-area aggregation of IA dwell times.
       - RT via run-based aggregation over the trial's fixation sequence
         (loaded from `button_clicks_path`), to avoid conflating non-consecutive
@@ -321,12 +323,21 @@ def build_rt_and_tfd(
       - Both RT and TFD via per-area aggregation, since paragraph reading is
         approximately linear within a region.
     The two are inner-merged on (participant_id, TRIAL_INDEX).
+
+    `all_participants` may be passed in-memory (the processed answer-IA
+    DataFrame); if omitted, it is loaded and concatenated from
+    `hunters_path` / `gatherers_path`. Set `save=False` to skip writing the CSV
+    and only return the DataFrame.
     """
+    if all_participants is None:
+        if verbose:
+            print("Loading processed answer IA data...")
+        hunters = pd.read_csv(hunters_path)
+        gatherers = pd.read_csv(gatherers_path)
+        all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+
     if verbose:
-        print("Loading data...")
-    hunters = pd.read_csv(hunters_path)
-    gatherers = pd.read_csv(gatherers_path)
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+        print("Loading paragraph IA and button-click data...")
     paragraph_ia = pd.read_csv(paragraph_ia_path)
     button_clicks = pd.read_csv(button_clicks_path)
 
@@ -369,9 +380,12 @@ def build_rt_and_tfd(
     rt_and_tfd = answer.merge(
         paragraph_rt, on=["participant_id", "TRIAL_INDEX"], how="inner"
     )
-    rt_and_tfd.to_csv(output_path, index=False)
-    if verbose:
-        print(f"Saved {len(rt_and_tfd)} rows to {output_path}")
+    if save:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        rt_and_tfd.to_csv(output_path, index=False)
+        if verbose:
+            print(f"Saved {len(rt_and_tfd)} rows to {output_path}")
     return rt_and_tfd
 
 
