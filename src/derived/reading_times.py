@@ -309,6 +309,8 @@ def build_rt_and_tfd(
     paragraph_ia_path: Path = IA_PARAGRAPH_PATH,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     output_path: Path = RT_AND_TFD_PATH,
+    include_paragraph: bool = True,
+    include_run_based_rt: bool = True,
     save: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -316,13 +318,17 @@ def build_rt_and_tfd(
 
     Answer regions (all processed IA data, by `area_label`):
       - TFD via per-area aggregation of IA dwell times.
-      - RT via run-based aggregation over the trial's fixation sequence
-        (loaded from `button_clicks_path`), to avoid conflating non-consecutive
-        visits to the same area.
-    Paragraph regions (paragraph IA, by `auxiliary_span_type`):
-      - Both RT and TFD via per-area aggregation, since paragraph reading is
-        approximately linear within a region.
-    The two are inner-merged on (participant_id, TRIAL_INDEX).
+      - RT: when `include_run_based_rt` is True, via run-based aggregation over
+        the trial's fixation sequence (loaded from `button_clicks_path`), to
+        avoid conflating non-consecutive visits — and the fixation-span RT is
+        kept as `TimeSinceOffset_*`. When False (no button-click data), the
+        fixation-span RT is used directly as `RT_*` and button clicks are not
+        read.
+    Paragraph regions (paragraph IA, by `auxiliary_span_type`), only when
+    `include_paragraph` is True — set it False for experiments without a
+    paragraph-reading screen (then only answer-region RT/TFD is returned):
+      - Both RT and TFD via per-area aggregation.
+    When both are built they are inner-merged on (participant_id, TRIAL_INDEX).
 
     `all_participants` may be passed in-memory (the processed answer-IA
     DataFrame); if omitted, it is loaded and concatenated from
@@ -337,49 +343,56 @@ def build_rt_and_tfd(
         all_participants = pd.concat([hunters, gatherers], ignore_index=True)
 
     if verbose:
-        print("Loading paragraph IA and button-click data...")
-    paragraph_ia = pd.read_csv(paragraph_ia_path)
-    button_clicks = pd.read_csv(button_clicks_path)
-
-    if verbose:
-        print("Computing answer-region TFD...")
+        print("Computing answer-region RT/TFD...")
     answer_full = compute_reading_times(
         all_participants,
         area_col=ANSWER_AREA_COL,
         regions=ANSWER_REGIONS,
     )
-    rt_rename = {
-        c: c.replace("RT_pure_", "TimeSinceOffset_pure_", 1).replace(
-            "RT_normalized_", "TimeSinceOffset_normalized_", 1
+
+    if include_run_based_rt:
+        # Keep the fixation-span RT as TimeSinceOffset_* and replace RT_* with
+        # the run-based RT computed from the button-click fixation sequence.
+        rt_rename = {
+            c: c.replace("RT_pure_", "TimeSinceOffset_pure_", 1).replace(
+                "RT_normalized_", "TimeSinceOffset_normalized_", 1
+            )
+            for c in answer_full.columns
+            if c.startswith("RT_pure_") or c.startswith("RT_normalized_")
+        }
+        answer = answer_full.rename(columns=rt_rename)
+
+        if verbose:
+            print("Computing answer-region RT (run-based)...")
+        button_clicks = pd.read_csv(button_clicks_path)
+        answer_rt = compute_run_based_rt(
+            button_clicks,
+            all_participants,
+            area_col=ANSWER_AREA_COL,
+            regions=ANSWER_REGIONS,
         )
-        for c in answer_full.columns
-        if c.startswith("RT_pure_") or c.startswith("RT_normalized_")
-    }
-    answer_tfd = answer_full.rename(columns=rt_rename)
+        answer = answer.merge(
+            answer_rt, on=["participant_id", "TRIAL_INDEX"], how="left"
+        )
+    else:
+        # No button-click data: use the fixation-span RT directly as RT_*.
+        answer = answer_full
 
-    if verbose:
-        print("Computing answer-region RT (run-based)...")
-    answer_rt = compute_run_based_rt(
-        button_clicks,
-        all_participants,
-        area_col=ANSWER_AREA_COL,
-        regions=ANSWER_REGIONS,
-    )
-    answer = answer_tfd.merge(
-        answer_rt, on=["participant_id", "TRIAL_INDEX"], how="left"
-    )
+    if include_paragraph:
+        if verbose:
+            print("Computing paragraph-region reading times...")
+        paragraph_ia = pd.read_csv(paragraph_ia_path)
+        paragraph_rt = compute_reading_times(
+            paragraph_ia,
+            area_col=PARAGRAPH_AREA_COL,
+            regions=PARAGRAPH_REGIONS,
+        )
+        rt_and_tfd = answer.merge(
+            paragraph_rt, on=["participant_id", "TRIAL_INDEX"], how="inner"
+        )
+    else:
+        rt_and_tfd = answer
 
-    if verbose:
-        print("Computing paragraph-region reading times...")
-    paragraph_rt = compute_reading_times(
-        paragraph_ia,
-        area_col=PARAGRAPH_AREA_COL,
-        regions=PARAGRAPH_REGIONS,
-    )
-
-    rt_and_tfd = answer.merge(
-        paragraph_rt, on=["participant_id", "TRIAL_INDEX"], how="inner"
-    )
     if save:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)

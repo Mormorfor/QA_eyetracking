@@ -675,7 +675,9 @@ def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
     - `C.NEAREST_IA = 'CURRENT_FIX_NEAREST_INTEREST_AREA'`
     """
 
-    fixations_df = pd.read_csv(fix_path)
+    fixations_df = (
+        fix_path if isinstance(fix_path, pd.DataFrame) else pd.read_csv(fix_path)
+    )
     result = []
 
     group_cols = [C.TRIAL_ID, C.PARTICIPANT_ID]
