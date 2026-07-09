@@ -53,6 +53,9 @@ FIX_QA_TSV_PATH = FIX_TSV_DIR / "fixations_QA.tsv"
 FIX_Q_PREVIEW_TSV_PATH = FIX_TSV_DIR / "fixations_Q_preview.tsv"
 FIX_T_TSV_PATH = FIX_TSV_DIR / "fixations_T.tsv"
 
+
+TEST_RUN_PATH = PROJECT_ROOT / "data_raw" / "testrun_QA"
+
 # ---------------------------------------------------------------------------
 # Processed Data (data/)
 # ---------------------------------------------------------------------------

@@ -57,6 +57,7 @@ def get_participant_pupil_stats(
     stats=None,
     stats_csv_path: Path = PARTICIPANT_PUPILS_PATH,
     fixations_path: Path = FIX_ANSWERS_PATH,
+    fixations=None,
     compute: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -65,8 +66,9 @@ def get_participant_pupil_stats(
 
     Priority:
     1. If `stats` is already a DataFrame, it is used as-is.
-    2. Else if `compute` is True, statistics are computed on the fly from the
-       fixation-level CSV at `fixations_path` (no precomputed file required).
+    2. Else if `compute` is True, statistics are computed on the fly from a
+       fixation-level DataFrame: `fixations` when it is provided (to avoid
+       re-reading an already-loaded report), otherwise the CSV at `fixations_path`.
     3. Else the precomputed statistics CSV at `stats_csv_path` is loaded.
 
     Returns a DataFrame with columns [participant_id, pupil_mean, pupil_sd].
@@ -75,10 +77,13 @@ def get_participant_pupil_stats(
         return stats
 
     if compute:
+        if isinstance(fixations, pd.DataFrame):
+            if verbose:
+                print("Computing participant pupil stats from preloaded fixations")
+            return compute_participant_pupil_stats(fixations)
         if verbose:
             print(f"Computing participant pupil stats from: {fixations_path}")
-        fixations = pd.read_csv(fixations_path)
-        return compute_participant_pupil_stats(fixations)
+        return compute_participant_pupil_stats(pd.read_csv(fixations_path))
 
     if verbose:
         print(f"Loading participant pupil stats from: {stats_csv_path}")

@@ -1016,6 +1016,8 @@ FUNCTION_REGISTRY = {
         "callable": create_fixation_sequence_tags,
         "default_kwargs": {
             "join_columns": [C.TRIAL_ID, C.PARTICIPANT_ID],
+            # Forwarded to the function; main() overrides it with its fixations_path.
+            "fix_path": FIX_ANSWERS_PATH,
         },
         "kind": "group",
     },
@@ -1160,6 +1162,11 @@ def add_base_features(df, functions, verbose=False):
     return out.reset_index(drop=False)
 
 
+# Keys inside a group function's kwargs that configure the orchestrator (how the
+# result is merged back) rather than arguments forwarded to the feature function.
+GROUP_ORCHESTRATION_KEYS = {"join_columns"}
+
+
 def generate_new_row_features(functions, df, default_join_columns=None, verbose=True):
     """
     Iteratively compute and merge group-level features into a row-level DataFrame.
@@ -1167,8 +1174,15 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
     Each entry in `functions` is a tuple:
         (func, func_kwargs)
 
+    `func_kwargs` is split into two roles:
+    - "join_columns" (and any other GROUP_ORCHESTRATION_KEYS) are consumed here to
+      control the left-merge and are NOT passed to `func`.
+    - every remaining key is forwarded as a keyword argument to `func`, e.g. a
+      `fix_path` that points the fixation-sequence feature at a specific fixations
+      report.
+
     For each function:
-    1. Compute `new_features_df = func(result_df)`
+    1. Compute `new_features_df = func(result_df, **forwarded_kwargs)`
     2. Merge `new_features_df` into `result_df` using a left join on `join_columns`.
 
     Returns
@@ -1187,8 +1201,13 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
             print(f"Running group feature: {func.__name__}")
 
         join_columns = func_kwargs.get("join_columns", default_join_columns)
+        call_kwargs = {
+            key: value
+            for key, value in func_kwargs.items()
+            if key not in GROUP_ORCHESTRATION_KEYS
+        }
 
-        new_features_df = func(result_df)
+        new_features_df = func(result_df, **call_kwargs)
         result_df = result_df.merge(new_features_df, on=join_columns, how="left")
 
     return result_df
@@ -1352,12 +1371,13 @@ def _save_splits(
 def main(
     ia_answers_path: Path = IA_ANSWERS_PATH,
     output_path: Path = ALL_PARTICIPANTS_PROCESSED_PATH,
+    fixations_path: Path = FIX_ANSWERS_PATH,
     split_column: str = None,
     split_output_paths: dict = None,
     add_last: bool = True,
     add_rts: bool = True,
     compute_pupil_stats: bool = True,
-    pupil_fixations_path: Path = FIX_ANSWERS_PATH,
+    pupil_fixations_path: Path = None,
     pupil_stats_path: Path = PARTICIPANT_PUPILS_PATH,
     rebuild_button_clicks: bool = False,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
@@ -1378,12 +1398,17 @@ def main(
     practice trials) and saved as a single combined CSV to `output_path`
     (all_participants.csv).
 
+    `fixations_path` is the single canonical fixations report for the run. It feeds
+    both the participant pupil stats and the fixation-sequence group feature
+    (`create_fixation_sequence_tags`); point it at the matching fixations report when
+    processing a different raw dataset.
+
     Intermediate ("auxiliary") artifacts are all derived on the fly and, when
     `save_auxiliary=True`, persisted under DATA/L1_based_data/Auxiliary:
     - participant pupil stats — computed from raw fixation data at
-      `pupil_fixations_path` when `compute_pupil_stats=True` (point this at the
-      relevant fixation report for a different raw dataset), else loaded from
-      `pupil_stats_path`. Saved to `pupil_stats_path` when freshly computed.
+      `pupil_fixations_path` (which defaults to `fixations_path`) when
+      `compute_pupil_stats=True`, else loaded from `pupil_stats_path`. Saved to
+      `pupil_stats_path` when freshly computed.
     - button clicks — the one derived *input* the RT/last-label steps need. It is
       rebuilt from raw (via button_clicks_processing.run_trial_level_pipeline)
       when `rebuild_button_clicks=True` or when `button_clicks_path` is missing.
@@ -1404,6 +1429,12 @@ def main(
             },
         )
     """
+    # The canonical fixations report feeds both the pupil stats and the
+    # fixation-sequence group feature. pupil_fixations_path can still override just
+    # the pupil-stats source when set explicitly; otherwise it follows fixations_path.
+    if pupil_fixations_path is None:
+        pupil_fixations_path = fixations_path
+
     # Ensure the one derived input (button clicks) exists, rebuilding it from raw
     # when forced or absent. Everything downstream reads it from this path.
     if rebuild_button_clicks or not Path(button_clicks_path).exists():
@@ -1432,12 +1463,41 @@ def main(
     base_funcs = resolve_base_functions(base_function_names)
     group_funcs = resolve_group_functions(group_function_names)
 
+    # The fixations report has up to two consumers: the pupil-stats computation and
+    # the fixation-sequence group feature. Load it once here and share the resulting
+    # DataFrame with both, instead of letting each re-read the same large file.
+    needs_pupil_fix = compute_pupil_stats and any(
+        func is add_zscored_pupil_columns for func, _ in base_funcs
+    )
+    needs_seq_fix = any(
+        func is create_fixation_sequence_tags for func, _ in group_funcs
+    )
+
+    fixations_df = None
+    if needs_seq_fix or (needs_pupil_fix and pupil_fixations_path == fixations_path):
+        if verbose:
+            print(f"\nLoading fixations report once from: {fixations_path}")
+        fixations_df = pd.read_csv(fixations_path)
+
+    # Route the loaded fixations into the fixation-sequence group feature (it reads
+    # raw fixation rows). Mirrors the pupil-stats injection for base funcs.
+    if needs_seq_fix:
+        group_funcs = [
+            (func, {**kwargs, "fix_path": fixations_df})
+            if func is create_fixation_sequence_tags
+            else (func, kwargs)
+            for func, kwargs in group_funcs
+        ]
+
     # Resolve participant pupil stats once and inject them into the pupil
-    # z-scoring base feature (only if that feature is actually being run).
+    # z-scoring base feature (only if that feature is actually being run). Reuse the
+    # shared fixations_df when the pupil source is the canonical report; otherwise
+    # get_participant_pupil_stats reads the explicit pupil_fixations_path override.
     if any(func is add_zscored_pupil_columns for func, _ in base_funcs):
         pupil_stats = get_participant_pupil_stats(
             stats_csv_path=pupil_stats_path,
             fixations_path=pupil_fixations_path,
+            fixations=fixations_df if pupil_fixations_path == fixations_path else None,
             compute=compute_pupil_stats,
             verbose=verbose,
         )
