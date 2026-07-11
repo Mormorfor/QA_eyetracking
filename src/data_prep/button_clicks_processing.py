@@ -89,10 +89,17 @@ def build_trial_answers_df(
     participant_col: str = Con.RECORDING_SESSION_LABEL,
     trial_col: str = Con.TRIAL_ID,
     answers_col: str = Con.ALL_ANSWERS,
+    all_answers_is_cumulative: bool = True,
 ) -> pd.DataFrame:
     """
-    Build a one-row-per-participant/trial dataframe with cumulative answers,
-    previous cumulative answers, and newly added trial answers.
+    Build a one-row-per-participant/trial dataframe with this trial's answers.
+
+    `all_answers_is_cumulative` controls how ALL_ANSWERS is interpreted:
+    - True (default, legacy behavior): ALL_ANSWERS is cumulative over the whole
+      recording, so this trial's answers are the tail added since the previous
+      trial (all_answers[len(prev_all_answers):]).
+    - False: ALL_ANSWERS already stores only this trial's clicks (fixed at the
+      experiment stage), so the trial answers are the parsed list as-is.
     """
     trial_answers = (
         df[[participant_col, trial_col, answers_col]]
@@ -104,6 +111,11 @@ def build_trial_answers_df(
     trial_answers[Con.ALL_ANSWERS_LIST] = trial_answers[answers_col].apply(
         lambda x: ast.literal_eval(x) if pd.notna(x) else []
     )
+
+    if not all_answers_is_cumulative:
+        # ALL_ANSWERS is already per-trial; take it directly.
+        trial_answers[Con.TRIAL_ANSWERS] = trial_answers[Con.ALL_ANSWERS_LIST]
+        return trial_answers
 
     trial_answers[Con.PREV_ALL_ANSWERS_LIST] = trial_answers.groupby(participant_col)[
         Con.ALL_ANSWERS_LIST
@@ -340,26 +352,44 @@ def extract_last_fixations_before_clicks(
 def build_trial_level_df(
     fix_tsv: pd.DataFrame,
     fix_csv: pd.DataFrame,
+    msg_participant_col: str = Con.RECORDING_SESSION_LABEL,
+    all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """
     Run the full trial-level pipeline and return the final dataframe together
     with useful intermediate diagnostics.
+
+    `fix_tsv` supplies the message/answer columns and `fix_csv` the fixation
+    label/IA columns. For a self-contained report that holds both (e.g. the new
+    experiment fixations file), pass the same dataframe for both.
+
+    `msg_participant_col` is the participant column in `fix_tsv` (RECORDING_SESSION_LABEL
+    for the legacy TSV export, participant_id for the standardized new report).
+    `all_answers_is_cumulative` is forwarded to build_trial_answers_df.
     """
     fix_tsv_cleaned, malformed_summary_df, bad_trial_rows = (
-        truncate_recordings_at_first_malformed_trial(fix_tsv, verbose=verbose)
+        truncate_recordings_at_first_malformed_trial(
+            fix_tsv, recording_col=msg_participant_col, verbose=verbose
+        )
     )
 
-    trial_answers = build_trial_answers_df(fix_tsv_cleaned)
+    trial_answers = build_trial_answers_df(
+        fix_tsv_cleaned,
+        participant_col=msg_participant_col,
+        all_answers_is_cumulative=all_answers_is_cumulative,
+    )
 
     click_df = extract_click_timestamps(
         fix_tsv,
+        participant_col=msg_participant_col,
         keyword=Con.CHOOSE_ANSWER_KEYWORD,
         output_col=Con.SELECT_ANS_TIMESTAMPS,
     )
 
     confirm_df = extract_click_timestamps(
         fix_tsv,
+        participant_col=msg_participant_col,
         keyword=Con.CONFIRM_ANSWER_KEYWORD,
         output_col=Con.CONFIRM_TIMESTAMPS,
     )
@@ -408,14 +438,23 @@ def build_trial_level_df(
 
 def run_trial_level_pipeline(
     fix_csv_path: Path = FIX_ANSWERS_PATH,
-    fix_tsv_path: Path = FIX_A_TSV_PATH,
+    fix_tsv_path: Path | None = FIX_A_TSV_PATH,
     output_csv_path: Path = BUTTON_CLICKS_PATH,
+    fix_tsv_sep: str = "\t",
     fix_tsv_encoding: str = "utf-16",
+    msg_participant_col: str = Con.RECORDING_SESSION_LABEL,
+    all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
     Load inputs, run the full pipeline, save the final trial-level dataframe,
     and return it.
+
+    Legacy default: read the message columns from a separate TSV (`fix_tsv_path`)
+    and the fixation columns from `fix_csv_path`. For a self-contained report that
+    holds both (e.g. the standardized new experiment fixations CSV), pass
+    `fix_tsv_path=None` so the single `fix_csv` source is used for both roles, and
+    set `msg_participant_col`/`all_answers_is_cumulative` to match that data.
     """
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -423,13 +462,20 @@ def run_trial_level_pipeline(
         print(f"Loading fix_csv from: {fix_csv_path}")
     fix_csv = pd.read_csv(fix_csv_path)
 
-    if verbose:
-        print(f"Loading fix_tsv from: {fix_tsv_path}")
-    fix_tsv = pd.read_csv(fix_tsv_path, sep="\t", encoding=fix_tsv_encoding)
+    if fix_tsv_path is None:
+        if verbose:
+            print("No separate fix_tsv: using fix_csv as the single message source")
+        fix_tsv = fix_csv
+    else:
+        if verbose:
+            print(f"Loading fix_tsv from: {fix_tsv_path}")
+        fix_tsv = pd.read_csv(fix_tsv_path, sep=fix_tsv_sep, encoding=fix_tsv_encoding)
 
     trial_level_df, diagnostics = build_trial_level_df(
         fix_tsv=fix_tsv,
         fix_csv=fix_csv,
+        msg_participant_col=msg_participant_col,
+        all_answers_is_cumulative=all_answers_is_cumulative,
         verbose=verbose,
     )
 

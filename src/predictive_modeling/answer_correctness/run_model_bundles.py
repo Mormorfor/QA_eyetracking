@@ -426,6 +426,138 @@ def run_full_features_correctness_bundle(
 
 
 
+def run_cross_dataset_correctness_bundle(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    *,
+    feature_cols: Optional[Sequence[str]] = None,
+    coef_ci_method: str = "wald",
+    coef_ci_cluster: str = "row",
+    save: bool = True,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+    subdir: Optional[str] = None,
+    split_tag: str = "trainL1_testnew",
+    run_identifier: str = "",
+    coef_figsize: Optional[Tuple[int, int]] = None,
+) -> Dict[str, Any]:
+    """
+    Train a logistic-regression correctness model on the ENTIRE ``train_df``
+    (no train/test split) and evaluate it on a separate ``test_df``.
+
+    ``train_df`` and ``test_df`` are already-prepared trial-level feature tables
+    (e.g. produced by ``save_all_features`` / ``build_trial_level_model_df``).
+    Intended for train-on-L1 / test-on-new-data: the model is fit on all of
+    ``train_df`` and its accuracy/coefficients/confusion are reported on
+    ``test_df``.
+
+    ``feature_cols`` selects the features to use (default: the full feature set of
+    ``train_df``). Any feature not present in ``test_df`` is dropped with a notice,
+    since the model requires every feature column to exist in both frames (e.g.
+    paragraph-region RT/TFD, which a no-paragraph experiment lacks).
+    """
+    model = TrialLevelLogRegModel()
+    model_name = model.name
+    model_family = "logreg"
+
+    base_dir = _answer_correctness_rel_dir(
+        model_family=model_family,
+        subdir=subdir,
+        split_tag=split_tag,
+    )
+
+    # Resolve features from the training frame, then keep only those the test
+    # frame also has (the model validates that every feature column is present).
+    feat_cols = _resolve_feature_cols(train_df, feature_cols)
+    missing_in_test = [c for c in feat_cols if c not in test_df.columns]
+    if missing_in_test:
+        print(
+            f"[cross-dataset] dropping {len(missing_in_test)} feature(s) absent "
+            f"from the test set: {missing_in_test}"
+        )
+        feat_cols = [c for c in feat_cols if c in test_df.columns]
+
+    results = evaluate_models_on_prepared_split(
+        models=[model],
+        train_df=train_df,
+        test_df=test_df,
+        target_col=Con.IS_CORRECT_COLUMN,
+        feature_cols=feat_cols,
+        coef_kwargs_by_model={
+            model_name: {
+                "ci_method": coef_ci_method,
+                "ci_cluster": coef_ci_cluster,
+            }
+        },
+    )
+
+    show_correctness_model_results(results)
+    res = results[model_name]
+
+    summary_paths = None
+    if save:
+        summary_paths = _save_summary_csv(
+            results=results,
+            model_name=model_name,
+            trained_feature_cols=model.feature_cols_,
+            base_dir=base_dir,
+            run_identifier=run_identifier,
+            paper_dirs=paper_dirs,
+            formula=None,
+        )
+
+    cm_paths, cm_paths2 = _plot_confusions(
+        y_true=res.y_true,
+        y_pred=res.y_pred,
+        model_name=model_name,
+        base_dir=base_dir,
+        save=save,
+        paper_dirs=paper_dirs,
+        close=close,
+    )
+
+    coef_paths, coef_sig_paths = _plot_coef_summaries(
+        coef_summary=res.coef_summary,
+        model_name=model_name,
+        base_dir=base_dir,
+        save=save,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+        figsize=coef_figsize,
+    )
+
+    # Correlation heatmap over the features the model was actually trained on,
+    # computed on the training (L1) frame.
+    corr_paths = _plot_feature_corr(
+        trial_df=train_df,
+        corr_feature_cols=model.feature_cols_,
+        base_dir=base_dir,
+        save=save,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+
+    return {
+        "results": results,
+        "train_df": train_df,
+        "test_df": test_df,
+        "feature_cols": list(model.feature_cols_),
+        "split_tag": split_tag,
+        "base_rel_dir": base_dir,
+        "summary_csv": summary_paths,
+        "paths": {
+            "confusion_norm": cm_paths,
+            "confusion_unnorm": cm_paths2,
+            "coef_all": coef_paths,
+            "coef_significant": coef_sig_paths,
+            "correlation": corr_paths,
+        },
+    }
+
+
 def run_full_features_correctness_julia_glmer_bundle(
     df: pd.DataFrame,
     test_regimes: Sequence[str],

@@ -20,6 +20,7 @@ from src.data_paths import (
     ALL_PARTICIPANTS_LAST_PATH,
     ALL_PARTICIPANTS_PROCESSED_PATH,
     BUTTON_CLICKS_PATH,
+    FIX_A_TSV_PATH,
     FIX_ANSWERS_PATH,
     GATHERERS_PROCESSED_PATH,
     HUNTERS_PROCESSED_PATH,
@@ -1221,6 +1222,7 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
 def _attach_last_label_features(
     df: pd.DataFrame,
     save_path: Path = None,
+    button_clicks_path: Path = BUTTON_CLICKS_PATH,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
@@ -1230,15 +1232,16 @@ def _attach_last_label_features(
     - C.LAST_LBL_BEFORE_CONFIRM
 
     The features are derived on the fly (via
-    src.derived.select_confirm_last.compute_last_area_labels) rather than read
-    from a precomputed file, so no prior run of this pipeline is required. If
-    `save_path` is given, the computed (unmerged) last-label table is written
-    there as an auxiliary artifact.
+    src.derived.select_confirm_last.compute_last_area_labels) from the trial-level
+    button-click table at `button_clicks_path`. If `save_path` is given, the
+    computed (unmerged) last-label table is written there as an auxiliary artifact.
     """
     if verbose:
         print("Computing last-area-label features…")
 
-    last_df = compute_last_area_labels(df, verbose=verbose)
+    last_df = compute_last_area_labels(
+        df, trial_level_path=button_clicks_path, verbose=verbose
+    )
 
     if save_path is not None:
         _save(last_df, save_path, label="last-area labels", verbose=verbose)
@@ -1261,6 +1264,8 @@ def _attach_last_label_features(
 def _attach_rt_and_tfd_features(
     df: pd.DataFrame,
     save_path: Path = None,
+    button_clicks_path: Path = BUTTON_CLICKS_PATH,
+    include_paragraph: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
@@ -1269,16 +1274,19 @@ def _attach_rt_and_tfd_features(
     (participant_id, TRIAL_INDEX).
 
     The features are derived on the fly (via
-    src.derived.reading_times.build_rt_and_tfd) rather than read from a
-    precomputed file, so no prior run of this pipeline is required. If
-    `save_path` is given, the computed RT/TFD table is written there as an
-    auxiliary artifact.
+    src.derived.reading_times.build_rt_and_tfd), reading the trial's fixation
+    sequence from `button_clicks_path` for the run-based RT. `include_paragraph`
+    should be False for experiments without a paragraph-reading screen (then only
+    answer-region RT/TFD is returned). If `save_path` is given, the computed RT/TFD
+    table is written there as an auxiliary artifact.
     """
     if verbose:
         print("Computing RT/TFD features…")
 
     rt_df = build_rt_and_tfd(
         all_participants=df,
+        button_clicks_path=button_clicks_path,
+        include_paragraph=include_paragraph,
         save=save_path is not None,
         output_path=save_path,
         verbose=verbose,
@@ -1297,12 +1305,16 @@ def _process(
     add_rts: bool = True,
     last_labels_path: Path = None,
     rt_and_tfd_path: Path = None,
+    button_clicks_path: Path = BUTTON_CLICKS_PATH,
+    include_paragraph: bool = True,
     label: str = "",
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Run base + group pipelines on `df`, optionally attach last-label and
     RT/TFD features (computed on the fly), and return the enriched DataFrame.
 
+    Both attached features read the trial-level button clicks from
+    `button_clicks_path`. `include_paragraph` is forwarded to the RT/TFD step.
     `last_labels_path` / `rt_and_tfd_path`, when given, are where the computed
     auxiliary tables are saved."""
     if verbose:
@@ -1315,12 +1327,19 @@ def _process(
 
     if add_last:
         out = _attach_last_label_features(
-            out, save_path=last_labels_path, verbose=verbose
+            out,
+            save_path=last_labels_path,
+            button_clicks_path=button_clicks_path,
+            verbose=verbose,
         )
 
     if add_rts:
         out = _attach_rt_and_tfd_features(
-            out, save_path=rt_and_tfd_path, verbose=verbose
+            out,
+            save_path=rt_and_tfd_path,
+            button_clicks_path=button_clicks_path,
+            include_paragraph=include_paragraph,
+            verbose=verbose,
         )
 
     return out
@@ -1376,11 +1395,16 @@ def main(
     split_output_paths: dict = None,
     add_last: bool = True,
     add_rts: bool = True,
+    include_paragraph: bool = True,
     compute_pupil_stats: bool = True,
     pupil_fixations_path: Path = None,
     pupil_stats_path: Path = PARTICIPANT_PUPILS_PATH,
     rebuild_button_clicks: bool = False,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
+    button_clicks_fix_csv_path: Path = FIX_ANSWERS_PATH,
+    button_clicks_fix_tsv_path: Path = FIX_A_TSV_PATH,
+    button_clicks_msg_participant_col: str = C.RECORDING_SESSION_LABEL,
+    all_answers_is_cumulative: bool = True,
     save_auxiliary: bool = True,
     last_labels_path: Path = ALL_PARTICIPANTS_LAST_PATH,
     rt_and_tfd_path: Path = RT_AND_TFD_PATH,
@@ -1409,9 +1433,14 @@ def main(
       `pupil_fixations_path` (which defaults to `fixations_path`) when
       `compute_pupil_stats=True`, else loaded from `pupil_stats_path`. Saved to
       `pupil_stats_path` when freshly computed.
-    - button clicks — the one derived *input* the RT/last-label steps need. It is
-      rebuilt from raw (via button_clicks_processing.run_trial_level_pipeline)
-      when `rebuild_button_clicks=True` or when `button_clicks_path` is missing.
+    - button clicks — the one derived *input* the RT/last-label steps need, so it is
+      only built when `add_last`/`add_rts` run. Rebuilt from raw (via
+      button_clicks_processing.run_trial_level_pipeline) when `rebuild_button_clicks=True`
+      or when `button_clicks_path` is missing, reading from `button_clicks_fix_csv_path`
+      + `button_clicks_fix_tsv_path`. For a self-contained report that holds both the
+      message and fixation columns (e.g. the new experiment fixations), pass
+      `button_clicks_fix_tsv_path=None` and set `button_clicks_msg_participant_col`
+      (e.g. participant_id) and `all_answers_is_cumulative=False` to match it.
     - last-area labels (`add_last`) → `last_labels_path`.
     - RT/TFD features (`add_rts`) → `rt_and_tfd_path`.
 
@@ -1435,13 +1464,25 @@ def main(
     if pupil_fixations_path is None:
         pupil_fixations_path = fixations_path
 
-    # Ensure the one derived input (button clicks) exists, rebuilding it from raw
-    # when forced or absent. Everything downstream reads it from this path.
-    if rebuild_button_clicks or not Path(button_clicks_path).exists():
+    # Button clicks is the one derived input the RT/last-label steps need, so only
+    # build it when those steps run. Rebuild from raw when forced or absent, routing
+    # to the configured fixations source (default: the legacy CSV + separate TSV;
+    # pass button_clicks_fix_tsv_path=None for a self-contained new-data report).
+    needs_button_clicks = add_last or add_rts
+    if needs_button_clicks and (
+        rebuild_button_clicks or not Path(button_clicks_path).exists()
+    ):
         if verbose:
             reason = "forced" if rebuild_button_clicks else "missing"
             print(f"\nBuilding button-click data from raw ({reason})…")
-        run_trial_level_pipeline(output_csv_path=Path(button_clicks_path), verbose=verbose)
+        run_trial_level_pipeline(
+            fix_csv_path=button_clicks_fix_csv_path,
+            fix_tsv_path=button_clicks_fix_tsv_path,
+            output_csv_path=Path(button_clicks_path),
+            msg_participant_col=button_clicks_msg_participant_col,
+            all_answers_is_cumulative=all_answers_is_cumulative,
+            verbose=verbose,
+        )
 
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
@@ -1520,6 +1561,8 @@ def main(
         add_rts=add_rts,
         last_labels_path=last_labels_path if save_auxiliary else None,
         rt_and_tfd_path=rt_and_tfd_path if save_auxiliary else None,
+        button_clicks_path=button_clicks_path,
+        include_paragraph=include_paragraph,
         label="all_participants",
         verbose=verbose,
     )
