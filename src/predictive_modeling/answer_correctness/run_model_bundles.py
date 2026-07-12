@@ -36,6 +36,7 @@ from src.predictive_modeling.answer_correctness.answer_correctness_viz import (
     correctness_results_to_summary_df,
     plot_coef_summary_barh,
     plot_feature_correlation_heatmap,
+    plot_predicted_probability_hist,
     plot_random_effects_distribution,
     summarize_random_effects, plot_random_effects_barh,
 )
@@ -186,6 +187,12 @@ def _save_summary_csv(
     )
 
 
+def _titled(core: str, title_prefix: str = "") -> str:
+    """Prepend an optional context label (e.g. a knowledge regime) to a plot title."""
+    prefix = title_prefix.strip()
+    return f"{prefix} — {core}" if prefix else core
+
+
 def _plot_confusions(
     *,
     y_true,
@@ -195,13 +202,14 @@ def _plot_confusions(
     save: bool,
     paper_dirs: Optional[List[str]],
     close: bool,
+    title_prefix: str = "",
 ):
     _, _, cm_paths = plot_confusion_heatmap(
         y_true=y_true,
         y_pred=y_pred,
         labels=(0, 1),
         normalize=True,
-        title=f"{model_name} – normalized confusion",
+        title=_titled(f"{model_name} – normalized confusion", title_prefix),
         save=save,
         rel_dir=f"{base_dir}/confusion",
         filename=f"{model_name}_norm_confusion",
@@ -214,7 +222,7 @@ def _plot_confusions(
         y_pred=y_pred,
         labels=(0, 1),
         normalize=False,
-        title=f"{model_name} – un-normalized confusion",
+        title=_titled(f"{model_name} – un-normalized confusion", title_prefix),
         save=save,
         rel_dir=f"{base_dir}/confusion",
         filename=f"{model_name}_unnorm_confusion",
@@ -223,6 +231,36 @@ def _plot_confusions(
     )
 
     return cm_paths, cm_paths2
+
+
+def _plot_prob_hist(
+    *,
+    y_true,
+    y_prob,
+    model_name: str,
+    base_dir: str,
+    save: bool,
+    paper_dirs: Optional[List[str]],
+    dpi: int,
+    close: bool,
+    title_prefix: str = "",
+):
+    if y_prob is None:
+        return []
+    _, _, prob_paths = plot_predicted_probability_hist(
+        y_true=y_true,
+        y_prob=y_prob,
+        title=_titled(
+            f"{model_name} – predicted probability by true outcome", title_prefix
+        ),
+        save=save,
+        rel_dir=f"{base_dir}/predicted_probabilities",
+        filename=f"{model_name}_predicted_probability_hist",
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+    )
+    return prob_paths
 
 
 def _plot_coef_summaries(
@@ -235,6 +273,7 @@ def _plot_coef_summaries(
     dpi: int,
     close: bool,
     figsize: Optional[Tuple[int, int]] = None,
+    title_prefix: str = "",
 ):
     coef_paths = []
     coef_sig_paths = []
@@ -244,7 +283,7 @@ def _plot_coef_summaries(
             coef_summary=coef_summary,
             value_col="coef",
             model_name=model_name,
-            title=f"{model_name} – coefficients",
+            title=_titled(f"{model_name} – coefficients", title_prefix),
             save=save,
             rel_dir=f"{base_dir}/coefficients",
             filename=f"{model_name}_coef_all",
@@ -259,7 +298,7 @@ def _plot_coef_summaries(
             coef_summary=coef_summary,
             value_col="coef",
             model_name=model_name,
-            title=f"{model_name} – significant coefficients",
+            title=_titled(f"{model_name} – significant coefficients", title_prefix),
             save=save,
             rel_dir=f"{base_dir}/coefficients",
             filename=f"{model_name}_coef_significant",
@@ -282,6 +321,7 @@ def _plot_feature_corr(
     paper_dirs: Optional[List[str]],
     dpi: int,
     close: bool,
+    title_prefix: str = "",
 ):
     _, _, corr_paths = plot_feature_correlation_heatmap(
         trial_df,
@@ -289,6 +329,7 @@ def _plot_feature_corr(
         figsize=(30, 30),
         method="pearson",
         cluster_order=True,
+        title=_titled("Feature correlation (pearson) – cluster-ordered", title_prefix),
         save=save,
         rel_dir=f"{base_dir}/diagnostics/feature_correlation",
         filename=f"feature_corr_clustered_n{len(corr_feature_cols)}",
@@ -317,6 +358,7 @@ def run_full_features_correctness_bundle(
     run_identifier: str = "",
     random_state: int = 42,
     coef_figsize: Optional[Tuple[int, int]] = None,
+    title_prefix: str = "",
 ) -> Dict[str, Any]:
     model = TrialLevelLogRegModel()
     model_name = model.name
@@ -378,6 +420,19 @@ def run_full_features_correctness_bundle(
         save=save,
         paper_dirs=paper_dirs,
         close=close,
+        title_prefix=title_prefix,
+    )
+
+    prob_hist_paths = _plot_prob_hist(
+        y_true=res.y_true,
+        y_prob=getattr(res, "y_prob", None),
+        model_name=model_name,
+        base_dir=base_dir,
+        save=save,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+        title_prefix=title_prefix,
     )
 
     coef_paths, coef_sig_paths = _plot_coef_summaries(
@@ -389,6 +444,7 @@ def run_full_features_correctness_bundle(
         dpi=dpi,
         close=close,
         figsize=coef_figsize,
+        title_prefix=title_prefix,
     )
 
     trial_df = _load_or_build_full_trial_df(
@@ -404,6 +460,7 @@ def run_full_features_correctness_bundle(
         paper_dirs=paper_dirs,
         dpi=dpi,
         close=close,
+        title_prefix=title_prefix,
     )
 
     return {
@@ -418,6 +475,7 @@ def run_full_features_correctness_bundle(
         "paths": {
             "confusion_norm": cm_paths,
             "confusion_unnorm": cm_paths2,
+            "predicted_probability_hist": prob_hist_paths,
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
             "correlation": corr_paths,
@@ -441,6 +499,7 @@ def run_cross_dataset_correctness_bundle(
     split_tag: str = "trainL1_testnew",
     run_identifier: str = "",
     coef_figsize: Optional[Tuple[int, int]] = None,
+    title_prefix: str = "",
 ) -> Dict[str, Any]:
     """
     Train a logistic-regression correctness model on the ENTIRE ``train_df``
@@ -515,6 +574,19 @@ def run_cross_dataset_correctness_bundle(
         save=save,
         paper_dirs=paper_dirs,
         close=close,
+        title_prefix=title_prefix,
+    )
+
+    prob_hist_paths = _plot_prob_hist(
+        y_true=res.y_true,
+        y_prob=getattr(res, "y_prob", None),
+        model_name=model_name,
+        base_dir=base_dir,
+        save=save,
+        paper_dirs=paper_dirs,
+        dpi=dpi,
+        close=close,
+        title_prefix=title_prefix,
     )
 
     coef_paths, coef_sig_paths = _plot_coef_summaries(
@@ -526,6 +598,7 @@ def run_cross_dataset_correctness_bundle(
         dpi=dpi,
         close=close,
         figsize=coef_figsize,
+        title_prefix=title_prefix,
     )
 
     # Correlation heatmap over the features the model was actually trained on,
@@ -538,6 +611,7 @@ def run_cross_dataset_correctness_bundle(
         paper_dirs=paper_dirs,
         dpi=dpi,
         close=close,
+        title_prefix=title_prefix,
     )
 
     return {
@@ -551,6 +625,7 @@ def run_cross_dataset_correctness_bundle(
         "paths": {
             "confusion_norm": cm_paths,
             "confusion_unnorm": cm_paths2,
+            "predicted_probability_hist": prob_hist_paths,
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
             "correlation": corr_paths,

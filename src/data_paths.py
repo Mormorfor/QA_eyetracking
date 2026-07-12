@@ -57,6 +57,19 @@ FIX_T_TSV_PATH = FIX_TSV_DIR / "fixations_T.tsv"
 TEST_RUN_PATH = PROJECT_ROOT / "data_raw" / "testrun_QA"
 
 # ---------------------------------------------------------------------------
+# New experiment (testrun_QA) — converted/cleaned raw inputs
+# ---------------------------------------------------------------------------
+
+# CSVs converted from the .xls reports (via data_prep_new_exp.ipynb).
+NEW_EXP_CSV_DIR = TEST_RUN_PATH / "csvs"
+# Column-standardized CSVs the pipeline reads (renamed cols, letter answers_order).
+NEW_EXP_CLEANED_DIR = NEW_EXP_CSV_DIR / "cleaned"
+
+NEW_EXP_IA_ANSWERS_PATH = NEW_EXP_CLEANED_DIR / "IA_answers.csv"
+NEW_EXP_FIX_ANSWERS_PATH = NEW_EXP_CLEANED_DIR / "fixations_answers.csv"
+NEW_EXP_MESSAGES_PATH = NEW_EXP_CSV_DIR / "messages_answers.csv"
+
+# ---------------------------------------------------------------------------
 # Processed Data (data/)
 # ---------------------------------------------------------------------------
 
@@ -87,6 +100,15 @@ RT_AND_TFD_PATH = AUXILIARY_DATA_DIR / "RT_and_TFD.csv"
 
 
 READY_ALL_FEATURES_PATH = L1_BASED_DATA_DIR / "L1_model_ready_all_features.csv"
+
+# ---------------------------------------------------------------------------
+# New experiment (testrun_QA) — processed outputs (data/new_exp_try_runs)
+# ---------------------------------------------------------------------------
+
+NEW_EXP_OUT_DIR = DATA_DIR / "new_exp_try_runs"
+NEW_EXP_OUT_PATH = NEW_EXP_OUT_DIR / "all_participants.csv"
+NEW_EXP_AUX_DIR = NEW_EXP_OUT_DIR / "Auxiliary"
+NEW_EXP_FEATURES_PATH = NEW_EXP_OUT_DIR / "L1_model_ready_all_features.csv"
 
 # ---------------------------------------------------------------------------
 # Experiment data (data/Experiment)
