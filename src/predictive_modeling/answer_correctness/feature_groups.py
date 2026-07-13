@@ -43,6 +43,32 @@ DERIVED_COLS: List[str] = [
 
 
 # ---------------------------------------------------------------------------
+# Per-trial pattern-breaking features
+#   breaks_pattern_{with,no}_q     -- trial deviates from participant's dominant
+#                                     starting strategy (question kept / dropped)
+#   dominance_score_{with,no}_q    -- participant's dominance score, per trial
+# ---------------------------------------------------------------------------
+
+PATTERN_COLS: List[str] = [
+    Con.BREAKS_PATTERN_WITH_Q,
+    Con.BREAKS_PATTERN_NO_Q,
+    Con.DOMINANCE_SCORE_WITH_Q,
+    Con.DOMINANCE_SCORE_NO_Q,
+]
+
+# Opt-in interaction terms (breaks_pattern * dominance_score). Kept separate
+# from PATTERN_COLS / the aggregate sets so they are only added on request, e.g.
+#   feature_cols = FG.GENERAL_FEATURES + FG.PATTERN_INTERACTION_COLS
+PATTERN_INTERACTION_COLS: List[str] = [
+    Con.BREAKS_X_DOMINANCE_WITH_Q,
+    Con.BREAKS_X_DOMINANCE_NO_Q,
+]
+
+# Convenience: base pattern features together with their interaction terms.
+PATTERN_COLS_WITH_INTERACTIONS: List[str] = PATTERN_COLS + PATTERN_INTERACTION_COLS
+
+
+# ---------------------------------------------------------------------------
 # Area-derived metric columns
 #   <metric>__correct, <metric>__wrong_mean, <metric>__contrast,
 #   <metric>__distance_furthest, <metric>__distance_closest
@@ -203,6 +229,7 @@ ALL_FEATURES_NO_LAST: List[str] = (
     AREA_COLS
     + PER_QUESTION_COLS
     + DERIVED_COLS
+    + PATTERN_COLS
     + [Con.NUM_OF_SELECTS]
     + RT_COLS
     + TFD_COLS
@@ -221,7 +248,7 @@ ALL_FEATURES: List[str] = (
 # ---------------------------------------------------------------------------
 
 GENERAL_FEATURES: List[str] = (
-    AREA_COLS + PER_QUESTION_COLS + DERIVED_COLS + [Con.NUM_OF_SELECTS]
+    AREA_COLS + PER_QUESTION_COLS + DERIVED_COLS + PATTERN_COLS + [Con.NUM_OF_SELECTS]
 )
 
 

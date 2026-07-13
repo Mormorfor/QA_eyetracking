@@ -13,6 +13,16 @@ DERIVED_BASE_FEATURES = [
     "trial_mean_dwell",
 ]
 
+# Per-trial pattern-breaking features (produced by
+# build_trial_level_pattern_features), in question-kept / question-dropped
+# variants.
+PATTERN_FEATURE_COLS = [
+    Con.BREAKS_PATTERN_WITH_Q,
+    Con.BREAKS_PATTERN_NO_Q,
+    Con.DOMINANCE_SCORE_WITH_Q,
+    Con.DOMINANCE_SCORE_NO_Q,
+]
+
 # Standalone answer-region columns produced by build_trial_level_rt_tfd_features.
 RT_TFD_ANSWER_METRICS = (
     "RT_pure",
@@ -91,6 +101,13 @@ def get_derived_feature_cols(df: pd.DataFrame) -> List[str]:
     return cols
 
 
+def get_pattern_feature_cols(df: pd.DataFrame) -> List[str]:
+    """
+    Return per-trial pattern-breaking feature columns that are present in df.
+    """
+    return [c for c in PATTERN_FEATURE_COLS if c in df.columns]
+
+
 def get_last_visited_feature_cols(df: pd.DataFrame) -> List[str]:
     """
     Return one-hot last-visited feature columns.
@@ -130,12 +147,14 @@ def get_full_feature_cols(df: pd.DataFrame) -> List[str]:
     Return the full model feature set:
       - area features
       - derived features
+      - pattern-breaking features
       - last visited one-hot features
       - RT / TFD / TimeSinceOffset features (per-region: answer + paragraph)
     """
     cols: List[str] = []
     cols.extend(get_area_feature_cols(df))
     cols.extend(get_derived_feature_cols(df))
+    cols.extend(get_pattern_feature_cols(df))
     cols.extend(get_last_visited_feature_cols(df))
     cols.extend(get_rt_tfd_feature_cols(df))
     return cols

@@ -32,6 +32,8 @@ from src.derived.correctness_measures import (
 
 from src.derived.preference_matching import compute_trial_matching
 
+from src.derived.pattern_breaking import build_trial_level_pattern_features
+
 from src.derived.reading_times import (
     ANSWER_REGIONS as RT_ANSWER_REGIONS,
     PARAGRAPH_REGIONS as RT_PARAGRAPH_REGIONS,
@@ -317,6 +319,7 @@ def build_trial_level_model_df(
     include_last_lbl_before_select_features: bool = True,
     include_rt_tfd_features: bool = True,
     include_total_answering_rt: bool = True,
+    include_pattern_features: bool = True,
     numeric_feature_cols: Sequence[str] = (Con.NUM_OF_SELECTS,),
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
@@ -366,6 +369,10 @@ def build_trial_level_model_df(
             on=list(TRIAL_ID_COLS),
             how="left",
         )
+
+    if include_pattern_features:
+        pattern_df = build_trial_level_pattern_features(df, kind="location", window_len=4)
+        out = out.merge(pattern_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_last_lbl_before_confirm_features:
         last_before_confirm_df = build_trial_level_last_visited_features(
@@ -447,6 +454,7 @@ def save_all_features(
         include_last_lbl_before_select_features=True,
         include_rt_tfd_features=True,
         include_total_answering_rt=True,
+        include_pattern_features=True,
     )
 
     output_path = Path(output_path)

@@ -68,6 +68,27 @@ SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 
 STRATEGY_COL = "strategy"
 
+# Pattern-breaking / starting-strategy features
+# Participant-level:
+STARTING_STRATEGY_COL = "starting_strategy"
+DOMINANT_STARTING_STRATEGY = "dominant_starting_strategy"
+DOMINANCE_SCORE = "dominance_score"
+N_STRATEGY_TRIALS = "n_strategy_trials"
+
+# Per-trial model features, in two variants (question tokens kept vs. dropped
+# before computing the starting strategy). "breaks_pattern" flags a trial whose
+# starting strategy differs from the participant's dominant one.
+BREAKS_PATTERN_WITH_Q = "breaks_pattern_with_q"
+BREAKS_PATTERN_NO_Q = "breaks_pattern_no_q"
+DOMINANCE_SCORE_WITH_Q = "dominance_score_with_q"
+DOMINANCE_SCORE_NO_Q = "dominance_score_no_q"
+
+# Interaction term: breaks_pattern * dominance_score (per q-variant). Equals the
+# dominance score on trials that break the pattern, 0 otherwise -- i.e. "how much
+# breaking matters, scaled by how dominant the participant's pattern is".
+BREAKS_X_DOMINANCE_WITH_Q = "breaks_x_dominance_with_q"
+BREAKS_X_DOMINANCE_NO_Q = "breaks_x_dominance_no_q"
+
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 
