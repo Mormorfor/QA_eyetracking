@@ -8,6 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from src import constants as Con
+from src.viz.plot_output import save_fig
+from src.viz.viz_helpers import split_participant_groups
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +100,7 @@ def plot_dominant_strategy_hist(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/strategies",
+    paper_dirs=None,
     completed_flag_col: Optional[str] = None,
 ):
     """
@@ -127,13 +130,11 @@ def plot_dominant_strategy_hist(
 
     fig.tight_layout()
     if save:
-        os.makedirs(output_root, exist_ok=True)
-        fig.savefig(
-            os.path.join(
-                output_root,
-                f"dominant_prop_{strat_col}_{h_or_g}.png",
-            ),
-            dpi=300,
+        save_fig(
+            fig,
+            output_root,
+            f"dominant_prop_{strat_col}_{h_or_g}",
+            paper_dirs=paper_dirs,
         )
     plt.show()
 
@@ -150,6 +151,7 @@ def plot_dominance_gap(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/strategies",
+    paper_dirs=None,
     hist_kwargs: Optional[dict] = None,
     scatter_kwargs: Optional[dict] = None,
 ):
@@ -194,13 +196,11 @@ def plot_dominance_gap(
 
     plt.tight_layout()
     if save:
-        os.makedirs(output_root, exist_ok=True)
-        plt.savefig(
-            os.path.join(
-                output_root,
-                f"dominance_gap_{strat_col}_{h_or_g}.png",
-            ),
-            dpi=300,
+        save_fig(
+            fig,
+            output_root,
+            f"dominance_gap_{strat_col}_{h_or_g}",
+            paper_dirs=paper_dirs,
         )
     plt.show()
 
@@ -217,6 +217,7 @@ def plot_strategy_count_distribution(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/strategies",
+    paper_dirs=None,
     **plot_kwargs,
 ):
     """
@@ -224,7 +225,7 @@ def plot_strategy_count_distribution(
     """
     strat_counts = df.groupby(id_col)[strat_col].nunique()
 
-    plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize)
     if bins is None:
         max_strat = strat_counts.max()
         bins = np.arange(0.5, max_strat + 1.5, 1.0)
@@ -237,13 +238,11 @@ def plot_strategy_count_distribution(
 
     plt.tight_layout()
     if save:
-        os.makedirs(output_root, exist_ok=True)
-        plt.savefig(
-            os.path.join(
-                output_root,
-                f"dom_str_counts_{strat_col}_{h_or_g}.png",
-            ),
-            dpi=300,
+        save_fig(
+            fig,
+            output_root,
+            f"dom_str_counts_{strat_col}_{h_or_g}",
+            paper_dirs=paper_dirs,
         )
 
     plt.show()
@@ -261,6 +260,7 @@ def plot_dominant_strategy_counts_above_threshold(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/strategies",
+    paper_dirs=None,
     **bar_kwargs,
 ):
     """
@@ -276,7 +276,7 @@ def plot_dominant_strategy_counts_above_threshold(
     filtered = dominant_strat[mask]
     freq = filtered.value_counts().sort_values(ascending=False)
 
-    plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize)
     freq.plot(kind="bar", **bar_kwargs)
     plt.xlabel(strat_col)
     plt.ylabel("Number of participants")
@@ -287,13 +287,11 @@ def plot_dominant_strategy_counts_above_threshold(
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     if save:
-        os.makedirs(output_root, exist_ok=True)
-        plt.savefig(
-            os.path.join(
-                output_root,
-                f"str_above_thresh_{strat_col}_{h_or_g}.png",
-            ),
-            dpi=300,
+        save_fig(
+            fig,
+            output_root,
+            f"str_above_thresh_{strat_col}_{h_or_g}",
+            paper_dirs=paper_dirs,
         )
 
     plt.show()
@@ -372,6 +370,7 @@ def summarize_before_after(
     h_or_g: str = "hunters",
     save: bool = True,
     out_prefix: str = "../reports/plots/strategies",
+    paper_dirs=None,
     density: bool = False,
     hist_kwargs: Optional[dict] = None,
     full_len: int = 4,
@@ -552,13 +551,11 @@ def summarize_before_after(
     fig.tight_layout()
 
     if save:
-        os.makedirs(out_prefix, exist_ok=True)
-        fig.savefig(
-            os.path.join(
-                out_prefix,
-                f"dominant_prop_raw_vs_completed_{h_or_g}.png",
-            ),
-            dpi=300,
+        save_fig(
+            fig,
+            out_prefix,
+            f"dominant_prop_raw_vs_completed_{h_or_g}",
+            paper_dirs=paper_dirs,
         )
 
     plt.show()
@@ -642,8 +639,8 @@ def plot_strategies(
 
 
 def run_all_strategy_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     kind: str = "location",
     window_len: int = 4,
     threshold: float = 0.5,
@@ -668,7 +665,10 @@ def run_all_strategy_plots(
     """
     results = {}
 
-    for group_name, df in {"hunters": hunters, "gatherers": gatherers}.items():
+    groups = split_participant_groups(
+        all_participants, split=split_groups, include_all=False
+    )
+    for group_name, df in groups.items():
         df_strat = build_strategy_dataframe(
             df,
             kind=kind,

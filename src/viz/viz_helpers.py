@@ -10,6 +10,56 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from src import constants as C
+from src.viz.plot_output import save_fig, save_table, save_json
+
+
+def split_participant_groups(
+    all_participants: pd.DataFrame,
+    split: bool = True,
+    include_all: bool = True,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Split a single ``all_participants`` DataFrame into the groups the
+    visualisation modules plot over.
+
+    The hunters/gatherers distinction is the question-preview split (mirrors
+    ``data_prep.data_csv_generation.split_hunters_and_gatherers``):
+      - hunters   : ``question_preview == True``
+      - gatherers : ``question_preview == False``
+
+    ``all_participants`` is expected to be the processed all-participants table
+    (repeated/practice trials already removed by the generation pipeline), so
+    the two halves reconcatenate to it exactly.
+
+    Returns an insertion-ordered dict::
+
+        {"hunters": ..., "gatherers": ..., "all_participants": ...}
+
+    Parameters
+    ----------
+    split : bool, default True
+        If ``False``, skip the hunters/gatherers split entirely and return a
+        single group ``{"all_participants": all_participants}`` (``include_all``
+        is ignored in that case).
+    include_all : bool, default True
+        When splitting, whether to also include the ``"all_participants"`` entry
+        (the concatenation of the two halves). Ignored when ``split=False``.
+    """
+    if not split:
+        return {"all_participants": all_participants}
+
+    preview = all_participants[C.QUESTION_PREVIEW_COLUMN]
+    hunters = all_participants[preview == True].copy()
+    gatherers = all_participants[preview == False].copy()
+
+    groups: Dict[str, pd.DataFrame] = {"hunters": hunters, "gatherers": gatherers}
+    if include_all:
+        groups["all_participants"] = pd.concat(
+            [hunters, gatherers], ignore_index=True
+        )
+    return groups
+
 
 def p_to_stars(p: Optional[float]) -> str:
     if p is None or not np.isfinite(p):
@@ -104,17 +154,16 @@ def save_plot_and_report(
     plot_dir: str,
     data_dir: str,
     base_name: str,
+    paper_dirs: Optional[Sequence[str]] = None,
 ) -> None:
-    ensure_dir(plot_dir)
-    ensure_dir(data_dir)
-
-    fig.savefig(os.path.join(plot_dir, f"{base_name}.png"), dpi=300)
-    summary_df.to_csv(os.path.join(data_dir, f"{base_name}__summary.csv"), index=False)
+    """Save a figure plus its summary table (and optional Fisher json) through
+    the shared ``plot_output`` savers, mirroring to ``paper_dirs`` when given."""
+    save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
+    save_table(summary_df, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
 
     if test_res is not None:
         test_json = dict(test_res)
         if "contingency_table" in test_json and hasattr(test_json["contingency_table"], "tolist"):
             test_json["contingency_table"] = test_json["contingency_table"].tolist()
 
-        with open(os.path.join(data_dir, f"{base_name}__fisher.json"), "w", encoding="utf-8") as f:
-            json.dump(test_json, f, indent=2)
+        save_json(test_json, data_dir, f"{base_name}__fisher", paper_dirs=paper_dirs)

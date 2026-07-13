@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
+from src.viz.plot_output import save_fig
+from src.viz.viz_helpers import split_participant_groups
 
 
 
@@ -23,6 +25,7 @@ def matrix_plot_ABCD(
     output_root: str = "../reports/plots/basic_stats_heatmaps",
     show: bool = True,
     save: bool = True,
+    paper_dirs=None,
 ) -> None:
     """
     Draw a heatmap of a metric by (area_label x area_screen_loc)
@@ -74,7 +77,7 @@ def matrix_plot_ABCD(
 
     matrix = matrix.reindex(index=row_order, columns=col_order)
 
-    plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(8, 6))
     ax = sns.heatmap(
         matrix,
         annot=True,
@@ -93,9 +96,7 @@ def matrix_plot_ABCD(
 
     if save:
         out_dir = os.path.join(output_root, h_or_g, stat)
-        os.makedirs(out_dir, exist_ok=True)
-        filename = f"{selected}_selected.png"
-        plt.savefig(os.path.join(out_dir, filename), dpi=300)
+        save_fig(fig, out_dir, f"{selected}_selected", paper_dirs=paper_dirs)
 
     if show:
         plt.show()
@@ -106,19 +107,20 @@ def matrix_plot_ABCD(
 
 def label_vs_loc_mat(
     metric: str,
-    dfh: pd.DataFrame,
-    dfg: pd.DataFrame,
-    dfa: Optional[pd.DataFrame] = None,
+    all_participants: pd.DataFrame,
     drop_questions: bool = False,
+    split_groups: bool = True,
     **plot_kwargs,
 ) -> None:
     """
-    For a given metric, plot heatmaps for each selected answer label (A–D).
+    For a given metric, plot heatmaps for each selected answer label (A-D).
 
-    Runs:
+    Splits the single ``all_participants`` frame on request and runs:
       - hunters
       - gatherers
-      - all participants (optional, if dfa is provided)
+      - all participants
+
+    When ``split_groups=False`` only the combined all-participants group is run.
     """
     def _run(df: pd.DataFrame, group_label: str) -> None:
         print(f"{group_label.upper()} (drop_questions={drop_questions})")
@@ -133,23 +135,21 @@ def label_vs_loc_mat(
                 **plot_kwargs,
             )
 
-    _run(dfh, "hunters")
-    _run(dfg, "gatherers")
-
-    if dfa is not None:
-        _run(dfa, "all participants")
+    groups = split_participant_groups(all_participants, split=split_groups)
+    for group_label, df in groups.items():
+        _run(df, group_label)
 
 
 
 
 def run_all_area_metric_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
     metrics=None,
     drop_question_variants=(False, True),
     output_root="../reports/plots/basic_stats_heatmaps",
     show=True,
     save=True,
+    split_groups: bool = True,
 ):
     """
     Convenience wrapper: for every metric, generate label-vs-location matrices
@@ -159,8 +159,6 @@ def run_all_area_metric_plots(
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS_VIZES
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
     for metric in metrics:
         for dq in drop_question_variants:
             dq_folder = "questions_removed" if dq else "questions_included"
@@ -169,10 +167,9 @@ def run_all_area_metric_plots(
 
             label_vs_loc_mat(
                 metric,
-                hunters,
-                gatherers,
-                dfa=all_participants,
+                all_participants,
                 drop_questions=dq,
+                split_groups=split_groups,
                 output_root=os.path.join(output_root, dq_folder),
                 show=show,
                 save=save,

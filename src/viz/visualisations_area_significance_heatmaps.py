@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
+
+from src.viz.plot_output import save_fig
 
 
 def _stars_from_p(p):
@@ -23,6 +26,7 @@ def plot_pairwise_significance_heatmap(
     save_path=None,
     areas=None,
     show=False,
+    paper_dirs=None,
 ):
     """
     Heatmap for pairwise comparisons table.
@@ -101,10 +105,14 @@ def plot_pairwise_significance_heatmap(
     fig.tight_layout()
 
     if save_path is not None:
-        out_dir = os.path.dirname(save_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        fig.savefig(save_path, bbox_inches="tight")
+        save_path = Path(save_path)
+        save_fig(
+            fig,
+            save_path.parent,
+            save_path.stem,
+            ext=save_path.suffix.lstrip(".") or "png",
+            paper_dirs=paper_dirs,
+        )
 
     if show:
         plt.show()

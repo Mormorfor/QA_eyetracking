@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
+from src.viz.plot_output import save_fig
+from src.viz.viz_helpers import split_participant_groups
 from src.viz.visualisations_strategies import build_strategy_dataframe
 
 
@@ -106,13 +108,12 @@ def plot_dominant_strategies_by_eye_sorted(
     output_root: str = "../reports/plots/dominant_eye",
     save: bool = True,
     min_count: int = 1,
+    paper_dirs=None,
 ):
     """
     Produce separate horizontal barplots for each eye group (e.g. Left, Right),
     sorted from most to least frequent dominant strategy.
     """
-
-    os.makedirs(output_root, exist_ok=True)
 
     # string representation for plotting
     def _strat_to_str(s):
@@ -149,8 +150,12 @@ def plot_dominant_strategies_by_eye_sorted(
 
         fig.tight_layout()
         if save:
-            filename = f"dominant_strategies_sorted_{group_name}_{eye}.png"
-            fig.savefig(os.path.join(output_root, filename), dpi=300)
+            save_fig(
+                fig,
+                output_root,
+                f"dominant_strategies_sorted_{group_name}_{eye}",
+                paper_dirs=paper_dirs,
+            )
 
         plt.show()
 
@@ -158,8 +163,8 @@ def plot_dominant_strategies_by_eye_sorted(
 
 
 def run_dominant_strategy_eye_analysis(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     kind: str = "location",
     window_len: int = 4,
     drop_question: bool = True,
@@ -176,13 +181,7 @@ def run_dominant_strategy_eye_analysis(
     """
     results = {}
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
-    groups = {
-        "hunters": hunters,
-        "gatherers": gatherers,
-        "all_participants": all_participants,
-    }
+    groups = split_participant_groups(all_participants, split=split_groups)
 
     for group_key, df in groups.items():
         # Human label for titles/filenames

@@ -1,5 +1,6 @@
 import sys
-import os 
+import os
+import json
 
 from pathlib import Path
 
@@ -9,12 +10,146 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 def project_root():
     # src/viz/save_plot.py → src → project root
     return Path(__file__).resolve().parents[2]
+
+
+# ---------------------------------------------------------------------------
+# Shared saving primitives (explicit-directory based).
+#
+# These are the single place every visualisation writes through. Each saves a
+# "main" copy to the given ``out_dir`` and, when ``paper_dirs`` is provided,
+# mirrors the file into each paper directory under a canonical subfolder
+# (figures/ for plots, report_data/ for tables & json). The mirror subpath is
+# the portion of ``out_dir`` after the last ``reports/plots`` (resp.
+# ``report_data``) component, so callers keep passing the same output_root they
+# always did and paper mirroring "just works".
+# ---------------------------------------------------------------------------
+
+
+def _subpath_after(out_dir: Union[str, Path], anchor: str) -> Path:
+    """Return the portion of ``out_dir`` after its last ``anchor`` component.
+
+    e.g. _subpath_after("../reports/plots/strategies/x", "plots") -> "strategies/x".
+    Falls back to the trailing component if ``anchor`` is absent.
+    """
+    parts = list(Path(out_dir).parts)
+    idx = max((i for i, p in enumerate(parts) if p == anchor), default=None)
+    if idx is None:
+        return Path(parts[-1]) if parts else Path("")
+    tail = parts[idx + 1:]
+    return Path(*tail) if tail else Path("")
+
+
+def save_fig(
+    fig,
+    out_dir: Union[str, Path],
+    filename: str,
+    *,
+    ext: str = "png",
+    dpi: int = 300,
+    paper_dirs: Optional[List[str]] = None,
+    close: bool = False,
+    bbox_inches: Optional[str] = "tight",
+) -> List[str]:
+    """
+    Save ``fig`` to ``out_dir/<filename>.<ext>``.
+
+    When ``paper_dirs`` is given, mirror to each:
+        <paper_dir>/figures/<subpath-after-"plots">/<filename>.<ext>
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    main_path = out_dir / f"{filename}.{ext}"
+    fig.savefig(main_path, dpi=dpi, bbox_inches=bbox_inches)
+    saved_paths = [str(main_path)]
+
+    if paper_dirs:
+        sub = _subpath_after(out_dir, "plots")
+        for p in paper_dirs:
+            paper_dir = PROJECT_ROOT / p / "figures" / sub
+            paper_dir.mkdir(parents=True, exist_ok=True)
+            paper_path = paper_dir / f"{filename}.{ext}"
+            fig.savefig(paper_path, dpi=dpi, bbox_inches=bbox_inches)
+            saved_paths.append(str(paper_path))
+
+    if close:
+        plt.close(fig)
+
+    return saved_paths
+
+
+def save_table(
+    df: pd.DataFrame,
+    out_dir: Union[str, Path],
+    filename: str,
+    *,
+    paper_dirs: Optional[List[str]] = None,
+) -> List[str]:
+    """
+    Save ``df`` to ``out_dir/<filename>.csv``.
+
+    When ``paper_dirs`` is given, mirror to each:
+        <paper_dir>/report_data/<subpath-after-"report_data">/<filename>.csv
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    main_path = out_dir / f"{filename}.csv"
+    df.to_csv(main_path, index=False)
+    saved_paths = [str(main_path)]
+
+    if paper_dirs:
+        sub = _subpath_after(out_dir, "report_data")
+        for p in paper_dirs:
+            paper_dir = PROJECT_ROOT / p / "report_data" / sub
+            paper_dir.mkdir(parents=True, exist_ok=True)
+            paper_path = paper_dir / f"{filename}.csv"
+            df.to_csv(paper_path, index=False)
+            saved_paths.append(str(paper_path))
+
+    return saved_paths
+
+
+def save_json(
+    obj,
+    out_dir: Union[str, Path],
+    filename: str,
+    *,
+    paper_dirs: Optional[List[str]] = None,
+) -> List[str]:
+    """
+    Save ``obj`` to ``out_dir/<filename>.json``.
+
+    When ``paper_dirs`` is given, mirror to each:
+        <paper_dir>/report_data/<subpath-after-"report_data">/<filename>.json
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def _dump(path: Path) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(obj, f, indent=2)
+
+    main_path = out_dir / f"{filename}.json"
+    _dump(main_path)
+    saved_paths = [str(main_path)]
+
+    if paper_dirs:
+        sub = _subpath_after(out_dir, "report_data")
+        for p in paper_dirs:
+            paper_dir = PROJECT_ROOT / p / "report_data" / sub
+            paper_dir.mkdir(parents=True, exist_ok=True)
+            paper_path = paper_dir / f"{filename}.json"
+            _dump(paper_path)
+            saved_paths.append(str(paper_path))
+
+    return saved_paths
 
 
 def save_plot(
@@ -32,30 +167,20 @@ def save_plot(
 
     Optionally mirrors to each directory in paper_dirs:
         <paper_dir>/figures/<rel_dir>/<filename>.<ext>
+
+    Thin rel_dir-based wrapper around :func:`save_fig`.
     """
     rel_dir = _clean_path_part(rel_dir) or ""
-
-    main_dir = PROJECT_ROOT / "reports" / "plots" / rel_dir
-    main_dir.mkdir(parents=True, exist_ok=True)
-
-    main_path = main_dir / f"{filename}.{ext}"
-    fig.savefig(main_path, dpi=dpi, bbox_inches="tight")
-
-    saved_paths = [str(main_path)]
-
-    if paper_dirs:
-        for p in paper_dirs:
-            paper_dir = PROJECT_ROOT / p / "figures" / rel_dir
-            paper_dir.mkdir(parents=True, exist_ok=True)
-
-            paper_path = paper_dir / f"{filename}.{ext}"
-            fig.savefig(paper_path, dpi=dpi, bbox_inches="tight")
-            saved_paths.append(str(paper_path))
-
-    if close:
-        plt.close(fig)
-
-    return saved_paths
+    out_dir = PROJECT_ROOT / "reports" / "plots" / rel_dir
+    return save_fig(
+        fig,
+        out_dir,
+        filename,
+        ext=ext,
+        dpi=dpi,
+        paper_dirs=paper_dirs,
+        close=close,
+    )
 
 
 
@@ -73,27 +198,12 @@ def save_df_csv(
 
     Optionally mirrors to each directory in paper_dirs:
         <paper_dir>/report_data/<rel_dir>/<filename>.csv
+
+    Thin rel_dir-based wrapper around :func:`save_table`.
     """
     rel_dir = _clean_path_part(rel_dir) or ""
-
-    main_dir = PROJECT_ROOT / "reports" / "report_data" / rel_dir
-    main_dir.mkdir(parents=True, exist_ok=True)
-
-    main_path = main_dir / f"{filename}.csv"
-    df.to_csv(main_path, index=False)
-
-    saved_paths = [str(main_path)]
-
-    if paper_dirs:
-        for p in paper_dirs:
-            paper_dir = PROJECT_ROOT / p / "report_data" / rel_dir
-            paper_dir.mkdir(parents=True, exist_ok=True)
-
-            paper_path = paper_dir / f"{filename}.csv"
-            df.to_csv(paper_path, index=False)
-            saved_paths.append(str(paper_path))
-
-    return saved_paths
+    out_dir = PROJECT_ROOT / "reports" / "report_data" / rel_dir
+    return save_table(df, out_dir, filename, paper_dirs=paper_dirs)
 
 
 def _clean_path_part(part: Optional[str]) -> Optional[str]:

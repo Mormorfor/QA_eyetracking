@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
+from src.viz.plot_output import save_fig
+from src.viz.viz_helpers import split_participant_groups
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +137,7 @@ def _plot_time_segment_bar(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/time_segments",
+    paper_dirs=None,
     title: Optional[str] = None,
 ):
     """
@@ -226,9 +229,12 @@ def _plot_time_segment_bar(
     fig.tight_layout()
     if save:
         out_dir = os.path.join(output_root, subdir or metric_col_name)
-        os.makedirs(out_dir, exist_ok=True)
-        fname = f"{h_or_g}__{subdir or metric_col_name}.png"
-        fig.savefig(os.path.join(out_dir, fname), dpi=300)
+        save_fig(
+            fig,
+            out_dir,
+            f"{h_or_g}__{subdir or metric_col_name}",
+            paper_dirs=paper_dirs,
+        )
 
     plt.show()
     return fig, summary
@@ -245,6 +251,7 @@ def plot_time_segment_mean_dwell(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/time_segments",
+    paper_dirs=None,
     title: Optional[str] = None,
 ):
     """
@@ -264,6 +271,7 @@ def plot_time_segment_mean_dwell(
         h_or_g=h_or_g,
         save=save,
         output_root=output_root,
+        paper_dirs=paper_dirs,
         title=title,
     )
 
@@ -277,6 +285,7 @@ def plot_time_segment_sequence_length(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/time_segments",
+    paper_dirs=None,
     title: Optional[str] = None,
 ):
     """
@@ -296,6 +305,7 @@ def plot_time_segment_sequence_length(
         h_or_g=h_or_g,
         save=save,
         output_root=output_root,
+        paper_dirs=paper_dirs,
         title=title,
     )
 
@@ -311,6 +321,7 @@ def plot_time_segment_fixation_count(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/time_segments",
+    paper_dirs=None,
     title: Optional[str] = None,
 ):
     """
@@ -330,6 +341,7 @@ def plot_time_segment_fixation_count(
         h_or_g=h_or_g,
         save=save,
         output_root=output_root,
+        paper_dirs=paper_dirs,
         title=title,
     )
 
@@ -344,6 +356,7 @@ def plot_time_segment_skip_rate(
     h_or_g: str = "hunters",
     save: bool = True,
     output_root: str = "../reports/plots/time_segments",
+    paper_dirs=None,
     title: Optional[str] = None,
 ):
     """
@@ -369,6 +382,7 @@ def plot_time_segment_skip_rate(
         h_or_g=h_or_g,
         save=save,
         output_root=output_root,
+        paper_dirs=paper_dirs,
         title=title,
     )
 
@@ -376,8 +390,8 @@ def plot_time_segment_skip_rate(
 
 
 def run_all_time_segment_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     group_cols=(Con.PARTICIPANT_ID, Con.TRIAL_ID),
     area_col: str = Con.AREA_LABEL_COLUMN,
     selected_col: str = Con.SELECTED_ANSWER_LABEL_COLUMN,
@@ -410,13 +424,7 @@ def run_all_time_segment_plots(
     """
     results = {}
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
-    groups = {
-        "hunters": hunters,
-        "gatherers": gatherers,
-        "all_participants": all_participants,
-    }
+    groups = split_participant_groups(all_participants, split=split_groups)
 
     for group_key, df in groups.items():
         # Pretty label for titles/filenames

@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
+from src.viz.plot_output import save_fig
+from src.viz.viz_helpers import split_participant_groups
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +26,7 @@ def matrix_plot_simplified_visits(
     figsize: tuple = (8, 5),
     save: bool = False,
     output_root: str = "../reports/plots/simpl_visit_matrices",
+    paper_dirs=None,
     show: bool = True,
     # ---- presentation touch-ups (optional; defaults preserve behavior) ----
     title: Optional[str] = None,
@@ -218,9 +221,7 @@ def matrix_plot_simplified_visits(
     if save:
         mode_dir = f"{which}_{kind}" + ("_noq" if drop_question else "_withq")
         out_dir = os.path.join(output_root, mode_dir)
-        os.makedirs(out_dir, exist_ok=True)
-        fname = f"{h_or_g} - {selected}.png"
-        fig.savefig(os.path.join(out_dir, fname), dpi=300, bbox_inches="tight")
+        save_fig(fig, out_dir, f"{h_or_g} - {selected}", paper_dirs=paper_dirs)
 
     if show:
         plt.show()
@@ -232,8 +233,8 @@ def matrix_plot_simplified_visits(
 
 
 def run_all_simplified_visit_matrices(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     drop_question_variants: tuple = (True, False),
     kinds: tuple = ("label", "location"),
     which_list: tuple = ("first", "last"),
@@ -249,13 +250,7 @@ def run_all_simplified_visit_matrices(
       - label-based and/or location-based sequences
       - with and without 'question'
     """
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
-    groups = {
-        "hunters": hunters,
-        "gatherers": gatherers,
-        "all_participants": all_participants,
-    }
+    groups = split_participant_groups(all_participants, split=split_groups)
 
     for drop_question in drop_question_variants:
         dq_folder = "questions_removed" if drop_question else "questions_included"

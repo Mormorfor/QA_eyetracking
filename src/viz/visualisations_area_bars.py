@@ -7,19 +7,21 @@ import seaborn as sns
 
 from src import constants as Con
 from src.viz.plot_output import save_plot
+from src.viz.viz_helpers import split_participant_groups
 
 # ---------------------------------------------------------------------------
 # Base Statistics Bar-charts + Mixed Models
 # ---------------------------------------------------------------------------
 
+
 def plot_area_ci_bar(
     df: pd.DataFrame,
     stat_col: str = Con.MEAN_DWELL_TIME,
-    trial_cols = (Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN),
+    trial_cols=(Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN),
     area_col: str = Con.AREA_LABEL_COLUMN,
     figsize=(8, 5),
     save: bool = False,
-    paper_dirs = None,
+    paper_dirs=None,
     h_or_g: str = "hunters",
     selected: str = "A",
     title: Optional[str] = None,
@@ -34,13 +36,13 @@ def plot_area_ci_bar(
         <paper_dir>/basic_stats_barcharts/<stat_col>/<h_or_g>__<selected>.png
     """
 
-    dedup = (
-        df[list(trial_cols) + [area_col, stat_col]]
-        .drop_duplicates(subset=list(trial_cols) + [area_col])
+    dedup = df[list(trial_cols) + [area_col, stat_col]].drop_duplicates(
+        subset=list(trial_cols) + [area_col]
     )
 
     area_order = [
-        a for a in ["answer_A", "answer_B", "answer_C", "answer_D"]
+        a
+        for a in ["answer_A", "answer_B", "answer_C", "answer_D"]
         if a in dedup[area_col].unique()
     ]
 
@@ -62,8 +64,7 @@ def plot_area_ci_bar(
         ax.set_title(title)
     else:
         ax.set_title(
-            f"{stat_col}: mean ± 95% CI by {area_col}\n"
-            f"Selected answer = {selected}"
+            f"{stat_col}: mean ± 95% CI by {area_col}\n" f"Selected answer = {selected}"
         )
     ax.margins(x=0.02)
 
@@ -74,10 +75,7 @@ def plot_area_ci_bar(
     )
     if area_order:
         summary_df_basic = (
-            summary_df_basic
-            .set_index(area_col)
-            .loc[area_order]
-            .reset_index()
+            summary_df_basic.set_index(area_col).loc[area_order].reset_index()
         )
 
     if save:
@@ -93,15 +91,13 @@ def plot_area_ci_bar(
     return fig, summary_df_basic
 
 
-
-
 def run_all_area_barplots(
-        hunters: pd.DataFrame,
-        gatherers: pd.DataFrame,
-        metrics=None,
-        save_plots: bool = True,
-        paper_dirs = None,
-        print_summaries: bool = False,
+    all_participants: pd.DataFrame,
+    metrics=None,
+    save_plots: bool = True,
+    paper_dirs=None,
+    print_summaries: bool = True,
+    split_groups: bool = True,
 ):
     """
     For each metric and each selected answer label (A–D),
@@ -110,7 +106,7 @@ def run_all_area_barplots(
 
     """
     if metrics is None:
-        metrics = Con.AREA_METRIC_COLUMNS_VIZES
+        metrics = Con.AREA_METRIC_COLUMNS_MODELING
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> dict:
         df = df.copy()
@@ -120,7 +116,8 @@ def run_all_area_barplots(
             metric_results = {}
 
             available_labels = [
-                lab for lab in ["A", "B", "C", "D"]
+                lab
+                for lab in ["A", "B", "C", "D"]
                 if lab in df[Con.SELECTED_ANSWER_LABEL_COLUMN].unique()
             ]
 
@@ -151,13 +148,8 @@ def run_all_area_barplots(
 
         return group_results
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    results = {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all participants"),
-    }
+    results = {name: _run_for_group(df, name) for name, df in groups.items()}
 
     return results
-

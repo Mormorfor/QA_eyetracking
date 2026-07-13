@@ -27,6 +27,7 @@ import seaborn as sns
 
 from src import constants as Con
 from src.viz.plot_output import save_plot
+from src.viz.viz_helpers import split_participant_groups
 
 
 _LABEL_ORDER = ["question", "answer_A", "answer_B", "answer_C", "answer_D"]
@@ -180,8 +181,8 @@ def plot_last_label_before_confirm_freq(
 
 
 def run_all_last_label_before_confirm_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     normalize: bool = True,
     title: Optional[str] = "Last Area Viewed Before Confirming an Answer",
     x_label: Optional[str] = "Last Area Viewed",
@@ -204,13 +205,7 @@ def run_all_last_label_before_confirm_plots(
     -------
     results[group] = {"fig": Figure, "summary": DataFrame}
     """
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
-    groups = {
-        "hunters": hunters,
-        "gatherers": gatherers,
-        "all_participants": all_participants,
-    }
+    groups = split_participant_groups(all_participants, split=split_groups)
 
     results: Dict = {}
     for group_key, df in groups.items():

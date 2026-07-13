@@ -125,14 +125,16 @@ TEXTS_MANUAL_REPHRASINGS_PATH = EXPERIMENT_DIR / "texts_manual_rephrasings.csv"
 TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 
 # ---------------------------------------------------------------------------
-# Cross-validation folds (data/*Folds)
+# Cross-validation folds (data/CV folds/*Folds)
 # ---------------------------------------------------------------------------
 
-HUNTERS_FOLDS_DIR = DATA_DIR / "HuntersFolds"
-GATHERERS_FOLDS_DIR = DATA_DIR / "GatherersFolds"
-GATHERERS_REFOLDED_DIR = DATA_DIR / "GatherersRefolded"
+CV_FOLDS_DIR = DATA_DIR / "CV folds"
 
-HUNTING_IS_CORRECT_FOLDS_DIR = DATA_DIR / "HuntingIsCorrectFolds"
+HUNTERS_FOLDS_DIR = CV_FOLDS_DIR / "HuntersFolds"
+GATHERERS_FOLDS_DIR = CV_FOLDS_DIR / "GatherersFolds"
+GATHERERS_REFOLDED_DIR = CV_FOLDS_DIR / "GatherersRefolded"
+
+HUNTING_IS_CORRECT_FOLDS_DIR = CV_FOLDS_DIR / "HuntingIsCorrectFolds"
 HUNTING_IS_CORRECT_ALL_FOLDS_PATH = (
     HUNTING_IS_CORRECT_FOLDS_DIR / "all_folds_subjects_items.csv"
 )

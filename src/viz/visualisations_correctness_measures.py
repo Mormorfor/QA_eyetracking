@@ -21,7 +21,9 @@ from src.viz.viz_helpers import (
     barplot_accuracy,
     p_to_stars,
     save_plot_and_report,
+    split_participant_groups,
 )
+from src.viz.plot_output import save_fig, save_table
 
 # ------------------------------------------
 # Sequence Length Measures
@@ -36,6 +38,7 @@ def plot_correctness_by_sequence_len_threshold(
     figsize: Tuple[int, int] = (6, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -81,14 +84,15 @@ def plot_correctness_by_sequence_len_threshold(
             plot_dir=plot_dir,
             data_dir=data_dir,
             base_name=base_name,
+            paper_dirs=paper_dirs,
         )
 
     return fig, summary_df, test_res
 
 
 def run_all_correctness_seq_len_threshold_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     thresholds: Tuple[int, ...] = (2, 3, 4, 5),
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -138,13 +142,9 @@ def run_all_correctness_seq_len_threshold_plots(
 
         return group_results
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
 def plot_correctness_by_sequence_len_continuous(
@@ -154,6 +154,7 @@ def plot_correctness_by_sequence_len_continuous(
     figsize: Tuple[int, int] = (7, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
@@ -262,21 +263,19 @@ def plot_correctness_by_sequence_len_continuous(
     if save:
         plot_dir = os.path.join(output_root, "correctness_by_seq_len_continuous")
         data_dir = os.path.join(report_root, "correctness_by_seq_len_continuous")
-        os.makedirs(plot_dir, exist_ok=True)
-        os.makedirs(data_dir, exist_ok=True)
 
         suffix = f"maxlen_{max_len}" if max_len is not None else "all"
         base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_len}"
 
-        fig.savefig(os.path.join(plot_dir, f"{base_name}.png"), dpi=300)
-        agg.to_csv(os.path.join(data_dir, f"{base_name}__summary.csv"), index=False)
+        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
+        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
 
     return fig, agg
 
 
 def run_all_correctness_seq_len_continuous_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     save_plots: bool = True,
@@ -324,13 +323,9 @@ def run_all_correctness_seq_len_continuous_plots(
 
         return {"fig": fig, "summary": summary}
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
 # ------------------------------------------
@@ -345,6 +340,7 @@ def plot_correctness_by_back_and_forth_pattern(
     figsize: Tuple[int, int] = (6, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -396,14 +392,15 @@ def plot_correctness_by_back_and_forth_pattern(
             plot_dir=plot_dir,
             data_dir=data_dir,
             base_name=base_name,
+            paper_dirs=paper_dirs,
         )
 
     return fig, summary_df, test_res
 
 
 def run_all_back_and_forth_pattern_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     save_plots: bool = True,
@@ -445,13 +442,9 @@ def run_all_back_and_forth_pattern_plots(
 
         return {"fig": fig, "summary": summary, "test": test_res}
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
 # ------------------------------------------
@@ -467,6 +460,7 @@ def plot_correctness_by_trial_mean_dwell_threshold(
     figsize: Tuple[int, int] = (6, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -519,14 +513,15 @@ def plot_correctness_by_trial_mean_dwell_threshold(
             plot_dir=plot_dir,
             data_dir=data_dir,
             base_name=base_name,
+            paper_dirs=paper_dirs,
         )
 
     return fig, summary_df, test_res
 
 
 def run_all_trial_mean_dwell_threshold_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     thresholds: Tuple[float, ...] = (50.0, 75.0, 100.0),
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -576,13 +571,9 @@ def run_all_trial_mean_dwell_threshold_plots(
 
         return group_results
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
 def plot_correctness_by_trial_mean_dwell_continuous(
@@ -592,6 +583,7 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     figsize: Tuple[int, int] = (7, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
@@ -739,8 +731,6 @@ def plot_correctness_by_trial_mean_dwell_continuous(
         data_dir = os.path.join(
             report_root, "correctness_by_trial_mean_dwell_continuous"
         )
-        os.makedirs(plot_dir, exist_ok=True)
-        os.makedirs(data_dir, exist_ok=True)
 
         if n_bins is not None:
             suffix = f"nbins_{int(n_bins)}"
@@ -751,15 +741,15 @@ def plot_correctness_by_trial_mean_dwell_continuous(
 
         base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_bin}"
 
-        fig.savefig(os.path.join(plot_dir, f"{base_name}.png"), dpi=300)
-        agg.to_csv(os.path.join(data_dir, f"{base_name}__summary.csv"), index=False)
+        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
+        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
 
     return fig, agg
 
 
 def run_all_trial_mean_dwell_continuous_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     save_plots: bool = True,
@@ -805,13 +795,9 @@ def run_all_trial_mean_dwell_continuous_plots(
 
         return {"fig": fig, "summary": summary}
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
 # ------------------------------------------
@@ -826,6 +812,7 @@ def plot_correctness_by_total_answering_rt_continuous(
     figsize: Tuple[int, int] = (7, 4),
     save: bool = False,
     h_or_g: str = "hunters",
+    paper_dirs=None,
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
@@ -1006,8 +993,6 @@ def plot_correctness_by_total_answering_rt_continuous(
             report_root,
             "correctness_by_total_answering_rt_continuous",
         )
-        os.makedirs(plot_dir, exist_ok=True)
-        os.makedirs(data_dir, exist_ok=True)
 
         if bin_width is not None:
             suffix = f"bw_{bin_width}"
@@ -1019,11 +1004,8 @@ def plot_correctness_by_total_answering_rt_continuous(
 
         base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_bin}"
 
-        fig.savefig(os.path.join(plot_dir, f"{base_name}.png"), dpi=300)
-        agg.to_csv(
-            os.path.join(data_dir, f"{base_name}__summary.csv"),
-            index=False,
-        )
+        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
+        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
 
     return (
         fig,
@@ -1043,8 +1025,8 @@ def plot_correctness_by_total_answering_rt_continuous(
 
 
 def run_all_total_answering_rt_continuous_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     output_root: str = "../reports/plots/correctness_measures",
     report_root: str = "../reports/report_data",
     save_plots: bool = True,
@@ -1100,10 +1082,6 @@ def run_all_total_answering_rt_continuous_plots(
             "summary": summary,
         }
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+    groups = split_participant_groups(all_participants, split=split_groups)
 
-    return {
-        "hunters": _run_for_group(hunters, "hunters"),
-        "gatherers": _run_for_group(gatherers, "gatherers"),
-        "all_participants": _run_for_group(all_participants, "all_participants"),
-    }
+    return {name: _run_for_group(df, name) for name, df in groups.items()}

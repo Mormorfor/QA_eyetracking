@@ -35,7 +35,9 @@ from src.viz.viz_helpers import (
     p_to_stars,
     barplot_accuracy,
     add_wilson_errorbars_and_ns,
+    split_participant_groups,
 )
+from src.viz.plot_output import save_fig
 
 # Reuse shared Wilson CI + summary logic (new)
 from src.derived.correctness_measures import summarize_binary_by_group
@@ -92,6 +94,7 @@ def plot_correctness_by_matching(
     save_path: Optional[str] = None,
     show_n: bool = True,
     show_test: bool = True,
+    paper_dirs: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Plot correctness rate (mean) ± 95% CI for matching vs not_matching.
@@ -167,9 +170,15 @@ def plot_correctness_by_matching(
     fig.tight_layout()
 
     if save_path:
-        save_path = str(save_path)
-        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=200)
+        save_path = Path(save_path)
+        save_fig(
+            fig,
+            save_path.parent,
+            save_path.stem,
+            ext=save_path.suffix.lstrip(".") or "png",
+            dpi=200,
+            paper_dirs=paper_dirs,
+        )
 
     return summary
 
@@ -188,8 +197,8 @@ _DEFAULT_DIRECTION_BY_METRIC = {
 
 
 def run_all_matching_correctness_plots(
-    hunters: pd.DataFrame,
-    gatherers: pd.DataFrame,
+    all_participants: pd.DataFrame,
+    split_groups: bool = True,
     metrics: List[str] = None,
     output_root: str = "../reports/plots/matching_correctness",
     save_plots: bool = True,
@@ -220,13 +229,7 @@ def run_all_matching_correctness_plots(
     if metrics is None:
         metrics = list(C.AREA_METRIC_COLUMNS_VIZES)
 
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-
-    groups = {
-        "hunters": hunters,
-        "gatherers": gatherers,
-        "all_participants": all_participants,
-    }
+    groups = split_participant_groups(all_participants, split=split_groups)
 
     modes = ["polarity", "relative"]
     results: Dict = {}
@@ -260,7 +263,6 @@ def run_all_matching_correctness_plots(
                 save_path = None
                 if save_plots:
                     save_dir = Path(output_root) / mode / group_key
-                    save_dir.mkdir(parents=True, exist_ok=True)
                     save_path = str(save_dir / f"correctness_by_matching__{metric}.png")
 
                 summary = plot_correctness_by_matching(
