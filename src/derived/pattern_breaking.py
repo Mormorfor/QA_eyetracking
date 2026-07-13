@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from collections import Counter
-from typing import Literal
+from typing import Literal, Sequence
 
 import pandas as pd
 
@@ -50,6 +50,51 @@ def _starting_window(
     if drop_question:
         tokens = [tok for tok in tokens if tok != "question"]
     return tuple(tokens[:window_len])
+
+
+def levenshtein_sequence_distance(
+    seq_a: Sequence,
+    seq_b: Sequence,
+    normalize: bool = False,
+) -> float:
+    """Token-level Levenshtein (edit) distance between two sequences.
+
+    The minimum number of single-token insertions, deletions, or substitutions
+    to turn ``seq_a`` into ``seq_b``. Operates on whole tokens, not characters,
+    so each location/label (e.g. ``"answer_0(top)"``) is one edit unit.
+
+    A graded generalisation of the binary "breaks pattern" flag: 0 when the two
+    sequences are identical, larger the more they differ.
+
+    If ``normalize``, the distance is divided by ``max(len(seq_a), len(seq_b))``
+    (0 when both are empty), giving a value in [0, 1].
+    """
+    a = list(seq_a) if seq_a is not None else []
+    b = list(seq_b) if seq_b is not None else []
+    n, m = len(a), len(b)
+
+    if n == 0 or m == 0:
+        dist = float(max(n, m))
+    else:
+        # Wagner-Fischer with a single rolling row.
+        prev = list(range(m + 1))
+        for i in range(1, n + 1):
+            curr = [i] + [0] * m
+            ai = a[i - 1]
+            for j in range(1, m + 1):
+                cost = 0 if ai == b[j - 1] else 1
+                curr[j] = min(
+                    prev[j] + 1,          # deletion
+                    curr[j - 1] + 1,      # insertion
+                    prev[j - 1] + cost,   # substitution / match
+                )
+            prev = curr
+        dist = float(prev[m])
+
+    if normalize:
+        denom = max(n, m)
+        return dist / denom if denom else 0.0
+    return dist
 
 
 def build_starting_strategies(
@@ -177,6 +222,7 @@ def build_trial_level_pattern_features(
     kind: SeqKind = "location",
     window_len: int = DEFAULT_WINDOW_LEN,
     add_interaction: bool = True,
+    add_distance: bool = True,
 ) -> pd.DataFrame:
     """Per-trial pattern-breaking features for the model.
 
@@ -192,6 +238,11 @@ def build_trial_level_pattern_features(
     ``breaks_x_dominance_{with,no}_q`` = ``breaks_pattern`` * ``dominance_score``
     per variant -- the dominance score on pattern-breaking trials, 0 otherwise.
 
+    When ``add_distance`` (default), also adds ``strategy_distance_{with,no}_q``
+    -- the token-level Levenshtein distance between the trial's starting strategy
+    and the participant's dominant one (a graded ``breaks_pattern``; 0 when they
+    match).
+
     The dominant strategy and dominance score are computed over the trials
     present in ``df``, so pass the full (unfiltered) trial set.
 
@@ -201,12 +252,14 @@ def build_trial_level_pattern_features(
       the relevant simplified-sequence column (see ``kind``)
     """
     variants = [
-        (False, C.BREAKS_PATTERN_WITH_Q, C.DOMINANCE_SCORE_WITH_Q, C.BREAKS_X_DOMINANCE_WITH_Q),
-        (True, C.BREAKS_PATTERN_NO_Q, C.DOMINANCE_SCORE_NO_Q, C.BREAKS_X_DOMINANCE_NO_Q),
+        (False, C.BREAKS_PATTERN_WITH_Q, C.DOMINANCE_SCORE_WITH_Q,
+         C.BREAKS_X_DOMINANCE_WITH_Q, C.STRATEGY_DISTANCE_WITH_Q),
+        (True, C.BREAKS_PATTERN_NO_Q, C.DOMINANCE_SCORE_NO_Q,
+         C.BREAKS_X_DOMINANCE_NO_Q, C.STRATEGY_DISTANCE_NO_Q),
     ]
 
     out: pd.DataFrame | None = None
-    for drop_question, breaks_col, score_col, inter_col in variants:
+    for drop_question, breaks_col, score_col, inter_col, dist_col in variants:
         per_trial = build_starting_strategies(
             df, kind=kind, window_len=window_len, drop_question=drop_question
         )
@@ -216,9 +269,20 @@ def build_trial_level_pattern_features(
         merged[breaks_col] = (
             merged[C.STARTING_STRATEGY_COL] != merged[C.DOMINANT_STARTING_STRATEGY]
         ).astype(int)
-        merged = merged.rename(columns={C.DOMINANCE_SCORE: score_col})
 
-        cols = [breaks_col, score_col]
+        cols = [breaks_col]
+        if add_distance:
+            merged[dist_col] = [
+                levenshtein_sequence_distance(trial_strat, dominant_strat)
+                for trial_strat, dominant_strat in zip(
+                    merged[C.STARTING_STRATEGY_COL],
+                    merged[C.DOMINANT_STARTING_STRATEGY],
+                )
+            ]
+            cols.append(dist_col)
+
+        merged = merged.rename(columns={C.DOMINANCE_SCORE: score_col})
+        cols.append(score_col)
         if add_interaction:
             merged[inter_col] = merged[breaks_col] * merged[score_col]
             cols.append(inter_col)

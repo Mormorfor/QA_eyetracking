@@ -89,6 +89,11 @@ DOMINANCE_SCORE_NO_Q = "dominance_score_no_q"
 BREAKS_X_DOMINANCE_WITH_Q = "breaks_x_dominance_with_q"
 BREAKS_X_DOMINANCE_NO_Q = "breaks_x_dominance_no_q"
 
+# Graded "breaks pattern": token-level Levenshtein distance between the trial's
+# starting strategy and the participant's dominant one (0 = identical).
+STRATEGY_DISTANCE_WITH_Q = "strategy_distance_with_q"
+STRATEGY_DISTANCE_NO_Q = "strategy_distance_no_q"
+
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 

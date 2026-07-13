@@ -67,6 +67,16 @@ PATTERN_INTERACTION_COLS: List[str] = [
 # Convenience: base pattern features together with their interaction terms.
 PATTERN_COLS_WITH_INTERACTIONS: List[str] = PATTERN_COLS + PATTERN_INTERACTION_COLS
 
+# Graded "breaks pattern": Levenshtein distance between the trial's starting
+# strategy and the participant's dominant one. Collinear with the binary
+# breaks_pattern_* cols (distance == 0 iff the trial does not break the
+# pattern), so kept as a separate opt-in group -- typically swapped in *instead*
+# of breaks_pattern rather than added alongside it.
+PATTERN_DISTANCE_COLS: List[str] = [
+    Con.STRATEGY_DISTANCE_WITH_Q,
+    Con.STRATEGY_DISTANCE_NO_Q,
+]
+
 
 # ---------------------------------------------------------------------------
 # Area-derived metric columns
