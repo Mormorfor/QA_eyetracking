@@ -145,11 +145,15 @@ def leave_one_trial_out_for_participant(
     participant_id,
     participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
+    random_state: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For a given participant:
     - randomly select one trial as test
     - all other trials are train
+
+    ``random_state`` seeds the trial choice so the single held-out trial is
+    reproducible across runs (default: None -> non-deterministic).
     """
 
     df = df.copy()
@@ -157,13 +161,37 @@ def leave_one_trial_out_for_participant(
 
     trials = df_p[trial_col].dropna().unique()
 
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(random_state)
     test_trial = rng.choice(trials)
 
     test_df = df_p[df_p[trial_col] == test_trial].copy()
     train_df = df_p[df_p[trial_col] != test_trial].copy()
 
     return train_df, test_df
+
+
+def iter_leave_one_trial_out_for_participant(
+    df: pd.DataFrame,
+    participant_id,
+    participant_col: str = Con.PARTICIPANT_ID,
+    trial_col: str = Con.TRIAL_ID,
+):
+    """
+    Full leave-one-trial-out generator for a single participant.
+
+    Yields ``(train_df, test_df, test_trial)`` once per trial of the
+    participant: each trial is held out as the single-row test set exactly
+    once while all the participant's remaining trials form the train set.
+    Trials are visited in first-seen order, so the iteration is deterministic
+    (no RNG involved).
+    """
+    df_p = df[df[participant_col] == participant_id].copy()
+    trials = pd.unique(df_p[trial_col].dropna())
+
+    for test_trial in trials:
+        test_df = df_p[df_p[trial_col] == test_trial].copy()
+        train_df = df_p[df_p[trial_col] != test_trial].copy()
+        yield train_df, test_df, test_trial
 
 
 

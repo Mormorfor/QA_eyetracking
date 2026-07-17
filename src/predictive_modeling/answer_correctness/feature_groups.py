@@ -123,13 +123,13 @@ LAST_CONFIRM_LONG: List[str] = [
     "last_before_confirm_answer_A",
     "last_before_confirm_answer_B",
     "last_before_confirm_answer_C",
-    #"last_before_confirm_answer_D",
+    # "last_before_confirm_answer_D",
     "last_before_confirm_question",
 ]
 
 LAST_CONFIRM_COMPACT: List[str] = [
     "last_before_confirm_correct",
-    #"last_before_confirm_wrong",
+    # "last_before_confirm_wrong",
     "last_before_confirm_question",
 ]
 
@@ -137,13 +137,13 @@ LAST_SELECT_LONG: List[str] = [
     "last_before_select_answer_A",
     "last_before_select_answer_B",
     "last_before_select_answer_C",
-    #"last_before_select_answer_D",
+    # "last_before_select_answer_D",
     "last_before_select_question",
 ]
 
 LAST_SELECT_COMPACT: List[str] = [
     "last_before_select_correct",
-    #"last_before_select_wrong",
+    # "last_before_select_wrong",
     "last_before_select_question",
 ]
 
@@ -179,10 +179,9 @@ RT_TFD_CONTRAST_SUFFIXES: List[str] = [
 # excludes per-answer columns and keeps only the contrast + question variants).
 RT_TFD_NON_ANSWER_REGIONS: List[str] = ["question"] + RT_TFD_PARAGRAPH_REGIONS
 
-RT_COLS: List[str] = (
-    [f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS]
-    + [f"RT_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
-)
+RT_COLS: List[str] = [
+    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS
+] + [f"RT_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
 
 TFD_COLS: List[str] = [
     f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS
@@ -247,7 +246,7 @@ ALL_FEATURES_NO_LAST: List[str] = (
 )
 
 ALL_FEATURES: List[str] = (
-    ALL_FEATURES_NO_LAST + LAST_CONFIRM + LAST_SELECT
+    ALL_FEATURES_NO_LAST + LAST_CONFIRM_COMPACT + LAST_SELECT_COMPACT
 )
 
 
@@ -266,12 +265,15 @@ GENERAL_FEATURES: List[str] = (
 # Manually curated feature subsets
 # ---------------------------------------------------------------------------
 
-SELECT_1_COLS: List[str] = (
-    ['area_dwell_proportion__correct', 'area_dwell_proportion__question', 
-    'skip_rate__correct', 
-    'has_xyx', 'ANSWER_PRESS_NUMBER',
-    'num_label_visits__correct', 'num_label_visits__contrast',
-    'mean_fixations_count__question', 'mean_fixations_count__wrong_mean', 
-    'mean_max_fix_pupil_size_z__correct'
-    ]
-)
+SELECT_1_COLS: List[str] = [
+    "area_dwell_proportion__correct",
+    "area_dwell_proportion__question",
+    "skip_rate__correct",
+    "has_xyx",
+    "ANSWER_PRESS_NUMBER",
+    "num_label_visits__correct",
+    "num_label_visits__contrast",
+    "mean_fixations_count__question",
+    "mean_fixations_count__wrong_mean",
+    "mean_max_fix_pupil_size_z__correct",
+]
