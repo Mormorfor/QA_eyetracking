@@ -101,6 +101,11 @@ RT_AND_TFD_PATH = AUXILIARY_DATA_DIR / "RT_and_TFD.csv"
 
 READY_ALL_FEATURES_PATH = L1_BASED_DATA_DIR / "L1_model_ready_all_features.csv"
 
+# Paragraph-span (critical / distractor / outside) area features, mirroring the
+# per-answer area features but computed over the paragraph-reading screen.
+# Used as predictors for the answer reading-time regression (answer_RTs).
+PARAGRAPH_SPAN_FEATURES_PATH = L1_BASED_DATA_DIR / "L1_paragraph_span_features.csv"
+
 # ---------------------------------------------------------------------------
 # New experiment (testrun_QA) — processed outputs (data/new_exp_try_runs)
 # ---------------------------------------------------------------------------
