@@ -106,6 +106,16 @@ READY_ALL_FEATURES_PATH = L1_BASED_DATA_DIR / "L1_model_ready_all_features.csv"
 # Used as predictors for the answer reading-time regression (answer_RTs).
 PARAGRAPH_SPAN_FEATURES_PATH = L1_BASED_DATA_DIR / "L1_paragraph_span_features.csv"
 
+# Trial-level paragraph reading features produced by the lab's external feature
+# extraction code (src/external/EyeBench/paragraph_trial_features.py): aggregated IA and
+# fixation measures, gaze entropy, and per-word-category scanpath features, one
+# row per (participant, trial). The folder also holds the two feature-key CSVs
+# that map each feature name to the model family it came from.
+PARAGRAPH_TRIAL_FEATURES_DIR = L1_BASED_DATA_DIR / "paragraph_trial_features"
+PARAGRAPH_TRIAL_FEATURES_PATH = (
+    PARAGRAPH_TRIAL_FEATURES_DIR / "L1_paragraph_trial_level_features.csv"
+)
+
 # ---------------------------------------------------------------------------
 # New experiment (testrun_QA) — processed outputs (data/new_exp_try_runs)
 # ---------------------------------------------------------------------------
