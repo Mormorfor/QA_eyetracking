@@ -15,4 +15,7 @@ Usage:
     from src.external.EyeBench.paragraph_trial_features import (
         save_paragraph_trial_level_features,
     )
+
+For the cache-aware driver around it (which is what the notebooks call), see
+`src/derived/external/EyeBench/runner.py`.
 """

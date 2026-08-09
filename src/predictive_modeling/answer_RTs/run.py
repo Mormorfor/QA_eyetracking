@@ -104,6 +104,7 @@ def run_answer_rt_regression(
     model_kind: str = "ridge",
     alpha: float = 1.0,
     feature_cols: Optional[Sequence[str]] = None,
+    log_target: bool = False,
     test_size: float = 0.2,
     random_state: int = 42,
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
@@ -111,6 +112,10 @@ def run_answer_rt_regression(
     verbose: bool = True,
 ) -> Dict[str, object]:
     """Fit and evaluate one regression per answer.
+
+    `log_target` regresses on log RT (see `make_answer_rt_dataset`); metrics are
+    then on the log scale, so R2 is the share of variance in *log* RT explained
+    and RMSE/MAE are in log units -- neither is comparable to a raw-RT run.
 
     Returns {"metrics": <DataFrame, one row per answer>, "results": {answer: ...}}.
     """
@@ -124,7 +129,11 @@ def run_answer_rt_regression(
     metric_rows = []
     for answer in answers:
         dataset = make_answer_rt_dataset(
-            model_df, answer=answer, rt_metric=rt_metric, feature_cols=feature_cols
+            model_df,
+            answer=answer,
+            rt_metric=rt_metric,
+            feature_cols=feature_cols,
+            log_target=log_target,
         )
         model = TrialLevelLinRegModel(model_kind=model_kind, alpha=alpha)
         res = evaluate_answer_rt_model(
