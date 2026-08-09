@@ -206,8 +206,12 @@ def build_trial_level_rt_tfd_features(
     - One feature per region per metric — column name f"{metric}_{region}"
       for region in ANSWER_REGIONS + PARAGRAPH_REGIONS and metric in
       ANSWER_RT_TFD_METRICS (RT/TFD/TimeSinceOffset, pure & normalized).
-      Paragraph regions (outside, distractor, critical) have no TimeSinceOffset
-      counterpart, so those columns are simply absent.
+      For every region, answer and paragraph alike, RT_* is run-based (time
+      accrues only while the region is being looked at) and TimeSinceOffset_* is
+      the first-to-last-fixation span, which counts excursions away and back.
+      Paragraph regions only gained their TimeSinceOffset_* counterpart when the
+      run-based paragraph RT was added; older feature CSVs lack those columns,
+      and there RT_* holds the span values.
     - For each metric, correct/wrong contrast columns derived from the answer
       regions (answer_A is correct) — column names f"{metric}_correct",
       f"{metric}_wrong_mean", f"{metric}_contrast", f"{metric}_distance_furthest"
