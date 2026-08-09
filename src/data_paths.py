@@ -178,3 +178,11 @@ CROSS_VALIDATION_RUNS_DIR = (
     / "answer_correctness"
     / "cross_validation_runs"
 )
+
+# ---------------------------------------------------------------------------
+# Per-person leave-one-trial-out runs (cached pickles, one per feature set)
+# ---------------------------------------------------------------------------
+
+PER_PERSON_LOO_RESULTS_DIR = (
+    PROJECT_ROOT / "reports" / "report_data" / "per_person_corr_loo_results"
+)
