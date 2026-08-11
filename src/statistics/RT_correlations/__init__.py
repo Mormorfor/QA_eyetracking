@@ -16,6 +16,8 @@ Layout
 `correlations` the maps themselves: pooled r, and per-participant r tested vs 0
 `comparisons`  testing map cells against each other, and groups against groups
 `bootstrap`    cluster bootstrap of the pooled r (robustness check)
+`proportions`  the same maps for dwell *proportions* (share of the screen's
+               dwell time) instead of reading times
 `plots`        annotated heatmaps and tidy summary tables
 `report`       one-call helpers the notebook uses
 
@@ -79,6 +81,21 @@ from src.statistics.RT_correlations.report import (
     reference_contrasts,
     region_contrasts,
 )
+from src.statistics.RT_correlations.proportions import (
+    add_text_dwell_proportions,
+    answer_proportion_cols,
+    group_proportion_map_stats,
+    load_all_proportion_features,
+    load_group_proportion_features,
+    load_proportion_features,
+    plot_proportion_maps,
+    proportion_col,
+    proportion_group_contrast,
+    proportion_map_stats,
+    proportion_region_contrasts,
+    proportion_summary,
+    region_proportion_cols,
+)
 from src.statistics.RT_correlations._utils import significance_stars
 
 __all__ = [
@@ -122,6 +139,20 @@ __all__ = [
     "bootstrap_maps",
     "group_bootstrap_maps",
     "plot_bootstrap_maps",
+    # proportions
+    "proportion_col",
+    "region_proportion_cols",
+    "answer_proportion_cols",
+    "add_text_dwell_proportions",
+    "load_proportion_features",
+    "load_all_proportion_features",
+    "load_group_proportion_features",
+    "proportion_map_stats",
+    "group_proportion_map_stats",
+    "plot_proportion_maps",
+    "proportion_region_contrasts",
+    "proportion_group_contrast",
+    "proportion_summary",
     # misc
     "significance_stars",
 ]

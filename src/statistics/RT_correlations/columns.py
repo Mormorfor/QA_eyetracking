@@ -27,7 +27,12 @@ ANSWERS = ["answer_A", "answer_B", "answer_C", "answer_D", "question"]
 METRICS = ["RT", "TFD"]
 SCALINGS = ["normalized", "pure"]
 
-_PREFIXES = tuple(f"{m}_{s}_" for m in METRICS for s in SCALINGS)
+# Stripped from a column name before it becomes an axis label. The dwell
+# proportions (`proportions.py`) are not one of the METRICS x SCALINGS columns
+# but label the same rows and columns, so their prefix is stripped too.
+_PREFIXES = tuple(f"{m}_{s}_" for m in METRICS for s in SCALINGS) + (
+    "area_dwell_proportion__",
+)
 
 
 def _col(metric: str, part: str, scaling: str = "normalized") -> str:
