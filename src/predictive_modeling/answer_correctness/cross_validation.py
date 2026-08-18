@@ -128,6 +128,48 @@ def attach_fold_regimes(
     return out
 
 # ---------------------------------------------------------------------
+# Prebuilt trial-level features
+# ---------------------------------------------------------------------
+
+REGIME_COL = "regime"
+
+
+def attach_trial_level_fold_regimes(
+    trial_df: pd.DataFrame,
+    df_fold: pd.DataFrame,
+    *,
+    keep_cols: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """
+    Restrict a prebuilt trial-level feature table to one fold, tagging each row
+    with its regime.
+
+    ``df_fold`` is the word-level frame :func:`attach_fold_regimes` produced, so
+    the (participant, text) -> regime matching stays in one place and is only
+    collapsed to one row per trial here. Trials missing from the fold assignment
+    are dropped (inner join); any ``keep_cols`` the prebuilt table lacks are
+    carried over from ``df_fold``.
+    """
+    keys = list(Con.TRIAL_ID_COLS)
+
+    fold_regimes = (
+        df_fold[keys + [REGIME_COL]]
+        .drop_duplicates(subset=keys)
+        .reset_index(drop=True)
+    )
+
+    base = trial_df.drop(columns=[REGIME_COL]) if REGIME_COL in trial_df.columns else trial_df
+    out = base.merge(fold_regimes, on=keys, how="inner")
+
+    missing = [c for c in (keep_cols or []) if c not in out.columns]
+    if missing:
+        extra = df_fold[keys + missing].drop_duplicates(subset=keys)
+        out = out.merge(extra, on=keys, how="left")
+
+    return out
+
+
+# ---------------------------------------------------------------------
 # One-fold evaluation
 # ---------------------------------------------------------------------
 
@@ -147,9 +189,23 @@ def evaluate_one_fold_on_regimes(
     coef_top_k: Optional[int] = None,
     feature_cols: Optional[Sequence[str]] = None,
     fold_idx: int = -1,
+    trial_fold_df: Optional[pd.DataFrame] = None,
 ) -> Dict[str, FoldRegimeEvaluationResult]:
     """
     Fit on train_regime and evaluate on each requested regime.
+
+    By default the trial-level features are (re)built from ``df`` once per
+    regime, so participant-level features (the pattern-breaking / dominance
+    columns) are computed inside each regime and nothing leaks from the eval
+    regimes into training.
+
+    ``trial_fold_df`` short-circuits that: pass this fold's slice of an
+    already-built trial-level table -- one row per trial, carrying the
+    ``regime`` column, as returned by :func:`attach_trial_level_fold_regimes` --
+    and each regime is taken as a slice of it instead of being rebuilt. Orders
+    of magnitude faster, and identical for per-trial features; note that a table
+    built over the whole dataset has its participant-level features computed
+    across regimes, so the leakage guarantee above no longer holds for those.
     """
 
     if eval_regimes is None:
@@ -162,28 +218,29 @@ def evaluate_one_fold_on_regimes(
             "test_unseen_subject_unseen_item",
         ]
 
-    train_raw = df[df["regime"] == train_regime].copy()
-    train_df = build_trial_level_model_df(
-        df=train_raw,
-        keep_cols=keep_cols,
-        target_col=target_col,
-        include_area_features=True,
-        include_derived_features=True,
-    )
+    def _regime_frame(regime: str) -> pd.DataFrame:
+        if trial_fold_df is not None:
+            return (
+                trial_fold_df[trial_fold_df[REGIME_COL] == regime]
+                .drop(columns=[REGIME_COL])
+                .reset_index(drop=True)
+            )
+        return build_trial_level_model_df(
+            df=df[df[REGIME_COL] == regime].copy(),
+            keep_cols=keep_cols,
+            target_col=target_col,
+            include_area_features=True,
+            include_derived_features=True,
+        )
+
+    train_df = _regime_frame(train_regime)
 
     feat_cols = list(feature_cols) if feature_cols is not None else list(get_full_feature_cols(train_df))
 
     results: Dict[str, FoldRegimeEvaluationResult] = {}
 
     for regime in eval_regimes:
-        eval_raw = df[df["regime"] == regime].copy()
-        eval_df = build_trial_level_model_df(
-            df=eval_raw,
-            keep_cols=keep_cols,
-            target_col=target_col,
-            include_area_features=True,
-            include_derived_features=True,
-        )
+        eval_df = _regime_frame(regime)
 
         model = model_builder()
 
@@ -245,10 +302,15 @@ def run_cross_validation_on_predefined_folds(
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
+    trial_df: Optional[pd.DataFrame] = None,
 ) -> CrossValidationRunResult:
     """
     Run cross-validation using predefined fold assignment CSVs.
     Stores both accuracy and balanced_accuracy in the summary tables.
+
+    ``trial_df`` is an optional prebuilt trial-level feature table (e.g.
+    ``load_all_features()``) used instead of rebuilding features per fold and
+    regime -- see :func:`evaluate_one_fold_on_regimes` for the trade-off.
     """
     fold_dir = Path(fold_dir)
 
@@ -267,6 +329,14 @@ def run_cross_validation_on_predefined_folds(
             fold_df=fold_assign_df,
             df_participant_col=df_participant_col,
             df_text_col=df_text_col,
+        )
+
+        # Sliced once per fold, not once per model: the features don't depend on
+        # which model consumes them.
+        trial_fold_df = (
+            None
+            if trial_df is None
+            else attach_trial_level_fold_regimes(trial_df, df_fold, keep_cols=keep_cols)
         )
 
         for model_name, model_builder in model_builders.items():
@@ -289,6 +359,7 @@ def run_cross_validation_on_predefined_folds(
                 coef_top_k=coef_top_k,
                 feature_cols=feat_cols,
                 fold_idx=fold_idx,
+                trial_fold_df=trial_fold_df,
             )
 
             per_fold_results[model_name][fold_idx] = fold_results
@@ -429,6 +500,7 @@ def run_cross_validation_on_combined_folds(
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
+    trial_df: Optional[pd.DataFrame] = None,
 ) -> CrossValidationRunResult:
     """
     Cross-validate using predefined folds that are pooled across several fold
@@ -438,6 +510,10 @@ def run_cross_validation_on_combined_folds(
     every directory in ``fold_dirs`` and concatenated, so the same fold index
     is matched across groups (e.g. hunters fold_0 + gatherers fold_0). ``df``
     should be the matching pooled dataframe (e.g. ``all_participants``).
+
+    ``trial_df`` is an optional prebuilt trial-level feature table (e.g.
+    ``load_all_features()``) used instead of rebuilding features per fold and
+    regime -- see :func:`evaluate_one_fold_on_regimes` for the trade-off.
 
     Mirrors :func:`run_cross_validation_on_predefined_folds`, including the
     accuracy / balanced-accuracy summary tables.
@@ -462,6 +538,14 @@ def run_cross_validation_on_combined_folds(
             df_text_col=df_text_col,
         )
 
+        # Sliced once per fold, not once per model: the features don't depend on
+        # which model consumes them.
+        trial_fold_df = (
+            None
+            if trial_df is None
+            else attach_trial_level_fold_regimes(trial_df, df_fold, keep_cols=keep_cols)
+        )
+
         for model_name, model_builder in model_builders.items():
             feat_cols = None
             if feature_cols_by_model is not None and model_name in feature_cols_by_model:
@@ -482,6 +566,7 @@ def run_cross_validation_on_combined_folds(
                 coef_top_k=coef_top_k,
                 feature_cols=feat_cols,
                 fold_idx=fold_idx,
+                trial_fold_df=trial_fold_df,
             )
 
             per_fold_results[model_name][fold_idx] = fold_results
@@ -567,6 +652,7 @@ def update_combined_cv_run(
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
+    trial_df: Optional[pd.DataFrame] = None,
     save: bool = True,
     verbose: bool = True,
 ) -> CrossValidationRunResult:
@@ -597,6 +683,10 @@ def update_combined_cv_run(
     Note: the returned ``per_fold_results`` holds only the newly run models
     (the kept models are restored from summary rows only) -- enough for the
     metric/plot helpers, which read ``summary_df``.
+
+    ``trial_df`` is forwarded to :func:`run_cross_validation_on_combined_folds`;
+    pass the same prebuilt table the kept models were run with, so the merged
+    rows stay comparable.
     """
     out_dir = Path(out_dir)
     summary_path = out_dir / f"{run_name}_summary.csv"
@@ -631,6 +721,7 @@ def update_combined_cv_run(
             coef_n_boot=coef_n_boot,
             coef_seed=coef_seed,
             coef_top_k=coef_top_k,
+            trial_df=trial_df,
         )
         new_rows = cv_new.summary_df
 

@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from src import constants as Con
-from src.data_paths import READY_ALL_FEATURES_PATH
+from src.data_paths import PARAGRAPH_SPAN_FEATURES_PATH, READY_ALL_FEATURES_PATH
 
 from src.predictive_modeling.common.feature_builders import (
     build_area_metric_pivot,
@@ -49,6 +49,14 @@ ANSWER_RT_TFD_METRICS = (
     "TFD_normalized",
     "TimeSinceOffset_pure",
     "TimeSinceOffset_normalized",
+)
+
+# Paragraph-screen spans and the dwell-proportion columns they produce
+# (feature_groups.PARAGRAPH_BASED). Built per span by answer_RTs.features and
+# cached in PARAGRAPH_SPAN_FEATURES_PATH; the trial frame gets them as-is.
+PARAGRAPH_SPANS = ("critical", "distractor", "outside")
+PARAGRAPH_PROPORTION_COLS = tuple(
+    f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
 )
 
 # ---------------------------------------------------------------------
@@ -265,6 +273,54 @@ def build_trial_level_rt_tfd_features(
 
 
 # ---------------------------------------------------------------------
+# Paragraph-span features
+# ---------------------------------------------------------------------
+
+def build_trial_level_paragraph_features(
+    paragraph_features: Optional[pd.DataFrame] = None,
+    paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
+    feature_cols: Sequence[str] = PARAGRAPH_PROPORTION_COLS,
+) -> pd.DataFrame:
+    """
+    One row per trial with the paragraph-screen dwell proportions:
+
+        area_dwell_proportion__critical / __distractor / __outside
+
+    i.e. the share of the trial's paragraph dwell time spent on each span --
+    the same quantity as the per-answer `area_dwell_proportion__*` columns, but
+    grouped by paragraph span rather than answer area. Read from the cache
+    written by `answer_RTs.features.save_paragraph_features`; run that first if
+    the file is missing.
+    """
+    if paragraph_features is None:
+        path = Path(paragraph_features_path)
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Paragraph-span features not found at {path}. Build them with "
+                "src.predictive_modeling.answer_RTs.features.save_paragraph_features()."
+            )
+        paragraph_features = pd.read_csv(path)
+
+    feature_cols = list(feature_cols)
+    missing = [c for c in feature_cols if c not in paragraph_features.columns]
+    if missing:
+        raise KeyError(
+            f"Paragraph-span features are missing {missing}; rebuild them with "
+            "save_paragraph_features()."
+        )
+
+    out = (
+        paragraph_features[list(TRIAL_ID_COLS) + feature_cols]
+        .drop_duplicates(subset=list(TRIAL_ID_COLS))
+        .reset_index(drop=True)
+    )
+    for c in feature_cols:
+        out[c] = pd.to_numeric(out[c], errors="coerce")
+
+    return out
+
+
+# ---------------------------------------------------------------------
 # Last visited categorical features
 # ---------------------------------------------------------------------
 
@@ -324,16 +380,25 @@ def build_trial_level_model_df(
     include_rt_tfd_features: bool = True,
     include_total_answering_rt: bool = True,
     include_pattern_features: bool = True,
+    include_paragraph_features: bool = True,
     numeric_feature_cols: Sequence[str] = (Con.NUM_OF_SELECTS,),
     metric_cols: Sequence[str] = Con.AREA_METRIC_COLUMNS_MODELING,
     area_col: str = Con.AREA_LABEL_COLUMN,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     dwell_col: str = Con.IA_DWELL_TIME,
+    paragraph_features: Optional[pd.DataFrame] = None,
+    paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
 ) -> pd.DataFrame:
     """
     Build the final one-row-per-trial modeling dataframe.
 
     This is the main function you can use in the pipeline.
+
+    The paragraph-span features are the one block not computed from `df`: they
+    come from the cached paragraph-screen table, left-joined on
+    (participant_id, TRIAL_INDEX). A `df` from a different experiment therefore
+    needs its own cache passed via `paragraph_features`/`paragraph_features_path`,
+    or those columns come back NaN.
     """
     trial_core = _build_trial_core(
         df=df,
@@ -377,6 +442,13 @@ def build_trial_level_model_df(
     if include_pattern_features:
         pattern_df = build_trial_level_pattern_features(df, kind="location", window_len=4)
         out = out.merge(pattern_df, on=list(TRIAL_ID_COLS), how="left")
+
+    if include_paragraph_features:
+        paragraph_df = build_trial_level_paragraph_features(
+            paragraph_features=paragraph_features,
+            paragraph_features_path=paragraph_features_path,
+        )
+        out = out.merge(paragraph_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_last_lbl_before_confirm_features:
         last_before_confirm_df = build_trial_level_last_visited_features(
@@ -442,11 +514,16 @@ def save_all_features(
     keep_cols: Optional[Sequence[str]] = [Con.TEXT_ID_WITH_Q_COLUMN],
     target_col: str = Con.IS_CORRECT_COLUMN,
     verbose: bool = True,
+    paragraph_features: Optional[pd.DataFrame] = None,
+    paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
 ) -> pd.DataFrame:
     """
     Build the full trial-level feature DataFrame (every include_* flag turned on)
     and save it to `output_path` as CSV. The CSV can later be read back with
     `load_all_features`.
+
+    `paragraph_features` / `paragraph_features_path` point at the paragraph-span
+    cache to join in -- see `build_trial_level_model_df`.
     """
     trial_df = build_trial_level_model_df(
         df=df,
@@ -459,6 +536,9 @@ def save_all_features(
         include_rt_tfd_features=True,
         include_total_answering_rt=True,
         include_pattern_features=True,
+        include_paragraph_features=True,
+        paragraph_features=paragraph_features,
+        paragraph_features_path=paragraph_features_path,
     )
 
     output_path = Path(output_path)

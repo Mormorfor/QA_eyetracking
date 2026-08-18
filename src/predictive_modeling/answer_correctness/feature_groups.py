@@ -112,6 +112,29 @@ PER_QUESTION_COLS: List[str] = [f"{m}__question" for m in METRIC_COLUMNS]
 
 
 # ---------------------------------------------------------------------------
+# Paragraph-based features
+#   Dwell proportions measured on the *paragraph* screen, one per span: the
+#   share of the trial's paragraph dwell time spent on the critical span, on
+#   the distractor span, and on the rest of the text. Same quantity as the
+#   per-answer area_dwell_proportion__* columns, computed over
+#   `auxiliary_span_type` instead of `area_label`; merged into the trial frame
+#   by build_trial_level_model_df from the cached paragraph-span features.
+#
+#   Opt-in, like PATTERN_INTERACTION_COLS: kept out of ALL_FEATURES /
+#   GENERAL_FEATURES so existing runs stay comparable, e.g.
+#       feature_cols = FG.GENERAL_FEATURES + FG.PARAGRAPH_BASED
+#   Note the three shares are compositional (they sum to 1), so alongside an
+#   intercept they carry only two degrees of freedom.
+# ---------------------------------------------------------------------------
+
+PARAGRAPH_SPANS: List[str] = ["critical", "distractor", "outside"]
+
+PARAGRAPH_BASED: List[str] = [
+    f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
+]
+
+
+# ---------------------------------------------------------------------------
 # Last-visited / last-before-action one-hot groups
 # ---------------------------------------------------------------------------
 
