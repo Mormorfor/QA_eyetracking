@@ -70,6 +70,22 @@ NEW_EXP_FIX_ANSWERS_PATH = NEW_EXP_CLEANED_DIR / "fixations_answers.csv"
 NEW_EXP_MESSAGES_PATH = NEW_EXP_CSV_DIR / "messages_answers.csv"
 
 # ---------------------------------------------------------------------------
+# New experiment, second run (second_test) — raw .tsv reports
+# ---------------------------------------------------------------------------
+
+# Same report layout as testrun_QA, but exported as UTF-8 .tsv instead of
+# UTF-16 .xls, under report-prefixed names (A_IA.tsv / A_fixations.tsv), and
+# with no messages report. data_prep_new_exp.ipynb converts them to the same
+# csvs/ + csvs/cleaned/ layout as the testrun_QA data.
+SECOND_TEST_PATH = PROJECT_ROOT / "data_raw" / "second_test"
+
+SECOND_TEST_CSV_DIR = SECOND_TEST_PATH / "csvs"
+SECOND_TEST_CLEANED_DIR = SECOND_TEST_CSV_DIR / "cleaned"
+
+SECOND_TEST_IA_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "IA_answers.csv"
+SECOND_TEST_FIX_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "fixations_answers.csv"
+
+# ---------------------------------------------------------------------------
 # Processed Data (data/)
 # ---------------------------------------------------------------------------
 
@@ -131,6 +147,15 @@ NEW_EXP_OUT_DIR = DATA_DIR / "new_exp_try_runs"
 NEW_EXP_OUT_PATH = NEW_EXP_OUT_DIR / "all_participants.csv"
 NEW_EXP_AUX_DIR = NEW_EXP_OUT_DIR / "Auxiliary"
 NEW_EXP_FEATURES_PATH = NEW_EXP_OUT_DIR / "L1_model_ready_all_features.csv"
+
+# ---------------------------------------------------------------------------
+# New experiment, second run (second_test) — processed outputs
+# ---------------------------------------------------------------------------
+
+SECOND_TEST_OUT_DIR = DATA_DIR / "second_test_runs"
+SECOND_TEST_OUT_PATH = SECOND_TEST_OUT_DIR / "all_participants.csv"
+SECOND_TEST_AUX_DIR = SECOND_TEST_OUT_DIR / "Auxiliary"
+SECOND_TEST_FEATURES_PATH = SECOND_TEST_OUT_DIR / "L1_model_ready_all_features.csv"
 
 # ---------------------------------------------------------------------------
 # Experiment data (data/Experiment)

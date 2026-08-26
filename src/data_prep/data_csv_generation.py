@@ -695,11 +695,21 @@ def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
         # original serialized sequence
         # -----------------------------
         sequence_str = group[C.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
-        sequence = (
-            ast.literal_eval(sequence_str)
-            if isinstance(sequence_str, str)
-            else sequence_str
-        )
+        if isinstance(sequence_str, str):
+            sequence_str = sequence_str.strip()
+            # DataViewer writes "." (its missing marker) for trials with no
+            # interest-area fixations at all; treat those as an empty sequence.
+            sequence = (
+                ast.literal_eval(sequence_str)
+                if sequence_str.startswith("[")
+                else []
+            )
+        elif sequence_str is None or (
+            not isinstance(sequence_str, (list, tuple)) and pd.isna(sequence_str)
+        ):
+            sequence = []
+        else:
+            sequence = sequence_str
 
         # ---------------------------------------------------------
         # fixation-level fallback queue for unknown sequence entries
