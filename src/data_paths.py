@@ -86,6 +86,22 @@ SECOND_TEST_IA_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "IA_answers.csv"
 SECOND_TEST_FIX_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "fixations_answers.csv"
 
 # ---------------------------------------------------------------------------
+# KnowQA — first real data collection (data_raw/KnowQA)
+# ---------------------------------------------------------------------------
+
+# The first non-test run of the experiment. Same report columns as the two test
+# runs, exported like testrun_QA (UTF-16 .xls, tab separated) under canonical
+# names (IA_Answers.xls / fixations_Answers.xls) and with no messages report.
+# data_prep_new_exp.ipynb converts them to the same csvs/ + csvs/cleaned/ layout.
+KNOW_QA_PATH = PROJECT_ROOT / "data_raw" / "KnowQA"
+
+KNOW_QA_CSV_DIR = KNOW_QA_PATH / "csvs"
+KNOW_QA_CLEANED_DIR = KNOW_QA_CSV_DIR / "cleaned"
+
+KNOW_QA_IA_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "IA_answers.csv"
+KNOW_QA_FIX_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "fixations_answers.csv"
+
+# ---------------------------------------------------------------------------
 # Processed Data (data/)
 # ---------------------------------------------------------------------------
 
@@ -156,6 +172,15 @@ SECOND_TEST_OUT_DIR = DATA_DIR / "second_test_runs"
 SECOND_TEST_OUT_PATH = SECOND_TEST_OUT_DIR / "all_participants.csv"
 SECOND_TEST_AUX_DIR = SECOND_TEST_OUT_DIR / "Auxiliary"
 SECOND_TEST_FEATURES_PATH = SECOND_TEST_OUT_DIR / "L1_model_ready_all_features.csv"
+
+# ---------------------------------------------------------------------------
+# KnowQA — processed outputs (data/KnowQA_runs)
+# ---------------------------------------------------------------------------
+
+KNOW_QA_OUT_DIR = DATA_DIR / "KnowQA_runs"
+KNOW_QA_OUT_PATH = KNOW_QA_OUT_DIR / "all_participants.csv"
+KNOW_QA_AUX_DIR = KNOW_QA_OUT_DIR / "Auxiliary"
+KNOW_QA_FEATURES_PATH = KNOW_QA_OUT_DIR / "L1_model_ready_all_features.csv"
 
 # ---------------------------------------------------------------------------
 # Experiment data (data/Experiment)

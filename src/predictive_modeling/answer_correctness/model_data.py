@@ -555,8 +555,14 @@ def save_all_features(
 def load_all_features(path: Path = READY_ALL_FEATURES_PATH) -> pd.DataFrame:
     """
     Load the cached full feature DataFrame produced by `save_all_features`.
+
+    `participant_id` is pinned to str: KnowQA person ids are all digits
+    (`4000`), so type inference would make them int64 here while every consumer
+    that joins on them (the regime and confidence merges, the button-click
+    join) casts its own side to str -- and the merge would then fail on the
+    dtype mismatch. L1's ids are already strings, so this is a no-op there.
     """
-    return pd.read_csv(Path(path))
+    return pd.read_csv(Path(path), dtype={Con.PARTICIPANT_ID: str})
 
 
 # ---------------------------------------------------------------------

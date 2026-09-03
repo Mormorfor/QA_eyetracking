@@ -273,6 +273,114 @@ CONSISTENCY_DISPLAY_COLS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Per-participant coefficient, one feature at a time
+# (mirrors mixed_text_answer_effects.plot_participant_effects' per-term plot)
+# ---------------------------------------------------------------------------
+
+
+def participant_coef_table(
+    results_by_pid: Mapping[str, Any],
+    feature: str,
+    coef_col: str = "coef",
+) -> pd.DataFrame:
+    """One row per participant with a coefficient for ``feature``: their
+    ``coef`` plus ``se`` / ``ci_low`` / ``ci_high`` when the full-data fit's
+    ``coef_summary`` carries them (Wald or bootstrap CI), sorted by ``coef``.
+    """
+    rows = []
+    for pid, res in results_by_pid.items():
+        cs = getattr(res, "coef_summary", None)
+        if cs is None or cs.empty:
+            continue
+        row = cs.loc[cs["feature"] == feature]
+        if row.empty:
+            continue
+        row = row.iloc[0]
+        rows.append({
+            "participant_id": pid,
+            "coef": pd.to_numeric(row.get(coef_col), errors="coerce"),
+            "se": pd.to_numeric(row.get("se"), errors="coerce"),
+            "ci_low": pd.to_numeric(row.get("ci_low"), errors="coerce"),
+            "ci_high": pd.to_numeric(row.get("ci_high"), errors="coerce"),
+        })
+    if not rows:
+        raise ValueError(f"No participant has a coefficient for feature {feature!r}.")
+
+    d = pd.DataFrame(rows).dropna(subset=["coef"])
+    return d.sort_values("coef").reset_index(drop=True)
+
+
+def plot_participant_coef_effect(
+    results_by_pid: Mapping[str, Any],
+    feature: str,
+    coef_col: str = "coef",
+    *,
+    feature_set_tag: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = False,
+    rel_dir: str = "answer_correctness/per_person_loo/participant_coef_effects",
+    filename: Optional[str] = None,
+    paper_dirs: Optional[List[str]] = None,
+    dpi: int = 300,
+    close: bool = False,
+) -> Tuple[Any, pd.DataFrame, List[str]]:
+    """Per-participant coefficient for one feature, sorted, with 95% CI whiskers.
+
+    Same layout as the mixed-effects ``plot_participant_effects`` slope plots
+    (dots + whiskers sorted low to high, mean/median reference lines), but each
+    whisker here is that *participant's own* Wald 95% CI from their full-data
+    logistic fit -- not a shared random-effect SD, so widths vary participant to
+    participant (and are 0 where no CI was computed, e.g. ``ci_method="none"``).
+
+    Returns ``(fig, table, saved_paths)`` -- ``table`` is
+    :func:`participant_coef_table`'s output for this feature.
+    """
+    d = participant_coef_table(results_by_pid, feature, coef_col=coef_col)
+
+    have_ci = d["ci_low"].notna().all() and d["ci_high"].notna().all()
+    if have_ci:
+        yerr = np.vstack([
+            (d["coef"] - d["ci_low"]).clip(lower=0).to_numpy(),
+            (d["ci_high"] - d["coef"]).clip(lower=0).to_numpy(),
+        ])
+    elif d["se"].notna().all():
+        yerr = 1.96 * d["se"].to_numpy()
+    else:
+        yerr = 0.0
+
+    x = np.arange(len(d))
+    color = POS_COLOR if d["coef"].mean() >= 0 else NEG_COLOR
+    label = clean_feature_labels([feature])[0]
+
+    fig, ax = plt.subplots(figsize=(12, 3), dpi=dpi)
+    ax.errorbar(
+        x, d["coef"], yerr=yerr, fmt="none",
+        ecolor=color, alpha=0.6, capsize=2, lw=1, zorder=1,
+    )
+    ax.vlines(x, 0, d["coef"], color=color, alpha=0.4, lw=1, zorder=2)
+    ax.scatter(x, d["coef"], color=color, s=14, zorder=3)
+
+    ax.axhline(0, color="black", lw=1)
+    ax.axhline(d["coef"].mean(), color="gray", ls="--", lw=1, label="Mean")
+    ax.axhline(d["coef"].median(), color="gray", ls="-.", lw=1, label="Median")
+
+    suffix = f" ({feature_set_tag})" if feature_set_tag else ""
+    ax.set_title(title or f"Participant-specific coefficient of {label}{suffix}")
+    ax.set_xlabel("Participant (sorted)")
+    ax.set_ylabel("Coefficient (log-odds)")
+    ax.grid(axis="y", alpha=0.2)
+    ax.legend(loc="upper left", fontsize=8)
+    fig.tight_layout()
+
+    saved = maybe_save_plot(
+        fig=fig, save=save, rel_dir=rel_dir,
+        filename=filename or f"{feature_set_tag or 'coef'}_{feature}_participant_effect",
+        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    )
+    return fig, d, saved
+
+
 def plot_coef_consistency(
     long_df: pd.DataFrame,
     summ: pd.DataFrame,

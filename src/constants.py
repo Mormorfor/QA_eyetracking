@@ -21,6 +21,22 @@ INTEREST_AREA_ID = "IA_ID"
 TRIAL_ID = "TRIAL_INDEX"
 PARTICIPANT_ID = "participant_id"
 
+# KnowQA identity columns. A KnowQA recording label is `4XXX_YZ`: the person
+# (`4XXX`), the batch (`Y`, 1-3) and the list (`Z`, 1-18), with no separator
+# between the last two because the tracker caps labels at 8 characters. So the
+# label identifies a *session*, not a person -- one person can sit for several
+# (batch, list) sessions -- which is why PARTICIPANT_ID holds only `4XXX` and
+# the session is kept alongside it. See src/data_prep/know_qa_dataprep.py.
+SESSION_ID = "session_id"
+# The tracker's own within-session trial counter, kept as an int because
+# TRIAL_ID itself becomes a composite (batch, list, trial) string for KnowQA.
+TRIAL_NUMBER = "trial_number"
+
+# The word an interest area covers. Interest areas are one per word, in reading
+# order, so this reconstructs the on-screen text -- see
+# `know_qa_dataprep.check_text_alignment`.
+IA_LABEL = "IA_LABEL"
+
 IA_DWELL_TIME = "IA_DWELL_TIME"
 IA_FIXATIONS_COUNT = "IA_FIXATION_COUNT"
 IA_FIRST_FIXATION_DURATION = "IA_FIRST_FIXATION_DURATION"
@@ -29,7 +45,15 @@ IA_LAST_FIXATION_TIME = "IA_LAST_FIXATION_TIME"
 INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
 AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
+# Question index within the paragraph, in the ordering the L1 experiment used.
+# It is the last component of TEXT_ID_WITH_Q_COLUMN. NOT interchangeable with
+# ONESTOPQA_QUESTION_ID below -- the two orderings are different permutations of
+# the same three questions.
 SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
+# Question index within the paragraph in OneStopQA's own ordering, as recorded by
+# the KnowQA experiment builder (which selects items by it). Kept alongside
+# same_critical_span rather than conflated with it.
+ONESTOPQA_QUESTION_ID = "onestopqa_question_id"
 
 DOMINANT_EYE_COLUMN = "EYE_TRACKED"
 IA_AVERAGE_FIX_PUPIL_SIZE = "IA_AVERAGE_FIX_PUPIL_SIZE"
