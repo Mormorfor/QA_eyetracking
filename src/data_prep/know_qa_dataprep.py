@@ -611,10 +611,24 @@ def check_text_alignment(
 
     This is not hypothetical. The experiment's stored text sometimes carries a
     displaced double quote (e.g. `word "cool" "?"` for a screen that rendered
-    `word "cool"?`), which adds a token the display never showed. Every
-    interest-area boundary after it then shifts by one word, so each area's
-    eye-movement measures pick up a word belonging to its neighbour -- and
-    nothing else in the pipeline notices.
+    `word "cool"?`), which adds a token the display never showed. It comes from
+    the presentation software rather than from anything in this repo: the stimulus
+    CSVs hold `"cool"?` as one token and the raw recording already has it split.
+    It is predictable -- the 12 stimulus rows whose question ends in a quoted term
+    followed by `?` are the whole at-risk set.
+
+    **What it no longer means.** This check used to be the only thing standing
+    between that defect and the data, because `add_IA_screen_location` placed words
+    by counting stored tokens, so one phantom token shifted every later area
+    boundary. It now places words by their on-screen rectangle and reports any
+    override (`data_csv_generation._reconcile_area_with_geometry`), so **the area
+    labels on these trials are correct** and the flagged trials need no repair.
+
+    What the check is still for: the stored text is a defect worth fixing upstream
+    in the experiment materials, and anything derived from that text rather than
+    from the interest areas -- a word count, a length -- is off by a token on these
+    trials. See `docs/todo.md` T3.18 and
+    `notebooks/text_alignment_investigation.ipynb`.
 
     Returns one row per misaligned trial. `strict` raises instead of warning.
     """
@@ -666,8 +680,13 @@ def check_text_alignment(
         )
     if len(out):
         message = (
-            f"{len(out)} trial(s) whose interest areas do not match the stimulus "
-            f"text; per-area measures there mix in a neighbouring area's word:"
+            f"{len(out)} trial(s) whose interest areas do not match the stored "
+            "stimulus text. The screen-area labels are NOT affected -- words are "
+            "placed by their on-screen rectangle -- so nothing here needs "
+            "repairing in the recordings. It is the stored text that is wrong, "
+            "which is a defect to fix in the experiment materials, and any measure "
+            "taken from that text rather than from the interest areas is off by a "
+            "token on these trials:"
             "\n"
             f"{out.to_string(index=False)}"
         )
@@ -926,8 +945,23 @@ def run_pipeline(
         # The single canonical fixations report: feeds both the pupil stats and
         # create_fixation_sequence_tags, so all group features can run.
         fixations_path=fix_path,
+        # Both of the next two are INERT on this path, and deliberately kept.
+        # KnowQA needs no participant-level pupil baseline: pupil size is already
+        # z-scored per `session_id` in Stage 0, which is the right unit here
+        # because one participant_id spans several sittings. So
+        # `add_zscored_pupil_columns` is excluded above (see PUPIL_BASE_FUNC), and
+        # main() gates its whole pupil-stats block on that base feature running --
+        # nothing reads or writes a pupil-stats file for KnowQA.
+        #
+        # They stay because the alternative is worse: `pupil_stats_path` defaults
+        # to L1's PARTICIPANT_PUPILS_PATH, so dropping it would mean that anyone
+        # re-enabling the base feature for KnowQA would silently baseline against
+        # L1's answer screen -- exactly the bug `todo.md` T3.20 is about. Pinned
+        # here, that cannot happen.
+        #
+        # NB: `data/KnowQA_runs/Auxiliary/participant_pupils.csv` on disk is a
+        # leftover from a pre-Stage-0 run, NOT output of this path. Do not read it.
         compute_pupil_stats=True,
-        # keep every artifact inside the run's own folder
         pupil_stats_path=aux_dir / "participant_pupils.csv",
         button_clicks_path=aux_dir / "button_clicks_data.csv",
         last_labels_path=aux_dir / "all_participants_last.csv",

@@ -38,7 +38,7 @@ only by looking at a picture, and this file is the text version of that picture.
 directly by Claude on 2026-09-04/05** from the staged feature caches
 (`L1_model_ready_all_features.csv`, `L1_paragraph_span_features.csv`) rather than transcribed
 — the coverage × intensity decomposition and metric correlations (§3.1 note), the pupil NaN
-counts and the 257-cell imputation figure (§8), and the participant/group counts. Those are
+counts and the imputation figure (§8, now 253 cells), and the participant/group counts. Those are
 reproducible from the CSVs and are dated where they appear.
 
 ## Provenance markers
@@ -489,17 +489,25 @@ rests on. Also confirms that `selected_answer_label == "A"` ⟺ correct.
 
 ### Imputation in the headline model — a Methods number
 
-Measured 2026-09-04 on `SELECT_1_COLS` over the 19,436 trials:
+Re-measured 2026-09-07 on `SELECT_1_COLS` over the 19,436 trials, after the T3.18 rebuild:
 
 | feature | cells imputed as `0` |
 |---|---|
-| `mean_max_fix_pupil_size_z__correct` | **257 (1.32% of trials)** |
+| `mean_max_fix_pupil_size_z__correct` | **253 (1.30% of trials)** |
 | the other nine | 0 |
 
-**257 cells, 0.132% of the feature matrix.** All 257 are trials where the correct answer was
+**253 cells, 0.130% of the feature matrix.** All 253 are trials where the correct answer was
 never fixated, so pupil size is undefined; the model's `fill_value = 0.0` then asserts the
 participant's *mean* dilation. Small enough not to threaten the reported accuracy, and the
 kind of figure a reviewer will ask for. See `todo.md` T3.12.
+
+> **Was 257 before T3.18 (measured 2026-09-04).** The four recovered cells are all in the ten
+> trials whose area labels were wrong: with the labels corrected, the option that actually is
+> the correct answer *had* been fixated on those trials, so a real pupil measurement exists
+> where an imputed `0` used to stand. Verified by attribution — those ten trials now carry no
+> NaN at all in this column, and the remaining 19,426 carry exactly 253, so 253 + 4 = 257.
+> **The same 257 is still quoted in `pitfalls.md` §2 and `todo.md` T3.12 / T3.14** and wants
+> the same correction.
 
 No other family contributes: RT, TFD, TimeSinceOffset, dwell time, fixation count and
 skip rate all have **zero NaN** — their zeros are genuine "never read" measurements.
@@ -591,6 +599,7 @@ the latter, say what the new conclusion is.
 | *(pending)* | `todo.md` T3.1 — Fisher tests moved to trial-level frames | ~96 data files, ~51 figures in three `correctness_by_*` folders | n 760,628 → 19,436; threshold-4 case OR 2.643 → 2.753, p 0.0 → 6e-60 | expected **value only** — the effect survives comfortably. Check the borderline variants. |
 | *(retracted)* | `todo.md` T3.2 — I had this as "nest feature selection inside CV folds". **`SELECT_1_COLS` is a manual pick, not machine-selected**, so there is no leakage to fix and no rerun. What remains is a Methods sentence | — | — | **no change — my error, corrected 2026-09-05** |
 | *(pending)* | `todo.md` T3.3 — coefficient CIs via participant-clustered bootstrap | every coefficient figure, `significant_only` filtering | CIs widen | expected **conclusion change** on which coefficients count as significant. |
+| 2026-09-06 *(reruns 09-07)* | `todo.md` T3.18 — `add_IA_screen_location` now places words on the answer screen by their interest-area rectangle (`IA_TOP` / `IA_LEFT`) instead of by counting tokens in the stored text. The token-count assignment is still computed and compared; geometry wins where they differ, and every correction is printed | every per-area metric, the fixation sequences and everything built on them (strategies, XYX/XYXY, `seq_len`), last-visited labels, per-region RT/TFD, preference matching, and all `__correct` / `__wrong_mean` / `__contrast` features — but **only on the affected trials** | L1 **54 interest areas on 10 of 19,436 trials** (0.007% of interest areas); KnowQA 4 IAs on 1 of 154; second_test 24 IAs on 6 of 361; testrun_QA none. Verified identical to the current labels on every other trial | **value only.** The corrected labels were derived independently two ways — screen geometry, and reconciling `IA_LABEL` against the stored text — which agreed 10/10 on L1's affected trials. Too few trials to move any reported figure. **Datasets rebuilt 2026-09-07** — KnowQA and both pilots re-run, L1 re-run by Diana. Fixed in the same pass: `total_answering_RT_normalized` now divides by the **measured interest-area count** rather than the stored token count, which had it ~2% low on the 10 L1 `truncated` and 7 Study 2 `merged` trials. The question of whether that word was displayed is **answered, not assumed**: it rendered off the bottom of the screen (it would start at y ≈ 1404 against a 1401 maximum for any interest area anywhere in L1), so it was never readable and the measured count is the correct denominator. **Verified after the rebuild (2026-09-07):** 19,436 trials / 760,628 interest areas / 360 participants all unchanged, base rate still 0.8407, no area falls to `unknown`, and the on-disk labels agree with an independent reconstruction on **all** 19,436 trials while differing from the old token-count logic on exactly the 10. One downstream number did move: `mean_max_fix_pupil_size_z__correct` imputations **257 → 253** (§8) |
 
 ---
 

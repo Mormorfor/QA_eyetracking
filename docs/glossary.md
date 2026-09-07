@@ -237,8 +237,10 @@ followed by a move elsewhere) is removed as spillover from the question screen.
 
 `IA_LABEL` (`IA_LABEL`) holds the word an interest area covers — one IA per word in
 reading order, so it reconstructs the on-screen text. `know_qa_dataprep.check_text_alignment`
-uses this to look for a displaced-quote bug that would shift every downstream area boundary by
-one word — though **whether that bug actually occurs is unconfirmed** (`todo.md` T3.18).
+uses this to look for a displaced-quote bug that used to shift every downstream area boundary
+by one word. ✅ **The defect is real, and no longer reaches the areas** (`todo.md` T3.18,
+resolved 2026-09-07): words are now assigned to areas by their on-screen rectangle
+(`IA_TOP` / `IA_LEFT`), so the stored text cannot move a boundary.
 
 ### Hesitation patterns
 

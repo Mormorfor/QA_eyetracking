@@ -259,6 +259,110 @@ def add_answer_text_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df_out
 
 
+# ---------------------------------------------------------------------------
+#  Answer-screen layout
+# ---------------------------------------------------------------------------
+# The answer screen is a fixed template: the question on one or two lines at the
+# top, then the four options in a diamond -- one above, two side by side, one
+# below. Every interest-area rectangle therefore falls into one of four vertical
+# bands, and the middle band splits by x into the left and right options.
+#
+# The numbers are midpoints of the gaps measured on OneStop's L1 export: bands at
+# IA_TOP 153-265 / 381-720 / 723-1062 / 1065-1294, with the left option ending at
+# IA_LEFT 873 and the right one starting at 1717. Across 759,990 interest areas
+# no IA_TOP value falls in two bands and no IA_LEFT value in both side options.
+# Study 2 reuses the same screen (KnowQA's IA_TOP spans 153-1290), so the same
+# template applies.
+#
+# NB: these bands cannot be recovered from the gaps within a single trial. Line
+# spacing inside one area is ~110 px while the gap between the top band and the
+# middle one is 3 px, so gap-clustering finds line breaks, not area boundaries.
+# The template has to be stated, and is cross-checked on every run below.
+AREA_BAND_QUESTION_TOP = 323.0
+AREA_BAND_TOP_MIDDLE = 721.5
+AREA_BAND_MIDDLE_BOTTOM = 1063.5
+AREA_SPLIT_LEFT_RIGHT = 1295.0
+
+# If the template ever stops describing a dataset's display, geometry and token
+# counts disagree on essentially every trial rather than on a handful. Refuse
+# rather than relabel a whole run from a template that does not fit it.
+MAX_GEOMETRY_DISAGREEMENT = 0.05
+
+
+def assign_area_by_geometry(df: pd.DataFrame) -> np.ndarray:
+    """Assign each interest area to a screen area from its on-screen rectangle.
+
+    Unlike the token-count assignment this reads the measurement rather than an
+    inference from stored text, so it is unaffected by a stored question that
+    carries a token the screen never rendered, or by options reaching the report
+    in a different order than the template assumes.
+    """
+    missing = [c for c in ("IA_TOP", "IA_LEFT") if c not in df.columns]
+    if missing:
+        raise KeyError(
+            f"interest-area geometry {missing} is required to place words on the "
+            "answer screen; it is present in every raw report this project reads"
+        )
+
+    top = pd.to_numeric(df["IA_TOP"]).to_numpy()
+    left = pd.to_numeric(df["IA_LEFT"]).to_numpy()
+    question, top_ans, left_ans, right_ans, bottom_ans = C.LOC_CHOICES
+    return np.select(
+        [
+            top < AREA_BAND_QUESTION_TOP,
+            top < AREA_BAND_TOP_MIDDLE,
+            (top < AREA_BAND_MIDDLE_BOTTOM) & (left < AREA_SPLIT_LEFT_RIGHT),
+            top < AREA_BAND_MIDDLE_BOTTOM,
+        ],
+        [question, top_ans, left_ans, right_ans],
+        default=bottom_ans,
+    )
+
+
+def _reconcile_area_with_geometry(df: pd.DataFrame) -> pd.DataFrame:
+    """Cross-check the token-count assignment against the on-screen rectangles.
+
+    The two agree on all but a handful of trials. Where they differ the rectangle
+    wins: it is what was measured, while the token count is an inference from
+    stored text the display may not have rendered word for word. Corrections are
+    printed rather than applied quietly. See `docs/todo.md` T3.18 for the three
+    ways the stored text drifts from the display and what each one costs.
+    """
+    by_counts = df[C.AREA_SCREEN_LOCATION].to_numpy()
+    by_geometry = assign_area_by_geometry(df)
+    disagree = by_counts != by_geometry
+
+    n_trials = len(df.index.unique())
+    corrected = df.index[disagree].unique()
+    share = len(corrected) / n_trials if n_trials else 0.0
+
+    if share > MAX_GEOMETRY_DISAGREEMENT:
+        raise ValueError(
+            f"screen geometry disagrees with the stored token counts on "
+            f"{len(corrected)} of {n_trials} trials ({share:.1%}). That is far too "
+            "many to be stimulus-text defects, so the AREA_BAND_* boundaries "
+            "almost certainly do not describe this dataset's display. Establish "
+            "the layout before trusting either assignment."
+        )
+
+    if len(corrected):
+        shown = ", ".join(f"{pid} trial {tid}" for tid, pid in corrected[:10])
+        more = "" if len(corrected) <= 10 else f", +{len(corrected) - 10} more"
+        print(
+            f"  screen areas: on-screen rectangles overrode the stored token counts "
+            f"for {int(disagree.sum())} interest area(s) across {len(corrected)} of "
+            f"{n_trials} trial(s) -- {shown}{more}"
+        )
+    else:
+        print(
+            f"  screen areas: token counts and on-screen rectangles agree on all "
+            f"{n_trials} trials"
+        )
+
+    df[C.AREA_SCREEN_LOCATION] = by_geometry
+    return df
+
+
 def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
     """
     Assign a screen-location label to each interest area within a trial.
@@ -267,9 +371,15 @@ def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
     - tokenizes question and answer_1–answer_4 text,
     - computes token lengths,
     - treats INTEREST_AREA_ID (1-based) as the token index,
-    - assigns each IA to one of AREA_LABEL_CHOICES
+    - assigns each IA to one of LOC_CHOICES
     (ordered: question, answer on top, answer to the left, answer to the right, answer on bottom)
 
+    That token-count assignment is then cross-checked against each interest
+    area's on-screen rectangle, and the rectangle wins where they disagree --
+    see `_reconcile_area_with_geometry`. The token counts are still computed and
+    kept: the `*_len` columns are what `add_total_answering_RT_normalized` reads,
+    and the comparison is what makes a stored text that does not match the
+    display visible instead of silent.
     """
     df = df.copy()
     for col in ["question", "answer_1", "answer_2", "answer_3", "answer_4"]:
@@ -286,6 +396,15 @@ def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
     df["2_len"] = df["2_tokens"].apply(len)
     df["3_len"] = df["3_tokens"].apply(len)
     df["4_len"] = df["4_tokens"].apply(len)
+
+    # The words that actually got an interest area. Every per-area metric is
+    # computed over these, and add_total_answering_RT_normalized divides by them
+    # too -- it is not always the stored token count above, because the stored
+    # text does not always match what the screen rendered. Kept as a column so
+    # the two counts stay comparable in the saved output.
+    df["n_interest_areas"] = df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[
+        C.INTEREST_AREA_ID
+    ].transform("size")
 
     def assign_area(group):
         q_len = group["question_len"].iloc[0]
@@ -321,7 +440,7 @@ def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
         .groupby([C.TRIAL_ID, C.PARTICIPANT_ID], group_keys=False)
         .apply(assign_area)
     )
-    return df_area_split
+    return _reconcile_area_with_geometry(df_area_split)
 
 
 def add_IA_answer_label(df: pd.DataFrame) -> pd.DataFrame:
@@ -422,9 +541,15 @@ def add_zscored_pupil_columns(
 
 def add_total_answering_RT_normalized(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Create total_answering_RT_normalized by dividing total_answering_RT
-    by the total number of words on the answer screen:
-    question_len + 1_len + 2_len + 3_len + 4_len.
+    Create total_answering_RT_normalized by dividing total_answering_RT by the
+    number of words on the answer screen.
+
+    The divisor is `n_interest_areas` -- the words that actually got an interest
+    area -- rather than the stored-text token count in `total_words_on_screen`.
+    The two agree on all but a handful of trials; where they differ the stored
+    text carries a token the display never rendered, so normalising by it would
+    divide the reading time by a word the tracker never measured. Both counts are
+    kept in the output so the difference stays inspectable.
     """
     out = df.copy()
 
@@ -434,7 +559,14 @@ def add_total_answering_RT_normalized(df: pd.DataFrame) -> pd.DataFrame:
 
     out[C.TOTAL_ANSWERING_RT_NORMALIZED] = pd.to_numeric(
         out[C.CONFIRM_FINAL_ANSWER_RT], errors="coerce"
-    ) / out["total_words_on_screen"].replace(0, np.nan)
+    ) / out["n_interest_areas"].replace(0, np.nan)
+
+    n_differing = int((out["total_words_on_screen"] != out["n_interest_areas"]).sum())
+    if n_differing:
+        print(
+            f"  answering RT: normalized by measured interest-area counts, which "
+            f"differ from the stored token counts on {n_differing} interest-area row(s)"
+        )
 
     return out
 
@@ -465,7 +597,7 @@ def create_mean_area_fix_count(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute the mean number of fixations per (trial, participant, area_label) group.
 
-    This function aggregates interest-area–level data by computing the mean
+    This function aggregates interest-area-level data by computing the mean
     number of fixations for each unique combination of:
     - TRIAL_ID
     - PARTICIPANT_ID

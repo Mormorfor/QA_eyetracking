@@ -1,0 +1,5 @@
+dataset,trials,misaligned,tail_only,mid_sequence,pct
+KnowQA,154,1,0,1,0.65
+second_test,361,6,0,6,1.66
+testrun_QA,45,0,0,0,0.0
+L1,19436,20,10,10,0.1

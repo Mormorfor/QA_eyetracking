@@ -77,11 +77,13 @@ What this stage adds beyond format conversion:
 - **`add_item_id_columns`** — derives `same_critical_span` from `text_id_with_q`, *never*
   from `onestopqa_question_id` (they disagree on ~40% of trials).
 - **`check_trial_index_gaps`** — trial-counter gaps must equal the number of recalibrations.
-- **`check_text_alignment`** — reconstructs on-screen text from `IA_LABEL` and is *intended*
-  to catch a displaced-quote bug in the stored stimulus text that would shift every
-  interest-area boundary after it by one word. ⚠️ **Whether that bug is real is unconfirmed**
-  (`todo.md` T3.18) — the check's diagnosis has not been validated against L1 interest-area
-  counts for the same items.
+- **`check_text_alignment`** — reconstructs on-screen text from `IA_LABEL` and reports trials
+  where the stored stimulus text and the interest areas disagree. ✅ **The defect is real**
+  (`todo.md` T3.18, resolved 2026-09-07): the stored question sometimes carries a token the
+  display never rendered. It no longer affects area labels, because `add_IA_screen_location`
+  places words by their on-screen rectangle rather than by counting stored tokens. So this
+  check is now a detector of **stimulus-text** defects to fix upstream, not a guard on the
+  measurements. It has never excluded a trial.
 
 > ⚠️ **`experiment_builder/data_prep_new_exp.ipynb` is a near-verbatim earlier copy of
 > this module** and writes the *same* `csvs/cleaned/` files and the *same*

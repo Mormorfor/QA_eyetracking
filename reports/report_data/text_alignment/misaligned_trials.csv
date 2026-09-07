@@ -1,0 +1,28 @@
+dataset,trial,item,n_interest_areas,n_expected_tokens,first_mismatch_at,tail_only,on_screen,expected
+KnowQA,4000_31 / 31,3_7_Adv_5_0,38,39,7,False,"word ""cool""? It comes","word ""cool"" ""?"" It"
+second_test,r4_l16_2 / 5,2_1_Adv_4_1,43,44,5,False,"is ""satisfying""? The flexibility","is ""satisfying"" ""?"" The"
+second_test,r5_l9_b3 / 32,2_1_Adv_4_1,43,44,5,False,"is ""satisfying""? Observing improvement","is ""satisfying"" ""?"" Observing"
+second_test,r6_12_b3 / 18,3_9_Adv_1_2,32,33,6,False,"as ""lucky""? Children whose","as ""lucky"" ""?"" Children"
+second_test,r6_12_b3 / 43,3_6_Adv_7_2,40,41,10,False,"""cargo bike""? It can","""cargo bike"" ""?"" It"
+second_test,y7_12_b3 / 25,3_9_Adv_1_2,32,33,6,False,"as ""lucky""? Children whose","as ""lucky"" ""?"" Children"
+second_test,y7_12_b3 / 46,3_6_Adv_7_2,40,41,10,False,"""cargo bike""? It can","""cargo bike"" ""?"" It"
+L1,l11_342 / 45,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l11_344 / 41,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l17_355 / 14,3_5_Ele_3_2,24,24,0,False,John Lewis Who,Who used the
+L1,l17_356 / 12,3_5_Ele_3_2,24,24,0,False,John Lewis Who,Who used the
+L1,l18_526 / 4,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l18_99 / 5,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l19_100 / 41,1_6_Ele_2_1,47,48,47,True,healthy,healthy diet
+L1,l19_50 / 43,1_6_Ele_2_1,47,48,47,True,healthy,healthy diet
+L1,l35_399 / 68,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l35_450 / 56,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l36_119 / 44,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l36_486 / 47,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l42_290 / 10,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l42_488 / 10,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l47_420 / 44,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l47_457 / 47,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l5_328 / 40,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l5_332 / 35,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+L1,l60_190 / 19,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
+L1,l60_198 / 18,1_6_Adv_2_1,47,48,47,True,healthy,healthy diet
