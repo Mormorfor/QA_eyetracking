@@ -1,5 +1,13 @@
 dataset,trial,item,n_interest_areas,n_expected_tokens,first_mismatch_at,tail_only,on_screen,expected
 KnowQA,4000_31 / 31,3_7_Adv_5_0,38,39,7,False,"word ""cool""? It comes","word ""cool"" ""?"" It"
+KnowQA,4001_32 / 16,3_7_Adv_5_0,38,39,7,False,"word ""cool""? It started","word ""cool"" ""?"" It"
+KnowQA,4001_32 / 55,3_5_Adv_4_1,15,15,0,False,John Lewis Who,Who had the
+KnowQA,4002_23 / 5,2_1_Adv_4_1,43,44,5,False,"is ""satisfying""? Observing improvement","is ""satisfying"" ""?"" Observing"
+KnowQA,4002_33 / 12,3_3_Adv_3_0,33,34,10,False,"as ""landscape""? Everything below","as ""landscape"" ""?"" Everything"
+KnowQA,4004_35 / 20,3_6_Adv_7_2,40,41,10,False,"""cargo bike""? It is","""cargo bike"" ""?"" It"
+KnowQA,4004_35 / 53,3_9_Adv_1_2,32,33,6,False,"as ""lucky""? Children who","as ""lucky"" ""?"" Children"
+KnowQA,4005_36 / 16,3_9_Adv_1_2,32,33,6,False,"as ""lucky""? Children who","as ""lucky"" ""?"" Children"
+KnowQA,4005_36 / 35,3_6_Adv_7_2,40,41,10,False,"""cargo bike""? It can","""cargo bike"" ""?"" It"
 second_test,r4_l16_2 / 5,2_1_Adv_4_1,43,44,5,False,"is ""satisfying""? The flexibility","is ""satisfying"" ""?"" The"
 second_test,r5_l9_b3 / 32,2_1_Adv_4_1,43,44,5,False,"is ""satisfying""? Observing improvement","is ""satisfying"" ""?"" Observing"
 second_test,r6_12_b3 / 18,3_9_Adv_1_2,32,33,6,False,"as ""lucky""? Children whose","as ""lucky"" ""?"" Children"
