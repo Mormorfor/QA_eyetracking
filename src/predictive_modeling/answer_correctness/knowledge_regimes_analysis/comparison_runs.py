@@ -18,7 +18,7 @@ features are built — just point ``new_features`` / ``regime_source`` at the re
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Optional, Any, Dict, List, Sequence, Union
 
 import pandas as pd
 
@@ -193,7 +193,7 @@ def run_regime_split_comparison(
     excluded_regimes: frozenset = EXCLUDED_REGIMES,
     include_pooled: bool = True,
     feature_cols: Optional[Sequence[str]] = None,
-    save: bool = False,
+    save: Optional[bool] = None,
     close: bool = False,
     verbose: bool = True,
     **bundle_kwargs: Any,
@@ -229,7 +229,7 @@ def run_regime_split_comparison(
         absent from the new data is dropped automatically.
     save, close, **bundle_kwargs :
         Forwarded to :func:`run_cross_dataset_correctness_bundle` (plot/CSV saving,
-        figure closing, ``dpi``, ``paper_dirs``, ...).
+        figure closing, ``dpi``, ``to_paper``, ...).
 
     Returns
     -------

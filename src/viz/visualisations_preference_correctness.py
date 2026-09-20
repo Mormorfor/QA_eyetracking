@@ -20,7 +20,7 @@ Plots:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Optional, Dict, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ from src.viz.viz_helpers import (
     add_wilson_errorbars_and_ns,
     split_participant_groups,
 )
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 
 # Reuse shared Wilson CI + summary logic (new)
 from src.derived.correctness_measures import summarize_binary_by_group
@@ -91,10 +91,12 @@ def plot_correctness_by_matching(
     correct_col: str = C.IS_CORRECT_COLUMN,
     group_order: Sequence[str] = ("matching", "not_matching"),
     title: Optional[str] = None,
-    save_path: Optional[str] = None,
     show_n: bool = True,
     show_test: bool = True,
-    paper_dirs: Optional[Sequence[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
+    h_or_g: str = "all_participants",
+    mode: str = "polarity",
 ) -> pd.DataFrame:
     """
     Plot correctness rate (mean) ± 95% CI for matching vs not_matching.
@@ -169,16 +171,19 @@ def plot_correctness_by_matching(
 
     fig.tight_layout()
 
-    if save_path:
-        save_path = Path(save_path)
-        save_fig(
-            fig,
-            save_path.parent,
-            save_path.stem,
-            ext=save_path.suffix.lstrip(".") or "png",
-            dpi=200,
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="correctness_associations",
+        plot="correctness_by_matching",
+        tables={"summary": summary},
+        save=save,
+        to_paper=to_paper,
+        dpi=200,
+        subdir="correctness_by_matching",
+        group=h_or_g,
+        mode=mode,
+        metric=metric_name,
+    )
 
     return summary
 
@@ -200,8 +205,8 @@ def run_all_matching_correctness_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
     metrics: List[str] = None,
-    output_root: str = "../reports/plots/matching_correctness",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
 ) -> Dict:
     """
@@ -216,14 +221,13 @@ def run_all_matching_correctness_plots(
       - all_participants
 
     Folder structure:
-      {output_root}/{mode}/{group}/correctness_by_matching__{metric}.png
+      reports/correctness_associations/figures/correctness_by_matching/
 
     Returns
     -------
     results[mode][group][metric] = {
         "trial_df": DataFrame,
         "summary": DataFrame,
-        "save_path": str|None,
     }
     """
     if metrics is None:
@@ -260,17 +264,15 @@ def run_all_matching_correctness_plots(
                     )
                     title = f"Correctness by matching ({metric}) — {group_label} — relative"
 
-                save_path = None
-                if save_plots:
-                    save_dir = Path(output_root) / mode / group_key
-                    save_path = str(save_dir / f"correctness_by_matching__{metric}.png")
-
                 summary = plot_correctness_by_matching(
                     df=trial_df,
                     metric_name=metric,
                     title=title,
-                    save_path=save_path,
                     show_test=True,
+                    save=save,
+                    to_paper=to_paper,
+                    h_or_g=group_key,
+                    mode=mode,
                 )
 
                 if print_summaries:
@@ -282,7 +284,6 @@ def run_all_matching_correctness_plots(
                 group_results[metric] = {
                     "trial_df": trial_df,
                     "summary": summary,
-                    "save_path": save_path,
                 }
 
             mode_results[group_key] = group_results

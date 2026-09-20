@@ -1,0 +1,4 @@
+text_region,TFD_normalized_answer_A,TFD_normalized_answer_B,TFD_normalized_answer_C,TFD_normalized_answer_D,TFD_normalized_question
+TFD_normalized_distractor,180,180,180,180,180
+TFD_normalized_critical,180,180,180,180,180
+TFD_normalized_outside,180,180,180,180,180

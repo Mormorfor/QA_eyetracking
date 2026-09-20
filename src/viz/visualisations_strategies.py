@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 import ast
 from collections import defaultdict, Counter
@@ -21,7 +20,7 @@ from src.derived.pattern_breaking import (
     strategy_variety_by_participant,
     summarize_completion_effect,
 )
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -63,9 +62,8 @@ def plot_dominant_strategy_hist(
     bins: int = 20,
     figsize=(6, 4),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/strategies",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     completed_flag_col: Optional[str] = None,
 ):
     """
@@ -93,13 +91,16 @@ def plot_dominant_strategy_hist(
     ax.set_xticklabels([f"{int(x*100)}%" for x in ticks], rotation=45)
 
     fig.tight_layout()
-    if save:
-        save_fig(
-            fig,
-            output_root,
-            f"dominant_prop_{strat_col}_{h_or_g}",
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot="dominant_strategy_proportion",
+        tables={"dominance": dominant_prop.rename("dominance_score").reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        kind=strat_col,
+    )
     plt.show()
 
     return dominant_prop
@@ -113,9 +114,8 @@ def plot_dominance_gap(
     bins: int = 20,
     figsize=(12, 5),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/strategies",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     hist_kwargs: Optional[dict] = None,
     scatter_kwargs: Optional[dict] = None,
 ):
@@ -148,13 +148,16 @@ def plot_dominance_gap(
     axes[1].legend()
 
     plt.tight_layout()
-    if save:
-        save_fig(
-            fig,
-            output_root,
-            f"dominance_gap_{strat_col}_{h_or_g}",
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot="dominance_gap",
+        tables={"gap": result.reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        kind=strat_col,
+    )
     plt.show()
 
     return result
@@ -168,9 +171,8 @@ def plot_strategy_count_distribution(
     figsize=(6, 4),
     bins=None,
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/strategies",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     **plot_kwargs,
 ):
     """
@@ -192,13 +194,16 @@ def plot_strategy_count_distribution(
     plt.xticks(ticks)
 
     plt.tight_layout()
-    if save:
-        save_fig(
-            fig,
-            output_root,
-            f"dom_str_counts_{strat_col}_{h_or_g}",
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot="strategy_count_distribution",
+        tables={"counts": strat_counts.rename("n_strategies").reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        kind=strat_col,
+    )
 
     plt.show()
 
@@ -213,9 +218,8 @@ def plot_dominant_strategy_counts_above_threshold(
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     figsize=(8, 4),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/strategies",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     **bar_kwargs,
 ):
     """
@@ -237,13 +241,16 @@ def plot_dominant_strategy_counts_above_threshold(
     )
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
-    if save:
-        save_fig(
-            fig,
-            output_root,
-            f"str_above_thresh_{strat_col}_{h_or_g}",
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot="dominant_strategies_above_threshold",
+        tables={"counts": freq.rename("n_participants").reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        kind=strat_col,
+    )
 
     plt.show()
     return freq
@@ -266,9 +273,8 @@ def summarize_before_after(
     bins: int = 20,
     figsize=(8, 5),
     h_or_g: str = "hunters",
-    save: bool = True,
-    out_prefix: str = "../reports/plots/strategies",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     density: bool = False,
     hist_kwargs: Optional[dict] = None,
     full_len: int = 4,
@@ -301,8 +307,8 @@ def summarize_before_after(
         Group label for titles/filenames ('hunters' / 'gatherers').
     save : bool
         Save the figure to disk.
-    out_prefix : str
-        Directory where the PNG will be stored.
+    to_paper : bool or None
+        Mirror into the Overleaf-synced papers/ tree (off by default).
     density : bool
         If True, plot density instead of counts.
     hist_kwargs : dict or None
@@ -366,13 +372,15 @@ def summarize_before_after(
     ax.legend()
     fig.tight_layout()
 
-    if save:
-        save_fig(
-            fig,
-            out_prefix,
-            f"dominant_prop_raw_vs_completed_{h_or_g}",
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot="dominance_raw_vs_completed",
+        tables={"summary": summary, "per_participant": both.reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+    )
 
     plt.show()
 
@@ -386,8 +394,8 @@ def plot_strategies(
     id_col: str = Con.PARTICIPANT_ID,
     strat_col: str = Con.STRATEGY_COL,
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/strategies",
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """
     Convenience wrapper: runs all strategy plots on one DataFrame.
@@ -402,7 +410,7 @@ def plot_strategies(
         figsize=(8, 5),
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
+        to_paper=to_paper,
     )
 
     # Histogram of dominant usage (completed)
@@ -414,7 +422,7 @@ def plot_strategies(
         figsize=(8, 5),
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
+        to_paper=to_paper,
         completed_flag_col=strat_col + "_was_completed",
     )
 
@@ -427,7 +435,7 @@ def plot_strategies(
         figsize=(10, 4),
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
+        to_paper=to_paper,
     )
 
     # How many strategies per participant?
@@ -437,7 +445,7 @@ def plot_strategies(
         strat_col=strat_col,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
+        to_paper=to_paper,
     )
 
     # Which strategies dominate above 50%?
@@ -448,7 +456,7 @@ def plot_strategies(
         threshold=0.5,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
+        to_paper=to_paper,
     )
 
     return dominant, comp_dom, gaps, counts, strategies
@@ -460,8 +468,8 @@ def run_all_strategy_plots(
     kind: str = "location",
     window_len: int = 4,
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
-    output_root: str = "../reports/plots/strategies",
-    save: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
 ) -> dict:
     """
     Build strategy data from simplified sequences and run all strategy analyses
@@ -534,7 +542,7 @@ def run_all_strategy_plots(
             figsize=(8, 5),
             h_or_g=group_name,
             save=save,
-            out_prefix=output_root,
+            to_paper=to_paper,
             density=False,
             full_len=window_len,
         )
@@ -545,7 +553,7 @@ def run_all_strategy_plots(
             strat_col=Con.STRATEGY_COL,
             h_or_g=group_name,
             save=save,
-            output_root=output_root,
+            to_paper=to_paper,
         )
 
         results[group_name] = {

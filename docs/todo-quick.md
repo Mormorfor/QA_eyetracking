@@ -19,26 +19,26 @@ go looking.)*
 
 ## Ready to start, nothing blocking
 
-| Item      | Why it's first                                            |
-| --------- | --------------------------------------------------------- |
-| **T3.6**  | decided and unblocked; the change is two lines            |
-| **T3.1**  | the fix is one word in three places, and it's high impact |
-| **T3.17** | cheap, and changes no number if the invariants hold       |
+| Item      | Why it's first                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **T3.6**  | decided and unblocked; the change is two lines                                                                                        |
+| **T3.1**  | the fix is one word in three places, and it's high impact                                                                             |
+| **T3.17** | cheap, and changes no number if the invariants hold                                                                                   |
 | **T4.2**  | not a fix at all — just re-run the plots (but see T2.5 — `statistics.ipynb` needs a constant fixed before the 108 can be regenerated) |
 
 ***
 
 ## T1 · Small consistency fixes — safe, no reported number moves
 
-* **✅ DONE — T1.1** — Dominance threshold is `≥` everywhere, and the five copies of the modal-strategy pick are now one function in `derived/pattern_breaking.py`. *(**done** 2026-09-20 — hunters 48.89/53.33, gatherers 58.33/61.11; a convergence onto the numbers already quoted, no figures to regenerate)*
+* **✅ DONE — T1.1** — Dominance threshold is `≥` everywhere, and the five copies of the modal-strategy pick are now one function in `derived/pattern_breaking.py`. *(**done*** *2026-09-20 — hunters 48.89/53.33, gatherers 58.33/61.11; a convergence onto the numbers already quoted, no figures to regenerate)*
 
-* **T1.3** — Route every analysis's figure **and** its numbers through `plot_output`, so keeping a result stops depending on which module produced it. *(M · ⚠️)*
+* **✅ DONE — T1.3** — One `save_output()` everywhere: 81 call sites, 33 source files, 11 notebooks; `tables=` is required so a figure cannot be saved without its numbers; outputs moved to `reports/<analysis>/{figures,tables}/` with key-value filenames; Overleaf mirroring off. *(**done** 2026-09-20 — no numbers moved; lands `restructure-map.md` §9 early and most of T5.3; closes T4.1)*
 
 * **T1.4** — Fix comments naming constants that no longer exist — but check `statistics.ipynb` first, which may actually *call* one. *(S · ⚠️)*
 
 * **T1.5** — A table of ~10 tiny cleanups: dead code, duplicate definitions, unused imports, stale docstrings, orphan `.pyc`, two `paper_dirs` conventions. *(S · ⚠️)*
 
-* **T1.6** — Merge the two "starting strategy" implementations into one function in `derived/`. *(M ·* ***all but done*** *2026-09-20 — there is now one implementation of every dominance quantity and `viz/` only plots; what is left is purely the `scope` parameter, i.e. T3.21)*
+* **T1.6** — Merge the two "starting strategy" implementations into one function in `derived/`. *(M ·* ***all but done*** *2026-09-20 — there is now one implementation of every dominance quantity and* *`viz/`* *only plots; what is left is purely the* *`scope`* *parameter, i.e. T3.21)*
 
 * **T1.7** — Merge the QA and paragraph implementations of the same eight per-area metrics into one set parameterized by grouping column. *(M · do with or after T3.6; pairs with T6.1)*
 
@@ -103,11 +103,11 @@ go looking.)*
 
 ## T4 · Outputs and artifacts
 
-* **T4.0** — Standing rule: a result isn't saved until its numbers are on disk; the test is a `report_data/` folder matching every `plots/` folder (9 of 15 topics have none today). *(agenda item —* *`findings.md`* *gets regenerated from those CSVs afterwards)*
+* **T4.0** — Standing rule: a result isn't saved until its numbers are on disk. *(**mechanism done** 2026-09-20 with T1.3 — `tables=` is a required argument and the test is now structural: `figures/` and `tables/` are siblings in one analysis folder. **What remains is regenerating** *`findings.md`* *from the saved CSVs, which now exist.)*
 
-* **T4.1** — `RT_correlations` saves nothing at all, so a live Results subsection exists only as cell output in a 1.2 MB notebook. *(M · ⚠️)*
+* **✅ DONE — T4.1** — `RT_correlations` used to save nothing, so a live Results subsection existed only as cell output in a 1.2 MB notebook. *(**done** 2026-09-20 with T1.3 — `plot_corr_map_pair` now routes through `save_output` and carries r / BH-adjusted p / n with every map)*
 
-* **T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(S · the 108* *`area_significance_heatmaps`* *are paper code, so* ***not*** *low priority — but* ***not a pure rerun****: `statistics.ipynb` raises `AttributeError` until T1.4/T2.5 land)*
+* **T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(S · the 108* *`area_significance_heatmaps`* *are paper code, so* ***not*** *low priority — but* ***not a pure rerun***\*: `statistics.ipynb` raises `AttributeError` until T1.4/T2.5 land)\*
 
 * **T4.3** — `reports/` is tracked in git, including a 63 MB pickle. *(**deferred*** *— a release-time question, and a git operation, so yours)*
 

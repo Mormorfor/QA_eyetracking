@@ -97,14 +97,24 @@ def plot_maps(
     scaling: str = "normalized",
     **kwargs,
 ):
-    """Side-by-side annotated maps for the metrics of one group."""
+    """Side-by-side annotated maps for the metrics of one group.
+
+    The saved name carries ``measure-reading_times`` as well as the scaling,
+    because ``scaling`` alone does not distinguish these maps from the dwell
+    *proportion* maps in ``proportions.py`` -- a different quantity over the
+    same rows and columns, which would otherwise land on an identical filename.
+    """
     method = next(iter(stats_by_metric.values())).get("method", DEFAULT_METHOD)
     return plot_corr_map_pair(
         {f"{scaling} {metric}": st for metric, st in stats_by_metric.items()},
         suptitle=(
-            f"{label} - text regions vs. answers/question "
-            f"({method}, participant-level)"
+            f"{label} - text regions vs. answers/question, "
+            f"{scaling} reading times ({method}, participant-level)"
         ),
+        plot=kwargs.pop("plot", "text_qa_corr_map"),
+        measure="reading_times",
+        scaling=scaling,
+        group=label,
         **kwargs,
     )
 
@@ -185,6 +195,10 @@ def plot_bootstrap_maps(
         suptitle=(
             f"{label} - pooled r with participant-cluster bootstrap ({method})"
         ),
+        plot=kwargs.pop("plot", "corr_map_cluster_bootstrap"),
+        group=label,
+        scaling=scaling,
+        n_boot=n_boot,
         **kwargs,
     )
 

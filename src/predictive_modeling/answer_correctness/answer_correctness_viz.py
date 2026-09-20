@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Union, Dict, Any, Tuple, Mapping
+from typing import Optional, Iterable, List, Sequence, Union, Dict, Any, Tuple, Mapping
 
 import json
 
@@ -13,7 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import src.constants as Con
-from src.predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 from sklearn.metrics import (
     precision_recall_fscore_support,
@@ -25,7 +25,7 @@ from sklearn.metrics import (
 from src.predictive_modeling.answer_correctness.evaluation_core import (
     CorrectnessEvaluationResult,
 )
-from viz.plot_output import save_plot, save_df_csv
+from src.viz.plot_output import save_output
 
 
 def show_correctness_model_results(
@@ -208,10 +208,10 @@ def plot_coef_summary_barh(
     model_name: Optional[str] = None,
     h_or_g: Optional[str] = "all_participants",
     figsize: Optional[Tuple[int, int]] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/coefficients",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[list[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "coefficients",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     significant_only: bool = True,
@@ -228,6 +228,7 @@ def plot_coef_summary_barh(
     title_fontsize: Optional[float] = None,
     label_fontsize: Optional[float] = None,
     tick_fontsize: Optional[float] = None,
+    **facets,
 ):
     """
     Horizontal bar plot of top coefficients (by absolute magnitude), overlay 95% CI error bars.
@@ -348,15 +349,18 @@ def plot_coef_summary_barh(
         suffix = "_sigonly" if significant_only else ""
         filename = f"{mn}_{hg}_top{top_k}_{value_col}{suffix}"
 
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": df},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
     return fig, df, saved_paths
 
 
@@ -371,12 +375,13 @@ def plot_predicted_probability_hist(
     figsize: Tuple[int, int] = (8, 5),
     correct_color: str = "#2c7fb8",
     wrong_color: str = "#de2d26",
-    save: bool = False,
-    rel_dir: str = "answer_correctness/predicted_probabilities",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[list[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "predicted_probabilities",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     """
     Histogram of the model's predicted probability of correctness, split by the
@@ -472,15 +477,18 @@ def plot_predicted_probability_hist(
     if filename is None:
         filename = "predicted_probability_hist"
 
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": summary_df},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, summary_df, saved_paths
 
@@ -497,12 +505,13 @@ def plot_top_abs_coef_feature_frequency_across_participants(
     min_count: int = 1,
     title: Optional[str] = None,
     figsize: Tuple[int, int] = (10, 7),
-    save: bool = False,
-    rel_dir: str = "answer_correctness/feature_frequency",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[list[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "feature_frequency",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     """
     For a given model, compute how often each feature appears in the TOP-K
@@ -645,15 +654,18 @@ def plot_top_abs_coef_feature_frequency_across_participants(
     if filename is None:
         filename = f"topcoef_freq_{model_name}_top{top_k_features}_k{top_k_within_participant}"
 
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": agg},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, agg, saved_paths
 
@@ -750,12 +762,13 @@ def plot_top_features_by_best_avg_rank(
     min_participants: int = 1,
     figsize: Tuple[int, int] = (10, 8),
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/avg_rank",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "avg_rank",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     """
     Barh plot of the features with the *lowest* mean_rank (best, most consistently high-ranked).
@@ -780,15 +793,18 @@ def plot_top_features_by_best_avg_rank(
     if filename is None:
         filename = f"best_avg_rank_top{top_k}_min{min_participants}"
 
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": df},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig,df, saved_paths
 
@@ -801,12 +817,13 @@ def plot_feature_correlation_heatmap(
     cluster_order: bool = True,
     title: Optional[str] = None,
     figsize: Optional[Tuple[float, float]] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/feature_correlation",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "feature_correlation",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     """
     Correlation heatmap for modeling features.
@@ -879,15 +896,18 @@ def plot_feature_correlation_heatmap(
         ord_tag = "clustered" if cluster_order else "plain"
         filename = f"feature_corr_{method}_{ord_tag}_n{n}"
 
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": corr_ord},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, corr_ord, saved_paths
 
@@ -903,12 +923,13 @@ def plot_random_effects_barh(
     top_n: int = 30,
     sort_by_abs: bool = True,
     figsize: Tuple[int, int] = (10, 8),
-    save: bool = False,
-    rel_dir: Optional[str] = None,
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "random_effects_barh",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     df = random_effects_df.copy()
     df = df[[id_col, effect_col]].dropna()
@@ -931,15 +952,18 @@ def plot_random_effects_barh(
 
     fig.tight_layout()
 
-    paths = maybe_save_plot(
-        fig=fig,
+    paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": df},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, df, paths
 
@@ -950,12 +974,13 @@ def plot_random_effects_distribution(
     title: Optional[str] = None,
     bins: int = 30,
     figsize: Tuple[int, int] = (8, 5),
-    save: bool = False,
-    rel_dir: Optional[str] = None,
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "random_effects_distribution",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     vals = pd.to_numeric(random_effects_df[effect_col], errors="coerce").dropna()
 
@@ -969,15 +994,18 @@ def plot_random_effects_distribution(
 
     fig.tight_layout()
 
-    paths = maybe_save_plot(
-        fig=fig,
+    paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": vals},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, vals, paths
 
@@ -1117,10 +1145,11 @@ def plot_correctness_run_comparison(
     top_n: Optional[int] = None,
     figsize: tuple = (12, 8),
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: Optional[str] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "run_comparison",
     filename: str = "run_comparison_balanced_accuracy",
-    paper_dirs: Optional[List[str]] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     ytick_fontsize: Optional[float] = None,
@@ -1133,6 +1162,7 @@ def plot_correctness_run_comparison(
     ylabel: Optional[str] = None,
     value_fmt: str = "{:.3f}",
     show_values: bool = True,
+    **facets,
 ):
     """
     Create a horizontal bar plot comparing runs by balanced accuracy.
@@ -1275,18 +1305,18 @@ def plot_correctness_run_comparison(
 
     plt.tight_layout()
 
-    saved_paths = []
-    if save:
-        saved_paths = save_plot(
-            fig=fig,
-            rel_dir=rel_dir,
-            filename=filename,
-            dpi=dpi,
-            paper_dirs=paper_dirs,
-            close=close,
-        )
-    elif close:
-        plt.close(fig)
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+        close=close,
+        subdir=subdir,
+        **facets,
+    ).paths
 
     return fig, df, saved_paths
 
@@ -1386,13 +1416,15 @@ def plot_cv_model_comparison_staged(
     grid_alpha: float = 0.4,
     # ---- staging / saving ---------------------------------------------
     n_stages: Optional[int] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/cross_val_comp",
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "cross_val_comp",
     filename: str = "cross_val_comparison",
     regime: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ) -> Dict[str, Any]:
     """
     Build a horizontal bar chart comparing models by a cross-validated metric
@@ -1599,18 +1631,21 @@ def plot_cv_model_comparison_staged(
 
         fig.tight_layout()
 
-        if save:
-            stage_fname = (
-                f"{filename}_{regime}_stage{stage}" if regime else f"{filename}_stage{stage}"
-            )
-            stage_paths = save_plot(
-                fig=fig,
-                rel_dir=rel_dir,
-                filename=stage_fname,
-                dpi=dpi,
-                paper_dirs=paper_dirs,
-                close=False,
-            )
+        stage_paths = save_output(
+            fig,
+            analysis="correctness_prediction",
+            plot=plot,
+            tables={"data": df},
+            save=save,
+            to_paper=to_paper,
+            dpi=dpi,
+            close=False,
+            subdir=subdir,
+            regime=regime,
+            stage=stage,
+            **facets,
+        ).paths
+        if stage_paths:
             saved_paths[stage] = stage_paths
 
         if close:

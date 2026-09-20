@@ -1,0 +1,182 @@
+{
+  "time_segment_bar__group-all_participants__metric-fixation_count": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "all participants",
+      "metric": "fixation_count"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-all_participants__metric-fixation_count.png",
+    "subdir": "fixation_count",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:43"
+  },
+  "time_segment_bar__group-all_participants__metric-mean_dwell_time": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "all participants",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-all_participants__metric-mean_dwell_time.png",
+    "subdir": "mean_dwell_time",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:42"
+  },
+  "time_segment_bar__group-all_participants__metric-sequence_length": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "all participants",
+      "metric": "sequence_length"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-all_participants__metric-sequence_length.png",
+    "subdir": "sequence_length",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:42"
+  },
+  "time_segment_bar__group-all_participants__metric-skip_rate": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "all participants",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-all_participants__metric-skip_rate.png",
+    "subdir": "skip_rate",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:44"
+  },
+  "time_segment_bar__group-gatherers__metric-fixation_count": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "gatherers",
+      "metric": "fixation_count"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-gatherers__metric-fixation_count.png",
+    "subdir": "fixation_count",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:32"
+  },
+  "time_segment_bar__group-gatherers__metric-mean_dwell_time": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "gatherers",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-gatherers__metric-mean_dwell_time.png",
+    "subdir": "mean_dwell_time",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:31"
+  },
+  "time_segment_bar__group-gatherers__metric-sequence_length": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "gatherers",
+      "metric": "sequence_length"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-gatherers__metric-sequence_length.png",
+    "subdir": "sequence_length",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:31"
+  },
+  "time_segment_bar__group-gatherers__metric-skip_rate": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "gatherers",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-gatherers__metric-skip_rate.png",
+    "subdir": "skip_rate",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:32"
+  },
+  "time_segment_bar__group-hunters__metric-fixation_count": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "hunters",
+      "metric": "fixation_count"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-hunters__metric-fixation_count.png",
+    "subdir": "fixation_count",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:25"
+  },
+  "time_segment_bar__group-hunters__metric-mean_dwell_time": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "hunters",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-hunters__metric-mean_dwell_time.png",
+    "subdir": "mean_dwell_time",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:24"
+  },
+  "time_segment_bar__group-hunters__metric-sequence_length": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "hunters",
+      "metric": "sequence_length"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-hunters__metric-sequence_length.png",
+    "subdir": "sequence_length",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:25"
+  },
+  "time_segment_bar__group-hunters__metric-skip_rate": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "hunters",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-hunters__metric-skip_rate.png",
+    "subdir": "skip_rate",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:26"
+  }
+}

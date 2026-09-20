@@ -29,7 +29,7 @@ Two transfer caveats that the numbers here do not show on their own:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Optional, Any, Dict, List, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -396,7 +396,9 @@ def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 # Figures. Each returns the Figure so the caller decides whether to persist it.
 # ---------------------------------------------------------------------------
 
-import matplotlib.pyplot as plt  # noqa: E402  (kept with the plotting section)
+import matplotlib.pyplot as plt
+
+from src.viz.plot_output import save_output  # noqa: E402  (kept with the plotting section)
 
 _REGIME_COLOURS = {
     "no knowledge": "#c44e52",
@@ -410,7 +412,7 @@ def _colours(labels: Sequence[str]) -> List[str]:
     return [_REGIME_COLOURS.get(l, "#8c8c8c") for l in labels]
 
 
-def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2)):
+def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
     """Bar chart of accuracy with Wilson intervals, from `correctness_by_regime`."""
     s = summary[summary[REGIME_COL] != "all"] if "all" in set(summary[REGIME_COL]) else summary
     fig, ax = plt.subplots(figsize=figsize)
@@ -426,11 +428,19 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2)):
     ax.set_ylim(0, 1.12); ax.set_ylabel("accuracy")
     ax.set_title("KnowQA accuracy by knowledge regime (Wilson 95% CI)")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="accuracy_by_regime",
+        tables={"data": summary},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
 def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
-                        *, figsize=(7, 4.2)):
+                        *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
     """Box plot of one pace measure across regimes."""
     regimes = _ordered_regimes(df)
     data = [df.loc[df[REGIME_COL] == r, measure].dropna() for r in regimes]
@@ -441,10 +451,18 @@ def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
     ax.set_ylabel(SPEED_COLS.get(measure, measure))
     ax.set_title(f"{SPEED_COLS.get(measure, measure)} by regime")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="pace_by_regime",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2)):
+def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
     """Grouped bars: share of trials at each 1-5 confidence rating, per regime."""
     tab = confidence_distribution(df).set_index(REGIME_COL)
     ratings = list(tab.columns)
@@ -459,11 +477,19 @@ def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2)):
     ax.set_title("Confidence by knowledge regime")
     ax.legend(frameon=False)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="confidence_distribution",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
 def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = True,
-                               figsize=(8, 4.5)):
+                               figsize=(8, 4.5), save: Optional[bool] = None, to_paper=None):
     """Predicted P(correct) distribution per regime, optionally split by outcome.
 
     With ``split_by_outcome`` the point of the figure is the comparison *within* a
@@ -495,6 +521,14 @@ def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = Tru
     ax.set_ylabel("predicted P(correct)")
     ax.set_title("L1-trained model: predicted probability on KnowQA, by regime")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="probability_by_regime",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -673,7 +707,7 @@ def participant_profile(
 
 
 def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
-                             figsize=(13, 4.2)):
+                             figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
     """One confusion matrix per regime, counts annotated.
 
     ``normalize="true"`` shades by row (share of each *actual* class), which is what
@@ -730,11 +764,19 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
                  f"({'row-normalised' if normalize == 'true' else normalize})",
                  fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="confusion_by_regime",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
 def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
-                                split_by_outcome: bool = True, figsize=(13, 3.8)):
+                                split_by_outcome: bool = True, figsize=(13, 3.8), save: Optional[bool] = None, to_paper=None):
     """Predicted P(correct) histogram per regime.
 
     Split by outcome, the question each panel answers is whether the two humps are in
@@ -764,13 +806,21 @@ def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
 
     axes[0].set_ylabel("trials")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="probability_histograms",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
 def plot_participant_profiles(df: pd.DataFrame, *,
                               measures: Sequence[str] = ("accuracy", "mean_confidence",
                                                          "mean_pred_prob", "median_RT_ms"),
-                              figsize=(12, 7)):
+                              figsize=(12, 7), save: Optional[bool] = None, to_paper=None):
     """Small multiples: one panel per measure, participants on x, a line per regime.
 
     Six participants is too few to test anything, so this is for spotting *shape* —
@@ -799,6 +849,14 @@ def plot_participant_profiles(df: pd.DataFrame, *,
     axes[0, 0].legend(fontsize=8, frameon=False)
     fig.suptitle("Per-participant profile by regime", fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="participant_profiles",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -817,7 +875,7 @@ def _run_order_local(runs: Sequence[str]) -> List[str]:
 
 
 def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
-                             figsize=(9, 4.6)):
+                             figsize=(9, 4.6), save: Optional[bool] = None, to_paper=None):
     """Grouped bars of `correlations_by_run` - one cluster per run, one bar per comparison.
 
     The two comparisons have to be read together. ``is_correct ~ confidence`` is the
@@ -857,6 +915,14 @@ def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
     ax.set_ylim(min(lo, 0), hi * 1.12)
     ax.legend(frameon=False, fontsize=9)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="correlations_by_run",
+        tables={"data": corr_df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -866,6 +932,8 @@ def plot_participant_correlation_forest(
     *,
     method: str = "spearman",
     figsize=(8, 4.6),
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """Per-participant correlation dot plot - the within-subject version of the bars.
 
@@ -904,10 +972,18 @@ def plot_participant_correlation_forest(
     ax.legend(frameon=False, fontsize=8, loc="upper center",
               bbox_to_anchor=(0.5, -0.16), ncol=2)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="participant_correlation_forest",
+        tables={"data": by_model},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2)):
+def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
     """ROC curves per regime: the model's P(correct) against the self-report.
 
     The AUC table says which discriminates better; the curves say *where*. A
@@ -938,13 +1014,21 @@ def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2)):
     axes[0].set_ylabel("true positive rate")
     fig.suptitle("Discriminating correct from wrong: model vs self-report", fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="discrimination_roc",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
 def plot_transfer_metrics(metrics: pd.DataFrame, *,
                           measures: Sequence[str] = ("accuracy", "balanced_accuracy",
                                                      "sensitivity", "specificity"),
-                          figsize=(9.5, 4.4)):
+                          figsize=(9.5, 4.4), save: Optional[bool] = None, to_paper=None):
     """Grouped bars of the transfer metrics, with each regime's base rate marked.
 
     The dashed line is the regime's own accuracy (``n_correct / n``) — i.e. the score a
@@ -979,10 +1063,18 @@ def plot_transfer_metrics(metrics: pd.DataFrame, *,
                  "(dashed = always-predict-correct baseline)", fontsize=10)
     ax.legend(frameon=False, fontsize=8, ncol=2, loc="upper left")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="transfer_metrics",
+        tables={"data": metrics},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2)):
+def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
     """Dumbbell: observed mean P(correct) vs the same regime re-mixed at pooled accuracy.
 
     The distance between the two dots is the part composition explains. A regime whose
@@ -1010,6 +1102,14 @@ def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2)):
     ax.grid(axis="x", alpha=0.25)
     ax.legend(frameon=False, fontsize=8, loc="lower right")
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="probability_decomposition",
+        tables={"data": dec},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -1045,6 +1145,8 @@ def plot_participant_regime_heatmap(
     measures: Sequence[str] = ("accuracy", "mean_confidence", "mean_pred_prob",
                                "model_balanced_accuracy"),
     figsize=(14, 3.8),
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """Participant x regime heatmap, one panel per measure.
 
@@ -1075,10 +1177,18 @@ def plot_participant_regime_heatmap(
             ax.set_ylabel("")
     fig.suptitle("Per participant, per regime", fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="participant_regime_heatmap",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4)):
+def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
     """Two heatmaps over participant pairs: how many items they shared, and how often
     they answered the shared ones the same way.
 
@@ -1103,10 +1213,18 @@ def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4)):
                        vmin=0, vmax=1, cbar_label="same outcome")
     axes[1].set_title("Agreement on shared items", fontsize=10)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="shared_item_structure",
+        tables={"data": pairs},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4)):
+def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
     """Item accuracy: its distribution, and whether the model knew which were hard.
 
     The scatter is the interesting panel. Items on the diagonal are ones the model
@@ -1134,6 +1252,14 @@ def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4)):
         cb.set_label("mean confidence", fontsize=8)
 
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="item_difficulty",
+        tables={"data": items},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -1143,6 +1269,8 @@ def plot_session_trajectories(
     measures: Sequence[str] = ("accuracy", "mean_confidence", "median_RT_ms",
                                "mean_pred_prob"),
     figsize=(12, 7),
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """One line per participant across their three sittings, one panel per measure.
 
@@ -1171,10 +1299,18 @@ def plot_session_trajectories(
     axes[0, 0].legend(fontsize=7, frameon=False, ncol=2, title="participant")
     fig.suptitle("Across the three sittings", fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="session_trajectories",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5)):
+def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool] = None, to_paper=None):
     """Every pace measure at once, one panel each, regimes on the x axis.
 
     Bars are means with a standard-error whisker. These measures live on wildly
@@ -1205,10 +1341,18 @@ def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5)):
         ax.set_visible(False)
     fig.suptitle("Pace measures by regime (mean +/- SE)", fontsize=11)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="pace_panel",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
-def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2)):
+def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
     """Mean confidence per regime, split by whether the answer was actually right.
 
     The vertical gap inside a regime is that condition's calibration: a participant who
@@ -1238,6 +1382,14 @@ def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2)):
     ax.set_title("Self-reported confidence by regime and outcome")
     ax.legend(frameon=False, fontsize=9)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="confidence_by_regime",
+        tables={"data": conf},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig
 
 
@@ -1410,7 +1562,7 @@ def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6)):
+def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bool] = None, to_paper=None):
     """Two panels: what the participants did, and what the model did, across sittings.
 
     Left, the participant's accuracy is drawn against the L1 item-difficulty baseline —
@@ -1452,4 +1604,12 @@ def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6)):
         ax.grid(alpha=0.25)
         ax.legend(fontsize=8, frameon=False)
     fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="session_trend",
+        tables={"data": df},
+        save=save,
+        to_paper=to_paper,
+    )
     return fig

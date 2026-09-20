@@ -107,8 +107,20 @@ def correctness_by_sequence_pattern_test(
                 return None
         return x if isinstance(x, (list, tuple)) else None
 
+    if sub.empty:
+        raise ValueError(
+            "correctness_by_sequence_pattern_test got zero trials. Fisher on an "
+            "all-zero table returns p = 1.0 rather than failing, so an empty "
+            "group would be reported as a result."
+        )
+
     sub["_seq"] = sub[seq_col].apply(_parse)
-    sub["_has_pattern"] = sub["_seq"].apply(lambda s: bool(pattern_fn(s)) if s is not None else False)
+    # astype(bool) is load-bearing under pandas 3: .apply() over an object column
+    # infers the result dtype, and `&` against a boolean mask then raises unless
+    # this is a real boolean column.
+    sub["_has_pattern"] = sub["_seq"].apply(
+        lambda s: bool(pattern_fn(s)) if s is not None else False
+    ).astype(bool)
 
     a = int(((sub["_has_pattern"]) & (sub[correct_col] == 1)).sum())   # pattern present correct
     b = int(((sub["_has_pattern"]) & (sub[correct_col] == 0)).sum())   # pattern present incorrect

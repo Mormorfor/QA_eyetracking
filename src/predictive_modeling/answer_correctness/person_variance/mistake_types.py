@@ -30,7 +30,7 @@ Two complementary views:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Optional, Any, Dict, List, Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,7 +47,7 @@ from predictive_modeling.answer_correctness.person_variance.plot_style import (
     QUAD_COLORS,
     signed_bar_colors,
 )
-from predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 QUAD_ORDER = ["TP", "TN", "FP", "FN"]
 
@@ -117,10 +117,10 @@ def plot_confusion_quadrants(
     counts: pd.Series,
     *,
     title: str = "Confusion quadrants (pooled held-out trials)",
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/mistake_types",
-    filename: str = "confusion_quadrants",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "mistake_types",
+    plot: str = "confusion_quadrants",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -134,9 +134,13 @@ def plot_confusion_quadrants(
     plt.xticks(rotation=20, ha="right")
     plt.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir, plot=plot,
+        tables={"counts": counts.rename("n_trials").reset_index(names="quadrant")},
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, saved
 
@@ -152,10 +156,10 @@ def trial_feature_profile_by_quadrant(
     *,
     top_n_bars: int = 25,
     label: str = "",
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/mistake_types",
-    filename_prefix: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "mistake_types",
+    plot: str = "mistake_types",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
@@ -180,7 +184,6 @@ def trial_feature_profile_by_quadrant(
         "FP - TN  | human wrong    (+) = elevated on false alarms": mean_z["FP"] - mean_z["TN"],
     }
 
-    prefix = filename_prefix or (label.replace(" ", "_") or "quadrant_profile")
     figs: Dict[str, Any] = {}
     saved_paths: Dict[str, List[str]] = {}
 
@@ -196,9 +199,16 @@ def trial_feature_profile_by_quadrant(
         plt.tight_layout()
 
         figs[key] = fig
-        saved_paths[key] = maybe_save_plot(
-            fig=fig, save=save, rel_dir=rel_dir, filename=f"{prefix}_{key}",
-            paper_dirs=paper_dirs, dpi=dpi, close=close,
+        saved_paths[key] = save_output(
+            fig,
+            analysis="correctness_prediction/person_variance",
+            plot=plot,
+            tables={"mean_z": mean_z.reset_index(names="feature")},
+            save=save,
+            subdir=subdir,
+            label=label or None,
+            tag=key,
+            to_paper=to_paper, dpi=dpi, close=close,
         )
 
     return {"mean_z": mean_z, "figs": figs, "saved_paths": saved_paths}
@@ -245,10 +255,10 @@ def characterize_accuracy_by_error_type(
     top_n_bars: int = 25,
     label: str = "",
     verbose: bool = True,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/mistake_types",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "mistake_types",
+    plot: str = "mistake_types",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
@@ -302,9 +312,14 @@ def characterize_accuracy_by_error_type(
     ax.legend(loc="lower right")
     plt.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir,
-        filename=filename or f"{label.replace(' ', '_') or 'error_type'}_split",
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir,
+        plot=plot,
+        tables={"by_error_type": out},
+        tag=f"{label.replace(' ', '_') or 'error_type'}_split",
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return {"merged": merged, "corr": out, "fig": fig, "saved_paths": saved}

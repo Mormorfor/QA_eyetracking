@@ -23,7 +23,7 @@ elevated in the people the model does *worst* on.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Optional, Any, Dict, List, Sequence
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -33,7 +33,7 @@ from predictive_modeling.answer_correctness.person_variance.plot_style import (
     POS_COLOR,
     signed_bar_colors,
 )
-from predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 # Keep participants with at least this many wrong trials, so their score is
 # actually estimable.
@@ -91,10 +91,10 @@ def characterize_accuracy(
     label: str = "",
     top_n_bars: int = 25,
     verbose: bool = True,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/accuracy_characterization",
-    filename_prefix: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "accuracy_characterization",
+    plot: str = "accuracy_characterization",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
@@ -134,17 +134,25 @@ def characterize_accuracy(
 
     figs: Dict[str, Any] = {}
     saved_paths: Dict[str, List[str]] = {}
-    prefix = filename_prefix or (label.replace(" ", "_") or "accuracy_characterization")
 
-    def _save(key, fig):
+    def _save(key, fig, table):
         figs[key] = fig
-        saved_paths[key] = maybe_save_plot(
-            fig=fig, save=save, rel_dir=rel_dir, filename=f"{prefix}_{key}",
-            paper_dirs=paper_dirs, dpi=dpi, close=close,
-        )
+        saved_paths[key] = save_output(
+            fig,
+            analysis="correctness_prediction/person_variance",
+            plot=plot,
+            tables={"data": table},
+            save=save,
+            to_paper=to_paper,
+            dpi=dpi,
+            close=close,
+            subdir=subdir,
+            label=label or None,
+            tag=key,
+        ).paths
 
     # --- 1) accuracy vs class balance -----------------------------------------
-    _save("class_balance", _plot_accuracy_vs_class_balance(merged, acc_metric, label))
+    _save("class_balance", _plot_accuracy_vs_class_balance(merged, acc_metric, label), merged)
 
     # --- 2) per-feature correlation with accuracy -----------------------------
     feat_corr = (
@@ -168,7 +176,7 @@ def characterize_accuracy(
         _top,
         title=f"[{label}] feature levels vs model performance (top {len(_top)})",
         xlabel=f"Spearman corr of per-person mean with {acc_metric.replace('_', ' ')}",
-    ))
+    ), feat_corr)
 
     # --- 3) low- vs high-accuracy group profile -------------------------------
     q_low, q_high = merged[acc_metric].quantile([1 / 3, 2 / 3])
@@ -197,7 +205,7 @@ def characterize_accuracy(
         _d,
         title=f"[{label}] feature profile: low- vs high-accuracy (top {len(_d)})",
         xlabel="standardized mean difference: low-acc minus high-acc",
-    ))
+    ), group_cmp.reset_index(names="feature"))
 
     return {
         "merged": merged,

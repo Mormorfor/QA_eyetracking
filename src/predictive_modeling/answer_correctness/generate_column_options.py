@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple, Optional
+from typing import Optional, Any, Dict, List, Sequence, Tuple
 from collections import Counter
 
 import pandas as pd
@@ -14,13 +14,15 @@ from predictive_modeling.common.feature_selection import correlation_prune_featu
 
 import matplotlib.pyplot as plt
 
-from viz.plot_output import _answer_correctness_rel_dir, save_plot
+from src.data_paths import COL_SAVE_PATH as COLUMNS_DIR
+from src.viz.plot_output import analysis_dir
+from src.viz.plot_output import save_output
 from src.predictive_modeling.answer_correctness.feature_groups import (
     LAST_ALL,
     LAST_CONFIRM,
     LAST_SELECT,
 )
-COL_SAVE_PATH = "../reports/report_data/answer_correctness/feature_columns"
+COL_SAVE_PATH = COLUMNS_DIR
 
 
 def save_feature_columns(
@@ -649,18 +651,23 @@ def _dir_has_any_files(path: Path) -> bool:
 def _correctness_output_exists(
     test_regimes: Sequence[str],
     subdir: Optional[str] = None,
-    results_base_dir: str | Path = "../reports/plots",
+    results_base_dir: str | Path | None = None,
     verbose: bool = False,
 ) -> bool:
+    # Mirrors the subdir run_model_bundles writes under, so "has this run already
+    # been produced?" stays answerable from the path alone.
     base_rel_dir = Path(
-        _answer_correctness_rel_dir(
-            model_family="logreg",
-            subdir=subdir,
-            split_tag=_split_tag(test_regimes),
+        "/".join(
+            x for x in (_split_tag(test_regimes) or "full_fit", "logreg", subdir) if x
         )
     )
 
-    search_dir = Path(results_base_dir) / base_rel_dir
+    root = (
+        Path(results_base_dir)
+        if results_base_dir
+        else analysis_dir("correctness_prediction") / "figures"
+    )
+    search_dir = root / base_rel_dir
 
     if verbose:
         print("\n[CHECK] Looking for existing results in:")
@@ -682,13 +689,13 @@ def run_correctness_bundle_for_saved_column_sets(
     test_split: str = "test",
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
-    paper_dirs=None,
-    save: bool = False,
+    to_paper=None,
+    save: Optional[bool] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
     recursive: bool = False,
     rerun: bool = True,
-    results_base_dir: str | Path = "../reports/plots",
+    results_base_dir: str | Path | None = None,
     verbose: bool = True,
 ):
     """
@@ -770,7 +777,7 @@ def run_correctness_bundle_for_saved_column_sets(
             fold=fold,
             sources=sources,
             feature_cols=feature_cols,
-            paper_dirs=paper_dirs,
+            to_paper=to_paper,
             subdir=identifier,
             run_identifier=identifier,
             save=save,
@@ -803,8 +810,7 @@ def plot_feature_frequency_from_full_jsons(
     top_n: Optional[int] = None,
     figsize: tuple = (12, 8),
     title: Optional[str] = None,
-    save: bool = False,
-    save_path: Optional[str | Path] = None,
+    save: Optional[bool] = None,
     dpi: int = 300,
     close: bool = False,
     verbose: bool = True,
@@ -887,14 +893,16 @@ def plot_feature_frequency_from_full_jsons(
 
     plt.tight_layout()
 
-    if save:
-        if save_path is None:
-            save_path = columns_folder / "feature_frequency_full_files.png"
-        save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
-        if verbose:
-            print(f"Saved plot to: {save_path}")
+    save_output(
+        fig,
+        analysis="explorations/feature_search",
+        plot="feature_frequency_full_files",
+        tables={"frequency": freq_df.reset_index(names="feature")
+                 if freq_df.index.name else freq_df},
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+    )
 
     if close:
         plt.close(fig)
@@ -915,7 +923,7 @@ def generate_k_most_frequent_feature_sets_from_full_files(
 
     plot_rel_dir: str = "feature_selection",
     plot_filename: str = "k_most_frequent_feature_frequency",
-    paper_dirs=None,
+    to_paper=None,
     verbose: bool = True,
 ):
     """
@@ -1037,11 +1045,14 @@ def generate_k_most_frequent_feature_sets_from_full_files(
     plt.tight_layout()
 
     if save_plot_flag:
-        save_plot(
-            fig=fig,
-            rel_dir=plot_rel_dir,
-            filename=plot_filename,
-            paper_dirs=paper_dirs,
+        save_output(
+            fig,
+            analysis="explorations/feature_search",
+            plot=plot_filename,
+            tables={"frequency": freq_df_k.reset_index(names="feature")
+                     if freq_df_k.index.name else freq_df_k},
+            save=True,
+            to_paper=to_paper,
             close=True,
         )
     else:

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import os
-from typing import Dict, Optional, Tuple
+from typing import Optional, Dict, Tuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,11 +18,13 @@ from src.viz.viz_helpers import (
     add_significance_bracket,
     add_wilson_errorbars_and_ns,
     barplot_accuracy,
+    correctness_tables,
     p_to_stars,
-    save_plot_and_report,
     split_participant_groups,
 )
-from src.viz.plot_output import save_fig, save_table
+from src.viz.plot_output import save_output
+
+ANALYSIS = "correctness_associations"
 
 # ------------------------------------------
 # Sequence Length Measures
@@ -36,12 +37,10 @@ def plot_correctness_by_sequence_len_threshold(
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (6, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
     """
@@ -73,19 +72,17 @@ def plot_correctness_by_sequence_len_threshold(
 
     fig.tight_layout()
 
-    if save:
-        plot_dir = os.path.join(output_root, "correctness_by_seq_len_threshold")
-        data_dir = os.path.join(report_root, "correctness_by_seq_len_threshold")
-        base_name = f"{h_or_g}__thresh_{threshold}"
-        save_plot_and_report(
-            fig=fig,
-            summary_df=summary_df,
-            test_res=test_res,
-            plot_dir=plot_dir,
-            data_dir=data_dir,
-            base_name=base_name,
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_seq_len_threshold",
+        tables=correctness_tables(summary_df, test_res),
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_seq_len_threshold",
+        group=h_or_g,
+        threshold=threshold,
+    )
 
     return fig, summary_df, test_res
 
@@ -94,9 +91,8 @@ def run_all_correctness_seq_len_threshold_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
     thresholds: Tuple[int, ...] = (2, 3, 4, 5),
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
@@ -126,9 +122,8 @@ def run_all_correctness_seq_len_threshold_plots(
                 seq_col=seq_col,
                 correct_col=correct_col,
                 h_or_g=group_name,
-                save=save_plots,
-                output_root=output_root,
-                report_root=report_root,
+                save=save,
+                to_paper=to_paper,
                 add_significance=add_significance,
             )
 
@@ -152,14 +147,12 @@ def plot_correctness_by_sequence_len_continuous(
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (7, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     max_len: Optional[int] = None,
     min_n_per_len: int = 5,
     show_ci: bool = True,
@@ -259,16 +252,18 @@ def plot_correctness_by_sequence_len_continuous(
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
 
-    # ---- Save ----
-    if save:
-        plot_dir = os.path.join(output_root, "correctness_by_seq_len_continuous")
-        data_dir = os.path.join(report_root, "correctness_by_seq_len_continuous")
-
-        suffix = f"maxlen_{max_len}" if max_len is not None else "all"
-        base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_len}"
-
-        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
-        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_seq_len_continuous",
+        tables={"summary": agg},
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_seq_len_continuous",
+        group=h_or_g,
+        maxlen=max_len if max_len is not None else "all",
+        minn=min_n_per_len,
+    )
 
     return fig, agg
 
@@ -276,9 +271,8 @@ def plot_correctness_by_sequence_len_continuous(
 def run_all_correctness_seq_len_continuous_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
@@ -304,9 +298,8 @@ def run_all_correctness_seq_len_continuous_plots(
             seq_col=seq_col,
             correct_col=correct_col,
             h_or_g=group_name,
-            save=save_plots,
-            output_root=output_root,
-            report_root=report_root,
+            save=save,
+            to_paper=to_paper,
             max_len=max_len,
             min_n_per_len=min_n_per_len,
             show_ci=show_ci,
@@ -338,12 +331,10 @@ def plot_correctness_by_back_and_forth_pattern(
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (6, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     use_xyxy: bool = False,
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
@@ -380,20 +371,17 @@ def plot_correctness_by_back_and_forth_pattern(
 
     fig.tight_layout()
 
-    if save:
-        plot_dir = os.path.join(output_root, "correctness_by_back_and_forth_pattern")
-        data_dir = os.path.join(report_root, "correctness_by_back_and_forth_pattern")
-        suffix = "xyxy" if use_xyxy else "xyx"
-        base_name = f"{h_or_g}__{suffix}"
-        save_plot_and_report(
-            fig=fig,
-            summary_df=summary_df,
-            test_res=test_res,
-            plot_dir=plot_dir,
-            data_dir=data_dir,
-            base_name=base_name,
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_back_and_forth",
+        tables=correctness_tables(summary_df, test_res),
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_back_and_forth",
+        group=h_or_g,
+        pattern="xyxy" if use_xyxy else "xyx",
+    )
 
     return fig, summary_df, test_res
 
@@ -401,9 +389,8 @@ def plot_correctness_by_back_and_forth_pattern(
 def run_all_back_and_forth_pattern_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
     use_xyxy: bool = False,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
@@ -425,9 +412,8 @@ def run_all_back_and_forth_pattern_plots(
             seq_col=seq_col,
             correct_col=correct_col,
             h_or_g=group_name,
-            save=save_plots,
-            output_root=output_root,
-            report_root=report_root,
+            save=save,
+            to_paper=to_paper,
             use_xyxy=use_xyxy,
             add_significance=add_significance,
         )
@@ -458,12 +444,10 @@ def plot_correctness_by_trial_mean_dwell_threshold(
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (6, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
     """
@@ -498,23 +482,17 @@ def plot_correctness_by_trial_mean_dwell_threshold(
 
     fig.tight_layout()
 
-    if save:
-        plot_dir = os.path.join(
-            output_root, "correctness_by_trial_mean_dwell_threshold"
-        )
-        data_dir = os.path.join(
-            report_root, "correctness_by_trial_mean_dwell_threshold"
-        )
-        base_name = f"{h_or_g}__thresh_{threshold}"
-        save_plot_and_report(
-            fig=fig,
-            summary_df=summary_df,
-            test_res=test_res,
-            plot_dir=plot_dir,
-            data_dir=data_dir,
-            base_name=base_name,
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_trial_mean_dwell_threshold",
+        tables=correctness_tables(summary_df, test_res),
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_trial_mean_dwell_threshold",
+        group=h_or_g,
+        threshold=threshold,
+    )
 
     return fig, summary_df, test_res
 
@@ -523,9 +501,8 @@ def run_all_trial_mean_dwell_threshold_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
     thresholds: Tuple[float, ...] = (50.0, 75.0, 100.0),
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
@@ -555,9 +532,8 @@ def run_all_trial_mean_dwell_threshold_plots(
                 dwell_col=dwell_col,
                 correct_col=correct_col,
                 h_or_g=group_name,
-                save=save_plots,
-                output_root=output_root,
-                report_root=report_root,
+                save=save,
+                to_paper=to_paper,
                 add_significance=add_significance,
             )
 
@@ -581,12 +557,10 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (7, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     bin_width: Optional[float] = 10.0,
     n_bins: Optional[int] = None,
     min_n_per_bin: int = 10,
@@ -724,25 +698,20 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
 
-    if save:
-        plot_dir = os.path.join(
-            output_root, "correctness_by_trial_mean_dwell_continuous"
-        )
-        data_dir = os.path.join(
-            report_root, "correctness_by_trial_mean_dwell_continuous"
-        )
-
-        if n_bins is not None:
-            suffix = f"nbins_{int(n_bins)}"
-        else:
-            suffix = f"bw_{bin_width}"
-        if x_max is not None:
-            suffix += f"__xmax_{x_max}"
-
-        base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_bin}"
-
-        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
-        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_trial_mean_dwell_continuous",
+        tables={"summary": agg},
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_trial_mean_dwell_continuous",
+        group=h_or_g,
+        nbins=int(n_bins) if n_bins is not None else None,
+        bw=bin_width if n_bins is None else None,
+        xmax=x_max,
+        minn=min_n_per_bin,
+    )
 
     return fig, agg
 
@@ -750,9 +719,8 @@ def plot_correctness_by_trial_mean_dwell_continuous(
 def run_all_trial_mean_dwell_continuous_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
@@ -777,9 +745,8 @@ def run_all_trial_mean_dwell_continuous_plots(
             dwell_col=dwell_col,
             correct_col=correct_col,
             h_or_g=group_name,
-            save=save_plots,
-            output_root=output_root,
-            report_root=report_root,
+            save=save,
+            to_paper=to_paper,
             bin_width=bin_width,
             n_bins=n_bins,
             min_n_per_bin=min_n_per_bin,
@@ -807,17 +774,19 @@ def run_all_trial_mean_dwell_continuous_plots(
 
 def plot_correctness_by_total_answering_rt_continuous(
     df: pd.DataFrame,
-    rt_col: str = "total_answering_RT",
+    # CONFIRM_FINAL_ANSWER_RT is the canonical column here (Diana, 2026-09-20).
+    # It used to default to "total_answering_RT", which disagreed with the
+    # run_all_* wrapper below AND does not exist in all_participants.csv at all --
+    # that friendlier name is minted later, in answer_correctness/model_data.py.
+    rt_col: str = Con.CONFIRM_FINAL_ANSWER_RT,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (7, 4),
-    save: bool = False,
+    save: Optional[bool] = None,
     h_or_g: str = "hunters",
-    paper_dirs=None,
+    to_paper=None,
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
     bin_width: Optional[float] = None,
     n_bins: Optional[int] = 10,
     min_n_per_bin: int = 10,
@@ -984,28 +953,25 @@ def plot_correctness_by_total_answering_rt_continuous(
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
 
-    if save:
-        plot_dir = os.path.join(
-            output_root,
-            "correctness_by_total_answering_rt_continuous",
-        )
-        data_dir = os.path.join(
-            report_root,
-            "correctness_by_total_answering_rt_continuous",
-        )
-
-        if bin_width is not None:
-            suffix = f"bw_{bin_width}"
-        else:
-            suffix = f"nbins_{int(n_bins) if n_bins is not None else 10}"
-
-        if x_max is not None:
-            suffix += f"__xmax_{x_max}"
-
-        base_name = f"{h_or_g}__{suffix}__minn_{min_n_per_bin}"
-
-        save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
-        save_table(agg, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
+    save_output(
+        fig,
+        analysis=ANALYSIS,
+        plot="correctness_by_total_answering_rt",
+        tables={"summary": agg},
+        save=save,
+        to_paper=to_paper,
+        subdir="correctness_by_total_answering_rt",
+        group=h_or_g,
+        # Which RT column is in the filename on purpose: raw confirm-press RT and
+        # the length-normalized variant are different measures on different scales
+        # (ms vs a 0-1 ratio), and without this tag a rerun under the other one
+        # would silently overwrite the first under an identical name.
+        rt=rt_col,
+        bw=bin_width,
+        nbins=(int(n_bins) if n_bins is not None else 10) if bin_width is None else None,
+        xmax=x_max,
+        minn=min_n_per_bin,
+    )
 
     return (
         fig,
@@ -1027,11 +993,10 @@ def plot_correctness_by_total_answering_rt_continuous(
 def run_all_total_answering_rt_continuous_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
-    output_root: str = "../reports/plots/correctness_measures",
-    report_root: str = "../reports/report_data",
-    save_plots: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
-    rt_col: str = "CONFIRM_FINAL_ANSWER_RT",
+    rt_col: str = Con.CONFIRM_FINAL_ANSWER_RT,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     bin_width: Optional[float] = None,
     n_bins: Optional[int] = 10,
@@ -1057,9 +1022,8 @@ def run_all_total_answering_rt_continuous_plots(
             rt_col=rt_col,
             correct_col=correct_col,
             h_or_g=group_name,
-            save=save_plots,
-            output_root=output_root,
-            report_root=report_root,
+            save=save,
+            to_paper=to_paper,
             bin_width=bin_width,
             n_bins=n_bins,
             min_n_per_bin=min_n_per_bin,

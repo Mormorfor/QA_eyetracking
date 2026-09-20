@@ -1,0 +1,1493 @@
+{
+  "correctness_by_back_and_forth__group-all_participants__pattern-xyx": {
+    "plot": "correctness_by_back_and_forth",
+    "facets": {
+      "group": "all_participants",
+      "pattern": "xyx"
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_back_and_forth_pattern",
+    "figure": "correctness_by_back_and_forth__group-all_participants__pattern-xyx.png",
+    "subdir": "correctness_by_back_and_forth",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:50"
+  },
+  "correctness_by_back_and_forth__group-gatherers__pattern-xyx": {
+    "plot": "correctness_by_back_and_forth",
+    "facets": {
+      "group": "gatherers",
+      "pattern": "xyx"
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_back_and_forth_pattern",
+    "figure": "correctness_by_back_and_forth__group-gatherers__pattern-xyx.png",
+    "subdir": "correctness_by_back_and_forth",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:24"
+  },
+  "correctness_by_back_and_forth__group-hunters__pattern-xyx": {
+    "plot": "correctness_by_back_and_forth",
+    "facets": {
+      "group": "hunters",
+      "pattern": "xyx"
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_back_and_forth_pattern",
+    "figure": "correctness_by_back_and_forth__group-hunters__pattern-xyx.png",
+    "subdir": "correctness_by_back_and_forth",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:11"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:06"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:07"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:06"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:04"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:05"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:05"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:06"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:07"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:07"
+  },
+  "correctness_by_matching__group-all_participants__mode-polarity__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "polarity",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-polarity__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:05"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:15"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:16"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:15"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:13"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:14"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:14"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:15"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:16"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:17"
+  },
+  "correctness_by_matching__group-all_participants__mode-relative__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "all_participants",
+      "mode": "relative",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-all_participants__mode-relative__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:14"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:02"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:04"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:03"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:01"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:02"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:02"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:03"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:03"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:04"
+  },
+  "correctness_by_matching__group-gatherers__mode-polarity__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "polarity",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-polarity__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:02"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:12"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:13"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:12"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:11"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:11"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:11"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:12"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:13"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:13"
+  },
+  "correctness_by_matching__group-gatherers__mode-relative__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "gatherers",
+      "mode": "relative",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-gatherers__mode-relative__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:11"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:00"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:01"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:00"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:59"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:59"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:59"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:00"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:01"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:01"
+  },
+  "correctness_by_matching__group-hunters__mode-polarity__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "polarity",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-polarity__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:59"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-area_dwell_proportion": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "area_dwell_proportion"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-area_dwell_proportion.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:09"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-first_encounter_avg_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "first_encounter_avg_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-first_encounter_avg_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:10"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_avg_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_avg_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_avg_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:09"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_dwell_time": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_dwell_time"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_dwell_time.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:08"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_first_fixation_duration": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_first_fixation_duration"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_first_fixation_duration.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:08"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_fixations_count": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_fixations_count"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_fixations_count.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:08"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_max_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_max_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_max_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:09"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-mean_min_fix_pupil_size": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "mean_min_fix_pupil_size"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-mean_min_fix_pupil_size.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:10"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-num_label_visits": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "num_label_visits"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-num_label_visits.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:10"
+  },
+  "correctness_by_matching__group-hunters__mode-relative__metric-skip_rate": {
+    "plot": "correctness_by_matching",
+    "facets": {
+      "group": "hunters",
+      "mode": "relative",
+      "metric": "skip_rate"
+    },
+    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "figure": "correctness_by_matching__group-hunters__mode-relative__metric-skip_rate.png",
+    "subdir": "correctness_by_matching",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:08"
+  },
+  "correctness_by_seq_len_continuous__group-all_participants__maxlen-all__minn-5": {
+    "plot": "correctness_by_seq_len_continuous",
+    "facets": {
+      "group": "all_participants",
+      "maxlen": "all",
+      "minn": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_continuous",
+    "figure": "correctness_by_seq_len_continuous__group-all_participants__maxlen-all__minn-5.png",
+    "subdir": "correctness_by_seq_len_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:23:57"
+  },
+  "correctness_by_seq_len_continuous__group-gatherers__maxlen-all__minn-5": {
+    "plot": "correctness_by_seq_len_continuous",
+    "facets": {
+      "group": "gatherers",
+      "maxlen": "all",
+      "minn": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_continuous",
+    "figure": "correctness_by_seq_len_continuous__group-gatherers__maxlen-all__minn-5.png",
+    "subdir": "correctness_by_seq_len_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:23:45"
+  },
+  "correctness_by_seq_len_continuous__group-hunters__maxlen-all__minn-5": {
+    "plot": "correctness_by_seq_len_continuous",
+    "facets": {
+      "group": "hunters",
+      "maxlen": "all",
+      "minn": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_continuous",
+    "figure": "correctness_by_seq_len_continuous__group-hunters__maxlen-all__minn-5.png",
+    "subdir": "correctness_by_seq_len_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:23:38"
+  },
+  "correctness_by_seq_len_threshold__group-all_participants__threshold-2": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 2
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-all_participants__threshold-2.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:22:04"
+  },
+  "correctness_by_seq_len_threshold__group-all_participants__threshold-3": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 3
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-all_participants__threshold-3.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:22:34"
+  },
+  "correctness_by_seq_len_threshold__group-all_participants__threshold-4": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 4
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-all_participants__threshold-4.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:23:03"
+  },
+  "correctness_by_seq_len_threshold__group-all_participants__threshold-5": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-all_participants__threshold-5.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:23:31"
+  },
+  "correctness_by_seq_len_threshold__group-gatherers__threshold-2": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 2
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-gatherers__threshold-2.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:20:52"
+  },
+  "correctness_by_seq_len_threshold__group-gatherers__threshold-3": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 3
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-gatherers__threshold-3.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:21:05"
+  },
+  "correctness_by_seq_len_threshold__group-gatherers__threshold-4": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 4
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-gatherers__threshold-4.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:21:20"
+  },
+  "correctness_by_seq_len_threshold__group-gatherers__threshold-5": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-gatherers__threshold-5.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:21:35"
+  },
+  "correctness_by_seq_len_threshold__group-hunters__threshold-2": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 2
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-hunters__threshold-2.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:19:59"
+  },
+  "correctness_by_seq_len_threshold__group-hunters__threshold-3": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 3
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-hunters__threshold-3.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:20:12"
+  },
+  "correctness_by_seq_len_threshold__group-hunters__threshold-4": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 4
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-hunters__threshold-4.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:20:25"
+  },
+  "correctness_by_seq_len_threshold__group-hunters__threshold-5": {
+    "plot": "correctness_by_seq_len_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 5
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_sequence_len_threshold",
+    "figure": "correctness_by_seq_len_threshold__group-hunters__threshold-5.png",
+    "subdir": "correctness_by_seq_len_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:20:38"
+  },
+  "correctness_by_total_answering_rt__group-all_participants__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10": {
+    "plot": "correctness_by_total_answering_rt",
+    "facets": {
+      "group": "all_participants",
+      "rt": "CONFIRM_FINAL_ANSWER_RT",
+      "nbins": 10,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_total_answering_rt_continuous",
+    "figure": "correctness_by_total_answering_rt__group-all_participants__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10.png",
+    "subdir": "correctness_by_total_answering_rt",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:38:25"
+  },
+  "correctness_by_total_answering_rt__group-gatherers__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10": {
+    "plot": "correctness_by_total_answering_rt",
+    "facets": {
+      "group": "gatherers",
+      "rt": "CONFIRM_FINAL_ANSWER_RT",
+      "nbins": 10,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_total_answering_rt_continuous",
+    "figure": "correctness_by_total_answering_rt__group-gatherers__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10.png",
+    "subdir": "correctness_by_total_answering_rt",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:38:24"
+  },
+  "correctness_by_total_answering_rt__group-hunters__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10": {
+    "plot": "correctness_by_total_answering_rt",
+    "facets": {
+      "group": "hunters",
+      "rt": "CONFIRM_FINAL_ANSWER_RT",
+      "nbins": 10,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_total_answering_rt_continuous",
+    "figure": "correctness_by_total_answering_rt__group-hunters__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10.png",
+    "subdir": "correctness_by_total_answering_rt",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:38:24"
+  },
+  "correctness_by_trial_mean_dwell_continuous__group-all_participants__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "all_participants",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "correctness_by_trial_mean_dwell_continuous__group-all_participants__bw-10__minn-10.png",
+    "subdir": "correctness_by_trial_mean_dwell_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:57"
+  },
+  "correctness_by_trial_mean_dwell_continuous__group-gatherers__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "gatherers",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "correctness_by_trial_mean_dwell_continuous__group-gatherers__bw-10__minn-10.png",
+    "subdir": "correctness_by_trial_mean_dwell_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:56"
+  },
+  "correctness_by_trial_mean_dwell_continuous__group-hunters__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "hunters",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "correctness_by_trial_mean_dwell_continuous__group-hunters__bw-10__minn-10.png",
+    "subdir": "correctness_by_trial_mean_dwell_continuous",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:56"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-100.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:55"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-50.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:54"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-75.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:54"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-100.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:53"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-50.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:52"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-75.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:53"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-100.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:52"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-50.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:51"
+  },
+  "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-75.png",
+    "subdir": "correctness_by_trial_mean_dwell_threshold",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:52"
+  }
+}

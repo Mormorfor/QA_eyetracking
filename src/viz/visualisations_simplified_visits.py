@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 import ast
 
@@ -8,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -24,9 +23,8 @@ def matrix_plot_simplified_visits(
     h_or_g: str = "hunters",
     selected: str = "A",
     figsize: tuple = (8, 5),
-    save: bool = False,
-    output_root: str = "../reports/plots/simpl_visit_matrices",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     show: bool = True,
     # ---- presentation touch-ups (optional; defaults preserve behavior) ----
     title: Optional[str] = None,
@@ -83,9 +81,7 @@ def matrix_plot_simplified_visits(
     figsize : tuple
         Figure size for the heatmap.
     save : bool
-        If True, save the figure as a PNG under output_root.
-    output_root : str
-        Root directory where the plot will be saved.
+        If True, write the figure and its pivot through ``save_output``.
     show : bool
         If True, display the plot; otherwise close it after saving.
     """
@@ -218,10 +214,19 @@ def matrix_plot_simplified_visits(
 
     plt.tight_layout()
 
-    if save:
-        mode_dir = f"{which}_{kind}" + ("_noq" if drop_question else "_withq")
-        out_dir = os.path.join(output_root, mode_dir)
-        save_fig(fig, out_dir, f"{h_or_g} - {selected}", paper_dirs=paper_dirs)
+    save_output(
+        fig,
+        analysis="scan_strategies",
+        plot=f"{which}_visits_matrix",
+        tables={"matrix": pivot.reset_index()},
+        save=save,
+        to_paper=to_paper,
+        subdir=f"{which}_visits",
+        group=h_or_g,
+        kind=kind,
+        selected=selected,
+        questions="removed" if drop_question else "included",
+    )
 
     if show:
         plt.show()
@@ -239,8 +244,8 @@ def run_all_simplified_visit_matrices(
     kinds: tuple = ("label", "location"),
     which_list: tuple = ("first", "last"),
     answers: tuple = ("A", "B", "C", "D"),
-    output_root: str = "../reports/plots/simpl_visit_matrices",
-    save: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
     show: bool = True,
 ) -> None:
     """
@@ -253,12 +258,8 @@ def run_all_simplified_visit_matrices(
     groups = split_participant_groups(all_participants, split=split_groups)
 
     for drop_question in drop_question_variants:
-        dq_folder = "questions_removed" if drop_question else "questions_included"
-
         for group_key, df in groups.items():
             group_label = "all participants" if group_key == "all_participants" else group_key
-
-            group_out_root = os.path.join(output_root, dq_folder, group_key)
 
             for ans in answers:
                 subset = df[df[Con.SELECTED_ANSWER_LABEL_COLUMN] == ans].copy()
@@ -282,7 +283,7 @@ def run_all_simplified_visit_matrices(
                             selected=ans,
                             figsize=(8, 5),
                             save=save,
-                            output_root=group_out_root,
+                            to_paper=to_paper,
                             show=show,
                         )
 

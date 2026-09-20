@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from src.viz.plot_output import save_output
+
 
 @dataclass
 class ClusterCentroidResult:
@@ -70,7 +72,8 @@ def plot_cluster_centroids_barh(
     top_k: int = 12,
     title: Optional[str] = None,
     figsize: Tuple[int, int] = (10, 6),
-    save_path: Optional[str] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
 ) -> None:
     """
     Plot per-cluster centroid profiles as horizontal bar charts.
@@ -107,10 +110,16 @@ def plot_cluster_centroids_barh(
         ax.set_ylabel("feature/family")
         plt.tight_layout()
 
-        if save_path is not None:
-            out = save_path.format(cluster=int(c))
-            os.makedirs(os.path.dirname(out), exist_ok=True)
-            fig.savefig(out, dpi=200, bbox_inches="tight")
+        save_output(
+            fig,
+            analysis="explorations/participant_clustering",
+            plot="cluster_centroids",
+            tables={"centroid": row.rename("value").reset_index(names="feature")},
+            save=save,
+            to_paper=to_paper,
+            dpi=200,
+            cluster=int(c),
+        )
 
         #plt.close(fig)
 

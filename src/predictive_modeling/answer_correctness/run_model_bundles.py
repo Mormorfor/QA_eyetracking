@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence, Tuple, Optional, List, Dict, Any
+from typing import Optional, Sequence, Tuple, List, Dict, Any
 
 import pandas as pd
 
@@ -42,7 +42,7 @@ from src.predictive_modeling.answer_correctness.answer_correctness_viz import (
 )
 
 from src.predictive_modeling.common.viz_utils import plot_confusion_heatmap
-from src.viz.plot_output import save_df_csv, _answer_correctness_rel_dir
+from src.viz.plot_output import save_output
 
 
 
@@ -167,7 +167,7 @@ def _save_summary_csv(
     trained_feature_cols: Sequence[str],
     base_dir: str,
     run_identifier: str,
-    paper_dirs: Optional[List[str]],
+    to_paper,
     formula: Optional[str] = None,
 ):
     summary_df = correctness_results_to_summary_df(
@@ -179,12 +179,17 @@ def _save_summary_csv(
     if formula is not None:
         summary_df["formula"] = formula
 
-    return save_df_csv(
-        summary_df,
-        rel_dir=base_dir,
-        filename="model_summary",
-        paper_dirs=paper_dirs,
-    )
+    return save_output(
+        None,
+        analysis="correctness_prediction",
+        plot="model_summary",
+        tables={"summary": summary_df},
+        save=True,
+        to_paper=to_paper,
+        subdir=base_dir,
+        run=run_identifier,
+        model=model_name,
+    ).paths
 
 
 def _titled(core: str, title_prefix: str = "") -> str:
@@ -200,7 +205,7 @@ def _plot_confusions(
     model_name: str,
     base_dir: str,
     save: bool,
-    paper_dirs: Optional[List[str]],
+    to_paper,
     close: bool,
     title_prefix: str = "",
 ):
@@ -211,9 +216,10 @@ def _plot_confusions(
         normalize=True,
         title=_titled(f"{model_name} – normalized confusion", title_prefix),
         save=save,
-        rel_dir=f"{base_dir}/confusion",
-        filename=f"{model_name}_norm_confusion",
-        paper_dirs=paper_dirs,
+        subdir=f"{base_dir}/confusion",
+        plot="confusion_matrix",
+        model=model_name,
+        to_paper=to_paper,
         close=close,
     )
 
@@ -224,9 +230,10 @@ def _plot_confusions(
         normalize=False,
         title=_titled(f"{model_name} – un-normalized confusion", title_prefix),
         save=save,
-        rel_dir=f"{base_dir}/confusion",
-        filename=f"{model_name}_unnorm_confusion",
-        paper_dirs=paper_dirs,
+        subdir=f"{base_dir}/confusion",
+        plot="confusion_matrix",
+        model=model_name,
+        to_paper=to_paper,
         close=close,
     )
 
@@ -240,7 +247,7 @@ def _plot_prob_hist(
     model_name: str,
     base_dir: str,
     save: bool,
-    paper_dirs: Optional[List[str]],
+    to_paper,
     dpi: int,
     close: bool,
     title_prefix: str = "",
@@ -254,9 +261,10 @@ def _plot_prob_hist(
             f"{model_name} – predicted probability by true outcome", title_prefix
         ),
         save=save,
-        rel_dir=f"{base_dir}/predicted_probabilities",
-        filename=f"{model_name}_predicted_probability_hist",
-        paper_dirs=paper_dirs,
+        subdir=f"{base_dir}/predicted_probabilities",
+        plot="predicted_probability_hist",
+        model=model_name,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -269,7 +277,7 @@ def _plot_coef_summaries(
     model_name: str,
     base_dir: str,
     save: bool,
-    paper_dirs: Optional[List[str]],
+    to_paper,
     dpi: int,
     close: bool,
     figsize: Optional[Tuple[int, int]] = None,
@@ -285,9 +293,11 @@ def _plot_coef_summaries(
             model_name=model_name,
             title=_titled(f"{model_name} – coefficients", title_prefix),
             save=save,
-            rel_dir=f"{base_dir}/coefficients",
-            filename=f"{model_name}_coef_all",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/coefficients",
+            plot="coefficients",
+            model=model_name,
+            coefs="all",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
             significant_only=False,
@@ -300,9 +310,11 @@ def _plot_coef_summaries(
             model_name=model_name,
             title=_titled(f"{model_name} – significant coefficients", title_prefix),
             save=save,
-            rel_dir=f"{base_dir}/coefficients",
-            filename=f"{model_name}_coef_significant",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/coefficients",
+            plot="coefficients",
+            model=model_name,
+            coefs="significant",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
             significant_only=True,
@@ -318,7 +330,7 @@ def _plot_feature_corr(
     corr_feature_cols: Sequence[str],
     base_dir: str,
     save: bool,
-    paper_dirs: Optional[List[str]],
+    to_paper,
     dpi: int,
     close: bool,
     title_prefix: str = "",
@@ -331,9 +343,11 @@ def _plot_feature_corr(
         cluster_order=True,
         title=_titled("Feature correlation (pearson) – cluster-ordered", title_prefix),
         save=save,
-        rel_dir=f"{base_dir}/diagnostics/feature_correlation",
-        filename=f"feature_corr_clustered_n{len(corr_feature_cols)}",
-        paper_dirs=paper_dirs,
+        subdir=f"{base_dir}/diagnostics/feature_correlation",
+        plot="feature_correlation",
+        order="clustered",
+        n=len(corr_feature_cols),
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -350,8 +364,8 @@ def run_full_features_correctness_bundle(
     feature_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
-    save: bool = True,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     subdir: Optional[str] = None,
@@ -365,11 +379,9 @@ def run_full_features_correctness_bundle(
     model_family = "logreg"
 
     split_tag = _split_tag(test_regimes)
-    base_dir = _answer_correctness_rel_dir(
-        model_family=model_family,
-        subdir=subdir,
-        split_tag=split_tag,
-    )
+    # Browsable folder under reports/correctness_prediction/; the filename still
+    # carries every facet, so the folder is navigation, not identity.
+    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
 
     train_df, test_df, split_info = build_train_test_trial_dfs(
         df=df,
@@ -408,7 +420,7 @@ def run_full_features_correctness_bundle(
             trained_feature_cols=model.feature_cols_,
             base_dir=base_dir,
             run_identifier=run_identifier,
-            paper_dirs=paper_dirs,
+            to_paper=to_paper,
             formula=None,
         )
 
@@ -418,7 +430,7 @@ def run_full_features_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         close=close,
         title_prefix=title_prefix,
     )
@@ -429,7 +441,7 @@ def run_full_features_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         title_prefix=title_prefix,
@@ -440,7 +452,7 @@ def run_full_features_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         figsize=coef_figsize,
@@ -457,7 +469,7 @@ def run_full_features_correctness_bundle(
         corr_feature_cols=model.feature_cols_,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         title_prefix=title_prefix,
@@ -470,7 +482,7 @@ def run_full_features_correctness_bundle(
         "trial_df": trial_df,
         "split_tag": split_tag,
         "split_info": split_info,
-        "base_rel_dir": base_dir,
+        "base_subdir": base_dir,
         "summary_csv": summary_paths,
         "paths": {
             "confusion_norm": cm_paths,
@@ -491,8 +503,8 @@ def run_cross_dataset_correctness_bundle(
     feature_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
-    save: bool = True,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     subdir: Optional[str] = None,
@@ -520,11 +532,9 @@ def run_cross_dataset_correctness_bundle(
     model_name = model.name
     model_family = "logreg"
 
-    base_dir = _answer_correctness_rel_dir(
-        model_family=model_family,
-        subdir=subdir,
-        split_tag=split_tag,
-    )
+    # Browsable folder under reports/correctness_prediction/; the filename still
+    # carries every facet, so the folder is navigation, not identity.
+    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
 
     # Resolve features from the training frame, then keep only those the test
     # frame also has (the model validates that every feature column is present).
@@ -562,7 +572,7 @@ def run_cross_dataset_correctness_bundle(
             trained_feature_cols=model.feature_cols_,
             base_dir=base_dir,
             run_identifier=run_identifier,
-            paper_dirs=paper_dirs,
+            to_paper=to_paper,
             formula=None,
         )
 
@@ -572,7 +582,7 @@ def run_cross_dataset_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         close=close,
         title_prefix=title_prefix,
     )
@@ -583,7 +593,7 @@ def run_cross_dataset_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         title_prefix=title_prefix,
@@ -594,7 +604,7 @@ def run_cross_dataset_correctness_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         figsize=coef_figsize,
@@ -608,7 +618,7 @@ def run_cross_dataset_correctness_bundle(
         corr_feature_cols=model.feature_cols_,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         title_prefix=title_prefix,
@@ -620,7 +630,7 @@ def run_cross_dataset_correctness_bundle(
         "test_df": test_df,
         "feature_cols": list(model.feature_cols_),
         "split_tag": split_tag,
-        "base_rel_dir": base_dir,
+        "base_subdir": base_dir,
         "summary_csv": summary_paths,
         "paths": {
             "confusion_norm": cm_paths,
@@ -641,8 +651,8 @@ def run_full_features_correctness_julia_glmer_bundle(
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
     feature_cols: Optional[Sequence[str]] = None,
-    save: bool = True,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     subdir: Optional[str] = None,
@@ -660,11 +670,9 @@ def run_full_features_correctness_julia_glmer_bundle(
     model_family = "julia"
 
     split_tag = _split_tag(test_regimes)
-    base_dir = _answer_correctness_rel_dir(
-        model_family=model_family,
-        subdir=subdir,
-        split_tag=split_tag,
-    )
+    # Browsable folder under reports/correctness_prediction/; the filename still
+    # carries every facet, so the folder is navigation, not identity.
+    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
 
     keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
 
@@ -724,7 +732,7 @@ def run_full_features_correctness_julia_glmer_bundle(
             trained_feature_cols=model.feature_cols_raw_,
             base_dir=base_dir,
             run_identifier=run_identifier,
-            paper_dirs=paper_dirs,
+            to_paper=to_paper,
             formula=formula,
         )
 
@@ -734,7 +742,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         close=close,
     )
 
@@ -743,7 +751,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         model_name=model_name,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -758,7 +766,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         corr_feature_cols=model.feature_cols_raw_,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -770,7 +778,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         "trial_df": trial_df,
         "split_tag": split_tag,
         "split_info": split_info,
-        "base_rel_dir": base_dir,
+        "base_subdir": base_dir,
         "summary_csv": summary_paths,
         "formula": formula,
         "paths": {
@@ -786,8 +794,8 @@ def run_full_features_correctness_julia_glmer_bundle(
 def run_full_features_correctness_julia_glmer_fit_all(
     df: pd.DataFrame,
     feature_cols: Optional[Sequence[str]] = None,
-    save: bool = True,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     subdir: Optional[str] = None,
@@ -802,11 +810,7 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     model_name = f"{model.name}_fit_all"
 
-    base_dir = _answer_correctness_rel_dir(
-        model_family="julia",
-        subdir=subdir,
-        fit_all=True,
-    )
+    base_dir = "/".join(x for x in ("full_fit", "julia", subdir) if x)
 
     fit_df = _load_or_build_full_trial_df(
         df=df,
@@ -847,12 +851,16 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     summary_paths = None
     if save:
-        summary_paths = save_df_csv(
-            summary_df,
-            rel_dir=base_dir,
-            filename="model_summary_fit_all",
-            paper_dirs=paper_dirs,
-        )
+        summary_paths = save_output(
+            None,
+            analysis="correctness_prediction",
+            plot="model_summary_fit_all",
+            tables={"summary": summary_df},
+            save=save,
+            to_paper=to_paper,
+            subdir=base_dir,
+            model=model_name,
+        ).paths
 
     coef_paths = []
     coef_sig_paths = []
@@ -865,9 +873,11 @@ def run_full_features_correctness_julia_glmer_fit_all(
             model_name=model_name,
             title=f"{model_name} – coefficients",
             save=save,
-            rel_dir=f"{base_dir}/coefficients",
-            filename=f"{model_name}_coef_all",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/coefficients",
+            plot="coefficients",
+            model=model_name,
+            coefs="all",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
             significant_only=False,
@@ -879,9 +889,11 @@ def run_full_features_correctness_julia_glmer_fit_all(
             model_name=model_name,
             title=f"{model_name} – significant coefficients",
             save=save,
-            rel_dir=f"{base_dir}/coefficients",
-            filename=f"{model_name}_coef_significant",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/coefficients",
+            plot="coefficients",
+            model=model_name,
+            coefs="significant",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
             significant_only=True,
@@ -892,7 +904,7 @@ def run_full_features_correctness_julia_glmer_fit_all(
         corr_feature_cols=model.feature_cols_raw_,
         base_dir=base_dir,
         save=save,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -912,9 +924,11 @@ def run_full_features_correctness_julia_glmer_fit_all(
             effect_col="random_intercept",
             title=f"{model_name} – participant random-effects distribution",
             save=save,
-            rel_dir=f"{base_dir}/random_effects",
-            filename=f"{model_name}_participant_distribution",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/random_effects",
+            plot="random_effects_distribution",
+            model=model_name,
+            level="participant",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
@@ -926,9 +940,12 @@ def run_full_features_correctness_julia_glmer_fit_all(
             title=f"{model_name} – strongest participant random effects",
             top_n=top_n_rfx,
             save=save,
-            rel_dir=f"{base_dir}/random_effects",
-            filename=f"{model_name}_participant_top{top_n_rfx}",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/random_effects",
+            plot="random_effects_barh",
+            model=model_name,
+            level="participant",
+            top=top_n_rfx,
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
@@ -949,9 +966,11 @@ def run_full_features_correctness_julia_glmer_fit_all(
             effect_col="random_intercept",
             title=f"{model_name} – text random-effects distribution",
             save=save,
-            rel_dir=f"{base_dir}/random_effects",
-            filename=f"{model_name}_text_distribution",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/random_effects",
+            plot="random_effects_distribution",
+            model=model_name,
+            level="text",
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
@@ -963,9 +982,12 @@ def run_full_features_correctness_julia_glmer_fit_all(
             title=f"{model_name} – strongest text random effects",
             top_n=top_n_rfx,
             save=save,
-            rel_dir=f"{base_dir}/random_effects",
-            filename=f"{model_name}_text_top{top_n_rfx}",
-            paper_dirs=paper_dirs,
+            subdir=f"{base_dir}/random_effects",
+            plot="random_effects_barh",
+            model=model_name,
+            level="text",
+            top=top_n_rfx,
+            to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
@@ -982,17 +1004,21 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     rfx_summary_paths = None
     if save and not random_effects_summary_df.empty:
-        rfx_summary_paths = save_df_csv(
-            random_effects_summary_df,
-            rel_dir=f"{base_dir}/random_effects",
-            filename="random_effects_summary",
-            paper_dirs=paper_dirs,
-        )
+        rfx_summary_paths = save_output(
+            None,
+            analysis="correctness_prediction",
+            plot="random_effects_summary",
+            tables={"summary": random_effects_summary_df},
+            save=save,
+            to_paper=to_paper,
+            subdir=f"{base_dir}/random_effects",
+            model=model_name,
+        ).paths
 
     return {
         "result": res,
         "fit_df": fit_df,
-        "base_rel_dir": base_dir,
+        "base_subdir": base_dir,
         "summary_csv": summary_paths,
         "formula": formula,
         "random_effects": random_effects,

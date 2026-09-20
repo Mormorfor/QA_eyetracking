@@ -167,6 +167,44 @@ Fixes that move numbers are collected in `todo.md` T3.
 
 ---
 
+## Saving figures and numbers — one path, and the numbers are not optional
+
+Established 2026-09-20 (`todo.md` T1.3). **Everything written under `reports/` goes through
+`viz/plot_output.py::save_output`, and nothing else writes there.** A new plotting function
+that calls `fig.savefig` directly is a bug, not a shortcut.
+
+```python
+save_output(
+    fig,
+    analysis="correctness_associations",   # validated against plot_output.ANALYSES
+    plot="correctness_by_seq_len_threshold",
+    tables={"summary": summary_df, "fisher": test_res},
+    save=save, to_paper=None,
+    group=h_or_g, threshold=4,             # facets -> the filename tags
+)
+```
+
+Four rules follow, and the first is the one that matters:
+
+1. **`tables=` is required.** A figure whose numbers are not saved is the failure mode that
+   made `docs/findings.md` necessary. A figure that genuinely has no numbers behind it — an
+   illustration, a scanpath example — passes `tables={}`, which is greppable: "this has no
+   numbers" is a stated choice, never an omission. Do not reach for `tables={}` to get past a
+   call site where you have not worked out what the numbers are.
+2. **Describe the plot; do not build a path.** `analysis` + `plot` + facets determine the
+   directory and the filename. Hand-written paths are what produced four separator conventions
+   and two spellings of `all_participants` in the old tree.
+3. **`save` is a parameter, everywhere**, defaulting to whatever `set_output_defaults` says.
+   Printing a summary is not saving it; `print_summaries` controls the console only.
+4. **Adding an analysis means adding a key to `plot_output.ANALYSES`,** not inventing a folder
+   at the call site. The registry is validated so a typo fails loudly instead of hiding a
+   figure in a new top-level directory.
+
+Overleaf mirroring is a single switch (`to_paper`, gated by `PAPER_MIRROR_ENABLED`) and is
+currently **off** — see `pitfalls.md` §7.
+
+---
+
 ## Release standards
 
 The repo will be **public, alongside the paper**. That means:

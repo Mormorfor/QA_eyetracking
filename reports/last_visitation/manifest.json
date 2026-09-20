@@ -1,0 +1,47 @@
+{
+  "last_label_before_confirm__group-all_participants__scale-prop": {
+    "plot": "last_label_before_confirm",
+    "facets": {
+      "group": "all_participants",
+      "scale": "prop"
+    },
+    "produced_by": "src.viz.visualisations_last_label.plot_last_label_before_confirm_freq",
+    "figure": "last_label_before_confirm__group-all_participants__scale-prop.png",
+    "subdir": null,
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:19"
+  },
+  "last_label_before_confirm__group-gatherers__scale-prop": {
+    "plot": "last_label_before_confirm",
+    "facets": {
+      "group": "gatherers",
+      "scale": "prop"
+    },
+    "produced_by": "src.viz.visualisations_last_label.plot_last_label_before_confirm_freq",
+    "figure": "last_label_before_confirm__group-gatherers__scale-prop.png",
+    "subdir": null,
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:19"
+  },
+  "last_label_before_confirm__group-hunters__scale-prop": {
+    "plot": "last_label_before_confirm",
+    "facets": {
+      "group": "hunters",
+      "scale": "prop"
+    },
+    "produced_by": "src.viz.visualisations_last_label.plot_last_label_before_confirm_freq",
+    "figure": "last_label_before_confirm__group-hunters__scale-prop.png",
+    "subdir": null,
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:25:18"
+  }
+}

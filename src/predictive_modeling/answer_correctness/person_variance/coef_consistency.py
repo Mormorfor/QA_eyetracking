@@ -21,7 +21,7 @@ descriptive read, not a significance test.
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Optional, Any, List, Mapping, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,7 +43,7 @@ from predictive_modeling.answer_correctness.person_variance.plot_style import (
     ZERO_COLOR,
     clean_feature_labels,
 )
-from predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 
 def coef_long_frame(
@@ -80,10 +80,10 @@ def plot_feature_presence_across_participants(
     top_k_features: Optional[int] = None,
     model_name: str = MODEL_NAME,
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/feature_presence",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "feature_presence",
+    plot: str = "feature_presence",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -109,9 +109,9 @@ def plot_feature_presence_across_participants(
             f"participants - {feature_set_tag}"
         ),
         save=save,
-        rel_dir=rel_dir,
-        filename=filename or f"{feature_set_tag}_top{top_k_within_participant}_presence",
-        paper_dirs=paper_dirs,
+        subdir=subdir,
+        plot=plot, tag=f"{feature_set_tag}_top{top_k_within_participant}_presence",
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -125,10 +125,10 @@ def plot_feature_avg_rank_across_participants(
     min_participants: int = 1,
     model_name: str = MODEL_NAME,
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/avg_rank",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "avg_rank",
+    plot: str = "avg_rank",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ) -> Tuple[Any, pd.DataFrame, List[str]]:
@@ -153,9 +153,9 @@ def plot_feature_avg_rank_across_participants(
         min_participants=min_participants,
         title=title or f"Per-person LOO - features by best average rank - {feature_set_tag}",
         save=save,
-        rel_dir=rel_dir,
-        filename=filename or f"{feature_set_tag}_mean_ranks",
-        paper_dirs=paper_dirs,
+        subdir=subdir,
+        plot=plot, tag=f"{feature_set_tag}_mean_ranks",
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -197,10 +197,10 @@ def plot_mean_coef_across_participants(
     feature_set_tag: str,
     top_k: Optional[int] = None,
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/mean_coef",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "mean_coef",
+    plot: str = "mean_coef",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -216,9 +216,9 @@ def plot_mean_coef_across_participants(
         ylabel="",
         clean_labels=True,
         save=save,
-        rel_dir=rel_dir,
-        filename=filename or f"{feature_set_tag}_mean_coef",
-        paper_dirs=paper_dirs,
+        subdir=subdir,
+        plot=plot, tag=f"{feature_set_tag}_mean_coef",
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
     )
@@ -318,10 +318,10 @@ def plot_participant_coef_effect(
     *,
     feature_set_tag: Optional[str] = None,
     title: Optional[str] = None,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/participant_coef_effects",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "participant_coef_effects",
+    plot: str = "participant_coef_effects",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ) -> Tuple[Any, pd.DataFrame, List[str]]:
@@ -373,10 +373,15 @@ def plot_participant_coef_effect(
     ax.legend(loc="upper left", fontsize=8)
     fig.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir,
-        filename=filename or f"{feature_set_tag or 'coef'}_{feature}_participant_effect",
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir,
+        plot=plot,
+        tables={"per_participant": d},
+        tag=f"{feature_set_tag or 'coef'}_{feature}_participant_effect",
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, d, saved
 
@@ -389,10 +394,10 @@ def plot_coef_consistency(
     xlim: Tuple[float, float] = (-4.5, 4.5),
     seed: int = 0,
     title: str = "Coefficient consistency across participants",
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/coef_consistency",
-    filename: str = "coef_consistency",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "coef_consistency",
+    plot: str = "coef_consistency",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -472,8 +477,12 @@ def plot_coef_consistency(
     fig.suptitle(title, y=1.02, fontsize=13)
     fig.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir, plot=plot,
+        tables={"consistency": summ},
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, saved

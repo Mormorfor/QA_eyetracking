@@ -154,9 +154,41 @@ blocked on **T3.21** — "who is dominant, given per-trial strategies" is not sc
 "which trials go in" is. `plot_dominance_gap` also still builds its own props matrix, because
 it needs the *second*-largest share as well as the largest; it applies no threshold.
 
-### T1.3 — Make plot and data saving consistent and robust across the project ⚠️ M · low risk
+### T1.3 — ✅ **DONE 2026-09-20.** One saving framework, used everywhere
 
-**The requirement is one saving framework, used everywhere.** Some analyses were written as
+> **What landed.** `viz/plot_output.py` is now a single `save_output()` that takes a
+> *description* of the plot rather than a path, and derives the directory and filename from
+> it. 81 call sites across 33 source files and 11 notebooks; the four previous dialects
+> (`rel_dir`/`filename`, `output_root`/`report_root`, bare `save_path`, and no-saving-at-all)
+> are gone, as are the two rival save paths — `viz_helpers.save_plot_and_report` and
+> `common/viz_utils.maybe_save_plot` — and all 44 hardcoded `"../reports/..."` literals in
+> `src/viz/` plus the three in `generate_column_options.py` (most of **T5.3**).
+>
+> **The contract:** `tables=` is a *required* argument. A figure cannot be written without its
+> numbers being passed alongside; a figure that genuinely has none passes `tables={}`, which is
+> greppable. `print_summaries` still exists but now only controls console printing.
+>
+> **Layout:** `reports/<analysis>/figures/` and `reports/<analysis>/tables/`, per
+> `restructure-map.md` §9 — which means the §9 inversion has landed early, ahead of Stage E.
+> Filenames are key-value tagged: `correctness_by_seq_len_threshold__group-hunters__threshold-4`.
+> Each analysis also carries a `manifest.json` recording, per figure, the producing function,
+> its facets, and which tables travel with it.
+>
+> **Overleaf mirroring is off** — `PAPER_MIRROR_ENABLED = False`, `to_paper` defaults False,
+> and `to_paper=True` while disabled raises rather than silently not mirroring.
+>
+> **Numbers did not move** (verified, see `findings.md` change log). Regenerating did surface
+> that some old saved CSVs were stale relative to the current `all_participants.csv`.
+>
+> Also fixed in passing, because those figures were being regenerated anyway: the
+> label×location heatmaps labelled **both** axes `area_screen_loc` (the y axis is `area_label`).
+> 320 figures affected — logged in the change log.
+>
+> **What this does *not* close:** **T4.0** still needs `findings.md` regenerated from the saved
+> CSVs now that they exist. The old `reports/plots/` and `reports/report_data/` trees are left
+> in place (1,812 files, tracked in git) pending your call on removing them.
+
+**The requirement was one saving framework, used everywhere.** Some analyses were written as
 one-off tests and were never given a saving mechanism at all; others save plots but not
 numbers; others use a private `savefig` instead of `plot_output`. The result is that whether a
 result survives depends on which module produced it.

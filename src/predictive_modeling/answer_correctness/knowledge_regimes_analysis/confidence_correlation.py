@@ -30,7 +30,7 @@ three-participant test run and, unchanged, for the full experiment.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Optional, Any, Dict, List, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,8 +39,7 @@ from scipy import stats
 
 from src import constants as Con
 from src.data_paths import NEW_EXP_IA_ANSWERS_PATH
-from src.predictive_modeling.common.viz_utils import maybe_save_plot
-from src.viz.plot_output import save_df_csv, _answer_correctness_rel_dir
+from src.viz.plot_output import save_output
 
 from src.predictive_modeling.answer_correctness.knowledge_regimes_analysis.comparison_runs import (
     POOLED_LABEL,
@@ -384,10 +383,10 @@ def plot_confidence_vs_prob_scatter(
     ncols: int = 2,
     jitter: float = 0.12,
     random_state: int = 42,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/confidence",
-    filename: str = "confidence_vs_predicted_probability_scatter",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "confidence_vs_predicted_probability_scatter",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -437,10 +436,17 @@ def plot_confidence_vs_prob_scatter(
         ax.legend(fontsize=8, loc="best")
 
     plt.tight_layout()
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
-    )
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot=plot,
+        tables={"data": pred_df},
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+        close=close,
+        subdir=subdir,
+    ).paths
     return fig, saved
 
 
@@ -449,10 +455,10 @@ def plot_prob_by_confidence_level(
     *,
     confidence_col: str = CONFIDENCE_COL,
     title_prefix: str = "",
-    save: bool = False,
-    rel_dir: str = "answer_correctness/confidence",
-    filename: str = "predicted_probability_by_confidence_level",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "predicted_probability_by_confidence_level",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -485,10 +491,17 @@ def plot_prob_by_confidence_level(
     ax.legend(fontsize=8)
     plt.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
-    )
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot=plot,
+        tables={"data": level_df},
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+        close=close,
+        subdir=subdir,
+    ).paths
     return fig, saved
 
 
@@ -499,10 +512,10 @@ def plot_prob_boxplot_by_confidence(
     prob_col: str = PRED_PROB_COL,
     title_prefix: str = "",
     ncols: int = 2,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/confidence",
-    filename: str = "predicted_probability_boxplot_by_confidence",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "predicted_probability_boxplot_by_confidence",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -534,10 +547,17 @@ def plot_prob_boxplot_by_confidence(
         ax.set_ylim(-0.02, 1.02)
 
     plt.tight_layout()
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
-    )
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot=plot,
+        tables={"data": pred_df},
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+        close=close,
+        subdir=subdir,
+    ).paths
     return fig, saved
 
 
@@ -553,8 +573,8 @@ def run_confidence_correlation(
     confidence_col: str = CONFIDENCE_COL,
     methods: Sequence[str] = CORR_METHODS,
     participant_run: str = POOLED_LABEL,
-    save: bool = False,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     subdir: str = "confidence",
@@ -579,7 +599,7 @@ def run_confidence_correlation(
     participant_run :
         Which run the per-participant correlations are computed on (default: the pooled
         ``all`` baseline, i.e. every new-data trial).
-    save, paper_dirs, dpi, close :
+    save, to_paper, dpi, close :
         Plot/CSV output control, matching the rest of the answer-correctness pipeline.
 
     Returns
@@ -639,34 +659,35 @@ def run_confidence_correlation(
             if col in part_df.columns:
                 print(f"  mean within-participant {method}: {part_df[col].mean():.3f}")
 
-    rel_dir = _answer_correctness_rel_dir(
-        model_family="logreg", subdir=subdir, split_tag=split_tag
-    )
+    base_dir = "/".join(x for x in (split_tag or "full_fit", "logreg", subdir) if x)
 
     fig_scatter, scatter_paths = plot_confidence_vs_prob_scatter(
         pred_df, confidence_col=confidence_col, save=save,
-        rel_dir=rel_dir, paper_dirs=paper_dirs, dpi=dpi, close=close,
+        subdir=base_dir, to_paper=to_paper, dpi=dpi, close=close,
     )
     fig_levels, level_paths = plot_prob_by_confidence_level(
         level_df, confidence_col=confidence_col, save=save,
-        rel_dir=rel_dir, paper_dirs=paper_dirs, dpi=dpi, close=close,
+        subdir=base_dir, to_paper=to_paper, dpi=dpi, close=close,
     )
     fig_box, box_paths = plot_prob_boxplot_by_confidence(
         pred_df, confidence_col=confidence_col, save=save,
-        rel_dir=rel_dir, paper_dirs=paper_dirs, dpi=dpi, close=close,
+        subdir=base_dir, to_paper=to_paper, dpi=dpi, close=close,
     )
 
-    csv_paths: Dict[str, Any] = {}
-    if save:
-        for name, frame in (
-            ("confidence_correlations", corr_df),
-            ("confidence_by_level", level_df),
-            ("confidence_by_participant", part_df),
-            ("confidence_trial_predictions", pred_df),
-        ):
-            csv_paths[name] = save_df_csv(
-                frame, rel_dir=rel_dir, filename=name, paper_dirs=paper_dirs
-            )
+    csv_paths = save_output(
+        None,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="confidence_tables",
+        tables={
+            "correlations": corr_df,
+            "by_level": level_df,
+            "by_participant": part_df,
+            "trial_predictions": pred_df,
+        },
+        save=save,
+        to_paper=to_paper,
+        subdir=base_dir,
+    ).tables
 
     return {
         "correlations": corr_df,

@@ -261,34 +261,70 @@ Its cache can currently be written with either of two feature definitions (`todo
 
 ---
 
-## 7. Writing to `reports/` also writes to `papers/`
+## 7. Writing to `reports/` can also write to `papers/` — but it is currently switched off
 
-`viz/plot_output.py::save_plot(paper_dirs=[...])` mirrors figures into
-`papers/correctness_prediction/figures/` and tables into its `report_data/`. So "regenerate
-the plots" is not a `reports/`-only operation — it changes what the paper compiles, without
-anyone editing `papers/`.
+`viz/plot_output.py::save_output(..., to_paper=True)` mirrors into **one** folder inside the
+Overleaf repo, laid out exactly like the local tree:
 
-This is intended and stays. Just know that it happens. Two `paper_dirs` conventions are in
-use, one landing a directory deeper than the other (`todo.md` T1.5).
+```
+reports/<analysis>/{figures,tables}/...                      local
+papers/correctness_prediction/reports/<analysis>/{figures,tables}/...   mirrored
+```
+
+So the mirror path is the local path with a different root, and "which local file is this?" is
+answerable by swapping the prefix. So "regenerate the plots" is not necessarily a
+`reports/`-only operation — it can change what the paper compiles, without anyone editing
+`papers/`.
+
+> **Changed 2026-09-20.** The mirror used to write `figures/` and `report_data/` at the paper
+> repo's *top level*, which put two more trees beside the drafts and split one analysis across
+> both. The pre-existing `papers/correctness_prediction/{figures,report_data}/` folders are
+> **left exactly as they are** — `papers/` is Diana's and Overleaf-synced, so nothing there is
+> moved or deleted by this code.
+
+> **Since 2026-09-20 (T1.3) the mirror is off.** `plot_output.PAPER_MIRROR_ENABLED = False`,
+> `to_paper` defaults to `False`, and passing `to_paper=True` while the flag is off **raises**
+> rather than quietly not mirroring — a caller that believes it published to the paper and did
+> not is the failure this guards. Turning it back on is one constant.
+>
+> The reason it is off: figures are being regenerated while the numbers behind them are still
+> moving (T3.1, T3.6), and Overleaf should not track that churn.
+
+*The two conflicting `paper_dirs` conventions (T1.5) are gone with `paper_dirs` itself. For the
+record, the deeper one never actually produced a `figures/figures/` tree on disk — it was a
+latent bug in notebook source, not a thing that had happened.*
 
 ---
 
-## 8. Some results exist only as pixels
+## 8. Some results exist only as pixels — in the *old* tree
 
-**Nine of the fifteen topics under `reports/plots/` have no numbers saved anywhere** — driver
-notebooks pass `print_summaries=False` and discard the returned frames, so the values survive
-only inside the PNGs. On top of that, 308 PNGs across three folders are zero bytes from a
-failed sync, and `RT_correlations` writes nothing at all.
+> **Fixed at source 2026-09-20 (T1.3).** Every figure in the project is now written by
+> `viz/plot_output.py::save_output`, whose `tables=` argument is **required**. A figure cannot
+> be saved without its numbers being passed alongside it; a figure that genuinely has none
+> passes `tables={}`, which is greppable — "this has no numbers" became a stated choice rather
+> than an omission. `print_summaries` still exists, but it only controls console printing and
+> no longer decides whether a result survives.
+>
+> T4.0's acceptance test is now **structural** rather than a convention to remember: outputs
+> live at `reports/<analysis>/figures/` and `reports/<analysis>/tables/`, so a figure with no
+> `tables/` sibling is visible in the same folder instead of requiring a comparison of two
+> parallel trees. The old name mismatches (`area_significance_heatmaps` ↔ `area_mixed_models`,
+> `texts_to_answers` ↔ `slopes`) are gone with the two-tree layout.
 
-Where numbers *do* exist the folder names don't match the plot folders
-(`area_significance_heatmaps` ↔ `area_mixed_models`, `texts_to_answers` ↔ `slopes`), so you
-cannot tell by looking whether a figure is backed by a record.
+**The historical problem, for anyone reading an old figure folder.** Nine of the fifteen topics
+under `reports/plots/` had no numbers saved anywhere — driver notebooks passed
+`print_summaries=False` and discarded the returned frames, so the values survived only inside
+the PNGs. `RT_correlations` wrote nothing at all (T4.1, now fixed).
 
-> **Two consequences for anyone working here:**
-> 1. **Check `docs/findings.md` before regenerating a figure folder** — for these nine topics
+**Zero-byte PNGs: 329, not the 308 usually quoted.** The three wholly-empty folders
+(`area_significance_heatmaps` 108, `texts_to_answers` 165, `participant_similarity` 35, all
+stamped 2026-03-17 09:37) are the well-known ones. A **second, separate failed write on
+2026-03-20 12:57** left 21 more — 15 in `correctness_measures/` and 6 in
+`matching_correctness/` — and those are the dangerous ones, because they sit next to
+non-empty siblings in folders that look populated.
+
+> **Still true of the old `reports/plots/` and `reports/report_data/` trees**, which are kept
+> until their replacements are checked:
+> 1. **Check `docs/findings.md` before deleting an old figure folder** — for those nine topics
 >    the PNG may be the only copy of the number.
-> 2. **Don't trust a populated-looking plot folder.** Some of those files are zero bytes.
-
-Being fixed at source: `todo.md` **T4.0** is the standing requirement (every analysis persists
-its numbers, with a matching `report_data/` folder per `plots/` folder); T1.3, T4.1 and T4.2
-are the specific pieces.
+> 2. **Don't trust a populated-looking old plot folder.** Some of those files are zero bytes.

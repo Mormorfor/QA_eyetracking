@@ -1,0 +1,5 @@
+dominant_starting_strategy,n_participants
+"('answer_0(top)', 'answer_2(right)', 'answer_3(bottom)', 'answer_1(left)')",89
+"('answer_0(top)', 'answer_1(left)', 'answer_3(bottom)', 'answer_2(right)')",14
+"('answer_0(top)', 'answer_1(left)', 'answer_2(right)', 'answer_3(bottom)')",4
+"('answer_1(left)', 'answer_0(top)', 'answer_2(right)', 'answer_3(bottom)')",3

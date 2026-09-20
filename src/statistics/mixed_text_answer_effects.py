@@ -24,6 +24,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from src.viz.plot_output import save_output
 from matplotlib.lines import Line2D
 
 from pymer4.models import Lmer
@@ -211,7 +213,8 @@ def plot_fixed_effects(
     models: dict[str, Lmer],
     h_or_g: str = "hunters",
     separated_label: str = "answ_separated",
-    output_dir: str = "../reports/plots/texts_to_answers/fixed_effects",
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """
     Plot fixed effects (with 95% CIs) for each term and each answer model.
@@ -226,8 +229,6 @@ def plot_fixed_effects(
         Label for figure title & filename.
     separated_label : str
         Used in filename: 'answ_separated' | 'all_answ', etc.
-    output_dir : str
-        Base directory to save plots.
     """
     effects = pd.concat(
         [
@@ -329,12 +330,16 @@ def plot_fixed_effects(
 
     plt.tight_layout()
 
-    os.makedirs(output_dir, exist_ok=True)
-    fname = os.path.join(
-        output_dir,
-        f"fixed_effects_by_span_{h_or_g}_{separated_label}.png",
+    save_output(
+        plt.gcf(),
+        analysis="explorations/text_answer_effects",
+        plot="fixed_effects_by_span",
+        tables={"fixed_effects": plot_df},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        separated=separated_label,
     )
-    plt.savefig(fname)
     plt.show()
 
 
@@ -436,17 +441,15 @@ def plot_participant_effects(
     h_or_g: str = "hunters",
     separated: bool = True,
     correlated_slopes: bool = False,
-    output_dir: str = "../reports/plots/texts_to_answers/participant_effects",
-    data_output_dir: str = "../reports/report_data/slopes",
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """
     Plot participant-specific random intercepts and slopes for one answer model,
     and save a fixed-effects summary table.
 
-    Folder structure:
-
-        plots:  {output_dir}/{sep_label}__{corr_label}/...
-        tables: {data_output_dir}/{sep_label}__{corr_label}/...
+    Outputs go to reports/explorations/text_answer_effects/{figures,tables}/,
+    tagged with the condition labels:
 
     where:
         sep_label  = 'separated' or 'all_trials'
@@ -458,10 +461,7 @@ def plot_participant_effects(
     sep_label = "separated" if separated else "all_trials"
     corr_label = "correlated" if correlated_slopes else "uncorrelated"
 
-    plot_dir = os.path.join(output_dir, f"{sep_label}__{corr_label}")
-    table_dir = os.path.join(data_output_dir, f"{sep_label}__{corr_label}")
-    os.makedirs(plot_dir, exist_ok=True)
-    os.makedirs(table_dir, exist_ok=True)
+    condition = f"{sep_label}__{corr_label}"
 
     # ------------------------------------------------------------------
     # Fixed effects summary
@@ -497,13 +497,17 @@ def plot_participant_effects(
             f"p={p:.4g} {row['sig']}"
         )
 
-    # Save fixed-effects table as CSV
-    fe_path = os.path.join(
-        table_dir,
-        f"fixed_effects_{answer_label}_{h_or_g}.csv",
+    save_output(
+        None,
+        analysis="explorations/text_answer_effects",
+        plot="fixed_effects_table",
+        tables={"fixed_effects": coefs.reset_index(names="term")},
+        save=save,
+        to_paper=to_paper,
+        answer=answer_label,
+        group=h_or_g,
+        condition=condition,
     )
-    coefs.to_csv(fe_path, index=False)
-    print(f"Saved fixed-effects table to: {fe_path}")
 
     # ------------------------------------------------------------------
     # Plot random intercepts
@@ -520,14 +524,19 @@ def plot_participant_effects(
     )
     plt.xlabel("Participant (sorted)")
     plt.ylabel("Random intercept")
-    fname_int = os.path.join(
-        plot_dir,
-        f"{answer_label}_intercept_{h_or_g}.png",
-    )
     plt.grid(axis="y", alpha=0.2)
     plt.tight_layout()
-    plt.savefig(fname_int)
-    print(f"Saved intercept plot to: {fname_int}")
+    save_output(
+        plt.gcf(),
+        analysis="explorations/text_answer_effects",
+        plot="participant_random_intercept",
+        tables={"intercepts": d.rename("intercept").reset_index()},
+        save=save,
+        to_paper=to_paper,
+        answer=answer_label,
+        group=h_or_g,
+        condition=condition,
+    )
     plt.show()
 
     # ------------------------------------------------------------------
@@ -587,12 +596,18 @@ def plot_participant_effects(
         plt.legend(loc="upper left")
         plt.tight_layout()
 
-        fname_term = os.path.join(
-            plot_dir,
-            f"{answer_label}_{t}_{h_or_g}.png",
+        save_output(
+            plt.gcf(),
+            analysis="explorations/text_answer_effects",
+            plot="participant_random_slope",
+            tables={},
+            save=save,
+            to_paper=to_paper,
+            answer=answer_label,
+            term=t,
+            group=h_or_g,
+            condition=condition,
         )
-        plt.savefig(fname_term)
-        print(f"Saved slope plot for {t} to: {fname_term}")
         plt.show()
 
 
@@ -644,7 +659,8 @@ def plot_text_to_answer_significance_heatmap(
     title,
     alpha=0.05,
     adjust="holm",  # "holm" or None
-    save_path=None,
+    save=None,
+    to_paper=None,
     show=False,
 ):
     """
@@ -713,11 +729,14 @@ def plot_text_to_answer_significance_heatmap(
 
     fig.tight_layout()
 
-    if save_path is not None:
-        out_dir = os.path.dirname(save_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        fig.savefig(save_path, bbox_inches="tight")
+    save_output(
+        fig,
+        analysis="explorations/text_answer_effects",
+        plot="text_to_answer_significance",
+        tables={"significance": sig_df},
+        save=save,
+        to_paper=to_paper,
+    )
 
     if show:
         plt.show()

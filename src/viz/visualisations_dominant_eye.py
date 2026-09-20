@@ -1,5 +1,4 @@
-import os
-from typing import Dict
+from typing import Optional, Dict
 
 import pandas as pd
 import numpy as np
@@ -14,7 +13,7 @@ from src.derived.pattern_breaking import (
     dominant_strategy_by_participant,
     has_dominant_strategy,
 )
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -80,10 +79,9 @@ def plot_dominant_strategies_by_eye_sorted(
     eye_col: str = Con.DOMINANT_EYE_COLUMN,
     strat_col: str = "dominant_strategy",
     group_name: str = "hunters",
-    output_root: str = "../reports/plots/dominant_eye",
-    save: bool = True,
+    save: Optional[bool] = None,
     min_count: int = 1,
-    paper_dirs=None,
+    to_paper=None,
 ):
     """
     Produce separate horizontal barplots for each eye group (e.g. Left, Right),
@@ -113,15 +111,29 @@ def plot_dominant_strategies_by_eye_sorted(
             ax.text(v + 0.2, i, str(v), va="center")
 
         fig.tight_layout()
-        if save:
-            save_fig(
-                fig,
-                output_root,
-                f"dominant_strategies_sorted_{group_name}_{eye}",
-                paper_dirs=paper_dirs,
-            )
+
+        save_output(
+            fig,
+            analysis="scan_strategies",
+            plot="dominant_strategies_by_eye",
+            tables={"counts": freq.rename("n_participants").reset_index()},
+            save=save,
+            to_paper=to_paper,
+            group=group_name,
+            eye=eye,
+        )
 
         plt.show()
+
+    save_output(
+        None,
+        analysis="scan_strategies",
+        plot="dominant_strategy_by_eye_crosstab",
+        tables={"crosstab": crosstab.reset_index()},
+        save=save,
+        to_paper=to_paper,
+        group=group_name,
+    )
 
     return crosstab
 
@@ -133,8 +145,8 @@ def run_dominant_strategy_eye_analysis(
     window_len: int = 4,
     drop_question: bool = True,
     threshold: float = 0.0,  # min dominant_prop to include participants
-    output_root: str = "../reports/plots/dominant_eye",
-    save: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """
     For hunters, gatherers, and all participants:
@@ -165,16 +177,13 @@ def run_dominant_strategy_eye_analysis(
                 has_dominant_strategy(dom_df["dominant_prop"], threshold=threshold)
             ].copy()
 
-        # Put each group into its own folder to avoid overwriting
-        group_out_root = os.path.join(output_root, group_key)
-
         crosstab = plot_dominant_strategies_by_eye_sorted(
             dom_df,
             eye_col=Con.DOMINANT_EYE_COLUMN,
             strat_col="dominant_strategy",
             group_name=group_label,      # pretty label in plot title + filename
-            output_root=group_out_root,
             save=save,
+            to_paper=to_paper,
         )
 
         results[group_key] = {

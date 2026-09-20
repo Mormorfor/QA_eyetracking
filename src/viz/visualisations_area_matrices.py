@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 import numpy as np
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -22,14 +21,17 @@ def matrix_plot_ABCD(
     selected: str = "A",
     h_or_g: str = "hunters",
     drop_questions: bool = True,
-    output_root: str = "../reports/plots/basic_stats_heatmaps",
     show: bool = True,
-    save: bool = True,
-    paper_dirs=None,
-) -> None:
+    save: Optional[bool] = None,
+    to_paper=None,
+) -> pd.DataFrame:
     """
     Draw a heatmap of a metric by (area_label x area_screen_loc)
     for participants who selected a given answer label (A/B/C/D).
+
+    Returns the pivoted matrix, which is also saved alongside the figure —
+    before T1.3 this function returned ``None`` and the numbers behind all 320
+    of these heatmaps existed only inside the PNGs.
 
     Parameters
     ----------
@@ -45,12 +47,10 @@ def matrix_plot_ABCD(
         Tag for hunters/gatherers, used in the plot title and filename.
     drop_questions : bool, optional
         If True, exclude rows where AREA_LABEL_COLUMN == 'question'.
-    output_root : str, optional
-        Root directory where plots will be saved.
     show : bool, optional
         If True, display the plot.
     save : bool, optional
-        If True, save the plot as a PNG file under output_root/stat/.
+        If True, write the figure and its matrix through ``save_output``.
     """
     df = df[
         [Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.AREA_LABEL_COLUMN, Con.AREA_SCREEN_LOCATION, stat]
@@ -91,17 +91,31 @@ def matrix_plot_ABCD(
     title_suffix = " (questions removed)" if drop_questions else ""
     plt.title(f"{stat} of those who chose {selected}{title_suffix}")
     plt.xlabel(Con.AREA_SCREEN_LOCATION)
-    plt.ylabel(Con.AREA_SCREEN_LOCATION)
+    # The y axis is indexed by area_label (the pivot's index), not by screen
+    # location -- both axes were labelled area_screen_loc until 2026-09-20.
+    plt.ylabel(Con.AREA_LABEL_COLUMN)
     plt.tight_layout()
 
-    if save:
-        out_dir = os.path.join(output_root, h_or_g, stat)
-        save_fig(fig, out_dir, f"{selected}_selected", paper_dirs=paper_dirs)
+    save_output(
+        fig,
+        analysis="attention_allocation",
+        plot="area_label_by_loc_heatmap",
+        tables={"matrix": matrix.reset_index()},
+        save=save,
+        to_paper=to_paper,
+        subdir=stat,
+        group=h_or_g,
+        metric=stat,
+        selected=selected,
+        questions="removed" if drop_questions else "included",
+    )
 
     if show:
         plt.show()
     else:
         plt.close()
+
+    return matrix
 
 
 
@@ -146,9 +160,9 @@ def run_all_area_metric_plots(
     all_participants: pd.DataFrame,
     metrics=None,
     drop_question_variants=(False, True),
-    output_root="../reports/plots/basic_stats_heatmaps",
     show=True,
-    save=True,
+    save=None,
+    to_paper=None,
     split_groups: bool = True,
 ):
     """
@@ -161,8 +175,6 @@ def run_all_area_metric_plots(
 
     for metric in metrics:
         for dq in drop_question_variants:
-            dq_folder = "questions_removed" if dq else "questions_included"
-
             print(f"\n=== {metric} (drop_questions={dq}) ===")
 
             label_vs_loc_mat(
@@ -170,8 +182,8 @@ def run_all_area_metric_plots(
                 all_participants,
                 drop_questions=dq,
                 split_groups=split_groups,
-                output_root=os.path.join(output_root, dq_folder),
                 show=show,
                 save=save,
+                to_paper=to_paper,
             )
 

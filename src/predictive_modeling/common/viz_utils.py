@@ -1,35 +1,18 @@
 # viz_utils.py
 
-from typing import Iterable, Optional, List
+from typing import Optional, Iterable, List
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from src.viz.plot_output import save_plot
+from src.viz.plot_output import save_output
 
-def maybe_save_plot(
-    fig,
-    save: bool,
-    rel_dir: str,
-    filename: str,
-    paper_dirs: Optional[List[str]] = None,
-    dpi: int = 300,
-    ext: str = "png",
-    close: bool = False,
-):
-    if not save:
-        return []
-    return save_plot(
-        fig=fig,
-        rel_dir=rel_dir,
-        filename=filename,
-        dpi=dpi,
-        ext=ext,
-        paper_dirs=paper_dirs,
-        close=close,
-    )
+# NOTE: ``maybe_save_plot`` lived here and was the third plot-saving path in the
+# project (``docs/restructure-map.md`` §1.2). It is gone: ``save_output`` already
+# takes ``save`` and returns an empty result when it is False, so the wrapper had
+# nothing left to do. Removed 2026-09-20 with T1.3.
 
 
 def plot_confusion_heatmap(
@@ -39,12 +22,13 @@ def plot_confusion_heatmap(
     title: str = "Confusion matrix",
     *,
     normalize: bool = False,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/confusion",
-    filename: Optional[str] = None,
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
+    subdir: Optional[str] = None,
+    plot: str = "confusion_matrix",
     dpi: int = 300,
     close: bool = False,
+    **facets,
 ):
     """
     Confusion matrix heatmap with optional saving.
@@ -79,19 +63,19 @@ def plot_confusion_heatmap(
 
     plt.tight_layout()
 
-    if filename is None:
-        norm_tag = "normalized" if normalize else "raw"
-        filename = f"confusion_matrix_{norm_tag}"
-
-    saved_paths = maybe_save_plot(
-        fig=fig,
+    saved_paths = save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot=plot,
+        tables={"matrix": cm_df.reset_index(names="row")},
         save=save,
-        rel_dir=rel_dir,
-        filename=filename,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
+        subdir=subdir,
+        scale="normalized" if normalize else "raw",
+        **facets,
+    ).paths
 
     return fig, cm_df, saved_paths
 

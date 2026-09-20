@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from src.viz.plot_output import save_output
+
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import squareform
 
@@ -67,7 +69,8 @@ def plot_participant_dendrogram(
     clustering: ParticipantClusteringResult,
     figsize: Tuple[int, int] = (12, 6),
     title: Optional[str] = None,
-    save_path: Optional[str] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
 ) -> plt.Figure:
     fig, ax = plt.subplots(figsize=figsize)
     dendrogram(
@@ -82,10 +85,15 @@ def plot_participant_dendrogram(
     ax.set_ylabel("Distance")
     plt.tight_layout()
 
-    if save_path is not None:
-        import os
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    save_output(
+        fig,
+        analysis="explorations/participant_clustering",
+        plot="participant_dendrogram",
+        tables={},
+        save=save,
+        to_paper=to_paper,
+        dpi=200,
+    )
 
     return fig
 
@@ -116,7 +124,8 @@ def plot_participant_umap(
     figsize: Tuple[int, int] = (8, 6),
     title: Optional[str] = None,
     annotate: bool = False,
-    save_path: Optional[str] = None,
+    save: Optional[bool] = None,
+    to_paper=None,
 ) -> plt.Figure:
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -138,9 +147,14 @@ def plot_participant_umap(
     ax.set_ylabel("UMAP-2")
     plt.tight_layout()
 
-    if save_path is not None:
-        import os
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    save_output(
+        fig,
+        analysis="explorations/participant_clustering",
+        plot="participant_umap",
+        tables={},
+        save=save,
+        to_paper=to_paper,
+        dpi=200,
+    )
 
     return fig

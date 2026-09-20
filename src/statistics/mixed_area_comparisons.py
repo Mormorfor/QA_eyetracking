@@ -1,13 +1,14 @@
-from typing import Tuple, Dict
+from typing import Optional, Tuple, Dict
 
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 
-from src.viz.visualisations_area_significance_heatmaps import plot_pairwise_significance_heatmap
+import matplotlib.pyplot as plt
 
-import os
+from src.viz.plot_output import save_output
+from src.viz.visualisations_area_significance_heatmaps import plot_pairwise_significance_heatmap
 
 from src import constants as Con
 
@@ -157,12 +158,16 @@ def run_models_for_group(
     group_name: str,
     metrics=None,
     alpha: float = 0.05,
-    save_tables: bool = False,
-    tables_root: str = "../reports/report_data/area_mixed_models",
-    graphs_root="../reports/plots/area_significance_heatmaps",
+    save: Optional[bool] = None,
+    to_paper=None,
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
-    save_heatmaps: bool = True,
 ) -> Dict[str, Dict[str, dict]]:
+    """Fit the per-area mixed models and write figure + both tables together.
+
+    Before T1.3 the figure and the tables were on separate flags
+    (``save_heatmaps=True`` but ``save_tables=False``), which is how the 108
+    heatmaps came to have backing CSVs only when someone remembered to ask.
+    """
 
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS_MODELING
@@ -198,22 +203,15 @@ def run_models_for_group(
             )
 
 
-            if save_heatmaps:
-                out_dir = os.path.join(graphs_root, metric, group_name)
-                out_path = os.path.join(
-                    out_dir,
-                    "{}__{}__sig_heatmap.png".format(group_name, ans),
-                )
-                plot_pairwise_significance_heatmap(
-                    pairwise=pairwise,
-                    title="{} — {} — selected={}\n(-log10 Holm-adjusted p)".format(
-                        group_name, metric, ans
-                    ),
-                    alpha=alpha,
-                    save_path=out_path,
-                    areas=("answer_A", "answer_B", "answer_C", "answer_D"),
-                    show=False,
-                )
+            fig = plot_pairwise_significance_heatmap(
+                pairwise=pairwise,
+                title="{} — {} — selected={}\n(-log10 Holm-adjusted p)".format(
+                    group_name, metric, ans
+                ),
+                alpha=alpha,
+                areas=("answer_A", "answer_B", "answer_C", "answer_D"),
+                show=False,
+            )
 
             print("\nFixed effects (per area):")
             print(fe_table.to_string(index=False))
@@ -221,18 +219,20 @@ def run_models_for_group(
             print("\nPairwise comparisons (Holm-corrected):")
             print(pairwise.sort_values("p_adj_holm").to_string(index=False))
 
-            if save_tables:
-                base_dir = os.path.join(tables_root, metric, group_name)
-                os.makedirs(base_dir, exist_ok=True)
-
-                fe_path = os.path.join(base_dir, "{}__{}__fe.csv".format(group_name, ans))
-                pw_path = os.path.join(base_dir, "{}__{}__pairwise.csv".format(group_name, ans))
-
-                fe_table.to_csv(fe_path, index=False)
-                pairwise.to_csv(pw_path, index=False)
-
-                print(f"\nSaved fixed-effects to:  {fe_path}")
-                print(f"Saved pairwise table to: {pw_path}")
+            save_output(
+                fig,
+                analysis="attention_allocation",
+                plot="area_pairwise_significance",
+                tables={"fixed_effects": fe_table, "pairwise": pairwise},
+                save=save,
+                to_paper=to_paper,
+                subdir=metric,
+                group=group_name,
+                metric=metric,
+                selected=ans,
+            )
+            if fig is not None:
+                plt.close(fig)
 
             metric_results[ans] = {
                 "model": model_res,
@@ -251,9 +251,8 @@ def run_all_area_mixed_models(
     gatherers: pd.DataFrame,
     metrics=None,
     alpha: float = 0.05,
-    save_tables: bool = False,
-    tables_root: str = "../reports/report_data/area_mixed_models",
-    graphs_root: str = "../reports/plots/area_significance_heatmaps",
+    save: Optional[bool] = None,
+    to_paper=None,
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
 ) -> Dict[str, Dict[str, Dict[str, dict]]]:
     """
@@ -270,9 +269,8 @@ def run_all_area_mixed_models(
         group_name="hunters",
         metrics=metrics,
         alpha=alpha,
-        save_tables=save_tables,
-        tables_root=tables_root,
-        graphs_root=graphs_root,
+        save=save,
+        to_paper=to_paper,
         trial_cols=trial_cols,
     )
 
@@ -281,9 +279,8 @@ def run_all_area_mixed_models(
         group_name="gatherers",
         metrics=metrics,
         alpha=alpha,
-        save_tables=save_tables,
-        tables_root=tables_root,
-        graphs_root=graphs_root,
+        save=save,
+        to_paper=to_paper,
         trial_cols=trial_cols,
     )
     all_participants = pd.concat([hunters, gatherers], ignore_index=True)
@@ -292,9 +289,8 @@ def run_all_area_mixed_models(
         group_name="all participants",
         metrics=metrics,
         alpha=alpha,
-        save_tables=save_tables,
-        tables_root=tables_root,
-        graphs_root=graphs_root,
+        save=save,
+        to_paper=to_paper,
         trial_cols=trial_cols,
     )
 

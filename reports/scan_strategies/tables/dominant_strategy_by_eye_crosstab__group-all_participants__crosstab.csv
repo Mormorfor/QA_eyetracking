@@ -1,0 +1,10 @@
+strategy_str,Left,Right
+answer_0(top) → answer_1(left) → answer_2(right) → answer_3(bottom),6,14
+answer_0(top) → answer_1(left) → answer_3(bottom) → answer_2(right),37,57
+answer_0(top) → answer_2(right) → answer_0(top) → answer_3(bottom),0,1
+answer_0(top) → answer_2(right) → answer_1(left) → answer_3(bottom),1,1
+answer_0(top) → answer_2(right) → answer_3(bottom) → answer_1(left),93,136
+answer_1(left) → answer_0(top) → answer_2(right) → answer_3(bottom),7,4
+answer_1(left) → answer_0(top) → answer_3(bottom) → answer_2(right),1,0
+answer_1(left) → answer_3(bottom) → answer_2(right) → answer_0(top),0,1
+answer_3(bottom) → answer_0(top) → answer_1(left) → answer_3(bottom),0,1

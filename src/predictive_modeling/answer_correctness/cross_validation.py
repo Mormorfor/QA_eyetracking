@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Optional, Any, Callable, Dict, List, Mapping, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from src.viz.plot_output import save_output
 
 from IPython.display import display
 from sklearn.metrics import balanced_accuracy_score
@@ -1052,6 +1054,9 @@ def plot_cv_metric_by_regime(
     val_only: bool = False,
     figsize: tuple = (10, 6),
     rotate_xticks: int = 30,
+    save: Optional[bool] = None,
+    to_paper=None,
+    subdir: str | None = None,
 ):
     """
     Bar plot of mean CV metric by regime, with confidence intervals across folds.
@@ -1087,6 +1092,18 @@ def plot_cv_metric_by_regime(
 
     plt.xticks(rotation=rotate_xticks, ha="right")
     plt.tight_layout()
+
+    save_output(
+        fig,
+        analysis="correctness_prediction",
+        plot="cv_metric_by_regime",
+        tables={"summary": summary},
+        save=save,
+        to_paper=to_paper,
+        subdir=subdir,
+        model=model_name,
+        metric=metric_col,
+    )
 
     return summary, fig, ax
 

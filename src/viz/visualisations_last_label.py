@@ -19,14 +19,14 @@ filenames, never on the figure.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Optional, Dict, Sequence, Tuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_plot
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -75,8 +75,8 @@ def plot_last_label_before_confirm_freq(
     panel_title_fmt: str = "Chose {ans}",
     show_n: bool = True,
     figsize: Tuple[int, int] = (12, 9),
-    save: bool = False,
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     h_or_g: str = "all_participants",
 ) -> Tuple[plt.Figure, pd.DataFrame]:
     """
@@ -99,9 +99,7 @@ def plot_last_label_before_confirm_freq(
     h_or_g : str
         Group tag used ONLY in the saved filename, never shown on the figure.
 
-    If save=True, always saves to:
-        reports/plots/last_label_before_confirm/<h_or_g>__<prop|count>.png
-    If paper_dirs is a list, also mirrors there (see save_plot).
+    Saves through ``plot_output.save_output`` to reports/last_visitation/.
 
     Returns
     -------
@@ -167,15 +165,16 @@ def plot_last_label_before_confirm_freq(
 
     summary_df = pd.concat(summary_rows, ignore_index=True)
 
-    if save:
-        save_plot(
-            fig=fig,
-            rel_dir="last_label_before_confirm",
-            filename=f"{h_or_g}__{'prop' if normalize else 'count'}",
-            ext="png",
-            dpi=300,
-            paper_dirs=paper_dirs,
-        )
+    save_output(
+        fig,
+        analysis="last_visitation",
+        plot="last_label_before_confirm",
+        tables={"summary": summary_df},
+        save=save,
+        to_paper=to_paper,
+        group=h_or_g,
+        scale="prop" if normalize else "count",
+    )
 
     return fig, summary_df
 
@@ -189,8 +188,8 @@ def run_all_last_label_before_confirm_plots(
     y_label: Optional[str] = None,
     panel_title_fmt: str = "Chose {ans}",
     show_n: bool = True,
-    save_plots: bool = True,
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     print_summaries: bool = False,
 ) -> Dict:
     """
@@ -217,8 +216,8 @@ def run_all_last_label_before_confirm_plots(
             y_label=y_label,
             panel_title_fmt=panel_title_fmt,
             show_n=show_n,
-            save=save_plots,
-            paper_dirs=paper_dirs,
+            save=save,
+            to_paper=to_paper,
             h_or_g=group_key,
         )
         if print_summaries:

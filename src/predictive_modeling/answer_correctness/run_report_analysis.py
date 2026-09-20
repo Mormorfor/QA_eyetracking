@@ -5,7 +5,7 @@ import pandas as pd
 
 from predictive_modeling.answer_correctness.answer_correctness_viz import plot_correctness_run_comparison, \
     collect_correctness_run_reports
-from viz.plot_output import save_df_csv
+from src.viz.plot_output import save_output
 
 
 def collect_and_plot_correctness_runs(
@@ -19,12 +19,10 @@ def collect_and_plot_correctness_runs(
     top_n: Optional[int] = None,
     figsize: tuple = (12, 8),
     title: Optional[str] = None,
-    save_table: bool = False,
-    save_plot_figure: bool = False,
-    rel_dir: Optional[str] = None,
-    table_filename: str = "all_run_summaries",
-    plot_filename: str = "run_comparison_balanced_accuracy",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = None,
+    plot: str = "run_comparison_balanced_accuracy",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
     ytick_fontsize: Optional[float] = None,
@@ -52,17 +50,6 @@ def collect_and_plot_correctness_runs(
         ascending=ascending,
     )
 
-    table_paths = []
-    if save_table:
-        if rel_dir is None:
-            raise ValueError("rel_dir must be provided when save_table=True.")
-        table_paths = save_df_csv(
-            summary_df,
-            rel_dir=rel_dir,
-            filename=table_filename,
-            paper_dirs=paper_dirs,
-        )
-
     fig, plot_df, plot_paths = plot_correctness_run_comparison(
         summary_df=summary_df,
         metric_col=metric_col,
@@ -70,10 +57,11 @@ def collect_and_plot_correctness_runs(
         top_n=top_n,
         figsize=figsize,
         title=title,
-        save=save_plot_figure,
-        rel_dir=rel_dir,
-        filename=plot_filename,
-        paper_dirs=paper_dirs,
+        save=save,
+        subdir=subdir,
+        plot=plot,
+        tables={"run_summaries": summary_df},
+        to_paper=to_paper,
         dpi=dpi,
         close=close,
         ytick_fontsize=ytick_fontsize,
@@ -92,8 +80,9 @@ def collect_and_plot_correctness_runs(
         "summary_df": summary_df,
         "plot_df": plot_df,
         "fig": fig,
-        "table_paths": table_paths,
-        "plot_paths": plot_paths,
+        # The figure and its table are written by one call now, so there is a
+        # single list of paths rather than two that could disagree.
+        "saved_paths": plot_paths,
     }
 
 
@@ -107,9 +96,9 @@ def collect_correctness_runs_by_mode(
     decimals: Optional[int] = 4,
     sort_by_mode: Optional[str] = None,
     save_table: bool = False,
-    rel_dir: Optional[str] = None,
+    subdir: Optional[str] = None,
     table_filename: str = "correctness_runs_by_mode",
-    paper_dirs: Optional[List[str]] = None,
+    to_paper=None,
 ) -> Dict[str, Any]:
     """
     Build a comparison table of one metric (default: balanced accuracy) across
@@ -142,8 +131,9 @@ def collect_correctness_runs_by_mode(
     sort_by_mode:
         Optional mode column label to sort rows by (descending). If None, rows
         are sorted alphabetically by run identifier.
-    save_table / rel_dir / table_filename / paper_dirs:
-        If save_table=True, persist the table via save_df_csv (rel_dir required).
+    save / subdir / plot / to_paper:
+        One flag now covers the figure and its numbers -- they are written by the
+        same save_output call, so a saved figure always has a saved table.
 
     Returns
     -------
@@ -205,17 +195,16 @@ def collect_correctness_runs_by_mode(
     if decimals is not None:
         pivot_df = pivot_df.round(decimals)
 
-    table_paths: List[str] = []
-    if save_table:
-        if rel_dir is None:
-            raise ValueError("rel_dir must be provided when save_table=True.")
-        # save_df_csv writes with index=False, so move the run identifier into a column.
-        table_paths = save_df_csv(
-            pivot_df.reset_index(),
-            rel_dir=rel_dir,
-            filename=table_filename,
-            paper_dirs=paper_dirs,
-        )
+    # index=False on write, so the run identifier moves into a column first.
+    table_paths = save_output(
+        None,
+        analysis="correctness_prediction",
+        plot=table_filename,
+        tables={"pivot": pivot_df.reset_index()},
+        save=save_table,
+        to_paper=to_paper,
+        subdir=subdir,
+    ).paths
 
     return {
         "pivot_df": pivot_df,

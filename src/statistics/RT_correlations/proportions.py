@@ -123,13 +123,41 @@ def add_text_dwell_proportions(
 
     keys = list(TRIAL_ID_COLS)
     cols = region_proportion_cols()
+
+    # The model-ready table already carries these three columns -- they are
+    # merged in by answer_correctness.model_data.build_trial_level_model_df from
+    # this very cache. Merging again renamed both copies to _x / _y and the next
+    # lookup died, so this analysis could not run at all. Verified 2026-09-20:
+    # the two copies are bit-identical (max|diff| = 0, nothing unmatched), so the
+    # columns already present are the right ones to use.
+    already = [c for c in cols if c in df.columns]
+    if len(already) == len(cols):
+        if verbose:
+            print(
+                "text dwell proportions: already present on the frame "
+                f"({len(df)} trials); not re-merging"
+            )
+        return df
+    if already:
+        raise KeyError(
+            f"frame carries only some of {cols} ({already}). Half-populated span "
+            "proportions mean the upstream merge changed; fix that rather than "
+            "topping the columns up here."
+        )
+
     missing = [c for c in cols if c not in paragraph_features.columns]
     if missing:
         raise KeyError(f"paragraph features have no {missing}; rebuild them")
 
     out = df.merge(paragraph_features[keys + cols], on=keys, how="left")
+    matched = int(out[cols[0]].notna().sum())
+    if matched != len(out):
+        raise ValueError(
+            f"text dwell proportions: only {matched}/{len(out)} trials matched the "
+            "paragraph cache. Every trial should be covered -- an unmatched trial "
+            "would silently become NaN and drop out of the correlation pairwise."
+        )
     if verbose:
-        matched = int(out[cols[0]].notna().sum())
         print(f"text dwell proportions: {matched}/{len(out)} trials matched")
     return out
 
@@ -236,6 +264,13 @@ def plot_proportion_maps(
                 f"({method}, participant-level)"
             )
         ),
+        # `measure` is what separates these from the reading-time maps: same
+        # rows, same columns, different quantity (share of the screen's dwell
+        # time rather than time per word). Without it both land on one filename.
+        # There is no `scaling` here -- a proportion is already unitless.
+        plot=kwargs.pop("plot", "text_qa_corr_map"),
+        measure="dwell_proportions",
+        panels="+".join(stats_by_label),
         **kwargs,
     )
 

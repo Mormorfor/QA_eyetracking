@@ -1,0 +1,9 @@
+strategy_str,n_participants
+answer_0(top) → answer_2(right) → answer_3(bottom) → answer_1(left),136
+answer_0(top) → answer_1(left) → answer_3(bottom) → answer_2(right),57
+answer_0(top) → answer_1(left) → answer_2(right) → answer_3(bottom),14
+answer_1(left) → answer_0(top) → answer_2(right) → answer_3(bottom),4
+answer_0(top) → answer_2(right) → answer_0(top) → answer_3(bottom),1
+answer_0(top) → answer_2(right) → answer_1(left) → answer_3(bottom),1
+answer_1(left) → answer_3(bottom) → answer_2(right) → answer_0(top),1
+answer_3(bottom) → answer_0(top) → answer_1(left) → answer_3(bottom),1

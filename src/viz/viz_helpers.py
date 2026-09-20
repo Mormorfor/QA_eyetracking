@@ -1,8 +1,6 @@
 # src/viz/viz_helpers.py
 from __future__ import annotations
 
-import json
-import os
 from typing import Dict, Optional, Sequence, Tuple
 
 import numpy as np
@@ -11,7 +9,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as C
-from src.viz.plot_output import save_fig, save_table, save_json
 
 
 def split_participant_groups(
@@ -58,6 +55,17 @@ def split_participant_groups(
         groups["all_participants"] = pd.concat(
             [hunters, gatherers], ignore_index=True
         )
+
+    # A group with no rows is not a group. It arises when this is handed a frame
+    # that only holds one side of the split (hunters.csv, say) -- legitimate
+    # usage, but every downstream summary would then be computed over zero
+    # trials and report a result anyway: Fisher on an all-zero table returns
+    # p = 1.0, not an error. Drop such groups and say so.
+    empty = [name for name, frame in groups.items() if frame.empty]
+    for name in empty:
+        print(f"[split_participant_groups] no rows for {name!r} -- group skipped")
+        del groups[name]
+
     return groups
 
 
@@ -142,28 +150,16 @@ def barplot_accuracy(summary_df: pd.DataFrame, order: Sequence[str], figsize=(6,
     return fig, ax
 
 
-def ensure_dir(path: str) -> None:
-    os.makedirs(path, exist_ok=True)
+def correctness_tables(
+    summary_df: pd.DataFrame, test_res: Optional[Dict]
+) -> Dict[str, object]:
+    """Assemble the ``tables=`` payload shared by the correctness-association plots.
 
-
-def save_plot_and_report(
-    *,
-    fig: plt.Figure,
-    summary_df: pd.DataFrame,
-    test_res: Optional[Dict],
-    plot_dir: str,
-    data_dir: str,
-    base_name: str,
-    paper_dirs: Optional[Sequence[str]] = None,
-) -> None:
-    """Save a figure plus its summary table (and optional Fisher json) through
-    the shared ``plot_output`` savers, mirroring to ``paper_dirs`` when given."""
-    save_fig(fig, plot_dir, base_name, paper_dirs=paper_dirs)
-    save_table(summary_df, data_dir, f"{base_name}__summary", paper_dirs=paper_dirs)
-
+    Replaces the old ``save_plot_and_report``, which was a second save path
+    alongside ``plot_output`` (``docs/todo.md`` T1.5). Saving now belongs to
+    ``plot_output.save_output``; this only decides *what* travels with the figure.
+    """
+    tables: Dict[str, object] = {"summary": summary_df}
     if test_res is not None:
-        test_json = dict(test_res)
-        if "contingency_table" in test_json and hasattr(test_json["contingency_table"], "tolist"):
-            test_json["contingency_table"] = test_json["contingency_table"].tolist()
-
-        save_json(test_json, data_dir, f"{base_name}__fisher", paper_dirs=paper_dirs)
+        tables["fisher"] = dict(test_res)
+    return tables

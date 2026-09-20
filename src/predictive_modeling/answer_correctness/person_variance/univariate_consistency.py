@@ -23,7 +23,7 @@ Two things to keep in mind when reading the result:
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, List, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,7 +35,7 @@ from predictive_modeling.answer_correctness.person_variance.plot_style import (
     POS_COLOR,
     clean_feature_labels,
 )
-from predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 UNIVARIATE_DISPLAY_COLS = [
     "feature", "n_valid", "coverage", "mean_r", "dominant_share", "std_r", "mean_abs_r",
@@ -122,10 +122,10 @@ def plot_univariate_consistency(
     title: Optional[str] = None,
     *,
     seed: int = 0,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/univariate_consistency",
-    filename: str = "univariate_consistency",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "univariate_consistency",
+    plot: str = "univariate_consistency",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -185,8 +185,12 @@ def plot_univariate_consistency(
                  y=1.02, fontsize=13)
     fig.tight_layout()
 
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir, plot=plot,
+        tables={"consistency": top},
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, saved

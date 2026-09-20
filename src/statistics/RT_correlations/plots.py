@@ -17,11 +17,12 @@ fixed [-1, 1] scale -- kept for comparison.
 
 from __future__ import annotations
 
-import os
-from typing import Sequence
+from typing import Optional, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from src.viz.plot_output import save_output
 import pandas as pd
 
 from src.statistics.RT_correlations._utils import significance_stars
@@ -157,10 +158,19 @@ def plot_corr_map_pair(
         "cell = mean within-participant r [95% CI]; "
         "stars = BH-adjusted p; hatched = not significant"
     ),
-    save_path: str | None = None,
+    save: Optional[bool] = None,
+    to_paper=None,
+    plot: str = "text_qa_corr_map",
     show: bool = True,
+    **facets,
 ):
-    """Several maps side by side (typically RT and TFD) on a shared colour scale."""
+    """Several maps side by side (typically RT and TFD) on a shared colour scale.
+
+    T4.1: this used to write only when a caller supplied ``save_path``, and the
+    notebook driving it never did -- so the project's current text<->QA results
+    existed only as cell outputs. It now routes through ``save_output`` like
+    everything else, and carries its correlation matrices with it.
+    """
     keys = list(stats_by_metric)
     if vmax is None:
         vmax = _round_up(
@@ -181,11 +191,26 @@ def plot_corr_map_pair(
     if footnote:
         fig.text(0.5, -0.12, footnote, ha="center", fontsize=8, color="dimgrey")
 
-    if save_path is not None:
-        out_dir = os.path.dirname(save_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        fig.savefig(save_path, bbox_inches="tight", dpi=140)
+    # Every panel's matrices travel with the figure: r, the BH-adjusted p and
+    # the participant counts are what the Results subsection actually quotes.
+    tables = {}
+    for key, st in stats_by_metric.items():
+        for field in ("r", "p_adj", "n"):
+            mat = st.get(field)
+            if mat is not None and hasattr(mat, "reset_index"):
+                tables[f"{key}__{field}"] = mat.reset_index(names="text_region")
+
+    save_output(
+        fig,
+        analysis="text_qa_relationship",
+        plot=plot,
+        tables=tables,
+        save=save,
+        to_paper=to_paper,
+        dpi=140,
+        **facets,
+    )
+
     if show:
         plt.show()
     return fig, axes
@@ -200,6 +225,8 @@ def plot_pooled_maps(
     vmax: float | None = 1.0,
     figsize: tuple[float, float] = (13, 4),
     show: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     """The original, uncorrected view: pooled r, one panel per metric.
 
@@ -229,6 +256,19 @@ def plot_pooled_maps(
 
     fig.colorbar(im, ax=axes, label=f"{method} r (pooled)", fraction=0.025)
     fig.suptitle(f"{group_label}: text regions vs. answers/question", y=1.05)
+
+    save_output(
+        fig,
+        analysis="text_qa_relationship",
+        plot="corr_map_pooled",
+        tables={m: mat.reset_index(names="text_region") for m, mat in maps.items()},
+        save=save,
+        to_paper=to_paper,
+        group=group_label,
+        scaling=scaling,
+        method=method,
+    )
+
     if show:
         plt.show()
     return fig, axes
@@ -328,6 +368,17 @@ def plot_contrasts(
     if group_col is not None:
         ax.legend(title=group_col, fontsize=8, title_fontsize=8)
     plt.tight_layout()
+
+    save_output(
+        ax.figure,
+        analysis="text_qa_relationship",
+        plot=plot,
+        tables={"contrasts": t.drop(columns="_label", errors="ignore")},
+        save=save,
+        to_paper=to_paper,
+        value=value,
+    )
+
     if show:
         plt.show()
     return ax

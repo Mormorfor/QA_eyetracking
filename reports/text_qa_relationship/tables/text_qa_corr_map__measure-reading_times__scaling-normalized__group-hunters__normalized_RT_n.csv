@@ -1,0 +1,4 @@
+text_region,RT_normalized_answer_A,RT_normalized_answer_B,RT_normalized_answer_C,RT_normalized_answer_D,RT_normalized_question
+RT_normalized_distractor,180,180,180,180,180
+RT_normalized_critical,180,180,180,180,180
+RT_normalized_outside,180,180,180,180,180

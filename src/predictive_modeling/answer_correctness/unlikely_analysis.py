@@ -445,6 +445,8 @@ def plot_feature_group_separation(
     feature_group_means_df,
     top_n: int = 20,
     figsize=(10, 6),
+    save: Optional[bool] = None,
+    to_paper=None,
 ):
     df = feature_group_means_df.copy()
 
@@ -469,6 +471,15 @@ def plot_feature_group_separation(
     plt.xlabel("Absolute difference")
     plt.ylabel("Feature")
     plt.tight_layout()
+    save_output(
+        plt.gcf(),
+        analysis="explorations/unlikely_analysis",
+        plot="feature_group_separation",
+        tables={"top_features": top1},
+        save=save,
+        to_paper=to_paper,
+        contrast="HP_W_minus_LP_W",
+    )
     plt.show()
 
     # --- LP-R vs HP-R ---
@@ -484,5 +495,14 @@ def plot_feature_group_separation(
     plt.xlabel("Absolute difference")
     plt.ylabel("Feature")
     plt.tight_layout()
+    save_output(
+        plt.gcf(),
+        analysis="explorations/unlikely_analysis",
+        plot="feature_group_separation",
+        tables={"top_features": top2},
+        save=save,
+        to_paper=to_paper,
+        contrast="LP_R_minus_HP_R",
+    )
     plt.show()
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_fig
+from src.viz.plot_output import save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -101,7 +101,17 @@ def add_time_segment_column(
     """
     df_out = df.copy()
 
-    df_out[segment_col] = (
+    if df_out.empty:
+        raise ValueError(
+            "add_time_segment_column got zero rows. Segments are defined relative "
+            "to the first fixation on the selected answer, which does not exist "
+            "for an empty frame."
+        )
+
+    # groupby(...).apply returns a DataFrame under pandas 3 when the callback
+    # hands back a frame, so take the segment column off it explicitly rather
+    # than assigning the whole thing to one column.
+    segments = (
         df_out
         .groupby(list(group_cols), group_keys=False)
         .apply(
@@ -113,6 +123,9 @@ def add_time_segment_column(
             )
         )
     )
+    if isinstance(segments, pd.DataFrame):
+        segments = segments[segment_col]
+    df_out[segment_col] = segments
 
     order = ["before", "during", "after"]
     df_out[segment_col] = pd.Categorical(
@@ -135,9 +148,8 @@ def _plot_time_segment_bar(
     subdir: str = "",
     figsize=(8, 6),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/time_segments",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     title: Optional[str] = None,
 ):
     """
@@ -165,15 +177,13 @@ def _plot_time_segment_bar(
         Optional function applied to df before aggregation
         (e.g., to add a 'skipped' column).
     subdir : str
-        Subdirectory under output_root for saving plots.
+        Folder under reports/time_course/{figures,tables}/ for this metric.
     figsize : tuple
         Figure size.
     h_or_g : str
         Group label for titles/filenames ('hunters' / 'gatherers').
     save : bool
         If True, save the figure as PNG.
-    output_root : str
-        Root directory for plot saving.
     title : str or None
         Custom title; if None, a default is used.
 
@@ -227,14 +237,18 @@ def _plot_time_segment_bar(
     )
 
     fig.tight_layout()
-    if save:
-        out_dir = os.path.join(output_root, subdir or metric_col_name)
-        save_fig(
-            fig,
-            out_dir,
-            f"{h_or_g}__{subdir or metric_col_name}",
-            paper_dirs=paper_dirs,
-        )
+
+    save_output(
+        fig,
+        analysis="time_course",
+        plot="time_segment_bar",
+        tables={"summary": summary},
+        save=save,
+        to_paper=to_paper,
+        subdir=subdir or metric_col_name,
+        group=h_or_g,
+        metric=subdir or metric_col_name,
+    )
 
     plt.show()
     return fig, summary
@@ -249,9 +263,8 @@ def plot_time_segment_mean_dwell(
     segment_col: str = Con.SEGMENT_COLUMN,
     figsize=(8, 6),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/time_segments",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     title: Optional[str] = None,
 ):
     """
@@ -270,8 +283,7 @@ def plot_time_segment_mean_dwell(
         figsize=figsize,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         title=title,
     )
 
@@ -283,9 +295,8 @@ def plot_time_segment_sequence_length(
     segment_col: str = Con.SEGMENT_COLUMN,
     figsize=(8, 6),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/time_segments",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     title: Optional[str] = None,
 ):
     """
@@ -304,8 +315,7 @@ def plot_time_segment_sequence_length(
         figsize=figsize,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         title=title,
     )
 
@@ -319,9 +329,8 @@ def plot_time_segment_fixation_count(
     segment_col: str = Con.SEGMENT_COLUMN,
     figsize=(8, 6),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/time_segments",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     title: Optional[str] = None,
 ):
     """
@@ -340,8 +349,7 @@ def plot_time_segment_fixation_count(
         figsize=figsize,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         title=title,
     )
 
@@ -354,9 +362,8 @@ def plot_time_segment_skip_rate(
     segment_col: str = Con.SEGMENT_COLUMN,
     figsize=(8, 6),
     h_or_g: str = "hunters",
-    save: bool = True,
-    output_root: str = "../reports/plots/time_segments",
-    paper_dirs=None,
+    save: Optional[bool] = None,
+    to_paper=None,
     title: Optional[str] = None,
 ):
     """
@@ -381,8 +388,7 @@ def plot_time_segment_skip_rate(
         figsize=figsize,
         h_or_g=h_or_g,
         save=save,
-        output_root=output_root,
-        paper_dirs=paper_dirs,
+        to_paper=to_paper,
         title=title,
     )
 
@@ -398,8 +404,8 @@ def run_all_time_segment_plots(
     dwell_col: str = Con.IA_DWELL_TIME,
     fix_col: str = Con.IA_FIXATIONS_COUNT,
     segment_col: str = Con.SEGMENT_COLUMN,
-    output_root: str = "../reports/plots/time_segments",
-    save: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
 ) -> dict:
     """
     Convenience wrapper:
@@ -439,7 +445,6 @@ def run_all_time_segment_plots(
         )
 
         # Put each group in its own folder to prevent overwrites
-        group_out_root = os.path.join(output_root, group_key)
 
         md_fig, md_summary = plot_time_segment_mean_dwell(
             df_seg,
@@ -449,7 +454,7 @@ def run_all_time_segment_plots(
             segment_col=segment_col,
             h_or_g=group_label,
             save=save,
-            output_root=group_out_root,
+            to_paper=to_paper,
         )
 
         sl_fig, sl_summary = plot_time_segment_sequence_length(
@@ -459,7 +464,7 @@ def run_all_time_segment_plots(
             segment_col=segment_col,
             h_or_g=group_label,
             save=save,
-            output_root=group_out_root,
+            to_paper=to_paper,
         )
 
         fc_fig, fc_summary = plot_time_segment_fixation_count(
@@ -470,7 +475,7 @@ def run_all_time_segment_plots(
             segment_col=segment_col,
             h_or_g=group_label,
             save=save,
-            output_root=group_out_root,
+            to_paper=to_paper,
         )
 
         sr_fig, sr_summary = plot_time_segment_skip_rate(
@@ -481,7 +486,7 @@ def run_all_time_segment_plots(
             segment_col=segment_col,
             h_or_g=group_label,
             save=save,
-            output_root=group_out_root,
+            to_paper=to_paper,
         )
 
         results[group_key] = {

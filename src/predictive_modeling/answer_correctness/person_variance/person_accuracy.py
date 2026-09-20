@@ -8,7 +8,7 @@ carry a single outcome class.
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import Optional, Any, List, Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,7 +20,7 @@ from predictive_modeling.answer_correctness.person_variance.plot_style import (
     NEG_COLOR,
     POS_COLOR,
 )
-from predictive_modeling.common.viz_utils import maybe_save_plot
+from src.viz.plot_output import save_output
 
 
 def per_person_summary(
@@ -67,10 +67,10 @@ def plot_per_person_accuracy_hist(
     *,
     metrics: Sequence[str] = ("accuracy", "balanced_accuracy"),
     bins: int = 15,
-    save: bool = False,
-    rel_dir: str = "answer_correctness/per_person_loo/accuracy",
-    filename: str = "per_person_accuracy_hist",
-    paper_dirs: Optional[List[str]] = None,
+    save: Optional[bool] = None,
+    subdir: Optional[str] = "accuracy",
+    plot: str = "per_person_accuracy_hist",
+    to_paper=None,
     dpi: int = 300,
     close: bool = False,
 ):
@@ -91,8 +91,12 @@ def plot_per_person_accuracy_hist(
         ax.legend()
 
     plt.tight_layout()
-    saved = maybe_save_plot(
-        fig=fig, save=save, rel_dir=rel_dir, filename=filename,
-        paper_dirs=paper_dirs, dpi=dpi, close=close,
+    saved = save_output(
+        fig,
+        analysis="correctness_prediction/person_variance",
+        save=save,
+        subdir=subdir, plot=plot,
+        tables={"summary": summary_df},
+        to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, saved

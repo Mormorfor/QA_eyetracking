@@ -1,0 +1,12 @@
+{
+  "participants": 180,
+  "mean_raw": 0.5270964360587003,
+  "mean_completed": 0.5416103734762016,
+  "mean_delta": 0.014513937417501357,
+  "raw_\u226550%": 58.333333333333336,
+  "comp_\u226550%": 61.111111111111114,
+  "changed_label_n": 2,
+  "changed_label_pct": 1.1111111111111112,
+  "mean_seq_pct_changed": 2.9647099930118794,
+  "median_seq_pct_changed": 1.8518518518518516
+}

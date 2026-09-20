@@ -1,0 +1,151 @@
+{
+  "text_qa_corr_map__measure-dwell_proportions__panels-all_participants+hunters+gatherers": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "dwell_proportions",
+      "panels": "all participants+hunters+gatherers"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-dwell_proportions__panels-all_participants+hunters+gatherers.png",
+    "subdir": null,
+    "tables": [
+      "all participants__n",
+      "all participants__p_adj",
+      "all participants__r",
+      "gatherers__n",
+      "gatherers__p_adj",
+      "gatherers__r",
+      "hunters__n",
+      "hunters__p_adj",
+      "hunters__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:49"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-All_participants": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "normalized",
+      "group": "All participants"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-All_participants.png",
+    "subdir": null,
+    "tables": [
+      "normalized RT__n",
+      "normalized RT__p_adj",
+      "normalized RT__r",
+      "normalized TFD__n",
+      "normalized TFD__p_adj",
+      "normalized TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:51"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-gatherers": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "normalized",
+      "group": "gatherers"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-gatherers.png",
+    "subdir": null,
+    "tables": [
+      "normalized RT__n",
+      "normalized RT__p_adj",
+      "normalized RT__r",
+      "normalized TFD__n",
+      "normalized TFD__p_adj",
+      "normalized TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:52"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-hunters": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "normalized",
+      "group": "hunters"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-hunters.png",
+    "subdir": null,
+    "tables": [
+      "normalized RT__n",
+      "normalized RT__p_adj",
+      "normalized RT__r",
+      "normalized TFD__n",
+      "normalized TFD__p_adj",
+      "normalized TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:51"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-pure__group-All_participants": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "pure",
+      "group": "All participants"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-pure__group-All_participants.png",
+    "subdir": null,
+    "tables": [
+      "pure RT__n",
+      "pure RT__p_adj",
+      "pure RT__r",
+      "pure TFD__n",
+      "pure TFD__p_adj",
+      "pure TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:52"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-pure__group-gatherers": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "pure",
+      "group": "gatherers"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-pure__group-gatherers.png",
+    "subdir": null,
+    "tables": [
+      "pure RT__n",
+      "pure RT__p_adj",
+      "pure RT__r",
+      "pure TFD__n",
+      "pure TFD__p_adj",
+      "pure TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:54"
+  },
+  "text_qa_corr_map__measure-reading_times__scaling-pure__group-hunters": {
+    "plot": "text_qa_corr_map",
+    "facets": {
+      "measure": "reading_times",
+      "scaling": "pure",
+      "group": "hunters"
+    },
+    "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-pure__group-hunters.png",
+    "subdir": null,
+    "tables": [
+      "pure RT__n",
+      "pure RT__p_adj",
+      "pure RT__r",
+      "pure TFD__n",
+      "pure TFD__p_adj",
+      "pure TFD__r"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:48:53"
+  }
+}

@@ -497,6 +497,24 @@ T5.8.
 
 ## 9. `reports/` layout
 
+> ### ✅ Implemented 2026-09-20, ahead of its stage
+>
+> This section landed early, with **T1.3**, because T1.3 had to decide where `save_output`
+> writes and inventing a second interim layout would have meant migrating 81 call sites twice.
+> **This is a deviation from §11**, which schedules the inversion in Stage E — recorded here
+> rather than done silently, per the standing rule about changes to this map.
+>
+> What exists now: `reports/<analysis>/figures/` and `reports/<analysis>/tables/`, with the
+> analysis names from the table below, plus a `manifest.json` per analysis recording which
+> function produced each figure. Filenames are key-value tagged
+> (`correctness_by_seq_len_threshold__group-hunters__threshold-4`), so a figure is identifiable
+> without its folder. `save_output` validates the analysis name against a registry, so a typo
+> cannot quietly mint a new top-level folder.
+>
+> What has *not* happened: the old `reports/plots/` and `reports/report_data/` trees are still
+> in place (1,812 files, tracked in git) pending a decision on removing them. Stage E's other
+> work — `viz/` dissolving into per-analysis `plots.py` — is untouched.
+
 Today: `reports/{plots,report_data}/<topic>/`, with **9 of 15 plot topics having no
 `report_data` counterpart** and three of the six that do having a *different name*
 (`area_significance_heatmaps` ↔ `area_mixed_models`, `texts_to_answers` ↔ `slopes`).
@@ -545,9 +563,11 @@ That leaves **no `descriptives/` folder**, which is the right outcome: every "ba
 turned out to be a figure *about something*, so each has a real home. Had one been a genuine
 context-free distribution, a `descriptives/` folder would have been the honest answer.
 
-The `papers/` mirroring mechanism is unaffected — `save_plot(paper_dirs=[...])` keeps working,
-just with the new relative paths. It also fixes the **two conflicting `paper_dirs`
-conventions** noted in T1.5, since the relative path now comes from one place.
+The `papers/` mirroring mechanism survives the inversion, with one change made 2026-09-20:
+it now writes under a single root, `papers/correctness_prediction/reports/<analysis>/{figures,tables}/`,
+mirroring the local layout exactly instead of adding `figures/` and `report_data/` beside the
+drafts. The two conflicting `paper_dirs` conventions from T1.5 are gone with `paper_dirs`
+itself — the relative path now comes from one place.
 
 ---
 
