@@ -105,6 +105,11 @@ def load_showcase_frame(
 
     meta = ia.drop_duplicates(subset=[Con.PARTICIPANT_ID, Con.TRIAL_ID])
 
+    # Drop any existing copies first, for the same reason as attach_item_difficulty:
+    # re-merging a column that is already present suffixes both copies to _x / _y
+    # instead of replacing it, and every lookup of the plain name then fails.
+    feats = feats.drop(columns=list(_META_COLS), errors="ignore")
+
     out = feats.merge(meta, on=[Con.PARTICIPANT_ID, Con.TRIAL_ID], how="left")
 
     assert len(out) == len(feats), (
@@ -1282,12 +1287,23 @@ def attach_item_difficulty(
     Asserts full coverage: a KnowQA item with no L1 counterpart would arrive as NaN and
     then be dropped from any model that conditions on difficulty, quietly changing which
     trials the session estimate is computed over.
+
+    Safe to call twice. A notebook cell gets re-run constantly, and merging a column
+    that is already there would suffix both copies to ``_x`` / ``_y`` rather than
+    replace it — so the existing column is dropped first and recomputed, which also
+    means a changed ``l1_source`` actually takes effect.
     """
     l1 = _resolve(l1_source)
     diff = l1.groupby(Con.TEXT_ID_WITH_Q_COLUMN)[Con.IS_CORRECT_COLUMN].mean()
-    out = df.merge(diff.rename(ITEM_DIFFICULTY_COL), left_on=Con.TEXT_ID_WITH_Q_COLUMN,
-                   right_index=True, how="left")
 
+    base = df.drop(columns=[ITEM_DIFFICULTY_COL], errors="ignore")
+    out = base.merge(diff.rename(ITEM_DIFFICULTY_COL), left_on=Con.TEXT_ID_WITH_Q_COLUMN,
+                     right_index=True, how="left")
+
+    assert len(out) == len(df), (
+        f"item-difficulty merge changed the row count: {len(df)} -> {len(out)}; "
+        "the L1 difficulty index is not unique per item"
+    )
     missing = int(out[ITEM_DIFFICULTY_COL].isna().sum())
     assert missing == 0, (
         f"{missing} KnowQA trial(s) have no L1 counterpart item, so no difficulty "
