@@ -20,17 +20,29 @@ from src.viz.visualisations_simplified_visits import (
 )
 
 from src.viz.visualisations_strategies import (
-    build_strategy_dataframe,
     proportion_with_dominant_strategy,
     plot_dominant_strategy_hist,
     plot_dominance_gap,
     plot_strategy_count_distribution,
     plot_dominant_strategy_counts_above_threshold,
-    build_prefix_completion_map_from_series,
-    add_completed_sequence_column,
     summarize_before_after,
     plot_strategies,
     run_all_strategy_plots,
+)
+
+# The dominance COMPUTATIONS moved to derived/pattern_breaking.py on 2026-09-20.
+# Re-exported here so notebooks importing from this facade keep working; new
+# code should import them from derived directly.
+from src.derived.pattern_breaking import (
+    build_starting_strategies,
+    build_prefix_completion_map,
+    add_completed_strategy_column,
+    dominance_gap_by_participant,
+    dominant_strategy_by_participant,
+    dominant_strategy_counts,
+    strategy_variety_by_participant,
+    summarize_completion_effect,
+    has_dominant_strategy,
 )
 
 from src.viz.visualisations_time_segments import (
@@ -91,18 +103,25 @@ __all__ = [
     # simplified visits
     "matrix_plot_simplified_visits",
     "run_all_simplified_visit_matrices",
-    # strategies
-    "build_strategy_dataframe",
+    # strategies -- plots
     "proportion_with_dominant_strategy",
     "plot_dominant_strategy_hist",
     "plot_dominance_gap",
     "plot_strategy_count_distribution",
     "plot_dominant_strategy_counts_above_threshold",
-    "build_prefix_completion_map_from_series",
-    "add_completed_sequence_column",
     "summarize_before_after",
     "plot_strategies",
     "run_all_strategy_plots",
+    # strategies -- computation, re-exported from derived/pattern_breaking.py
+    "build_starting_strategies",
+    "build_prefix_completion_map",
+    "add_completed_strategy_column",
+    "dominance_gap_by_participant",
+    "dominant_strategy_by_participant",
+    "dominant_strategy_counts",
+    "strategy_variety_by_participant",
+    "summarize_completion_effect",
+    "has_dominant_strategy",
     # time segments
     "_assign_time_segment",
     "add_time_segment_column",

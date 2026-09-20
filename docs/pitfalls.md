@@ -206,10 +206,21 @@ completed pair differ by ~2 points and flip the dominant label for ~1.1% of part
 covers at least half their trials" — and hunters use 6–28 distinct opening sequences each, so
 a 50%-dominant participant still produced a dozen others.
 
-> Two implementations of this currently exist (`viz/visualisations_strategies.py` and
-> `derived/pattern_breaking.py`), with divergent parsing and tie-breaking. That is
-> duplication to remove, not a design: **`todo.md` T1.6**. The threshold operator is also
-> inconsistent between them: **`todo.md` T1.1**.
+> **Resolved 2026-09-20 (`todo.md` T1.1, and most of T1.6).** Two implementations of this used
+> to exist (`viz/visualisations_strategies.py` and `derived/pattern_breaking.py`) with
+> divergent parsing, tie-breaking and threshold operators. **There is now one, in
+> `derived/pattern_breaking.py`**, and `viz/` only plots: `build_starting_strategies` for the
+> per-trial strategy, `dominant_strategy_by_participant` for the modal pick,
+> `has_dominant_strategy` for the threshold (`≥`, the only operator left), and
+> `build_prefix_completion_map` / `add_completed_strategy_column` for interrupted-scan
+> completion. The viz copy was verified byte-identical before deletion.
+>
+> Two corrections fell out: the tie-breaking never actually diverged between those two
+> (`glossary.md` §8 Caveat 2), but a **third** implementation in `visualisations_dominant_eye.py`
+> did have an order-dependent tie-break, which moved one participant.
+>
+> **What still waits on T3.21** is not the duplication but the *scope* of the completion map,
+> which is still learned population-wide over whatever frame it is given (T3.21 row 5).
 
 ---
 

@@ -108,12 +108,27 @@ And the `before_after_summary` dicts **[printed]**:
 | dominant label changed by completion | 2 participants (1.11%) | 2 participants (1.11%) |
 | mean % of sequences changed | 4.66% | 2.96% |
 
-> ⚠️ **Two conventions, two numbers — pick one before quoting.**
-> `proportion_with_dominant_strategy` uses strict `prop > threshold`; `summarize_before_after`
-> and `plot_dominant_strategy_counts_above_threshold` use `prop >= threshold`. That is why
-> hunters read as **46.1%** in the print and **48.89%** in the dict — same data.
-> Draft2 says "at least in half of the trials", which is `≥`, so the numbers matching the
-> paper's own wording are **48.9% / 53.3%** (hunters) and **58.3% / 61.1%** (gatherers).
+> ✅ **RESOLVED 2026-09-20 (`todo.md` T1.1) — there is now one convention.**
+> The stored output above predates the fix and is kept as the record of what was printed then.
+> `proportion_with_dominant_strategy` used strict `prop > threshold` while
+> `summarize_before_after` and `plot_dominant_strategy_counts_above_threshold` used
+> `prop >= threshold`, which is why hunters read as **46.1%** in the print and **48.89%** in
+> the dict — same data. Draft2 says "at least in half of the trials", which is `≥`.
+>
+> All of them now go through one function, `derived/pattern_breaking.has_dominant_strategy`,
+> so the printed line and the dict agree. **The canonical numbers are the `≥` ones, which the
+> table above already carries:** **48.89% / 53.33%** (hunters) and **58.33% / 61.11%**
+> (gatherers). The 46.1 / 49.4 / 56.1 / 57.8 quartet in the quoted stdout is superseded.
+>
+> The difference is 5 hunters and 4 gatherers whose dominance score is exactly 0.50.
+
+> ⚠️ **One small unexplained drift, not caused by that fix.** Recomputing this table on
+> today's code and data reproduces hunters exactly (0.4922 / 0.5119) but gives gatherers
+> **0.5271 / 0.5416** against the 0.5269 / 0.5414 transcribed above — +0.0002 on both. The
+> T1.1 merge is not the cause; old and new logic were checked to be bit-identical on the same
+> frames. Most likely the stored output (2026-07-13) predates a data rebuild. Too small to
+> matter for any claim, recorded so it is not mistaken for a regression later. Everything else
+> reproduces: 180 participants per group, `changed_label_n = 2` in both.
 
 **The group difference holds in the direction draft2 claims:** gatherers (no question
 preview) are more strategy-consistent than hunters (preview) — 58.3% vs 48.9% raw.
@@ -188,6 +203,19 @@ crosstab **[figure]** over the 193 participants with a dominant strategy:
 
 **No significance test is run anywhere** — the function only plots and returns the
 crosstab. Treat as an observation, not a result; it is not currently claimed in the paper.
+
+> ⚠️ **Two things to know before this number is used** (both established 2026-09-20).
+>
+> 1. **The crosstab's population depends on a threshold that defaults to 0.**
+>    `run_dominant_strategy_eye_analysis(threshold=0.0)` includes *every* participant, not
+>    only those with a dominant strategy. The "193 participants with a dominant strategy"
+>    heading above therefore needs checking against whatever threshold the stored run used —
+>    at `threshold=0.5` hunters contribute 88, not 96, because this path uses the **raw**
+>    strategy while the strategy figures use the **completed** one.
+> 2. **One hunter's label changed**, `l22_53`, when the unstable
+>    `sort_values(...).head(1)` tie-break was replaced with the deterministic rule. They have
+>    a genuine 2-way tie at a score of 0.2037, so they appear only in the `threshold=0.0`
+>    version. See the change log.
 
 ---
 
@@ -595,6 +623,9 @@ the latter, say what the new conclusion is.
 
 | Date | Change | Affected | Old → New | Conclusion? |
 |---|---|---|---|---|
+| 2026-09-20 | **Dominant-eye tie-break made deterministic.** `build_dominant_strategy_by_eye` used `sort_values(...).head(1)`, whose tie-break depends on row order; it now uses the shared deterministic rule | `findings.md` §1.6's crosstab, and only at the default `threshold=0.0` | **one hunter** (`l22_53`) moves between two strategy rows. Their dominance score is 0.2037, so they are excluded from every thresholded figure — at `threshold=0.5` nothing changes at all | **value only**, and a correctness fix: the old pick was order-dependent. Scores, `n_trials` and `n_total` identical for all 360. Separately, the per-eye bar charts now derive their heights from the crosstab instead of re-tallying: identical counts, but bars tied at the same height are now ordered deterministically rather than by hash order (hunters/Right: the two bars at count 1 swap) |
+| 2026-09-20 | **Dominance computation moved out of `viz/` into `derived/pattern_breaking.py`** — prefix completion, dominance gap, strategy variety, dominant-strategy counts, the raw-vs-completed summary, and the eye crosstab | nothing numeric; `viz/` keeps only plotting | — | **no change** — verified by reproducing §1.1, §1.2, §1.3 and §1.5 exactly (mean gap, variety 6–28 modal 13, counts 96/110, top-2 71/20 and 89/14). Done so these numbers can be *saved* rather than living only inside a PNG (T4.0) |
+| 2026-09-20 | `todo.md` **T1.1** — dominance threshold is `≥` everywhere, and the five copies of the modal-strategy pick were merged into `derived/pattern_breaking.dominant_strategy_by_participant` + `has_dominant_strategy` | `proportion_with_dominant_strategy`'s return value and the two printed lines in `run_all_strategy_plots`. No figure changes — the two thresholded figures already used `≥` | hunters 46.11% → **48.89%** raw, 49.4% → **53.33%** completed; gatherers 56.11% → **58.33%**, 57.8% → **61.11%** | **value only, and it is a convergence** — these are now the same numbers `summarize_before_after` already reported and that §1.2 quotes as canonical. Driven by 5 hunters and 4 gatherers scoring exactly 0.50. Dominant strategy per participant unchanged for all 360; bar-plot counts (96/110) unchanged; old and new logic verified bit-identical on the same frames |
 | *(pending)* | `todo.md` T3.6 — first fixation duration drops `"."` instead of zero-filling | `mean_first_fixation_duration__*` and its derived contrasts; basic-stats barcharts and heatmaps | answer-side ≈92–124 ms → ≈189 ms | **expect a conclusion change** — the per-area differences in this metric are currently driven by skip rate, so they should largely disappear. Headline 0.83 should not move (no first-fix column in `SELECT_1_COLS`); if it does, investigate. |
 | *(pending)* | `todo.md` T3.1 — Fisher tests moved to trial-level frames | ~96 data files, ~51 figures in three `correctness_by_*` folders | n 760,628 → 19,436; threshold-4 case OR 2.643 → 2.753, p 0.0 → 6e-60 | expected **value only** — the effect survives comfortably. Check the borderline variants. |
 | *(retracted)* | `todo.md` T3.2 — I had this as "nest feature selection inside CV folds". **`SELECT_1_COLS` is a manual pick, not machine-selected**, so there is no leakage to fix and no rerun. What remains is a Methods sentence | — | — | **no change — my error, corrected 2026-09-05** |
@@ -615,7 +646,9 @@ the latter, say what the new conclusion is.
 
 - Text Associations comes from `RT_correlations/` via `text_associations.ipynb`;
   `mixed_text_answer_effects.py` is a superseded strand (§7).
-- The `>` vs `≥` threshold inconsistency is tracked as a fix — `todo.md` **T1.1**.
+- The `>` vs `≥` threshold inconsistency is **fixed** (`todo.md` **T1.1**, 2026-09-20): `≥`
+  everywhere, via the one `has_dominant_strategy` rule. Canonical prevalences are
+  hunters 48.89% / 53.33% and gatherers 58.33% / 61.11%.
 - The all-participants `X%` **is wanted**. `run_all_strategy_plots` already takes
   `include_all`; it is just called with `False`. No todo item — it is a rerun, not a fix.
 - Dwell time and fixation count **stay coverage-inclusive**; only first-fixation duration

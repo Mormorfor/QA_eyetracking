@@ -8,6 +8,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from src import constants as Con
+from src.derived.pattern_breaking import (
+    DEFAULT_DOMINANCE_THRESHOLD,
+    DEFAULT_WINDOW_LEN,
+    add_completed_strategy_column,
+    build_prefix_completion_map,
+    build_starting_strategies,
+    dominance_gap_by_participant,
+    dominant_strategy_by_participant,
+    dominant_strategy_counts,
+    has_dominant_strategy,
+    strategy_variety_by_participant,
+    summarize_completion_effect,
+)
 from src.viz.plot_output import save_fig
 from src.viz.viz_helpers import split_participant_groups
 
@@ -16,77 +29,29 @@ from src.viz.viz_helpers import split_participant_groups
 # Dominant Strategies
 # ---------------------------------------------------------------------------
 
-def build_strategy_dataframe(
-    df: pd.DataFrame,
-    kind: str = "location",          # "location" or "label"
-    window_len: int = 4,
-    drop_question: bool = True,
-    strat_col: str = Con.STRATEGY_COL,
-) -> pd.DataFrame:
-    """
-    Build a per-trial 'strategy' DataFrame from the simplified fixation sequences.
-
-    - parses the list stored in Con.SIMPLIFIED_FIX_SEQ_BY_*
-    - optionally removes 'question' tokens
-    - takes the FIRST `window_len` entries
-    - stores them as tuples in `strat_col`
-
-    Returns a DataFrame with columns:
-        [Con.TRIAL_ID, Con.PARTICIPANT_ID, strat_col]
-    """
-    if kind == "label":
-        seq_col = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
-    elif kind == "location":
-        seq_col = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION
-    else:
-        raise ValueError("kind must be 'label' or 'location'")
-
-    df_sel = (
-        df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, seq_col]]
-        .drop_duplicates()
-        .copy()
-    )
-
-    def _parse_seq(x):
-        if isinstance(x, str):
-            try:
-                return ast.literal_eval(x)
-            except Exception:
-                return None
-        return x
-
-    df_sel[seq_col] = df_sel[seq_col].apply(_parse_seq)
-
-    def _first_window(seq):
-        if not isinstance(seq, (list, tuple)):
-            return ()
-        seq = list(seq)
-        if drop_question:
-            seq = [tok for tok in seq if tok != "question"]
-        if not seq:
-            return ()
-        return tuple(seq[:window_len])
-
-    df_sel[strat_col] = df_sel[seq_col].apply(_first_window)
-    return df_sel[[Con.TRIAL_ID, Con.PARTICIPANT_ID, strat_col]].copy()
-
+# NOTE: build_strategy_dataframe used to live here. It was a byte-identical
+# duplicate of derived.pattern_breaking.build_starting_strategies (verified on
+# both L1 groups: same rows, keys and strategy tuples), so it was removed on
+# 2026-09-20 and callers now use the derived one. Only the keyword changed --
+# `strat_col=` became `out_col=`.
 
 
 def proportion_with_dominant_strategy(
     df: pd.DataFrame,
     id_col: str = Con.PARTICIPANT_ID,
     strat_col: str = Con.STRATEGY_COL,
-    threshold: float = 0.8,
+    threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
 ) -> float:
     """
     Proportion of participants whose most frequent strategy
-    accounts for > threshold of their trials.
+    accounts for AT LEAST `threshold` of their trials.
     """
-    counts = df.groupby([id_col, strat_col]).size()
-    total = counts.groupby(level=0).sum()
-    top = counts.groupby(level=0).max()
-    prop = top / total
-    is_dominant = prop > threshold
+    dominant = dominant_strategy_by_participant(
+        df, id_col=id_col, strat_col=strat_col
+    )
+    is_dominant = has_dominant_strategy(
+        dominant[Con.DOMINANCE_SCORE], threshold=threshold
+    )
     return float(is_dominant.mean())
 
 
@@ -109,10 +74,9 @@ def plot_dominant_strategy_hist(
     - How many participants fall into each bin?
 
     """
-    counts = df.groupby([id_col, strat_col]).size()
-    total = counts.groupby(level=0).sum()
-    top = counts.groupby(level=0).max()
-    dominant_prop = top / total
+    dominant_prop = dominant_strategy_by_participant(
+        df, id_col=id_col, strat_col=strat_col
+    )[Con.DOMINANCE_SCORE]
 
     if isinstance(bins, int):
         bin_edges = np.linspace(0, 1, bins + 1)
@@ -166,19 +130,8 @@ def plot_dominance_gap(
     hist_kwargs = hist_kwargs or {"edgecolor": "k"}
     scatter_kwargs = scatter_kwargs or {"alpha": 0.7}
 
-    counts = df.groupby([id_col, strat_col]).size().unstack(fill_value=0)
-    props = counts.div(counts.sum(axis=1), axis=0)
-
-    p1 = props.max(axis=1)
-
-    def second_largest(row):
-        vals = row[row > 0].nlargest(2)
-        return vals.iloc[-1] if len(vals) > 1 else 0
-
-    p2 = props.apply(second_largest, axis=1)
-    gap = p1 - p2
-
-    result = pd.DataFrame({"p1": p1, "p2": p2, "gap": gap})
+    result = dominance_gap_by_participant(df, id_col=id_col, strat_col=strat_col)
+    p1, p2, gap = result["p1"], result["p2"], result["gap"]
 
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
@@ -223,7 +176,9 @@ def plot_strategy_count_distribution(
     """
     Distribution of how many distinct strategies each participant uses.
     """
-    strat_counts = df.groupby(id_col)[strat_col].nunique()
+    strat_counts = strategy_variety_by_participant(
+        df, id_col=id_col, strat_col=strat_col
+    )
 
     fig = plt.figure(figsize=figsize)
     if bins is None:
@@ -255,7 +210,7 @@ def plot_dominant_strategy_counts_above_threshold(
     df: pd.DataFrame,
     id_col: str = Con.PARTICIPANT_ID,
     strat_col: str = Con.STRATEGY_COL,
-    threshold: float = 0.5,
+    threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     figsize=(8, 4),
     h_or_g: str = "hunters",
     save: bool = True,
@@ -268,13 +223,9 @@ def plot_dominant_strategy_counts_above_threshold(
     barplot of which strategies are dominant and how many participants
     use each.
     """
-    counts = df.groupby([id_col, strat_col]).size().unstack(fill_value=0)
-    props = counts.div(counts.sum(axis=1), axis=0)
-    dominant_prop = props.max(axis=1)
-    dominant_strat = props.idxmax(axis=1)
-    mask = dominant_prop >= threshold
-    filtered = dominant_strat[mask]
-    freq = filtered.value_counts().sort_values(ascending=False)
+    freq = dominant_strategy_counts(
+        df, id_col=id_col, strat_col=strat_col, threshold=threshold
+    )
 
     fig = plt.figure(figsize=figsize)
     freq.plot(kind="bar", **bar_kwargs)
@@ -299,64 +250,11 @@ def plot_dominant_strategy_counts_above_threshold(
 
 
 
-def build_prefix_completion_map_from_series(series: pd.Series, full_len: int = 4):
-    """
-    From fully observed strategies (length == full_len), learn how
-    prefixes tend to be completed.
-
-    Returns a dict prefix -> most frequent full sequence.
-    """
-    full_counts = series[series.map(len).eq(full_len)].value_counts()
-    by_prefix = defaultdict(Counter)
-    for full_seq, c in full_counts.items():
-        for k in range(1, full_len):
-            pref = full_seq[:k]
-            by_prefix[pref][full_seq] += c
-    prefix2full = {
-        pref: max(counter.items(), key=lambda kv: (kv[1], kv[0]))[0]
-        for pref, counter in by_prefix.items()
-    }
-    return prefix2full
-
-
-
-def add_completed_sequence_column(
-    df: pd.DataFrame,
-    strat_col: str = Con.STRATEGY_COL,
-    full_len: int = 4,
-    col_suffix: str = "_completed",
-    prefix2full: dict = None,
-):
-    """
-    Use prefix-completion map to fill shorter strategies up to full_len.
-    Sequences are assumed to be tuples.
-
-    Adds two columns:
-    - <strat_col><col_suffix>: the completed sequence
-    - <strat_col>_was_completed: bool indicating whether the original
-      sequence was shorter than full_len (i.e. completion attempted)
-    """
-    df = df.copy()
-    series = df[strat_col]
-
-    if prefix2full is None:
-        prefix2full = build_prefix_completion_map_from_series(
-            series, full_len=full_len
-        )
-
-    was_completed_col = f"{strat_col}_was_completed"
-    df[was_completed_col] = series.map(lambda t: len(t) < full_len)
-
-    def _complete(t):
-        if len(t) >= full_len:
-            return t[:full_len]
-        return prefix2full.get(t, t)
-
-    comp = series.map(_complete)
-    comp_col = f"{strat_col}{col_suffix}"
-    df[comp_col] = comp
-
-    return df, prefix2full
+# NOTE: build_prefix_completion_map_from_series and add_completed_sequence_column
+# moved to derived.pattern_breaking on 2026-09-20 (as build_prefix_completion_map
+# and add_completed_strategy_column) -- they are the interrupted-scan completion
+# method, not plotting. Behaviour unchanged, including the population-wide scope
+# of the learned map (todo.md T3.21 row 5).
 
 
 def summarize_before_after(
@@ -364,7 +262,7 @@ def summarize_before_after(
     id_col: str = Con.PARTICIPANT_ID,
     raw_col: str = Con.STRATEGY_COL,
     comp_col: Optional[str] = None,
-    threshold: float = 0.5,
+    threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     bins: int = 20,
     figsize=(8, 5),
     h_or_g: str = "hunters",
@@ -426,96 +324,14 @@ def summarize_before_after(
 
     hist_kwargs = hist_kwargs or {"alpha": 0.5, "edgecolor": "k"}
 
-    counts_raw = df.groupby([id_col, raw_col]).size().unstack(fill_value=0)
-    prop_raw = counts_raw.max(axis=1) / counts_raw.sum(axis=1)
-    dom_raw = counts_raw.idxmax(axis=1)
-
-    counts_comp = df.groupby([id_col, comp_col]).size().unstack(fill_value=0)
-    prop_comp = counts_comp.max(axis=1) / counts_comp.sum(axis=1)
-    dom_comp = counts_comp.idxmax(axis=1)
-
-    both = pd.DataFrame({"raw": prop_raw, "comp": prop_comp}).dropna()
-    both["delta"] = both["comp"] - both["raw"]
-
-    both["raw_label"] = dom_raw.reindex(both.index)
-    both["comp_label"] = dom_comp.reindex(both.index)
-    both["changed_label"] = both["raw_label"] != both["comp_label"]
-
-    comp_series = df[comp_col]
-    raw_series = df[raw_col]
-    mask_valid = comp_series.notna() & raw_series.notna()
-
-    def _norm(t):
-        if t is None:
-            return None
-        t = tuple(t)
-        return t[:full_len] if len(t) > full_len else t
-
-    changed_rows = (
-        comp_series[mask_valid].map(_norm)
-        != raw_series[mask_valid].map(_norm)
+    summary, both = summarize_completion_effect(
+        df,
+        id_col=id_col,
+        raw_col=raw_col,
+        comp_col=comp_col,
+        threshold=threshold,
+        full_len=full_len,
     )
-
-    per_part_changed = (
-        pd.DataFrame(
-            {
-                "changed": changed_rows,
-                "total": True,
-                id_col: df.loc[mask_valid, id_col].values,
-            }
-        )
-        .groupby(id_col)
-        .agg(
-            seq_pct_changed=(
-                "changed",
-                lambda s: float(s.mean()) if len(s) else np.nan,
-            ),
-            seq_changed_n=("changed", "sum"),
-            seq_total_n=("total", "sum"),
-        )
-    )
-
-    both = both.join(per_part_changed, how="left")
-
-    changed_n = int(both["changed_label"].sum())
-    changed_pct = (
-        float(changed_n / len(both) * 100) if len(both) else np.nan
-    )
-    mean_seq_pct_changed = (
-        float(both["seq_pct_changed"].mean() * 100)
-        if both["seq_pct_changed"].notna().any()
-        else np.nan
-    )
-    median_seq_pct_changed = (
-        float(both["seq_pct_changed"].median() * 100)
-        if both["seq_pct_changed"].notna().any()
-        else np.nan
-    )
-
-    summary = {
-        "participants": int(len(both)),
-        "mean_raw": float(both["raw"].mean()) if len(both) else np.nan,
-        "mean_completed": float(both["comp"].mean())
-        if len(both)
-        else np.nan,
-        "mean_delta": float(both["delta"].mean())
-        if len(both)
-        else np.nan,
-        f"raw_≥{int(threshold*100)}%": float(
-            (both["raw"] >= threshold).mean() * 100
-        )
-        if len(both)
-        else np.nan,
-        f"comp_≥{int(threshold*100)}%": float(
-            (both["comp"] >= threshold).mean() * 100
-        )
-        if len(both)
-        else np.nan,
-        "changed_label_n": changed_n,
-        "changed_label_pct": changed_pct,
-        "mean_seq_pct_changed": mean_seq_pct_changed,
-        "median_seq_pct_changed": median_seq_pct_changed,
-    }
 
     bin_edges = (
         np.linspace(0, 1, bins + 1)
@@ -643,7 +459,7 @@ def run_all_strategy_plots(
     split_groups: bool = True,
     kind: str = "location",
     window_len: int = 4,
-    threshold: float = 0.5,
+    threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     output_root: str = "../reports/plots/strategies",
     save: bool = True,
 ) -> dict:
@@ -669,12 +485,12 @@ def run_all_strategy_plots(
         all_participants, split=split_groups, include_all=False
     )
     for group_name, df in groups.items():
-        df_strat = build_strategy_dataframe(
+        df_strat = build_starting_strategies(
             df,
             kind=kind,
             window_len=window_len,
             drop_question=True,
-            strat_col=Con.STRATEGY_COL,
+            out_col=Con.STRATEGY_COL,
         )
 
         dom_prop_raw = proportion_with_dominant_strategy(
@@ -685,10 +501,10 @@ def run_all_strategy_plots(
         )
         print(
             f"{dom_prop_raw:.1%} of {group_name} participants had a dominant "
-            f"strategy (>{threshold * 100:.0f}% of trials) before completion."
+            f"strategy (≥{threshold * 100:.0f}% of trials) before completion."
         )
 
-        df_strat, prefix_map = add_completed_sequence_column(
+        df_strat, prefix_map = add_completed_strategy_column(
             df_strat,
             strat_col=Con.STRATEGY_COL,
             full_len=window_len,
@@ -705,7 +521,7 @@ def run_all_strategy_plots(
         )
         print(
             f"{dom_prop_completed:.1%} of {group_name} participants had a dominant "
-            f"strategy (>{threshold * 100:.0f}% of trials) after completion."
+            f"strategy (≥{threshold * 100:.0f}% of trials) after completion."
         )
 
         ba_summary, ba_table, ba_fig, ba_ax = summarize_before_after(

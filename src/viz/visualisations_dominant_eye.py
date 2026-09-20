@@ -7,9 +7,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
+from src.derived.pattern_breaking import (
+    attach_dominant_eye,
+    build_starting_strategies,
+    dominant_strategy_by_eye_crosstab,
+    dominant_strategy_by_participant,
+    has_dominant_strategy,
+)
 from src.viz.plot_output import save_fig
 from src.viz.viz_helpers import split_participant_groups
-from src.viz.visualisations_strategies import build_strategy_dataframe
 
 
 
@@ -29,63 +35,32 @@ def build_dominant_strategy_by_eye(
     Returns one row per participant:
         [participant_id, eye_col, dominant_strategy, n_trials, n_total, dominant_prop]
     """
-    if eye_col not in df.columns:
-        raise KeyError(f"Column '{eye_col}' not found in df.")
-
-    # 1) Per-trial strategies from simplified sequences
-    df_strat = build_strategy_dataframe(
+    df_strat = build_starting_strategies(
         df,
         kind=kind,
         window_len=window_len,
         drop_question=drop_question,
-        strat_col=strat_col,
+        out_col=strat_col,
     )
 
-    # 2) Unique mapping: participant -> eye
-    eye_map = (
-        df[[Con.PARTICIPANT_ID, eye_col]]
-        .dropna(subset=[Con.PARTICIPANT_ID])
-        .groupby(Con.PARTICIPANT_ID)[eye_col]
-        .agg(lambda s: s.dropna().iloc[0] if s.dropna().size > 0 else np.nan)
+    dominant_rows = dominant_strategy_by_participant(
+        df_strat, id_col=Con.PARTICIPANT_ID, strat_col=strat_col
+    ).rename(
+        columns={
+            Con.DOMINANT_STARTING_STRATEGY: "dominant_strategy",
+            Con.DOMINANCE_SCORE: "dominant_prop",
+            Con.N_STRATEGY_TRIALS: "n_total",
+        }
     )
 
-    df_strat = df_strat.copy()
-    df_strat[eye_col] = df_strat[Con.PARTICIPANT_ID].map(eye_map)
-
-    # 3) Count strategies per (participant, eye, strategy)
-    counts = (
-        df_strat
-        .groupby([Con.PARTICIPANT_ID, eye_col, strat_col])
-        .size()
-        .reset_index(name="n_trials")
+    # Trials on the dominant strategy, recovered from the score.
+    dominant_rows["n_trials"] = (
+        (dominant_rows["dominant_prop"] * dominant_rows["n_total"])
+        .round()
+        .astype(int)
     )
-
-    # 4) Total trials per (participant, eye)
-    totals = (
-        counts
-        .groupby([Con.PARTICIPANT_ID, eye_col])["n_trials"]
-        .sum()
-        .rename("n_total")
-        .reset_index()
-    )
-
-    merged = counts.merge(
-        totals,
-        on=[Con.PARTICIPANT_ID, eye_col],
-        how="left",
-    )
-    merged["dominant_prop"] = merged["n_trials"] / merged["n_total"]
-
-    # 5) Keep only most frequent strategy per participant+eye
-    dominant_rows = (
-        merged
-        .sort_values("dominant_prop", ascending=False)
-        .groupby([Con.PARTICIPANT_ID, eye_col])
-        .head(1)
-        .reset_index(drop=True)
-    )
-    dominant_rows = dominant_rows.rename(
-        columns={strat_col: "dominant_strategy"}
+    dominant_rows = attach_dominant_eye(
+        dominant_rows, df, id_col=Con.PARTICIPANT_ID, eye_col=eye_col
     )
 
     return dominant_rows[
@@ -115,25 +90,14 @@ def plot_dominant_strategies_by_eye_sorted(
     sorted from most to least frequent dominant strategy.
     """
 
-    # string representation for plotting
-    def _strat_to_str(s):
-        if isinstance(s, (list, tuple)):
-            return " → ".join(map(str, s))
-        return str(s)
+    crosstab = dominant_strategy_by_eye_crosstab(
+        dom_df, eye_col=eye_col, strat_col=strat_col, min_count=min_count
+    )
 
-    df = dom_df.copy()
-    df["strategy_str"] = df[strat_col].apply(_strat_to_str)
-
-    # Optionally collapse very rare strategies into OTHER
-    strat_counts_all = df["strategy_str"].value_counts()
-    rare_strats = strat_counts_all[strat_counts_all < min_count].index
-    df.loc[df["strategy_str"].isin(rare_strats), "strategy_str"] = "OTHER"
-
-    crosstab = pd.crosstab(df["strategy_str"], df[eye_col])
-
-    for eye in df[eye_col].dropna().unique():
-        df_eye = df[df[eye_col] == eye]
-        freq = df_eye["strategy_str"].value_counts().sort_values(ascending=False)
+    # The per-eye bars ARE the crosstab's columns -- no second tally needed.
+    for eye in crosstab.columns:
+        freq = crosstab[eye]
+        freq = freq[freq > 0].sort_values(ascending=False, kind="stable")
 
         fig, ax = plt.subplots(figsize=(10, 6))
         freq.plot(kind="barh", ax=ax)
@@ -197,7 +161,9 @@ def run_dominant_strategy_eye_analysis(
         )
 
         if threshold > 0.0:
-            dom_df = dom_df[dom_df["dominant_prop"] >= threshold].copy()
+            dom_df = dom_df[
+                has_dominant_strategy(dom_df["dominant_prop"], threshold=threshold)
+            ].copy()
 
         # Put each group into its own folder to avoid overwriting
         group_out_root = os.path.join(output_root, group_key)

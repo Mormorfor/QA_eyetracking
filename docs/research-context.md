@@ -222,10 +222,14 @@ the prefix-completion pair `build_prefix_completion_map_from_series` /
 `viz/visualisations_simplified_visits.py` (the first-four-visits heatmap), and
 `derived/pattern_breaking.py` (the per-trial model features derived from the same concept).
 
-> **Two implementations of "starting strategy" currently coexist** — descriptive (with prefix
+> **Two implementations of "starting strategy" still coexist** — descriptive (with prefix
 > completion, in `viz/visualisations_strategies.py`) and model-feature (without, in
 > `derived/pattern_breaking.py`). **To be unified: `todo.md` T1.6.** The completion on/off
 > difference is a real parameter; two code paths for it is not.
+>
+> *(Half done, 2026-09-20: the two no longer duplicate the reduction to a dominant strategy —
+> both now call `derived/pattern_breaking.dominant_strategy_by_participant`. What remains
+> duplicated is the sequence parsing and windowing.)*
 >
 > Which variant the *feature* ends up using matters little here: the point of the first-scan
 > analysis is that the opening scan is **not** predictive of correctness, and that holds
@@ -233,10 +237,12 @@ the prefix-completion pair `build_prefix_completion_map_from_series` /
 > the descriptive figures.
 
 > ⚠️ Three smaller things, all in `findings.md`: the all-participants `X%` was never
-> produced (`run_all_strategy_plots` forces `include_all=False`); the threshold is applied as
+> produced (`run_all_strategy_plots` forces `include_all=False`); ~~the threshold is applied as
 > strict `>` in one function and `≥` in two others, which is why the printed 46.1% and the
-> summary's 48.9% differ; and "dominant" means *modal*, not consistent — hunters use 6–28
-> distinct opening sequences each, modal ≈13. That last point belongs next to the headline.
+> summary's 48.9% differ~~ — **fixed 2026-09-20, `todo.md` T1.1: `≥` everywhere, so the
+> canonical prevalences are hunters 48.89% / 53.33% and gatherers 58.33% / 61.11%**; and
+> "dominant" means *modal*, not consistent — hunters use 6–28 distinct opening sequences each,
+> modal ≈13. That last point belongs next to the headline.
 
 ### 3.2 End of trial behavior
 

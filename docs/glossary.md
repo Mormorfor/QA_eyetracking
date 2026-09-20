@@ -285,24 +285,48 @@ correct-trials-only subsets. For KnowQA there is a separate issue: one `particip
 several sessions within the same file, so these features pool across sittings.
 See `docs/pitfalls.md` §3.
 
-**Caveat 2 — two implementations, one with completion and one without.** *(Duplication to be
-removed — `todo.md` T1.6. The completion-on/off difference is a real parameter; the two code
-paths are not.)*
-- `viz/visualisations_strategies.py::build_strategy_dataframe` — descriptive side. Followed
-  by `build_prefix_completion_map_from_series` + `add_completed_sequence_column`, which **is**
-  the interrupted-scan completion: from strategies observed at full length 4, learn how each
-  prefix is most often completed, then fill the short ones. The paper's prevalence figures
-  come from here, reported both raw and completed.
-- `derived/pattern_breaking.py::build_starting_strategies` — model-feature side. **No**
-  completion; two variants (question tokens kept / dropped).
+**Caveat 2 — ~~two implementations, one with completion and one without~~ ✅ merged
+2026-09-20 (`todo.md` T1.1 / most of T1.6).** There is now one implementation of every
+dominance quantity, all in `derived/pattern_breaking.py`; `viz/` plots and nothing else:
 
-They duplicate `_parse_seq` and the windowing, and tie-break differently (`idxmax` vs an
-explicit deterministic rule), so they can pick different dominant strategies on ties.
+| | |
+|---|---|
+| `build_starting_strategies` | the per-trial strategy — first `window_len` tokens, `drop_question` optional |
+| `dominant_strategy_by_participant` | modal strategy + `dominance_score` + `n_strategy_trials` |
+| `has_dominant_strategy` | the `≥` threshold, the only operator in the stack |
+| `build_prefix_completion_map` + `add_completed_strategy_column` | interrupted-scan completion: from strategies observed at full length 4, learn how each prefix is most often completed, then fill the short ones |
+| `dominance_gap_by_participant`, `strategy_variety_by_participant`, `dominant_strategy_counts`, `summarize_completion_effect` | the descriptive quantities behind `findings.md` §1.1–§1.5 |
 
-**Caveat 3 — the threshold operator is inconsistent.** `proportion_with_dominant_strategy`
-uses strict `prop > threshold`; `summarize_before_after` and
-`plot_dominant_strategy_counts_above_threshold` use `prop >= threshold`. Same data, two
-numbers (hunters: 46.1% vs 48.9%). Draft2's "at least half" implies `≥`.
+The completion-on/off difference remains a real parameter — the paper's prevalence figures
+are reported both raw and completed — but it is now a separate, composable call rather than a
+second code path. The old `viz::build_strategy_dataframe` was verified byte-identical to
+`build_starting_strategies` on both L1 groups before being deleted.
+
+> *Correction, 2026-09-20:* this entry used to add that the two "tie-break differently
+> (`idxmax` vs an explicit deterministic rule), so they can pick different dominant strategies
+> on ties". **That was wrong.** `unstack()` sorts the strategy tuples and `idxmax` returns the
+> first maximum — the lexicographically smallest — which is the same rule. Checked against the
+> L1 data, where 2 hunters and 1 gatherer have genuine ties: all 360 participants come out
+> identical. A *third* implementation, in `visualisations_dominant_eye.py`, did have an
+> order-dependent tie-break (`sort_values(...).head(1)`); replacing it moved one participant
+> (`findings.md` §1.6 and its change log).
+
+> *Correction, 2026-09-20:* this paragraph used to add that the two "tie-break differently
+> (`idxmax` vs an explicit deterministic rule), so they can pick different dominant strategies
+> on ties". **That was wrong.** `unstack()` sorts the strategy tuples and `idxmax` returns the
+> first maximum — the lexicographically smallest — which is the same rule. Checked against the
+> L1 data, where 2 hunters and 1 gatherer have genuine ties: all 360 participants come out
+> identical. Moot now that there is one implementation, but recorded so the claim is not
+> reintroduced.
+
+**Caveat 3 — ~~the threshold operator is inconsistent~~ ✅ fixed 2026-09-20 (`todo.md` T1.1).**
+`proportion_with_dominant_strategy` used strict `prop > threshold` while
+`summarize_before_after` and `plot_dominant_strategy_counts_above_threshold` used
+`prop >= threshold`, so the same data gave two numbers (hunters: 46.1% vs 48.9%).
+Draft2's "at least half" implies `≥`, and that is now the only operator: every threshold
+comparison goes through `derived/pattern_breaking.has_dominant_strategy`, with
+`DEFAULT_DOMINANCE_THRESHOLD = 0.5` beside it. **Canonical: hunters 48.89% raw / 53.33%
+completed, gatherers 58.33% / 61.11%.**
 
 **Caveat 4 — no all-participants figure.** `run_all_strategy_plots` calls
 `split_participant_groups(..., include_all=False)`, so only hunters and gatherers are

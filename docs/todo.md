@@ -1,7 +1,7 @@
 # TODO
 
 Working list for the cleanup, ordered from smallest and safest to largest.
-**Nothing here is done. Nothing gets done without Diana's go-ahead per item.**
+**Nothing gets done without Diana's go-ahead per item.**
 
 ## How to use this file
 
@@ -13,6 +13,21 @@ paper; T6 is the structural rewrite we haven't designed yet.
 | **Effort**   | S = minutes, M = an hour or two, L = a session or more                                                |
 | **Risk**     | how much can break, or how much a reported result moves                                               |
 | **Verified** | ✅ I confirmed it against stored output · ⚠️ read from code only, **check with a shell before acting** |
+
+### Status markers — `✅ DONE` is not the same as `✅ decided`
+
+`✅` was doing two jobs in this file. Split as of 2026-09-20:
+
+| Marker            | Means                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| **✅ DONE**        | finished. Nothing left for anyone. Any number it moved is in `findings.md`'s change log |
+| **↪️ ABSORBED**    | no longer an item in its own right — folded into another, which is named             |
+| ✅ **decided**     | Diana has ruled; **the implementation is still outstanding.** Not done               |
+| ⏸ **deferred**    | deliberately not now                                                               |
+| ⚠️                 | read from code, never executed — verify before acting (see §V)                     |
+
+**Nothing in this file is currently waiting on a decision from Diana.** Everything that is
+not `✅ DONE` or `↪️ ABSORBED` is work outstanding on Claude's side, or a deliberate deferral.
 
 Claude could not execute anything on this machine while this list was written, so every
 ⚠️ item is a code reading, not a test result. Check those first — see §V.
@@ -41,9 +56,13 @@ re-run before the paper is finished. Where an item is only a rerun, it says so.
 
 Safe, self-contained, no reported number changes. Good warm-up batch.
 
-### T1.1 — Make the dominance threshold `≥` everywhere ✅ S · low risk
+### T1.1 — Make the dominance threshold `≥` everywhere ✅ **DONE 2026-09-20**
 
-Three functions apply the dominant-strategy threshold, and they disagree:
+> **Done, and the scope grew.** The operator is now written down in exactly one place, and
+> the five near-copies of "pick the participant's modal strategy and its share" that used to
+> carry it were merged into one. See the closing note below for what was and wasn't touched.
+
+The original diagnosis — three functions applied the threshold and disagreed:
 
 | Function                                        | File                                       | Operator           |
 | ----------------------------------------------- | ------------------------------------------ | ------------------ |
@@ -51,12 +70,89 @@ Three functions apply the dominant-strategy threshold, and they disagree:
 | `summarize_before_after`                        | `viz/visualisations_strategies.py:504-513` | `>= threshold`     |
 | `plot_dominant_strategy_counts_above_threshold` | `viz/visualisations_strategies.py:275`     | `>= threshold`     |
 
-This is why the same data prints **46.1%** and reports **48.89%** for hunters. Draft2 says
+This is why the same data printed **46.1%** and reported **48.89%** for hunters. Draft2 says
 "at least in half of the trials", which is `≥`.
 
-**Do:** change `:89` to `>=`, and update the print string in `run_all_strategy_plots`
-(`:686-689`, `:706-709`) from `(>{threshold}% of trials)` to `(≥{threshold}%)`.
-**After:** hunters 48.9% raw / 53.3% completed; gatherers 58.3% / 61.1%.
+**What was done.** Diana's instruction (2026-09-20) was `≥` everywhere *and* one
+implementation instead of several.
+
+- **`derived/pattern_breaking.py` now owns both.** `_dominant_from_strategies` was promoted
+  to public `dominant_strategy_by_participant`, and two new symbols sit beside it:
+  `DEFAULT_DOMINANCE_THRESHOLD = 0.5` and `has_dominant_strategy(score, threshold)`, which is
+  the **only** place the `>=` is written. Every threshold comparison in the strategy stack
+  goes through it.
+- **Five reduction sites collapsed into one.** `proportion_with_dominant_strategy`,
+  `plot_dominant_strategy_hist`, `plot_dominant_strategy_counts_above_threshold`,
+  `summarize_before_after` (twice — raw and completed) and
+  `visualisations_dominant_eye.build_dominant_strategy_by_eye` all call the shared function
+  now. Three different tie-breaks (`idxmax`, `sort_values().head(1)`, explicit `min`) became
+  the one deterministic rule.
+- `proportion_with_dominant_strategy`'s odd `threshold=0.8` default became
+  `DEFAULT_DOMINANCE_THRESHOLD`, matching the other three. Nothing passed 0.8.
+- The two print strings in `run_all_strategy_plots` now say `(≥{n}% of trials)`.
+
+**Why `derived/`.** `restructure-map.md` §5.1 sends `pattern_breaking.py` to
+`features/strategies.py` and `visualisations_strategies.py` to `analyses/scan_strategies/plots.py`,
+so the dependency runs `analyses/` → `features/` — the map's "imports only ever point
+downwards". The function moves with its file when Stage C/E lands, callers move with theirs.
+It is also exactly where **T1.6**'s `scope` flag has to live.
+
+**Measured effect.** Only the previously-inconsistent number moved; everything else is
+bit-identical (verified by running old and new logic on the same frames):
+
+| | before | after |
+|---|---|---|
+| `proportion_with_dominant_strategy`, hunters | 46.11% raw / 49.4% completed | **48.89% / 53.33%** |
+| `proportion_with_dominant_strategy`, gatherers | 56.11% / 57.8% | **58.33% / 61.11%** |
+| `summarize_before_after` `raw_≥50%` / `comp_≥50%` | 48.89 / 53.33 | unchanged |
+| bar-plot participants above threshold | 96 hunters / 110 gatherers | unchanged |
+| dominant strategy picked, per participant | — | unchanged for all 360 |
+
+So this is a **convergence onto the number the paper already quotes**, not a shift. The driver
+is 5 hunters and 4 gatherers whose dominance score is exactly 0.50 (2.78 and 2.22 points).
+
+**No figures need regenerating** — the two thresholded figures already used `≥`. Only stdout
+and `proportion_with_dominant_strategy`'s return value changed.
+
+**Follow-on, same day: all dominance computation moved into `pattern_breaking.py`.**
+Diana's instruction was that the viz modules should plot, not compute. Eight things moved,
+all behaviour-preserving unless noted:
+
+| moved | from | now |
+|---|---|---|
+| strategy construction | `viz::build_strategy_dataframe` | **deleted** — it was a byte-identical duplicate of `build_starting_strategies` (verified on both groups: same rows, keys, tuples, length distribution) |
+| prefix completion (map + apply) | `viz::build_prefix_completion_map_from_series`, `add_completed_sequence_column` | `build_prefix_completion_map`, `add_completed_strategy_column` |
+| dominance gap (p1, p2, gap) | inside `plot_dominance_gap` | `dominance_gap_by_participant` |
+| strategy variety | inside `plot_strategy_count_distribution` | `strategy_variety_by_participant` |
+| dominant-strategy tally | inside `plot_dominant_strategy_counts_above_threshold` | `dominant_strategy_counts` |
+| raw-vs-completed summary | inside `summarize_before_after` (~95 lines) | `summarize_completion_effect` |
+| participant → eye join | inside `build_dominant_strategy_by_eye` | `attach_dominant_eye` |
+| eye × strategy crosstab | inside `plot_dominant_strategies_by_eye_sorted` | `dominant_strategy_by_eye_crosstab` |
+
+**Why it mattered beyond tidiness:** every one of these is a `findings.md` §1.1–§1.6 number,
+and all six of those topics are in **T4.0**'s "no numbers on disk" list — precisely *because*
+the computation sat inside a plotting function whose returned frame the notebook drops. They
+are now callable and saveable without drawing anything.
+
+**Verified** by reproducing §1.1, §1.2, §1.3 and §1.5 exactly: mean dominant share
+0.4922 / 0.5271, delta +0.0197 / +0.0145, 2 changed labels per group, variety 6–28 modal 13,
+dominant counts 96 / 110 with top-2 71/20 and 89/14.
+
+> **One real behaviour change, logged in `findings.md`.**
+> `build_dominant_strategy_by_eye` used `sort_values(...).head(1)`, an order-dependent
+> tie-break. Under the deterministic rule **one hunter (`l22_53`) moves between two strategy
+> rows** — a genuine 2-way tie at a score of 0.2037, so they are below every threshold and
+> appear only in the `threshold=0.0` crosstab. Scores, `n_trials` and `n_total` are identical
+> for all 360. This is a fix, not a regression.
+
+`viz/visualisations.py` re-exports the moved functions so existing notebook imports keep
+working; new code should import from `derived` directly.
+
+**Not touched, deliberately:** the strategy *construction* (`build_strategy_dataframe` vs
+`build_starting_strategies`) and the prefix completion. That is **T1.6** proper and stays
+blocked on **T3.21** — "who is dominant, given per-trial strategies" is not scope-dependent,
+"which trials go in" is. `plot_dominance_gap` also still builds its own props matrix, because
+it needs the *second*-largest share as well as the largest; it applies no threshold.
 
 ### T1.3 — Make plot and data saving consistent and robust across the project ⚠️ M · low risk
 
@@ -125,19 +221,42 @@ express it is not.
 
 **What has to be reconciled while merging:**
 
-* `_parse_seq` and the first-window logic are written twice, near-identically.
+* ~~`_parse_seq` and the first-window logic are written twice, near-identically.~~
+  **Done 2026-09-20.** `viz::build_strategy_dataframe` was verified byte-identical to
+  `build_starting_strategies` on both L1 groups and was deleted; `viz` calls the derived one.
+  So the two `_parse_seq` copies are now one.
 
-* **Tie-breaking differs.** `viz` uses `props.idxmax(axis=1)` (pandas first-in-column-order);
-  `derived` uses an explicit `min(counts.items(), key=lambda kv: (-kv[1], kv[0]))`. On a tie
-  they can pick different dominant strategies. Keep the explicit deterministic rule.
+* ~~**Tie-breaking differs.**~~ **Refuted and closed, 2026-09-20.** The claim was that `viz`'s
+  `props.idxmax(axis=1)` and `derived`'s explicit
+  `min(counts.items(), key=lambda kv: (-kv[1], kv[0]))` could pick different dominant
+  strategies on a tie. They cannot: `unstack()` sorts the strategy tuples and `idxmax` returns
+  the *first* maximum, i.e. the lexicographically smallest — the same rule. Verified on the L1
+  data, where 2 hunters and 1 gatherer do have genuine ties at the top: all 360 participants
+  get the same dominant strategy under either implementation.
 
-* **Threshold operator differs** — that is T1.1, and it lives in the same file. Do both
-  together.
+* ~~**Threshold operator differs**~~ — **done, T1.1 (2026-09-20).**
 
 * The completion map is learned **population-wide over whatever frame it is given**, so it is
   group-scoped in the current descriptive path (hunters and gatherers get different maps).
   Decide whether the unified function learns it per call or takes a precomputed map — this is
   row 5 of **T3.21**, and the answer is the scope flag that item defines.
+
+> **Nearly all of this item landed on 2026-09-20 alongside T1.1.** There is now **one**
+> implementation of every dominance quantity, all in `derived/pattern_breaking.py`: the
+> per-trial strategy (`build_starting_strategies`), the reduction
+> (`dominant_strategy_by_participant`), the threshold (`has_dominant_strategy`), and prefix
+> completion (`build_prefix_completion_map` / `add_completed_strategy_column`). `viz/` plots
+> and nothing else.
+>
+> **What is left is the one thing this item was really blocked on: the `scope` parameter.**
+> Diana, 2026-09-20: *"keep it as is for now, we will deal with T3.21 in its own time."* So
+> the completion map is still learned population-wide over whatever frame it is given — row 5
+> of **T3.21**, behaviour deliberately unchanged in the move. The consolation is that it now
+> has to be changed in **one** place instead of two.
+>
+> The `complete: bool` / `window_len` / `drop_question` parameterisation this item describes
+> is effectively satisfied: `build_starting_strategies` already takes `window_len` and
+> `drop_question`, and completion is a separate, composable call rather than a flag.
 
 **Blocked on T3.21.** The unified function is exactly where the `scope` parameter has to live,
 so settle that first or this gets built twice.
@@ -265,16 +384,16 @@ They are *not* a priority order. This index is the reading order.
 | --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ measured · **high impact**                                              |
 | T3.3      | Coefficient CIs wrong three ways                                                                            | ⚠️ **high impact, unverified**                                            |
-| T3.21     | Participant-level accumulative features — scope flag, default `within_group`                                | ✅ **decided**; implementation blocks T1.6, T6.1                           |
-| T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **decided and now unblocked — ready to run**                            |
-| T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **decided**: keep the 0 fill, document it                               |
-| T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ requirement set                                                         |
-| T3.17     | Assert the invariants the pipeline assumes                                                                  | ✅ · integrity rules                                                       |
-| T3.18     | Does `check_text_alignment` catch a real problem?                                                           | ✅ **resolved 2026-09-07** — yes, in three modes; area labels now come from screen geometry |
+| T3.21     | Participant-level accumulative features — scope flag, default `within_group`                                | ✅ **decided**, implementation outstanding; blocks the last of T1.6, T6.1  |
+| T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **decided**, unblocked — ready to run, not yet run                      |
+| T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **decided**: keep the 0 fill, document it — documenting outstanding     |
+| T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ **decided** — requirement set, implementation outstanding               |
+| T3.17     | Assert the invariants the pipeline assumes                                                                  | ✅ **decided** — integrity rules, implementation outstanding               |
+| T3.18     | Does `check_text_alignment` catch a real problem?                                                           | **✅ DONE** 2026-09-07 — yes, in three modes; area labels now come from screen geometry |
 | T3.19     | Is `last_answer_area_visited_lbl` buggy?                                                                    | ⚠️ investigation                                                          |
 | T3.2      | Say in Methods that features were hand-picked                                                               | ⚠️ low impact (was high — retracted); figure-2 concern checked and closed |
-| T3.13     | Dwell/count stay coverage-inclusive                                                                         | ✅ **resolved, no action**                                                 |
-| T3.15     | Two feature-provenance paths in `cross_validation.py`                                                       | ⏸ **deferred to the restructure** → T3.21                                 |
+| T3.13     | Dwell/count stay coverage-inclusive                                                                         | **✅ DONE** — resolved, no action                                          |
+| T3.15     | Two feature-provenance paths in `cross_validation.py`                                                       | **↪️ ABSORBED** into T3.21 (which settles the direction)                   |
 | T3.4      | Smaller number-movers — holds T3.5, T3.7–T3.12                                                              | mixed                                                                     |
 | ~~T3.16~~ | *(ordinal A>B>C>D structure in the model — considered and declined 2026-09-05; number retired, not reused)* | —                                                                         |
 
@@ -467,7 +586,7 @@ number change — log it (see `findings.md` change log).
   is False, so unfixated rows stay excluded — unchanged behaviour, and it stops depending on
   the in-place int coercion described in T3.11.
 
-### T3.13 — ~~Decision needed~~ **RESOLVED 2026-09-04: only first fixation duration excludes unread words** ✅
+### T3.13 — ~~Decision needed~~ **RESOLVED 2026-09-04: only first fixation duration excludes unread words** ✅ DONE
 
 **Diana's decision: dwell time and fixation count stay coverage-inclusive. No action.**
 First-fixation duration (T3.6) is the only metric changing. Pupil columns already exclude and
@@ -612,7 +731,7 @@ indistinguishable. Whatever policy is chosen, the imputed cells should stay iden
 **Whatever is decided, report the count in Methods** — `findings.md` §8 now carries the
 current figure.
 
-### T3.15 — Two feature-provenance paths in `cross_validation.py` ⚠️ **deferred to the restructure**
+### T3.15 — Two feature-provenance paths in `cross_validation.py` ↪️ **ABSORBED into T3.21**
 
 **Diana, 2026-09-05: not a decision to make now.** Everything will be run and re-run many
 times before the paper's numbers are final, and the choice will most likely be moot once the
@@ -678,7 +797,7 @@ the same missing-assertion problem on a different join. Worth doing in one pass 
 > assertion does fire, that is a finding, not a regression — log it in the `findings.md`
 > change log.
 
-### T3.18 — ~~Verify that `check_text_alignment` catches a real problem~~ **RESOLVED 2026-09-07: the bug is real, and area labels no longer depend on the stored text** ✅
+### T3.18 — ~~Verify that `check_text_alignment` catches a real problem~~ **RESOLVED 2026-09-07: the bug is real, and area labels no longer depend on the stored text** ✅ DONE
 
 **The guard was right, and it never excluded anything.** It is called with a hardcoded
 `strict=False` and its return value is discarded, so it only ever printed — there was no
@@ -925,15 +1044,15 @@ subsumes the old T3.15 and interacts with T6.1.
 
 | #       | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Where                                                                             | Note                                                                                                                         |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| T3.5 ✅  | **A trial can never lack a confirmed selection** (Diana, 2026-09-05) — so the `is_correct = 0` fallback for a missing selection is dead code, not a silent exclusion. It should be an **assertion**, not a fallback: if a NaN selection ever appears, the run must stop. Folded into T3.17                                                                                                                                                                                                                                                                                                                                                                                                                               | `data_csv_generation.py:232`                                                      | assert, don't handle                                                                                                         |
+| T3.5 ↪️  | **ABSORBED into T3.17.** **A trial can never lack a confirmed selection** (Diana, 2026-09-05) — so the `is_correct = 0` fallback for a missing selection is dead code, not a silent exclusion. It should be an **assertion**, not a fallback: if a NaN selection ever appears, the run must stop. Folded into T3.17                                                                                                                                                                                                                                                                                                                                                                                                                               | `data_csv_generation.py:232`                                                      | assert, don't handle                                                                                                         |
 | —       | *(the first-fixation-duration coercion was here; promoted to its own item — see* ***T3.6*** *above)*                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | <br />                                                                            | <br />                                                                                                                       |
 | T3.7    | Run-based RT fails silently to all-zeros on a `(participant_id, TRIAL_INDEX)` key mismatch — row still written, indistinguishable from a real zero. Compounded: `button_clicks_data.csv` is only rebuilt when asked or missing, so a stale table is reused quietly                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `derived/reading_times.py:229`, `:250`, `:271-273`; `data_csv_generation.py:1482` | Add an assertion on join coverage                                                                                            |
-| T3.8 →  | **Folded into T3.20.** `get_participant_pupil_stats` defaults to a hardcoded L1 fixation path; `answer_RTs/features.py:199` calls it with no path, so paragraph-span pupil z-scores are baselined against L1's answer screen regardless of dataset                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `derived/pupil_norm.py:56-62`                                                     | fix as part of T3.20                                                                                                         |
-| T3.9 ✅  | **DECIDED 2026-09-05: keep the** **`val_*`** **regimes, and report them.** They are not dropped. Since the logreg tunes no hyperparameters they are effectively a second test set rather than a validation set — which is fine once they are *shown* rather than folded into an average. The actual fix is therefore narrower than the original framing: `summary_overall_df` should stop averaging **all six** regimes into one `mean_balanced_accuracy`, because that single number silently mixes val and test. Report per regime; if a headline average is wanted, average the three the paper reports                                                                                                               | `cross_validation.py:398-410`, `:445-457`, `:1023-1034`                           | Keep all seven regimes; stop pooling them into one figure                                                                    |
+| T3.8 ↪️  | **ABSORBED into T3.20.** `get_participant_pupil_stats` defaults to a hardcoded L1 fixation path; `answer_RTs/features.py:199` calls it with no path, so paragraph-span pupil z-scores are baselined against L1's answer screen regardless of dataset                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `derived/pupil_norm.py:56-62`                                                     | fix as part of T3.20                                                                                                         |
+| T3.9 ✅  | **decided, implementation outstanding. DECIDED 2026-09-05: keep the** **`val_*`** **regimes, and report them.** They are not dropped. Since the logreg tunes no hyperparameters they are effectively a second test set rather than a validation set — which is fine once they are *shown* rather than folded into an average. The actual fix is therefore narrower than the original framing: `summary_overall_df` should stop averaging **all six** regimes into one `mean_balanced_accuracy`, because that single number silently mixes val and test. Report per regime; if a headline average is wanted, average the three the paper reports                                                                                                               | `cross_validation.py:398-410`, `:445-457`, `:1023-1034`                           | Keep all seven regimes; stop pooling them into one figure                                                                    |
 | T3.10   | Fold-level CIs use `se = std/sqrt(n_folds)`, treating overlapping folds as independent → anti-conservative. Also an unweighted mean over folds regardless of each fold's `n_eval`, and a silent fallback to z=1.96 for any `ci` outside {.90,.95,.99}                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `cross_validation.py:876-901`                                                     | These are the CIs on the comparison figure                                                                                   |
 | T3.11   | Five group-feature functions mutate the caller's frame in place, creating an undocumented ordering dependency (`create_first_encounter_pupil_size` only works because `create_mean_first_fix_duration` already coerced a column to int). Also leaks `area_skipped` and `"."→0` coercions into the saved output                                                                                                                                                                                                                                                                                                                                                                                                           | `data_csv_generation.py:458, 475, 490, 513-514, 533`, `:1221`                     | Running a subset via `group_function_names=[...]` can compare `str > int`                                                    |
-| T3.12 ✅ | **The global** **`fill_value = 0.0`** **is wrong for exclude-convention columns.** Measured 2026-09-04: the pupil family is the only one carrying real NaN (10,039 cells per metric — question 5,810, answers A 257 / B 784 / C 829 / D 787). Filling a *z-score* with 0 asserts "this area had this participant's mean pupil size" for an area never looked at. Live in the headline model: `mean_max_fix_pupil_size_z__correct` has **257 NaN (1.32% of trials)**, the other nine `SELECT_1_COLS` features have none — 0.132% of the feature matrix. T3.6 will add first-fixation duration to the same problem. **Not** an issue for RT/TFD/dwell/count: those have zero NaN and their zeros are real data (see below) | `logreg_model.py:24`, `:57-58`                                                    | **Fix tracked as T3.14** — per-column fill policy, covering both families. Report the imputation count in Methods either way |
-| T3.20 ✅ | **Every dataset owns its own pupil baseline, and every consumer uses the right one** — full item as its own section above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `pupil_norm.py`, `know_qa_dataprep.py:415`/`:931`, `answer_RTs/features.py:199`   | Requirement set 2026-09-05. Absorbs T3.8                                                                                     |
+| T3.12 ↪️ | **ABSORBED into T3.14.** **The global** **`fill_value = 0.0`** **is wrong for exclude-convention columns.** Measured 2026-09-04: the pupil family is the only one carrying real NaN (10,039 cells per metric — question 5,810, answers A 257 / B 784 / C 829 / D 787). Filling a *z-score* with 0 asserts "this area had this participant's mean pupil size" for an area never looked at. Live in the headline model: `mean_max_fix_pupil_size_z__correct` has **257 NaN (1.32% of trials)**, the other nine `SELECT_1_COLS` features have none — 0.132% of the feature matrix. T3.6 will add first-fixation duration to the same problem. **Not** an issue for RT/TFD/dwell/count: those have zero NaN and their zeros are real data (see below) | `logreg_model.py:24`, `:57-58`                                                    | **Fix tracked as T3.14** — per-column fill policy, covering both families. Report the imputation count in Methods either way |
+| T3.20 ✅ | **decided, implementation outstanding. Every dataset owns its own pupil baseline, and every consumer uses the right one** — full item as its own section above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `pupil_norm.py`, `know_qa_dataprep.py:415`/`:931`, `answer_RTs/features.py:199`   | Requirement set 2026-09-05. Absorbs T3.8                                                                                     |
 | —       | *Retracted 2026-09-04:* this row previously claimed `0` in the RT/TFD family was ambiguous between "read for zero ms", "never read" and "region absent". Wrong — **every area exists on every trial** (zero NaN in `mean_dwell_time`/`skip_rate` across all five answer areas, and all three paragraph spans always present), and the RT/TFD/TimeSinceOffset families contain **no NaN at all**. So `0` there means exactly one thing: never fixated. Under the coverage-inclusive convention that is real data needing no handling                                                                                                                                                                                      | —                                                                                 | no action                                                                                                                    |
 
 ***
@@ -1007,11 +1126,14 @@ saved tables; its results exist only as cell outputs in a 1.2 MB notebook.
 
 **Do:** route it through `plot_output.save_plot` / `save_df_csv` like every other module.
 
-### T4.2 — 308 zero-byte PNGs ✅ S · **just needs re-running**
+### T4.2 — 329 zero-byte PNGs ⚠️ S · **a rerun, but not a pure one**
 
-Three folders contain only empty files, all stamped identically at **2026-03-17 09:37:02** —
-one failed sync or copy, not a code bug. **No fix to design: re-run the plots.** Backing CSVs
-survived (`report_data/area_mixed_models/`, 216 files; `slopes/`, 42), so nothing is lost.
+> **Recounted 2026-09-05: it is 329, from *two* failed writes, and the rerun is blocked on a
+> one-word fix.** Both corrections below were measured with a shell, not read from code.
+
+Three folders are **entirely** empty files, all stamped identically at **2026-03-17 09:37:02**
+— one failed sync or copy, not a code bug. Backing CSVs survived
+(`report_data/area_mixed_models/`, 216 files; `slopes/`, 42), so nothing is lost.
 
 * `reports/plots/area_significance_heatmaps/` — 108 files, from `mixed_area_comparisons`.
   **Re-run these; not low priority.** That module was classified as paper code on 2026-09-05
@@ -1023,8 +1145,26 @@ survived (`report_data/area_mixed_models/`, 216 files; `slopes/`, 42), so nothin
 * `reports/plots/participant_similarity/` — 35 files. Abandoned clustering strand → low
   priority.
 
-Also 0 bytes from a separate failed write:
-`matching_correctness/…/correctness_by_matching__num_loc_visits.png`.
+**A second failed write, three days later (2026-03-20 12:57), accounts for 21 more** — and
+these are the dangerous ones, because unlike the three folders above they sit **beside
+non-empty siblings**, so the folder looks fine:
+
+| folder | empty PNGs |
+|---|---|
+| `correctness_measures/correctness_by_back_and_forth_pattern/` | 6 |
+| `correctness_measures/correctness_by_trial_mean_dwell_continuous/` | 6 |
+| `correctness_measures/correctness_by_seq_len_continuous/` | 3 |
+| `matching_correctness/{polarity,relative}/{all,hunters,gatherers}/…__num_loc_visits.png` | 6 |
+
+The `matching_correctness` one was already noted here as a single file; it is six.
+The 15 under `correctness_measures` were not recorded anywhere — and that folder is live
+paper code (`correctness_associations` in the restructure map), whose figures **T3.1** will
+require regenerating anyway.
+
+> ⚠️ **Not a pure rerun after all.** The 108 `area_significance_heatmaps` figures come from
+> `notebooks/statistics.ipynb` cell 2, which passes `metrics=Con.AREA_METRIC_COLUMNS` — a
+> constant that does not exist (verified: `hasattr` is `False`). The notebook raises
+> `AttributeError` before producing anything. **T1.4 / T2.5 must land first.**
 
 ### T4.3 — `reports/` is tracked in git ⏸ **not now**
 
