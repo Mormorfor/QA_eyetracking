@@ -96,6 +96,11 @@ def build_trial_df_for_seq_len_threshold(
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION,
     correct_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
+    """Collapse an IA-level frame to one row per trial, split by scan length.
+
+    Takes an IA-level frame and returns a TRIAL-level one -- the grain any test
+    on these groups must run at.
+    """
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, seq_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
     d["_seq_len"] = d[seq_col].apply(sequence_len_literal_eval)
@@ -111,6 +116,7 @@ def build_trial_df_for_seq_len_threshold(
 
 
 def has_back_and_forth_xyx(seq) -> bool:
+    """Does the sequence END in an x-y-x return? Only the last 3 tokens are read."""
     if seq is None or len(seq) < 3:
         return False
     a, b, c = seq[-1], seq[-2], seq[-3]
@@ -118,6 +124,11 @@ def has_back_and_forth_xyx(seq) -> bool:
 
 
 def has_back_and_forth_xyxy(seq) -> bool:
+    """Does the sequence END in an x-y-x-y alternation? Only the last 4 tokens are read.
+
+    For the graded version over the whole sequence, see
+    ``longest_alternating_answer_run``.
+    """
     if seq is None or len(seq) < 4:
         return False
     a, b, c, d = seq[-4], seq[-3], seq[-2], seq[-1]
@@ -171,6 +182,11 @@ def build_trial_df_for_back_and_forth_pattern(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     use_xyxy: bool = False,
 ) -> pd.DataFrame:
+    """Collapse an IA-level frame to one row per trial, split by XYX / XYXY presence.
+
+    Returns a TRIAL-level frame. Note a trial whose sequence will not parse is
+    grouped with "pattern absent" rather than flagged.
+    """
     pattern_name = "XYXY" if use_xyxy else "XYX"
     pattern_fn = has_back_and_forth_xyxy if use_xyxy else has_back_and_forth_xyx
 
@@ -195,6 +211,11 @@ def compute_trial_mean_dwell_per_word(
     df: pd.DataFrame,
     dwell_col: str = Con.IA_DWELL_TIME,
 ) -> pd.Series:
+    """Mean dwell per word on the trial, broadcast back onto every IA row.
+
+    ``transform`` keeps the IA grain, so the result is still one value per word
+    -- collapse before testing on it.
+    """
     total_dwell = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
         "sum"
     )
@@ -210,6 +231,10 @@ def build_trial_df_for_mean_dwell_threshold(
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
+    """Collapse an IA-level frame to one row per trial, split by mean dwell per word.
+
+    Returns a TRIAL-level frame.
+    """
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, dwell_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
     d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col)
@@ -237,6 +262,11 @@ def compute_seq_len_threshold_summary(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict]]:
+    """Accuracy above vs. below a scan-length threshold, with Wilson CIs and a Fisher test.
+
+    Returns (summary_df, fisher_result). Both are computed on the trial-level
+    frame this builds internally.
+    """
     trial_df = build_trial_df_for_seq_len_threshold(df, threshold, seq_col, correct_col)
 
     # enforce plotting order (stable)
@@ -265,6 +295,10 @@ def compute_back_and_forth_pattern_summary(
     use_xyxy: bool = False,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict], str]:
+    """Accuracy with vs. without a back-and-forth pattern, with Wilson CIs and a Fisher test.
+
+    Returns (summary_df, fisher_result, pattern_name).
+    """
     pattern_name = "XYXY" if use_xyxy else "XYX"
     pattern_fn = has_back_and_forth_xyxy if use_xyxy else has_back_and_forth_xyx
 
@@ -297,6 +331,10 @@ def compute_trial_mean_dwell_threshold_summary(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict]]:
+    """Accuracy above vs. below a mean-dwell threshold, with Wilson CIs and a Fisher test.
+
+    Returns (summary_df, fisher_result).
+    """
     trial_df = build_trial_df_for_mean_dwell_threshold(
         df, threshold, dwell_col, correct_col
     )

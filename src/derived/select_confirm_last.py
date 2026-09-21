@@ -1,3 +1,11 @@
+"""Last area fixated before the selection press and before the confirmation press.
+
+Two of the three last-visitation perspectives the paper reports. Both are built
+from the click timestamps in button_clicks_data.csv, unlike the third
+(``last_answer_area_visited_lbl``), which data_csv_generation derives from the
+fixation sequence -- so the three are not guaranteed to agree.
+"""
+
 import sys
 
 from pathlib import Path

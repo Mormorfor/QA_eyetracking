@@ -1,3 +1,12 @@
+"""Reconstruct the trial's button-press events from the fixation report.
+
+The tracker records selection and confirmation presses as message lists on
+fixation rows, not as columns. This module parses them back into trial-level
+select/confirm timestamps, the (timestamp, IA) fixation pairs, and the last
+fixations before each press -- the Auxiliary/button_clicks_data.csv that the
+reading-time and last-visitation features are built from.
+"""
+
 from __future__ import annotations
 
 import os

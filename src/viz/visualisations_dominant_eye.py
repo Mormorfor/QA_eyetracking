@@ -1,3 +1,10 @@
+"""Dominant starting strategy crossed with the tracked eye.
+
+Descriptive only -- no significance test is run anywhere in this module, and the
+association is not currently claimed in the paper. The strategy side comes from
+derived/pattern_breaking.py, which is the single implementation.
+"""
+
 from typing import Optional, Dict
 
 import pandas as pd

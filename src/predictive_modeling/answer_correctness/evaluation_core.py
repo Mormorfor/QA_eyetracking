@@ -1,3 +1,11 @@
+"""Fit and score models on an already-prepared train/test split.
+
+The split-agnostic half of the correctness modelling: callers hand it the two
+frames and the feature columns, and it returns a CorrectnessEvaluationResult
+carrying the held-out predictions, probabilities and metrics. Everything that
+decides *how* the split was made lives in cross_validation.py.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

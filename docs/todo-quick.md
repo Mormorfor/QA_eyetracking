@@ -24,7 +24,7 @@ go looking.)*
 | **T3.6**  | decided and unblocked; the change is two lines                                                                                        |
 | **T3.1**  | the fix is one word in three places, and it's high impact                                                                             |
 | **T3.17** | cheap, and changes no number if the invariants hold                                                                                   |
-| **T4.2**  | not a fix at all — just re-run the plots (but see T2.5 — `statistics.ipynb` needs a constant fixed before the 108 can be regenerated) |
+| **T4.2**  | not a fix at all — just re-run the plots (the `statistics.ipynb` blocker is gone as of 2026-09-21, see T1.4/T2.5)                     |
 
 ***
 
@@ -34,9 +34,9 @@ go looking.)*
 
 * **✅ DONE — T1.3** — One `save_output()` everywhere: 81 call sites, 33 source files, 11 notebooks; `tables=` is required so a figure cannot be saved without its numbers; outputs moved to `reports/<analysis>/{figures,tables}/` with key-value filenames; Overleaf mirroring off. *(**done** 2026-09-20 — no numbers moved; lands `restructure-map.md` §9 early and most of T5.3; closes T4.1)*
 
-* **T1.4** — Fix comments naming constants that no longer exist — but check `statistics.ipynb` first, which may actually *call* one. *(S · ⚠️)*
+* **✅ DONE — T1.4** — Comments naming constants that no longer exist, fixed at all seven live sites. *(**done** 2026-09-21 — documentation-only, verified by AST comparison; `statistics.ipynb` turned out to be already fixed, so this never became a breakage and T2.5 closes with it. Three of the seven were naming the wrong *concept*, not just a stale name)*
 
-* **T1.5** — A table of ~10 tiny cleanups: dead code, duplicate definitions, unused imports, stale docstrings, orphan `.pyc`, two `paper_dirs` conventions. *(S · ⚠️)*
+* **T1.5** — A table of ~10 tiny cleanups: dead code, duplicate definitions, unused imports, stale docstrings, orphan `.pyc`. *(S · **two rows closed** — the two `paper_dirs` conventions went with `paper_dirs` itself under T1.3, and its last stale references were cleared 2026-09-21 (dead constant in `loo_runs.py`, three notebook copies, one markdown cell teaching the removed API); the duplicate `save_plot_and_report` / `maybe_save_plot` save paths are gone too. **One row is worse than written**: `_wilson_ci` is nested **three** times in `visualisations_correctness_measures.py`, not once)*
 
 * **T1.6** — Merge the two "starting strategy" implementations into one function in `derived/`. *(M ·* ***all but done*** *2026-09-20 — there is now one implementation of every dominance quantity and* *`viz/`* *only plots; what is left is purely the* *`scope`* *parameter, i.e. T3.21)*
 
@@ -46,15 +46,15 @@ go looking.)*
 
 ## T2 · Broken today — all low priority, none on the paper's path
 
-* **T2.1** — `generate_column_options.py` raises `AttributeError` unconditionally; it references three constants `feature_groups.py` no longer has. *(⚠️)*
+* **T2.1** — `generate_column_options.py` references three constants `feature_groups.py` no longer has. *(**ran 2026-09-21** — the three constants are indeed gone, but the `AttributeError` is **masked**: T5.2's bare-import failure fires first, so T5.2 has to land before this item's symptom is even observable)*
 
-* **T2.2** — `answer_loc/` cannot import at all — two functions imported from the wrong module, one called with a dead signature. *(⚠️)*
+* **T2.2** — `answer_loc/` cannot import at all. *(**ran 2026-09-21** — reproduces, **and the item understates it**: `answer_loc_eval` fails earlier on T5.2's import convention, and `answer_loc_models.py:109` passes `multi_class=`, removed in scikit-learn 1.8.0. Fixing only what T2.2 lists would leave it broken)*
 
-* **T2.3** — `fit_model_on_prepared_full_data` calls random-effects methods the live logreg doesn't implement; works only with the Julia backend. *(⚠️)*
+* **T2.3** — `fit_model_on_prepared_full_data` calls random-effects methods the live logreg doesn't implement; works only with the Julia backend. *(⚠️ · still never executed)*
 
-* **T2.4** — `get_last_visited_feature_cols` always returns `[]` because of a prefix mismatch, so the **default** feature set has silently contained no last-label features. *(⚠️ · the one with quiet consequences)*
+* **T2.4** — `get_last_visited_feature_cols` always returns `[]` because of a prefix mismatch, so the **default** feature set has silently contained no last-label features. *(**ran 2026-09-21** — returns `[]` while the table carries 16 `last_*` columns over 19,436 trials · still open · the one with quiet consequences)*
 
-* **T2.5** — `notebooks/statistics.ipynb` may call the renamed `Con.AREA_METRIC_COLUMNS`; if so T1.4 is a breakage, not a comment fix. *(⚠️)*
+* **✅ DONE — T2.5** — Not a breakage after all: `statistics.ipynb` already passes `Con.AREA_METRIC_COLUMNS_MODELING`. *(**done** 2026-09-21 — fixed independently in the plots revamp; this is what kept T1.4 in the comment tier, and it unblocks T4.2's 108 figures)*
 
 ## T3 · Fixes that move reported numbers
 
@@ -71,7 +71,7 @@ go looking.)*
 
   * **↪️ ABSORBED — T3.5** — A missing confirmed selection is scored as a wrong answer; that case can't occur, so it should assert. *(into T3.17)*
 
-  * **T3.7** — Run-based RT silently produces all-zero rows on a join-key mismatch, indistinguishable from real zeros. *(needs a coverage assertion)*
+  * **T3.7** — Run-based RT silently produces all-zero rows on a join-key mismatch, indistinguishable from real zeros. *(needs a coverage assertion · **checked 2026-09-21: it has not bitten** — 0 of 13 `RT_pure_*` columns are uniformly zero, so this is a guard to add, not damage to repair)*
 
   * **↪️ ABSORBED — T3.8** — *(into T3.20)*
 
@@ -107,7 +107,7 @@ go looking.)*
 
 * **✅ DONE — T4.1** — `RT_correlations` used to save nothing, so a live Results subsection existed only as cell output in a 1.2 MB notebook. *(**done** 2026-09-20 with T1.3 — `plot_corr_map_pair` now routes through `save_output` and carries r / BH-adjusted p / n with every map)*
 
-* **T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(S · the 108* *`area_significance_heatmaps`* *are paper code, so* ***not*** *low priority — but* ***not a pure rerun***\*: `statistics.ipynb` raises `AttributeError` until T1.4/T2.5 land)\*
+* **T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(S · the 108* *`area_significance_heatmaps`* *are paper code, so* ***not*** *low priority ·* ***unblocked 2026-09-21****: the `statistics.ipynb` `AttributeError` is gone, so it is a pure rerun again — though the rerun has not been attempted, so whether it completes is untested)*
 
 * **T4.3** — `reports/` is tracked in git, including a 63 MB pickle. *(**deferred*** *— a release-time question, and a git operation, so yours)*
 
@@ -149,7 +149,7 @@ go looking.)*
 
 * **Nothing is currently waiting on a decision from you.** The answered-questions table at the end of `todo.md` is the record of what was asked and what was ruled.
 
-* **§V "Verify before trusting"** — six one-command checks for the ⚠️ items. Number 6 (T3.3's CIs) is the one most likely to affect the paper and the least verified.
+* **§V "Verify before trusting"** — six one-command checks for the ⚠️ items. **Checks 1–5 were run 2026-09-21** and the outcomes were not uniform: 1, 2 and 4 reproduce (and 1 and 2 found *more* than their items describe), while 3 and 5 came back clean — notably **T3.7 has not bitten**, so it is a guard to add rather than damage to repair. **Number 6 (T3.3's CIs) has still never been run** and is the one most likely to affect the paper.
 
 * **Doc-consistency rules** — every `pitfalls.md` / `data-pipeline.md` gotcha cites a `T*` id or says no action is needed; when retracting a claim, grep the *words*, not just the id.
 

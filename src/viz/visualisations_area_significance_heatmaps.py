@@ -1,3 +1,10 @@
+"""Pairwise-contrast significance heatmaps for the per-area mixed models.
+
+Renders the area x area contrast grid produced by
+statistics/mixed_area_comparisons.py -- one cell per pair of screen areas,
+shaded by effect size and starred by corrected p-value.
+"""
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

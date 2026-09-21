@@ -40,7 +40,7 @@ def matrix_plot_ABCD(
         (e.g. only trials where selected_answer_label == 'A').
     stat : str
         Column name of the metric to visualize (e.g. 'mean_dwell_time')
-        Should be selected from C.AREA_METRIC_COLUMNS
+        Should be selected from C.AREA_METRIC_COLUMNS_VIZES
     selected : str, optional
         Which answer label was selected ('A', 'B', 'C', 'D').
     h_or_g : str, optional

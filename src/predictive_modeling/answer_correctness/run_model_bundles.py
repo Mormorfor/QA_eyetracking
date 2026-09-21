@@ -1,3 +1,12 @@
+"""Ready-made "fit these models on this split and report" bundles.
+
+Convenience wrappers over model_data + evaluation_core for the common case of a
+single train/test split -- the cross-validated path is cross_validation.py.
+
+Importing this module pulls in the Julia backend, so it needs a working
+juliacall toolchain even when only the logistic regression is wanted.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

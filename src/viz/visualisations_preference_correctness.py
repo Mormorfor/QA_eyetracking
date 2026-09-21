@@ -210,7 +210,7 @@ def run_all_matching_correctness_plots(
     print_summaries: bool = False,
 ) -> Dict:
     """
-    For each metric in AREA_METRIC_COLUMNS, compute trial-level matching labels
+    For each metric in AREA_METRIC_COLUMNS_VIZES, compute trial-level matching labels
     and plot correctness by matching group, for both:
       - extreme_mode="polarity" (direction chosen per metric)
       - extreme_mode="relative" (direction ignored)

@@ -85,9 +85,11 @@ from src.derived.select_confirm_last import compute_last_area_labels
 # 1. Add a new metric constant to constants.py, e.g.:
 #       NEW_METRIC = "my_metric"
 #
-# 2. (Optional, if it’s a standard area-level metric) add it to
-#    AREA_METRIC_COLUMNS in constants.py:
-#       AREA_METRIC_COLUMNS = [
+# 2. (Optional, if it’s a standard area-level metric) add it to the curated
+#    lists in constants.py -- AREA_METRIC_COLUMNS_MODELING (what models consume,
+#    z-scored pupil variants) and/or AREA_METRIC_COLUMNS_VIZES (what plots
+#    consume, raw pupil variants):
+#       AREA_METRIC_COLUMNS_MODELING = [
 #           ...,
 #           NEW_METRIC,
 #       ]

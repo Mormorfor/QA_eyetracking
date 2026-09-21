@@ -56,7 +56,8 @@ class LastLocationBaseline:
 class AreaMetricsLogRegModel:
     """
     Multinomial logistic regression using:
-      - AREA_METRIC_COLUMNS for each area in ANSWER_LABEL_CHOICES
+      - AREA_METRIC_COLUMNS_MODELING for each area in LABEL_CHOICES
+        (which includes the question area, not only the four answers)
       - optionally last visited location as a numeric feature.
 
     """

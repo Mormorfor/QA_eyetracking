@@ -85,7 +85,7 @@ LEGEND_MAPPING_LABEL = {
 
 # Colors for AREA_SCREEN_LOCATION-style sequences
 # (question, answer_0(top), answer_1(left), answer_2(right), answer_3(bottom))
-# Use constants.AREA_LABEL_CHOICES to keep it in sync.
+# Use constants.LOC_CHOICES to keep it in sync.
 _LOC_CHOICES = C.LOC_CHOICES  # ['question', 'answer_0(top)', ..., ...]
 
 CATEGORIES_LOC = {
@@ -454,8 +454,8 @@ def visualize_by_id(
     by_person_or_text : {'person', 'text'}
         Whether to filter by participant_id or text_id.
     fix_by : {'label', 'loc'}
-        Whether to colour by AREA_LABEL ('question', 'answer_A', ...)
-        or by AREA_SCREEN_LOCATION (C.AREA_LABEL_CHOICES entries).
+        Whether to colour by AREA_LABEL (C.LABEL_CHOICES entries: 'question',
+        'answer_A', ...) or by AREA_SCREEN_LOCATION (C.LOC_CHOICES entries).
     identifier : str or None
         The participant_id or text_id to visualise. If None, one is
         chosen at random from the available values.

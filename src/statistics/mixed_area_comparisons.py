@@ -1,3 +1,15 @@
+"""Pairwise comparisons of a per-area metric across the five screen areas.
+
+Backs the paper's *Attention allocation* results: one mixed model per
+(group x selected answer x metric), a fixed effect per area, and Holm-corrected
+pairwise contrasts between areas.
+
+Runs at AREA grain -- the input IA-level frame is deduplicated to one row per
+(trial, area), which is valid only because these metrics are constant within an
+area. Participant is a random effect and text a variance component; dependence
+among the four answer areas within a trial is not modelled.
+"""
+
 from typing import Optional, Tuple, Dict
 
 import numpy as np

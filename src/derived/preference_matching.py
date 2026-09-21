@@ -1,3 +1,11 @@
+"""Gaze "preference" vs. the answer actually selected.
+
+For a given per-area metric, find the answer with the extreme value on that
+metric and label the trial by whether it is the one the participant selected.
+``polarity`` respects the metric's direction (high dwell = preferred, high skip
+rate = not); ``relative`` ignores direction.
+"""
+
 from __future__ import annotations
 
 from typing import Literal, Sequence

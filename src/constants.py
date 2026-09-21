@@ -143,7 +143,11 @@ FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z = "first_encounter_avg_pupil_size_z"
 ANSWER_PREFIX = "answer_"
 ANSWER_LABELS = ["A", "B", "C", "D"]
 
-# must mantain consistent ordering + consistency with ANSWER_LABEL_CHOICES
+# Two orthogonal namings of the same five areas: LOC_CHOICES is spatial,
+# LABEL_CHOICES semantic. They are NOT positionally equivalent past index 0 --
+# screen position is randomized per trial, so the top option is not answer_A.
+# Both orderings are load-bearing: add_IA_answer_label derives an answer's
+# position index as LOC_CHOICES.index(loc) - 1 and reads answers_order with it.
 
 LOC_CHOICES = [
     "question",

@@ -45,9 +45,6 @@ MODEL_NAME = "trial_level_log_reg"
 DEFAULT_FEATURE_COLS = FG.SELECT_1_COLS + FG.LAST_CONFIRM_COMPACT
 DEFAULT_FEATURE_SET_TAG = "select_1_plus_last_confirm_compact"
 
-# Where saved figures are mirrored to, when a plot is called with ``save=True``.
-PAPER_DIRS = ["papers/correctness_prediction"]
-
 
 def results_cache_path(feature_set_tag: str = DEFAULT_FEATURE_SET_TAG) -> Path:
     """Cache file for one feature set's per-person leave-one-out results."""

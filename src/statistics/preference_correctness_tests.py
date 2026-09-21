@@ -1,3 +1,11 @@
+"""Does gaze preference predict correctness?
+
+Fisher exact test of is_correct against the matching / not-matching groups from
+derived/preference_matching.py. Expects a TRIAL-level frame: the preference
+label is a trial property, so running this on an IA-level frame inflates n by
+the number of words on screen.
+"""
+
 from __future__ import annotations
 
 from typing import Dict

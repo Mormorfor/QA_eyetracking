@@ -278,9 +278,20 @@ answerable by swapping the prefix. So "regenerate the plots" is not necessarily 
 
 > **Changed 2026-09-20.** The mirror used to write `figures/` and `report_data/` at the paper
 > repo's *top level*, which put two more trees beside the drafts and split one analysis across
-> both. The pre-existing `papers/correctness_prediction/{figures,report_data}/` folders are
-> **left exactly as they are** — `papers/` is Diana's and Overleaf-synced, so nothing there is
-> moved or deleted by this code.
+> both. **This code never moves or deletes anything under `papers/`** — that repo is Diana's
+> and Overleaf-synced.
+>
+> **But those two folders are no longer there** (checked 2026-09-21). The Overleaf repo's own
+> commit `fab3aa2 "ploting revamp"` deleted all **198** files in them — 177 under `figures/`,
+> 21 under `report_data/`. That was a commit in `papers/`, not something `save_output` did, and
+> the repo is clean, so nothing is dangling and everything is recoverable:
+> `git -C papers/correctness_prediction show HEAD~1`.
+>
+> **Net effect right now: the paper repo holds no figures and no tables at all** — just the two
+> drafts and `OLD/`. `papers/correctness_prediction/reports/` does not exist yet either, because
+> the mirror is off (below). Nothing breaks, because no `\includegraphics` in either draft is
+> uncommented — the drafts still reference figures only in prose. But "the mirror is paused" is
+> an understatement of the current state.
 
 > **Since 2026-09-20 (T1.3) the mirror is off.** `plot_output.PAPER_MIRROR_ENABLED = False`,
 > `to_paper` defaults to `False`, and passing `to_paper=True` while the flag is off **raises**
@@ -292,7 +303,11 @@ answerable by swapping the prefix. So "regenerate the plots" is not necessarily 
 
 *The two conflicting `paper_dirs` conventions (T1.5) are gone with `paper_dirs` itself. For the
 record, the deeper one never actually produced a `figures/figures/` tree on disk — it was a
-latent bug in notebook source, not a thing that had happened.*
+latent bug in notebook source, not a thing that had happened. The last references to the old
+API — a dead `PAPER_DIRS` constant in `person_variance/loo_runs.py`, its import in
+`per_person_runs.ipynb`, two unused copies in other notebooks, and a markdown cell still
+telling readers to call `save=True, paper_dirs=...` — were cleared 2026-09-21. `to_paper` is
+now the only way to ask for the mirror.*
 
 ---
 

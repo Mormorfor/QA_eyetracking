@@ -1,3 +1,11 @@
+"""Collect saved cross-validation run reports and draw the model-comparison figure.
+
+Note the figure's contents are whatever is on disk: these functions SCAN the
+given report directories rather than taking a curated model list, so any run
+ever saved there joins the comparison. Check the folder before generating a
+final figure.
+"""
+
 from typing import Iterable, List, Optional, Sequence, Union, Dict, Any, Tuple, Mapping
 from pathlib import Path
 

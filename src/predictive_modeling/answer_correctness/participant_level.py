@@ -1,3 +1,11 @@
+"""Per-participant models: retrain on one person, leaving one trial out at a time.
+
+Backs the participant-level coefficient results -- how well the model reads each
+individual, and which features it relies on for them. Participants with very few
+incorrect trials score worst (few negative examples) and are filtered downstream
+in person_variance/, not here.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Sequence, Tuple, Optional, Any
