@@ -1,0 +1,5 @@
+regime,n_participants,spearman_r,p_value
+all,6,0.0857,0.8717
+no knowledge,6,0.5508,0.2574
+partial knowledge,6,-0.169,0.7489
+full knowledge,6,0.2648,0.6121

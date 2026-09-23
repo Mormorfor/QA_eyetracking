@@ -29,7 +29,7 @@ Two transfer caveats that the numbers here do not show on their own:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Sequence, Union
+from typing import Optional, Any, Dict, List, Mapping, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -413,20 +413,28 @@ def _colours(labels: Sequence[str]) -> List[str]:
 
 
 def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Bar chart of accuracy with Wilson intervals, from `correctness_by_regime`."""
+    """Bar chart of participant accuracy with Wilson intervals, from `correctness_by_regime`.
+
+    "Participant accuracy" throughout: how often the person answered correctly, which is
+    a different quantity from the model's accuracy at predicting that, and the two appear
+    within a few figures of each other.
+    """
     s = summary[summary[REGIME_COL] != "all"] if "all" in set(summary[REGIME_COL]) else summary
     fig, ax = plt.subplots(figsize=figsize)
     x = range(len(s))
     err = [s["accuracy"] - s["ci_low"], s["ci_high"] - s["accuracy"]]
     ax.bar(x, s["accuracy"], color=_colours(s[REGIME_COL]), yerr=err, capsize=5)
     ax.axhline(0.25, ls=":", c="grey", lw=1)
-    ax.text(len(s) - 0.4, 0.26, "chance (1 of 4)", fontsize=8, color="grey", ha="right")
+    # Left edge, above the line: at the right edge it collided with the tallest bar's
+    # interval and ran off the axes.
+    ax.text(-0.45, 0.27, "chance (1 of 4)", fontsize=8, color="grey", ha="left")
     for i, (_, r) in enumerate(s.iterrows()):
-        ax.text(i, r["accuracy"] + 0.035, f"{r['accuracy']:.3f}\nn={r['n']}",
-                ha="center", fontsize=9)
+        # Clear of the whisker, not of the bar — otherwise the CI runs through the label.
+        ax.text(i, r["ci_high"] + 0.025, f"{r['accuracy']:.3f}\nn={r['n']}",
+                ha="center", va="bottom", fontsize=9)
     ax.set_xticks(list(x)); ax.set_xticklabels(s[REGIME_COL])
-    ax.set_ylim(0, 1.12); ax.set_ylabel("accuracy")
-    ax.set_title("KnowQA accuracy by knowledge regime (Wilson 95% CI)")
+    ax.set_ylim(0, 1.18); ax.set_ylabel("participant accuracy")
+    ax.set_title("KnowQA participant accuracy by knowledge regime (Wilson 95% CI)")
     fig.tight_layout()
     save_output(
         fig,
@@ -686,7 +694,7 @@ def participant_profile(
         row.update({
             "n": len(sub),
             "n_wrong": int((sub[Con.IS_CORRECT_COLUMN] == 0).sum()),
-            "accuracy": sub[Con.IS_CORRECT_COLUMN].mean(),
+            "participant_accuracy": sub[Con.IS_CORRECT_COLUMN].mean(),
             "mean_confidence": sub[CONFIDENCE_COL].mean(),
             "median_RT_ms": sub["total_answering_RT"].median(),
             "mean_seq_len": sub["seq_len"].mean(),
@@ -818,7 +826,7 @@ def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
 
 
 def plot_participant_profiles(df: pd.DataFrame, *,
-                              measures: Sequence[str] = ("accuracy", "mean_confidence",
+                              measures: Sequence[str] = ("participant_accuracy", "mean_confidence",
                                                          "mean_pred_prob", "median_RT_ms"),
                               figsize=(12, 7), save: Optional[bool] = None, to_paper=None):
     """Small multiples: one panel per measure, participants on x, a line per regime.
@@ -946,24 +954,39 @@ def plot_participant_correlation_forest(
     pids = list(by_model[Con.PARTICIPANT_ID])
     y = np.arange(len(pids))
 
+    model_r = by_model.set_index(Con.PARTICIPANT_ID).reindex(pids)
+
     fig, ax = plt.subplots(figsize=figsize)
-    ax.scatter(by_model[r_col], y, s=70, color="#4c72b0", zorder=3,
+    ax.scatter(model_r[r_col], y, s=70, color="#4c72b0", zorder=3,
                label="pred_prob ~ confidence")
-    for yi, r, p in zip(y, by_model[r_col], by_model[p_col]):
-        ax.text(r, yi + 0.18, p_to_stars(p), ha="center", fontsize=7, color="#4c72b0")
 
     if by_correct is not None:
-        m = by_correct.set_index(Con.PARTICIPANT_ID).reindex(pids)
-        ax.scatter(m[r_col], y, s=70, marker="D", color="#dd8452", zorder=3,
+        correct_r = by_correct.set_index(Con.PARTICIPANT_ID).reindex(pids)
+        for yi in y:
+            a, b = model_r[r_col].iloc[yi], correct_r[r_col].iloc[yi]
+            if np.isfinite(a) and np.isfinite(b):
+                ax.plot([a, b], [yi, yi], c="grey", lw=1, zorder=1)
+        ax.scatter(correct_r[r_col], y, s=70, marker="D", color="#dd8452", zorder=3,
                    label="is_correct ~ confidence")
-        for yi, r in zip(y, m[r_col]):
+    else:
+        correct_r = None
+
+    # Stars on BOTH series, offset in opposite directions: the two markers can sit
+    # almost on top of each other (4004: 0.607 against 0.583), and marking only one
+    # series reads as the other being non-significant when it is not.
+    for frame, colour, dy, va in [(model_r, "#4c72b0", 0.20, "bottom"),
+                                  (correct_r, "#dd8452", -0.20, "top")]:
+        if frame is None:
+            continue
+        for yi, r, p in zip(y, frame[r_col], frame[p_col]):
             if np.isfinite(r):
-                ax.plot([by_model[r_col].iloc[yi], r], [yi, yi], c="grey", lw=1, zorder=1)
+                ax.text(r, yi + dy, p_to_stars(p), ha="center", va=va,
+                        fontsize=7, color=colour)
 
     ax.axvline(0, c="k", lw=0.8)
     ax.set_yticks(y)
     ax.set_yticklabels(pids)
-    ax.set_ylim(-0.6, len(pids) - 0.1)   # room for the stars above the top row
+    ax.set_ylim(-0.75, len(pids) - 0.15)   # room for the stars above and below
     ax.set_xlabel(f"{method} r")
     ax.set_ylabel("participant")
     ax.set_title("Within-participant confidence correlations")
@@ -1114,21 +1137,32 @@ def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), sav
 
 
 def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
-                       cmap: str = "RdYlBu", vmin=None, vmax=None, cbar_label=""):
-    """Shared heatmap body: shade `mat`, print every cell, label both axes."""
+                       cmap: str = "RdYlBu", vmin=None, vmax=None, cbar_label="",
+                       marks: Optional[pd.DataFrame] = None):
+    """Shared heatmap body: shade `mat`, print every cell, label both axes.
+
+    ``marks`` is an optional same-shaped frame of per-cell suffixes (e.g. ``"*"``),
+    for flagging a cell whose value came from somewhere other than the panel's headline
+    measure. The suffix rides with the number so the two cannot be separated.
+
+    Label colour is chosen from the cell's actual rendered luminance rather than from
+    the value's distance to the midpoint. The distance rule only works for a colormap
+    that is dark at *both* ends (RdYlBu); on a sequential one the low end is near-white,
+    and a value far below the midpoint would be printed in white on white.
+    """
     im = ax.imshow(mat.values.astype(float), cmap=cmap, vmin=vmin, vmax=vmax,
                    aspect="auto")
-    lo = vmin if vmin is not None else np.nanmin(mat.values)
-    hi = vmax if vmax is not None else np.nanmax(mat.values)
-    mid = (lo + hi) / 2 if np.isfinite(lo) and np.isfinite(hi) else 0
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
             v = mat.values[i, j]
             if not np.isfinite(v):
                 ax.text(j, i, "-", ha="center", va="center", fontsize=8, color="grey")
                 continue
-            ax.text(j, i, fmt.format(v), ha="center", va="center", fontsize=8,
-                    color="white" if abs(v - mid) > 0.42 * (hi - lo) else "black")
+            r, g, b, _ = im.cmap(im.norm(v))
+            luminance = 0.299 * r + 0.587 * g + 0.114 * b   # ITU-R BT.601
+            suffix = "" if marks is None else str(marks.values[i, j] or "")
+            ax.text(j, i, fmt.format(v) + suffix, ha="center", va="center", fontsize=8,
+                    color="white" if luminance < 0.55 else "black")
     ax.set_xticks(range(mat.shape[1]))
     ax.set_xticklabels(mat.columns, rotation=30, ha="right", fontsize=8)
     ax.set_yticks(range(mat.shape[0]))
@@ -1142,8 +1176,9 @@ def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
 def plot_participant_regime_heatmap(
     df: pd.DataFrame,
     *,
-    measures: Sequence[str] = ("accuracy", "mean_confidence", "mean_pred_prob",
+    measures: Sequence[str] = ("participant_accuracy", "mean_confidence", "mean_pred_prob",
                                "model_balanced_accuracy"),
+    side_column: Optional[str] = None,
     figsize=(14, 3.8),
     save: Optional[bool] = None,
     to_paper=None,
@@ -1156,27 +1191,82 @@ def plot_participant_regime_heatmap(
 
     The model panel is **balanced** accuracy, because the first panel shows that the
     base rate ranges from 0.32 to 1.00 across these cells: plain accuracy there would
-    largely restate panel one. A "-" marks a cell where the participant made no errors,
-    so specificity — and therefore balanced accuracy — is undefined.
+    largely restate panel one. Where a participant made no errors in a regime, balanced
+    accuracy is undefined (no wrong trials, so no specificity) and the cell falls back to
+    the model's plain accuracy, marked with a star.
+
+    ``side_column`` adds a participant-level column (``"lextale"``) as a narrow panel on
+    the left. It gets its **own** colour scale, spanning only the observed range, for two
+    reasons: LexTALE is 0-100 against the measures' 0-1, so a shared scale would be
+    meaningless; and on 0-100 the six scores (75-95) would all shade nearly alike. So
+    read its colours *within that column only* — they rank these participants against
+    each other, not against any external standard. The printed numbers are the real ones.
     """
     prof = participant_profile(df)
     use = [m for m in measures if m in prof.columns]
     regimes = _ordered_regimes(df)
 
-    fig, axes = plt.subplots(1, len(use), figsize=figsize)
-    axes = np.atleast_1d(axes)
+    if side_column is not None:
+        assert side_column in df.columns, (
+            f"{side_column!r} is not in the frame — call the matching attach_* first "
+            f"(e.g. attach_lextale for {LEXTALE_COL!r})."
+        )
+        side = df.groupby(Con.PARTICIPANT_ID)[side_column].first().to_frame(side_column)
+        widths = [0.42] + [1.0] * len(use)
+        fig, all_axes = plt.subplots(1, len(use) + 1, figsize=figsize,
+                                     gridspec_kw={"width_ratios": widths})
+        all_axes = np.atleast_1d(all_axes)
+        side_ax, axes = all_axes[0], all_axes[1:]
+        _annotated_heatmap(side_ax, side.reindex(prof[Con.PARTICIPANT_ID].unique()),
+                           fmt="{:g}", cmap="PuBuGn",
+                           vmin=float(side[side_column].min()),
+                           vmax=float(side[side_column].max()))
+        side_ax.set_title(f"{side_column}\n(own scale)", fontsize=9)
+        side_ax.set_xticks([])
+    else:
+        fig, axes = plt.subplots(1, len(use), figsize=figsize)
+        axes = np.atleast_1d(axes)
+
+    starred = False
     for ax, m in zip(axes, use):
         mat = (prof.pivot(index=Con.PARTICIPANT_ID, columns=REGIME_COL, values=m)
                    .reindex(columns=regimes))
+        marks = None
+
+        # Balanced accuracy needs both outcome classes, and a participant who made no
+        # errors in a regime supplies only one. Leaving the cell blank reads as "no
+        # result for the model here", when in fact the model has a perfectly good plain
+        # accuracy — it is *specificity* that is undefined, because there are no wrong
+        # trials to measure it on. So show plain accuracy and star it: a different
+        # measure, which has to say so. Display-only; participant_profile keeps the NaN.
+        if m == "model_balanced_accuracy" and "model_accuracy" in prof.columns:
+            fallback = (prof.pivot(index=Con.PARTICIPANT_ID, columns=REGIME_COL,
+                                   values="model_accuracy")
+                            .reindex(columns=regimes))
+            gaps = mat.isna() & fallback.notna()
+            if gaps.to_numpy().any():
+                starred = True
+                marks = gaps.map(lambda flag: "*" if flag else "")
+                mat = mat.fillna(fallback)
+
         # Confidence is a 1-5 scale; everything else here is a 0-1 rate.
         vmin, vmax = (1, 5) if m == "mean_confidence" else (0, 1)
-        _annotated_heatmap(ax, mat, vmin=vmin, vmax=vmax)
+        _annotated_heatmap(ax, mat, vmin=vmin, vmax=vmax, marks=marks)
         ax.set_title(m, fontsize=10)
         ax.set_xlabel("")
-        if ax is not axes[0]:
+        # Participant ids once, on whichever panel is leftmost.
+        if side_column is not None or ax is not axes[0]:
             ax.set_ylabel("")
+            ax.set_yticklabels([])
     fig.suptitle("Per participant, per regime", fontsize=11)
     fig.tight_layout()
+    if starred:
+        fig.text(0.005, -0.02,
+                 "* the model's plain accuracy, not its balanced accuracy: the "
+                 "PARTICIPANT answered every trial in that regime correctly, so there "
+                 "are no wrong trials to measure specificity on and balanced accuracy "
+                 "is undefined.",
+                 fontsize=7.5, ha="left", va="top", wrap=True)
     save_output(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
@@ -1266,7 +1356,7 @@ def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Option
 def plot_session_trajectories(
     df: pd.DataFrame,
     *,
-    measures: Sequence[str] = ("accuracy", "mean_confidence", "median_RT_ms",
+    measures: Sequence[str] = ("participant_accuracy", "mean_confidence", "median_RT_ms",
                                "mean_pred_prob"),
     figsize=(12, 7),
     save: Optional[bool] = None,
@@ -1612,4 +1702,150 @@ def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bo
         save=save,
         to_paper=to_paper,
     )
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# LexTALE — English proficiency
+# ---------------------------------------------------------------------------
+
+# Reported by Diana on 2026-09-23, in numeric participant order. The demographics
+# questionnaire is administered alongside the experiment rather than by this pipeline
+# (`research-context.md` §4), so there is no export to read and these six values are
+# the only copy. When a questionnaire export does exist they belong in a data file and
+# this constant should be replaced by a read of it, not kept in parallel with one.
+#
+# LexTALE is scored 0-100; Lemhofer & Broersma (2012) read >=80 as upper-intermediate
+# to advanced. Study 2 recruits mixed linguistic backgrounds, which is a stated
+# limitation of that study relative to L1's native-speaker sample.
+LEXTALE_SCORES: Dict[str, float] = {
+    "4000": 93.75,
+    "4001": 88.75,
+    "4002": 91.25,
+    "4003": 81.25,
+    "4004": 75.00,
+    "4005": 95.00,
+}
+
+LEXTALE_COL = "lextale"
+
+
+def attach_lextale(
+    df: pd.DataFrame,
+    scores: Mapping[str, float] = LEXTALE_SCORES,
+) -> pd.DataFrame:
+    """Attach each participant's LexTALE score.
+
+    Asserts every participant has one: an unscored participant would arrive as NaN and
+    then drop out of any correlation against proficiency, shrinking n without saying so.
+
+    Safe to call twice — the column is assigned, not merged.
+    """
+    out = df.copy()
+    out[LEXTALE_COL] = out[Con.PARTICIPANT_ID].map(dict(scores))
+
+    missing = sorted(set(out.loc[out[LEXTALE_COL].isna(), Con.PARTICIPANT_ID]))
+    assert not missing, (
+        f"no LexTALE score for participant(s) {missing}. Add them to LEXTALE_SCORES "
+        "rather than letting those trials go unscored."
+    )
+    return out
+
+
+def lextale_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per participant: LexTALE beside their correctness rates.
+
+    Accuracy is given overall and per regime, because proficiency has no reason to act
+    equally across them — under full knowledge the answer has just been handed to the
+    participant, so there is little room for reading skill to matter, while under no
+    knowledge the options are all they have to work from.
+
+    The last row is the group mean; `n_participants` marks it so it cannot be mistaken
+    for a seventh person.
+    """
+    work = df if LEXTALE_COL in df.columns else attach_lextale(df)
+
+    acc = (
+        work.pivot_table(index=Con.PARTICIPANT_ID, columns=REGIME_COL,
+                         values=Con.IS_CORRECT_COLUMN, aggfunc="mean")
+        .reindex(columns=_ordered_regimes(work))
+    )
+    out = pd.DataFrame({
+        LEXTALE_COL: work.groupby(Con.PARTICIPANT_ID)[LEXTALE_COL].first(),
+        "n": work.groupby(Con.PARTICIPANT_ID).size(),
+        "participant_accuracy": work.groupby(Con.PARTICIPANT_ID)[Con.IS_CORRECT_COLUMN].mean(),
+    }).join(acc).reset_index()
+
+    mean_row = {Con.PARTICIPANT_ID: "mean", "n_participants": len(out)}
+    for c in out.columns:
+        if c != Con.PARTICIPANT_ID:
+            mean_row[c] = out[c].mean()
+    return pd.concat([out, pd.DataFrame([mean_row])], ignore_index=True)
+
+
+def lextale_correlations(df: pd.DataFrame, *, method: str = "spearman") -> pd.DataFrame:
+    """LexTALE against accuracy, overall and per regime — six points per row.
+
+    Six participants is far too few to test this; the rows exist so the question is
+    asked in the same place every time the data grows. Read the coefficients as
+    descriptive and the p-values as uninformative at this n.
+    """
+    from scipy import stats
+
+    work = df if LEXTALE_COL in df.columns else attach_lextale(df)
+    rows = []
+    for label, sub in [("all", work)] + [(r, work[work[REGIME_COL] == r])
+                                         for r in _ordered_regimes(work)]:
+        per = sub.groupby(Con.PARTICIPANT_ID).agg(
+            lex=(LEXTALE_COL, "first"), acc=(Con.IS_CORRECT_COLUMN, "mean"))
+        fn = stats.spearmanr if method == "spearman" else stats.pearsonr
+        res = fn(per["lex"], per["acc"])
+        rows.append({REGIME_COL: label, "n_participants": len(per),
+                     f"{method}_r": float(res.statistic if hasattr(res, "statistic") else res[0]),
+                     "p_value": float(res.pvalue if hasattr(res, "pvalue") else res[1])})
+    return pd.DataFrame(rows)
+
+
+def plot_lextale(df: pd.DataFrame, *, figsize=(12, 4.4)):
+    """LexTALE beside the personal correctness rates.
+
+    Left: each participant's score against the group mean, so who is high or low is
+    readable without doing arithmetic. Right: score against accuracy, one series per
+    regime — the question being whether the people who read English better are the
+    people who answer correctly, and whether that depends on how much they were told.
+    """
+    s = lextale_summary(df)
+    people = s[s[Con.PARTICIPANT_ID] != "mean"]
+    mean_score = float(people[LEXTALE_COL].mean())
+    regimes = _ordered_regimes(df)
+
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+    order = people.sort_values(LEXTALE_COL)
+    axes[0].bar(order[Con.PARTICIPANT_ID], order[LEXTALE_COL], color="#4c72b0")
+    axes[0].axhline(mean_score, ls="--", c="k", lw=1.2)
+    axes[0].text(len(order) - 0.4, mean_score + 0.9, f"mean {mean_score:.2f}",
+                 ha="right", fontsize=9)
+    for x, v in zip(range(len(order)), order[LEXTALE_COL]):
+        axes[0].text(x, v + 0.9, f"{v:g}", ha="center", fontsize=9)
+    axes[0].set_ylim(0, 105)
+    axes[0].set_ylabel("LexTALE score")
+    axes[0].set_xlabel("participant (sorted)")
+    axes[0].set_title("English proficiency", fontsize=10)
+
+    for r in regimes:
+        axes[1].scatter(people[LEXTALE_COL], people[r], s=70, label=r,
+                        color=_REGIME_COLOURS.get(r, "#8c8c8c"))
+    axes[1].scatter(people[LEXTALE_COL], people["participant_accuracy"], s=90, marker="D",
+                    facecolor="none", edgecolor="k", label="all trials")
+    for _, row in people.iterrows():
+        axes[1].annotate(row[Con.PARTICIPANT_ID], (row[LEXTALE_COL], row["participant_accuracy"]),
+                         textcoords="offset points", xytext=(6, -3), fontsize=7)
+    axes[1].set_xlabel("LexTALE score")
+    axes[1].set_ylabel("participant accuracy")
+    axes[1].set_title("Proficiency against correctness (6 points per series)", fontsize=10)
+    axes[1].legend(fontsize=7, frameon=False)
+    axes[1].grid(alpha=0.25)
+
+    fig.tight_layout()
     return fig

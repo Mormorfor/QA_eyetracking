@@ -1,0 +1,15 @@
+{
+  "lextale": {
+    "plot": "lextale",
+    "facets": {},
+    "produced_by": "__main__.<module>",
+    "figure": "lextale.png",
+    "subdir": null,
+    "tables": [
+      "correlations",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-23T13:01:47"
+  }
+}
