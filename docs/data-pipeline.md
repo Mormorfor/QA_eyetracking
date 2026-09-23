@@ -62,7 +62,7 @@ get a conversion step first.
 prepare_know_qa()   # or: python -m src.data_prep.know_qa_dataprep
   ├── convert_raw_reports()    .xls (UTF-16) / .tsv (UTF-8-BOM) → canonical CSVs
   ├── clean_reports()          column renames, letter answers_order, identity columns,
-  │                            per-SESSION pupil z-scoring
+  │                            (pupil z-scoring only when pupil_norm_unit="session")
   ├── run_pipeline()           → calls data_csv_generation.main()   [Stage 1]
   └── build_features()         → trial-level feature table          [Stage 2]
 ```
@@ -146,7 +146,7 @@ Adding a feature means registering it in `FUNCTION_REGISTRY` with its `join_colu
 
 | | L1 | KnowQA |
 |---|---|---|
-| pupil z-scoring | `add_zscored_pupil_columns` runs here, z-scoring per `participant_id` | already done in Stage 0, per `session_id`. That base function is therefore **removed from the registry list** passed to `main()` (`know_qa_dataprep.py:415`) — if it ran, it would z-score a second time per participant and overwrite the per-session values with ones pooled across a person's sittings |
+| pupil z-scoring | `add_zscored_pupil_columns` runs here, z-scoring per `participant_id` against this run's own answer fixations | **the same, since T3.20 (2026-09-23)** — `pupil_norm_unit` now defaults to `"participant"`, so the base function runs normally and `main()` writes `KnowQA_runs/Auxiliary/participant_pupils.csv` from KnowQA's own fixations. The old `"session"` unit is still selectable, and under it Stage 0 does the z-scoring and this base function is excluded from the registry list instead |
 | `add_answer_text_columns` | runs | excluded |
 | repeated-reading filter | on | off (no such column) |
 | paragraph RT/TFD | supported | **not applicable — KnowQA has no paragraph data.** Only the answers screen is exported (`data_paths.py` defines no paragraph path for any Study 2 run), and only a third of KnowQA trials show a paragraph at all. `run_pipeline:884` refuses `include_paragraph=True`; its error cites a secondary technical blocker (`load_paragraph_fixations` coerces `TRIAL_INDEX` to int64, which the composite ids would fail), but the real reason is simply that there is nothing to read |
@@ -217,28 +217,42 @@ stays replaceable, our glue lives elsewhere.
 
 ## 6. Build order
 
-There is a **circular dependency between the two modeling packages**, resolved only by
-build order:
+**Restructured 2026-09-23 (`todo.md` T6.1).** The answer and paragraph screens are now two
+independent preprocessing pipelines that meet only at feature-construction time:
 
 ```
 Stage 0  know_qa_dataprep (Study 2 only)
             ↓
-Stage 1  data_csv_generation.main()
+Stage 1  data_csv_generation.main()          ANSWER screen only
             → all_participants.csv + Auxiliary/*
             ↓
-Stage 3a answer_RTs/features.py::save_paragraph_features()
+Stage 1p derived/paragraph_prep.py           PARAGRAPH screen only   ── independent of Stage 1
             → L1_paragraph_span_features.csv
             ↓
 Stage 2  answer_correctness/model_data.py::save_all_features()
-            → L1_model_ready_all_features.csv        ← reads 3a's cache
+            → L1_model_ready_all_features.csv   ← joins 1 and 1p on (participant_id, TRIAL_INDEX)
             ↓
-Stage 3b answer_RTs/model_data.py                    ← reads Stage 2's cache
+Stage 3  answer_RTs/model_data.py               ← reads Stage 2's cache
             (targets and span RT predictors)
 ```
 
-`model_data.py` raises a `FileNotFoundError` telling you to run the paragraph features
-first, which is the only place this order is enforced. It is otherwise documented in
-docstrings only.
+**Stages 1 and 1p do not depend on each other** and can run in either order, or separately.
+That is the point of the change. Before it, Stage 1 opened the paragraph IA and fixation
+reports in the middle of preparing the answer screen, to build the per-span
+`RT_*` / `TFD_*` / `TimeSinceOffset_*` columns, and merged them into the answer table with
+`how="inner"` — so a trial with answer data but no paragraph data disappeared silently, and
+"prepare the QA data" required multi-GB paragraph reports it had no other use for. The
+`include_paragraph` flag that was threaded through four call layers to keep KnowQA working is
+gone with it; KnowQA simply does not run Stage 1p.
+
+Those columns still reach the model, with the same names and values — they now arrive through
+the paragraph join in `model_data.PARAGRAPH_MODEL_COLS` rather than through `RT_and_TFD.csv`.
+
+`model_data.py` raises a `FileNotFoundError` telling you to run Stage 1p first, which is the
+only place this order is enforced. ⚠️ **One soft spot to know:** a paragraph column named in
+`PARAGRAPH_MODEL_COLS` but absent from the cache is skipped rather than raising, so a **stale
+paragraph cache yields a trial frame quietly missing its paragraph RT columns**. Rebuild 1p
+after any change to the paragraph pipeline.
 
 Other builders that must run before certain analyses:
 
@@ -264,6 +278,36 @@ Other builders that must run before certain analyses:
 | `pattern_breaking.py` | starting strategies, dominance, breaks-pattern, Levenshtein distance | `model_data`. **Paper-critical as of draft2** — backs the First-scan behavior Results subsection. Two gaps vs. the paper: no clockwise/counter-clockwise classifier, and no interrupted-scan completion. See glossary §8. |
 | `preference_matching.py` | whether the selected answer is the gaze-"preferred" one | `model_data`, `viz/visualisations_preference_correctness` |
 
+### 7.1 Pupil baselines — which fixations each dataset normalizes against
+
+A pupil z-score is `(pupil − mean) / sd`, where mean and sd come from a **baseline set of
+fixations**. Which fixations, and grouped by what, is a scientific choice; T3.20 made it an
+explicit one. Two rules now hold everywhere:
+
+- **The baseline unit is the person.** One baseline per `participant_id`, for every dataset —
+  including KnowQA, where a person's several recording sessions and all three knowledge
+  regimes pool into one baseline (Diana, 2026-09-23). So "this participant's typical pupil
+  size" means the same thing project-wide.
+- **Each screen is its own baseline, and each dataset its own file.** There is no default
+  source: `get_participant_pupil_stats` raises rather than silently reaching for L1's.
+
+| Dataset | Screen the baseline is computed over | Written to |
+|---|---|---|
+| L1 / OneStop — answer features | that run's **answer** fixation report (`fixations_Answers.csv`) | `L1_based_data/Auxiliary/participant_pupils.csv` |
+| L1 / OneStop — **paragraph** span features | that run's **paragraph** fixation report (`fixations_Paragraph.csv`) | not cached — computed by `answer_RTs.features.compute_paragraph_pupil_stats`, streamed |
+| KnowQA | that run's own **answer** fixation report | `KnowQA_runs/Auxiliary/participant_pupils.csv` |
+| testrun_QA / second_test | their own answer fixation reports | `<run>/Auxiliary/participant_pupils.csv` |
+
+Two consequences worth knowing:
+
+- **Answer-screen and paragraph-screen pupil z are no longer on a shared scale**, and that is
+  deliberate: the two screens differ in luminance and in task, so a shared baseline measured
+  the gap between screens as much as anything about the participant. Do not compare a
+  `__critical` pupil z against an `__answer_A` pupil z as if they were one measure.
+- **The paragraph baseline is streamed, not held.** The paragraph fixation report is several
+  GB, so `compute_paragraph_pupil_stats` accumulates count/sum/sum-of-squares per participant
+  chunk by chunk. Verified equal to the in-memory computation to ~1e-15.
+
 ### The four RT definitions — they are not the same measure
 
 | Function | Definition |
@@ -288,14 +332,23 @@ least visible.
    It also means `area_skipped` and the `"." → 0` coercions leak into the saved output.
    → **`todo.md` T3.11**
 
-2. **The paragraph path reimplements the answer path's metrics, and one of them diverged.**
-   `answer_RTs/features.py` rewrites eight `create_*` functions from `data_csv_generation`,
-   grouped by span instead of area. Only **`mean_first_fixation_duration`** actually differs
-   (answer zero-fills `"."`, paragraph drops it) — `skip_rate`, `mean_dwell_time` and
-   `mean_fixations_count` are identical, because their source columns carry a real `0` and no
-   `"."` to coerce. Fixes: **T3.6** (the coercion) and **T1.7** (the duplication that let them
-   drift). *An earlier version of this file claimed `skip_rate` diverged; measurement showed
-   it does not.*
+2. **The paragraph path reimplements the answer path's metrics.** ~~and one of them diverged~~
+   **The divergence is fixed as of 2026-09-23 (T3.6).** `answer_RTs/features.py` rewrites eight
+   `create_*` functions from `data_csv_generation`, grouped by span instead of area. The one
+   that used to differ was **`mean_first_fixation_duration`** (answer zero-filled `"."`,
+   paragraph dropped it); the answer path now coerces the same way, so **all eight agree** and
+   `features.py:47-49`'s claim of a 1:1 mirror is true rather than aspirational. `skip_rate`,
+   `mean_dwell_time` and `mean_fixations_count` were always identical, because their source
+   columns carry a real `0` and no `"."` to coerce. *An earlier version of this file claimed
+   `skip_rate` diverged; measurement showed it does not.*
+
+   **The duplication itself is still there** — two implementations that now happen to agree,
+   with nothing structural keeping them in step. That is **T1.7**, and it is the reason this
+   entry stays in the list: the next metric to drift has exactly the same opening.
+
+   ⚠️ **Data caveat:** the fix is in the code and in KnowQA's rebuilt output. **L1 and the two
+   pilots still hold the old zero-filled column** — see `todo.md` T3.6 for the rebuild command
+   and why it was not run here.
 
 3. **Run-based RT fails silently to all-zeros** on a `(participant_id, TRIAL_INDEX)` key
    mismatch — the row is still written with every region at 0, indistinguishable from a real
@@ -303,11 +356,12 @@ least visible.
    asked or when missing, so a stale click table from another dataset is reused quietly.
    → **`todo.md` T3.7**
 
-4. **`get_participant_pupil_stats` defaults to a hardcoded L1 path.** `answer_RTs/features.py`
-   calls it with no path, so paragraph-span pupil z-scores are baselined against L1's answer
-   screen regardless of the dataset. → **`todo.md` T3.20** — the requirement being that each
-   dataset writes its own pupil-stats file and every consumer reaches for the right one
-   (fix alongside T1.7 and T6.1)
+4. ~~**`get_participant_pupil_stats` defaults to a hardcoded L1 path.**~~ **FIXED 2026-09-23
+   (T3.20).** It used to default `fixations_path` to L1's answer fixation report, and
+   `answer_RTs/features.py` called it with no path — so paragraph-span pupil z-scores were
+   baselined against L1's answer screen *whatever dataset was being processed*, which for a
+   non-L1 dataset means a different set of people entirely. There is now **no default source**:
+   the function raises unless a caller names one. See §7.1 for what each dataset uses.
 
 5. **Participant-level features are computed over whatever trials the frame holds.**
    `dominance_score` / `breaks_pattern` accumulate over a participant's trials, and the scope

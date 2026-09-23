@@ -44,6 +44,7 @@ from src.derived.correctness_measures import wilson_ci
 from src.predictive_modeling.answer_correctness.model_data import load_all_features
 from src.predictive_modeling.answer_correctness.models.logreg_model import (
     TrialLevelLogRegModel,
+    imputed_cell_counts,
 )
 import src.predictive_modeling.answer_correctness.feature_groups as fg
 
@@ -294,8 +295,9 @@ def attach_predictions(
     cols = list(feature_cols)
 
     if verbose:
-        na = df[cols].isna().sum()
-        na = na[na > 0]
+        # Counting lives with the fill, in logreg_model, so the Methods number and
+        # the model's own record cannot drift apart (T3.14).
+        na = imputed_cell_counts(df, cols)
         total = int(na.sum())
         print(
             f"imputed with fill_value={model.fill_value}: {total} cell(s) "

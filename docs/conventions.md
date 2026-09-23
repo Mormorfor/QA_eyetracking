@@ -63,6 +63,44 @@ Correcting the codebase to meet these principles is a **significant part of the 
 restructure** — see `docs/todo.md` T3 and T6. Much of the existing T3 list is already
 instances of exactly these violations.
 
+### Register of accepted deviations
+
+Deviations from the rules above that have been **examined, decided on, and kept**. The point
+of the register is that they stay decisions rather than becoming discoveries: anything here
+was argued for, is visible in the code, and can be revisited on the stated trigger. Nothing
+gets added without Diana's ruling.
+
+> **1. The model imputes missing pupil and first-fixation-duration features with `0`.**
+> Decided 2026-09-05 (`todo.md` **T3.14**), implemented 2026-09-23.
+>
+> *The deviation:* this is "never silently replace a problematic value". A z-scored pupil of
+> `0` asserts *this area had exactly this participant's mean dilation*, and a first-fixation
+> duration of `0` asserts a fixation of length zero. Neither is a measurement; both are
+> assumptions about areas the participant never looked at.
+>
+> *The fill is deliberately blanket.* **Every** NaN in the feature matrix becomes `0`, not
+> only those two families — Diana, 2026-09-23, amending T3.14's original point 2. One rule
+> over the whole matrix is the simplest thing to state in Methods and to reason about, and it
+> is the method this project has always used. **Simplicity of the data prep is the reason;
+> it is a choice, not an oversight.**
+>
+> *Why it is acceptable:* the operative word in the rule is **silently**. The fill is
+> counted (`imputed_cell_counts`, `imputed_counts_`) and kept identifiable after the fact
+> (`imputed_mask_`), so a genuine `0` can always be told from a filled one. `pupil_size` and
+> `first_fixation_duration` are named in `EXCLUDE_CONVENTION_MARKERS` not to gate the fill but
+> to separate the missingness we can *explain* — an area nobody fixated — from any we cannot;
+> a NaN outside them still gets `0`, but **warns** on the way so an upstream problem is not
+> absorbed invisibly. An imputation that is written down and counted is a stated modelling
+> choice; the same one unrecorded is the violation.
+>
+> *Scale, for Methods:* on L1, 253 cells = 0.130% of the headline feature matrix, all in
+> `mean_max_fix_pupil_size_z__correct`.
+>
+> *Revisit when:* a question-area feature enters the model (that area is unfixated on ~30% of
+> trials, so the fill would become a result about itself), or a reviewer challenges it — the
+> duration case is the weak one, since a zero-length fixation does not exist. Fallback options
+> are tabulated in `todo.md` T3.14.
+
 ---
 
 ## Code style

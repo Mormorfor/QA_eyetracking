@@ -485,13 +485,9 @@ def build_rt_and_tfd(
     all_participants: pd.DataFrame | None = None,
     hunters_path: Path = HUNTERS_PROCESSED_PATH,
     gatherers_path: Path = GATHERERS_PROCESSED_PATH,
-    paragraph_ia_path: Path = IA_PARAGRAPH_PATH,
-    paragraph_fixations_path: Path = FIX_PARAGRAPH_PATH,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     output_path: Path = RT_AND_TFD_PATH,
-    include_paragraph: bool = True,
     include_run_based_rt: bool = True,
-    include_paragraph_run_based_rt: bool = True,
     save: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -505,17 +501,11 @@ def build_rt_and_tfd(
         kept as `TimeSinceOffset_*`. When False (no button-click data), the
         fixation-span RT is used directly as `RT_*` and button clicks are not
         read.
-    Paragraph regions (paragraph IA, by `auxiliary_span_type`), only when
-    `include_paragraph` is True — set it False for experiments without a
-    paragraph-reading screen (then only answer-region RT/TFD is returned):
-      - TFD via per-area aggregation of IA dwell times.
-      - RT: when `include_paragraph_run_based_rt` is True, run-based over the
-        paragraph fixation report (`paragraph_fixations_path`), matching the
-        answer-region treatment — and the fixation-span RT is kept as
-        `TimeSinceOffset_*`. When False, the fixation-span RT (first to last
-        fixation on the region, excursions away included) is used as `RT_*`,
-        which is what this function did before the run-based path existed.
-    When both are built they are inner-merged on (participant_id, TRIAL_INDEX).
+    Paragraph regions are NOT built here. Since T6.1 (2026-09-23) the paragraph
+    screen has its own pipeline, `derived/paragraph_prep.py`, which produces the
+    per-span RT / TFD / TimeSinceOffset columns using these same functions. This
+    one is answer-only, so preparing the answer screen no longer opens a
+    paragraph report.
 
     `all_participants` may be passed in-memory (the processed answer-IA
     DataFrame); if omitted, it is loaded and concatenated from
@@ -565,50 +555,14 @@ def build_rt_and_tfd(
         # No button-click data: use the fixation-span RT directly as RT_*.
         answer = answer_full
 
-    if include_paragraph:
-        if verbose:
-            print("Computing paragraph-region reading times...")
-        paragraph_ia = pd.read_csv(paragraph_ia_path)
-        paragraph_full = compute_reading_times(
-            paragraph_ia,
-            area_col=PARAGRAPH_AREA_COL,
-            regions=PARAGRAPH_REGIONS,
-        )
-
-        if include_paragraph_run_based_rt:
-            # Same treatment as the answer regions: keep the first-to-last
-            # fixation span as TimeSinceOffset_* and make RT_* run-based.
-            rt_rename = {
-                c: c.replace("RT_pure_", "TimeSinceOffset_pure_", 1).replace(
-                    "RT_normalized_", "TimeSinceOffset_normalized_", 1
-                )
-                for c in paragraph_full.columns
-                if c.startswith("RT_pure_") or c.startswith("RT_normalized_")
-            }
-            paragraph = paragraph_full.rename(columns=rt_rename)
-
-            if verbose:
-                print("Computing paragraph-region RT (run-based)...")
-            paragraph_fixations = load_paragraph_fixations(
-                paragraph_fixations_path, verbose=verbose
-            )
-            paragraph_run_rt = compute_run_based_rt_from_fixations(
-                paragraph_fixations,
-                paragraph_ia,
-                area_col=PARAGRAPH_AREA_COL,
-                regions=PARAGRAPH_REGIONS,
-            )
-            paragraph = paragraph.merge(
-                paragraph_run_rt, on=["participant_id", "TRIAL_INDEX"], how="left"
-            )
-        else:
-            paragraph = paragraph_full
-
-        rt_and_tfd = answer.merge(
-            paragraph, on=["participant_id", "TRIAL_INDEX"], how="inner"
-        )
-    else:
-        rt_and_tfd = answer
+    # The paragraph half of this function moved to
+    # `derived/paragraph_prep.build_paragraph_rt_tfd` on 2026-09-23 (`todo.md`
+    # T6.1). It used to open the paragraph IA and fixation reports here and merge
+    # per-span RT/TFD into the answer table with `how="inner"` -- so preparing the
+    # answer screen depended on multi-GB paragraph reports, and a trial with
+    # answer data but no paragraph data silently disappeared. Paragraph RT/TFD is
+    # now built by the paragraph pipeline and joined where it is wanted.
+    rt_and_tfd = answer
 
     if save:
         output_path = Path(output_path)

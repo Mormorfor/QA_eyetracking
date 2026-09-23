@@ -30,6 +30,7 @@ from src.data_paths import (
     RT_AND_TFD_PATH,
 )
 from src.data_prep.button_clicks_processing import run_trial_level_pipeline
+from src.derived import area_metrics as am
 from src.derived.pupil_norm import (
     get_participant_pupil_stats,
     scale_pupil_area_to_mm,
@@ -512,10 +513,18 @@ def add_zscored_pupil_columns(
     2) Z-score them using participant stats
     3) Store z-scored values into new <column>_z columns
 
-    `pupil_stats` is resolved via get_participant_pupil_stats() and may be a
-    ready statistics DataFrame, or None to fall back to that resolver's
-    defaults (compute on the fly from the raw fixation data).
+    `pupil_stats` is REQUIRED and must be this dataset's own baseline -- main()
+    resolves it once from `pupil_fixations_path` and injects it here. There is no
+    fallback: the resolver used to default to L1's answer-screen fixation report,
+    so calling this without stats on any other dataset normalised against L1's
+    people (docs/todo.md T3.20).
     """
+    if pupil_stats is None:
+        raise ValueError(
+            "add_zscored_pupil_columns needs `pupil_stats` for THIS dataset. "
+            "main() injects it; a direct caller must resolve it explicitly via "
+            "get_participant_pupil_stats(fixations_path=<this dataset's fixations>)."
+        )
     pupil_stats = get_participant_pupil_stats(stats=pupil_stats)
 
     out = df.copy()
@@ -589,10 +598,8 @@ def create_mean_area_dwell_time(df: pd.DataFrame) -> pd.DataFrame:
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
     """
-    df[C.IA_DWELL_TIME] = df[C.IA_DWELL_TIME].replace(".", 0).astype(int)
-    return df.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).agg(**{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")})
+    am.coerce_ia_columns(df, inplace=True)
+    return am.mean_dwell_time(df, C.AREA_LABEL_COLUMN)
 
 
 def create_mean_area_fix_count(df: pd.DataFrame) -> pd.DataFrame:
@@ -606,10 +613,8 @@ def create_mean_area_fix_count(df: pd.DataFrame) -> pd.DataFrame:
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
     """
-    df[C.IA_FIXATIONS_COUNT] = df[C.IA_FIXATIONS_COUNT].replace(".", 0).astype(int)
-    return df.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).agg(**{C.MEAN_FIXATIONS_COUNT: (C.IA_FIXATIONS_COUNT, "mean")})
+    am.coerce_ia_columns(df, inplace=True)
+    return am.mean_fixations_count(df, C.AREA_LABEL_COLUMN)
 
 
 def create_mean_first_fix_duration(df: pd.DataFrame) -> pd.DataFrame:
@@ -618,15 +623,29 @@ def create_mean_first_fix_duration(df: pd.DataFrame) -> pd.DataFrame:
 
     This function:
     Groups by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN).
-    Computes the mean first-fixation duration within each group.
+    Computes the mean first-fixation duration over the words that were
+    ACTUALLY FIXATED within each group.
 
+    Unread words are excluded rather than counted as zero: a fixation of length
+    zero does not exist, so the "." sentinel can only ever mean "no fixation
+    landed here", never a measurement. Averaging it in as 0 made this metric
+    largely a restatement of skip_rate (r = -0.70 to -0.94 per area before the
+    change). Coercing to NaN lets `.mean()` skip those words, so the result is
+    intensity per *read* word.
+
+    This is deliberately the OPPOSITE convention from mean_dwell_time and
+    mean_fixations_count, where 0 is a real measurement -- a word nobody read
+    genuinely received 0 ms and 0 fixations, and those metrics are meant to
+    capture attention per *available* word. Do not unify the family for
+    tidiness; see docs/pitfalls.md section 2. It matches the paragraph path
+    (answer_RTs/features.py::_mean_first_fix_duration), which always coerced
+    this way, so the two are now one measure. (todo.md T3.6)
+
+    Consequence: an area in which no word was fixated yields NaN, not 0 --
+    5,810 question areas and 253-829 per answer area on L1.
     """
-    df[C.IA_FIRST_FIXATION_DURATION] = (
-        df[C.IA_FIRST_FIXATION_DURATION].replace(".", 0).astype(int)
-    )
-    return df.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).agg(**{C.MEAN_FIRST_FIXATION_DURATION: (C.IA_FIRST_FIXATION_DURATION, "mean")})
+    am.coerce_ia_columns(df, inplace=True)
+    return am.mean_first_fix_duration(df, C.AREA_LABEL_COLUMN)
 
 
 def create_skip_rate(df: pd.DataFrame) -> pd.DataFrame:
@@ -644,11 +663,10 @@ def create_skip_rate(df: pd.DataFrame) -> pd.DataFrame:
     - Compute the mean of AREA_SKIPPED → skip_rate
 
     """
-    df[C.IA_DWELL_TIME] = df[C.IA_DWELL_TIME].replace(".", 0).astype(int)
-    df[C.AREA_SKIPPED] = (df[C.IA_DWELL_TIME] == 0).astype(int)
-    return df.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).agg(**{C.SKIP_RATE: (C.AREA_SKIPPED, "mean")})
+    am.coerce_ia_columns(df, inplace=True)
+    # write_indicator=True keeps `area_skipped` on the caller's frame, where the
+    # saved IA-level table expects it.
+    return am.skip_rate(df, C.AREA_LABEL_COLUMN, write_indicator=True)
 
 
 def create_dwell_proportions(df: pd.DataFrame) -> pd.DataFrame:
@@ -664,24 +682,20 @@ def create_dwell_proportions(df: pd.DataFrame) -> pd.DataFrame:
 
     Any resulting NaN values (e.g., if TOTAL_TRIAL_DWELL_TIME is 0) are replaced by 0.
     """
-    df[C.IA_DWELL_TIME] = df[C.IA_DWELL_TIME].replace(".", 0).astype(int)
-    aggregated_df = (
-        df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False)
-        .agg({C.IA_DWELL_TIME: "sum"})
-        .rename(columns={C.IA_DWELL_TIME: C.TOTAL_IA_DWELL_TIME})
-    )
-    aggregated_df[C.TOTAL_TRIAL_DWELL_TIME] = aggregated_df.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID]
-    )[C.TOTAL_IA_DWELL_TIME].transform("sum")
-    aggregated_df[C.AREA_DWELL_PROPORTION] = (
-        aggregated_df[C.TOTAL_IA_DWELL_TIME] / aggregated_df[C.TOTAL_TRIAL_DWELL_TIME]
-    )
-    aggregated_df = aggregated_df.fillna(0)
-
-    return aggregated_df
+    am.coerce_ia_columns(df, inplace=True)
+    # keep_totals=True: total_area_dwell_time and total_dwell_time are merged into
+    # the saved IA-level table, so dropping them would change its schema.
+    return am.dwell_proportion(df, C.AREA_LABEL_COLUMN, keep_totals=True)
 
 
 def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-area means of the pupil-size columns, raw (mm) and z-scored.
+
+    Coerces locally on a copy rather than through `coerce_ia_columns(pupil=True)`,
+    because the `_z` columns were produced earlier by `add_zscored_pupil_columns`
+    and are not raw report text -- both families still need `to_numeric`, but
+    neither should be written back onto the caller's frame.
+    """
     df_local = df.copy()
 
     mm_cols = [
@@ -689,56 +703,36 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
         C.IA_MIN_FIX_PUPIL_SIZE,
         C.IA_AVERAGE_FIX_PUPIL_SIZE,
     ]
-    z_cols = [f"{c}_z" for c in mm_cols]
-
-    for col in mm_cols + z_cols:
+    for col in mm_cols + [f"{c}_z" for c in mm_cols]:
         if col in df_local.columns:
             df_local[col] = pd.to_numeric(df_local[col], errors="coerce")
 
-    agg_spec = {}
-
-    agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE] = (C.IA_MAX_FIX_PUPIL_SIZE, "mean")
-    agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE] = (C.IA_MIN_FIX_PUPIL_SIZE, "mean")
-    agg_spec[C.MEAN_AVG_FIX_PUPIL_SIZE] = (C.IA_AVERAGE_FIX_PUPIL_SIZE, "mean")
-
-    agg_spec[C.MEAN_MAX_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MAX_FIX_PUPIL_SIZE}_z", "mean")
-    agg_spec[C.MEAN_MIN_FIX_PUPIL_SIZE_Z] = (f"{C.IA_MIN_FIX_PUPIL_SIZE}_z", "mean")
-    agg_spec[C.MEAN_AVG_FIX_PUPIL_SIZE_Z] = (f"{C.IA_AVERAGE_FIX_PUPIL_SIZE}_z", "mean")
-
-    return df_local.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).agg(**agg_spec)
+    return am.mean_pupil_size(
+        df_local, C.AREA_LABEL_COLUMN, include_raw=True, include_z=True
+    )
 
 
 def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
+    """Pupil size at the first fixated word of each area.
+
+    ORDERING DEPENDENCY, unchanged: this reads IA_FIRST_FIXATION_DURATION as a
+    number, and the column arrives from the report as text carrying "."
+    sentinels. It is numeric here only because an earlier group function called
+    `am.coerce_ia_columns(..., inplace=True)` on the same frame. Running this one
+    alone (`group_function_names=[...]`) still raises. Splitting these into
+    separate modules must make the coercion an input rather than a side effect
+    (`todo.md` T3.11).
+    """
     df_local = df.copy()
 
     mm_col = C.IA_AVERAGE_FIX_PUPIL_SIZE
     z_col = f"{mm_col}_z"
-
     df_local[mm_col] = pd.to_numeric(df_local[mm_col], errors="coerce")
     df_local[z_col] = pd.to_numeric(df_local[z_col], errors="coerce")
 
-    df_local = df_local[df_local[C.IA_FIRST_FIXATION_DURATION] > 0]
-
-    df_local = df_local.sort_values(
-        by=[C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
+    return am.first_encounter_pupil_size(
+        df_local, C.AREA_LABEL_COLUMN, include_raw=True, include_z=True
     )
-
-    first_fix = df_local.groupby(
-        [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN], as_index=False
-    ).head(1)
-
-    out_cols = [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
-    rename_map = {}
-
-    out_cols.append(mm_col)
-    rename_map[mm_col] = C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE
-
-    out_cols.append(z_col)
-    rename_map[z_col] = C.FIRST_ENCOUNTER_AVG_PUPIL_SIZE_Z
-
-    return first_fix[out_cols].rename(columns=rename_map)
 
 
 def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
@@ -1409,7 +1403,6 @@ def _attach_rt_and_tfd_features(
     df: pd.DataFrame,
     save_path: Path = None,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
-    include_paragraph: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
@@ -1419,10 +1412,11 @@ def _attach_rt_and_tfd_features(
 
     The features are derived on the fly (via
     src.derived.reading_times.build_rt_and_tfd), reading the trial's fixation
-    sequence from `button_clicks_path` for the run-based RT. `include_paragraph`
-    should be False for experiments without a paragraph-reading screen (then only
-    answer-region RT/TFD is returned). If `save_path` is given, the computed RT/TFD
-    table is written there as an auxiliary artifact.
+    sequence from `button_clicks_path` for the run-based RT. Answer regions only
+    -- paragraph RT/TFD moved to `derived/paragraph_prep.py` on 2026-09-23
+    (`todo.md` T6.1), so this step no longer opens any paragraph report and the
+    old `include_paragraph` flag is gone. If `save_path` is given, the computed
+    RT/TFD table is written there as an auxiliary artifact.
     """
     if verbose:
         print("Computing RT/TFD features…")
@@ -1430,7 +1424,6 @@ def _attach_rt_and_tfd_features(
     rt_df = build_rt_and_tfd(
         all_participants=df,
         button_clicks_path=button_clicks_path,
-        include_paragraph=include_paragraph,
         save=save_path is not None,
         output_path=save_path,
         verbose=verbose,
@@ -1450,7 +1443,6 @@ def _process(
     last_labels_path: Path = None,
     rt_and_tfd_path: Path = None,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
-    include_paragraph: bool = True,
     label: str = "",
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -1458,7 +1450,7 @@ def _process(
     RT/TFD features (computed on the fly), and return the enriched DataFrame.
 
     Both attached features read the trial-level button clicks from
-    `button_clicks_path`. `include_paragraph` is forwarded to the RT/TFD step.
+    `button_clicks_path`. Paragraph RT/TFD is no longer built here -- see `derived/paragraph_prep.py` (T6.1).
     `last_labels_path` / `rt_and_tfd_path`, when given, are where the computed
     auxiliary tables are saved."""
     if verbose:
@@ -1482,7 +1474,6 @@ def _process(
             out,
             save_path=rt_and_tfd_path,
             button_clicks_path=button_clicks_path,
-            include_paragraph=include_paragraph,
             verbose=verbose,
         )
 
@@ -1539,7 +1530,6 @@ def main(
     split_output_paths: dict = None,
     add_last: bool = True,
     add_rts: bool = True,
-    include_paragraph: bool = True,
     compute_pupil_stats: bool = True,
     pupil_fixations_path: Path = None,
     pupil_stats_path: Path = PARTICIPANT_PUPILS_PATH,
@@ -1706,7 +1696,6 @@ def main(
         last_labels_path=last_labels_path if save_auxiliary else None,
         rt_and_tfd_path=rt_and_tfd_path if save_auxiliary else None,
         button_clicks_path=button_clicks_path,
-        include_paragraph=include_paragraph,
         label="all_participants",
         verbose=verbose,
     )

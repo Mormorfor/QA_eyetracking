@@ -50,7 +50,8 @@ on, batch and list are folded into `TRIAL_INDEX` itself.
 
 **Consequence to remember:** for KnowQA, per-participant features (pupil baselines,
 dominant strategy, dominance score) pool across a person's several sittings unless
-computed per `session_id`. Pupil z-scoring is already done per session; the
+computed per `session_id`. **Pupil z-scoring deliberately does pool across a person's
+sessions** — the baseline unit is the person for every dataset (T3.20, 2026-09-23); the
 pattern-breaking features are not.
 
 `TRIAL_ID_COLS = (PARTICIPANT_ID, TRIAL_ID)` is the join key used by essentially every
@@ -172,7 +173,13 @@ across 27 lists, times 6 regime orderings = 54 ordered lists.
 ## 6. Per-area eye-movement metrics
 
 Computed separately for each of the five areas, from per-word (IA) data. Unfixated words
-count as zero for dwell/fixation measures and are excluded from pupil measures.
+count as zero for **dwell time and fixation count**, and are **excluded** from **pupil size
+and first-fixation duration**. That split is deliberate — a word nobody read genuinely
+received 0 ms and 0 fixations, whereas a pupil size or a fixation duration is a property *of a
+fixation* and is undefined when there was none. See `pitfalls.md` §2; do not unify the family.
+
+*(First-fixation duration moved to the excluded side on 2026-09-23, `todo.md` T3.6. L1's saved
+data is still on the old convention until it is rebuilt.)*
 
 | Constant | Column | Meaning |
 |---|---|---|
@@ -184,8 +191,9 @@ count as zero for dwell/fixation measures and are excluded from pupil measures.
 | `NUM_LABEL_VISITS` | `num_label_visits` | number of times the participant enters the area (by label) |
 | `NUM_LOC_VISITS` | `num_loc_visits` | same, by location |
 
-Pupil measures, raw and z-scored (`_z` suffix = z-scored within participant, or within
-session for KnowQA):
+Pupil measures, raw and z-scored (`_z` suffix = z-scored **within participant, for every
+dataset** — the baseline unit is the person, and for KnowQA a person's baseline pools across
+their several sessions and all three regimes; T3.20, 2026-09-23):
 
 `MEAN_AVG_FIX_PUPIL_SIZE`, `MEAN_MAX_FIX_PUPIL_SIZE`, `MEAN_MIN_FIX_PUPIL_SIZE`,
 `FIRST_ENCOUNTER_AVG_PUPIL_SIZE` — each with a `_z` counterpart.

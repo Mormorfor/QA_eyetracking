@@ -315,7 +315,37 @@ model's pattern features demonstrably come from the same code.
 Defaults to preserve unless Diana says otherwise: descriptive `complete=True`, model
 `complete=False`.
 
-### T1.7 — Unify the paragraph and answer per-area metric implementations ⚠️ M · low risk
+### T1.7 — Unify the paragraph and answer per-area metric implementations ✅ **DONE 2026-09-23**
+
+> **Status.** There is now one implementation, `src/derived/area_metrics.py`, parameterized by
+> the grouping column: `area_label` for the answer screen, `auxiliary_span_type` for the
+> paragraph screen. Both `data_prep/data_csv_generation.py` and the new
+> `derived/paragraph_prep.py` call it. Identical behaviour is structural, not aspirational —
+> which is the whole point, since this duplication is how the two came to disagree on
+> `mean_first_fixation_duration` (T3.6) while `features.py:47-49` asserted they "line up 1:1".
+>
+> **Acceptance test passed.** All seven QA metric functions reproduce the values already in
+> `all_participants.csv` — differences ≤5e-13, i.e. CSV float round-trip only — and
+> `first_encounter` is bit-identical. **No QA number moved.**
+>
+> **What the merge turned up**, both of which the item told us to check:
+>
+> 1. **The two `num_label_visits` were not the same measure.** They disagreed on **77% of
+>    trials**. The answer screen resolves a fixation that landed outside every interest area to
+>    `CURRENT_FIX_NEAREST_INTEREST_AREA`; the paragraph screen mapped it to `None` and dropped
+>    it. Diana's ruling 2026-09-23: **share it** — the paragraph side was silently discarding
+>    real fixations. The QA-only half (dropping an isolated opening fixation on the question, a
+>    screen the paragraph does not have) stays a parameter. **This moves paragraph
+>    `num_label_visits`**, and only upward.
+> 2. **`first_encounter_pupil_size` relied on row order.** The answer version sorted only by
+>    the group keys and trusted the frame to arrive in interest-area order for `head(1)` to mean
+>    "first encountered". The shared version sorts by `IA_ID` explicitly. Verified a no-op on
+>    the current data (diff exactly 0), but it was an implicit dependency that any upstream
+>    re-sort would have broken silently.
+>
+> The two differences the item flagged as *real* both survive, as parameters rather than as
+> divergence: the dwell-proportion denominator follows the grouping column (five answer areas
+> or three paragraph spans), and the missing-value conventions are per metric.
 
 **Diana's requirement: the paragraph path and the QA path must behave identically.** Right now
 they are two implementations of the same eight metrics, which is what let them silently drift.
@@ -433,9 +463,9 @@ They are *not* a priority order. This index is the reading order.
 | T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ measured · **high impact**                                                           |
 | T3.3      | Coefficient CIs wrong three ways                                                                            | ⚠️ **high impact, unverified**                                                         |
 | T3.21     | Participant-level accumulative features — scope flag, default `within_group`                                | ✅ **decided**, implementation outstanding; blocks the last of T1.6, T6.1               |
-| T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **decided**, unblocked — ready to run, not yet run                                   |
-| T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **decided**: keep the 0 fill, document it — documenting outstanding                  |
-| T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ **decided** — requirement set, implementation outstanding                            |
+| T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **DONE 2026-09-23** — code + all four datasets rebuilt                               |
+| T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **DONE 2026-09-23** — fill named, scoped, counted, masked; coefficients identical     |
+| T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ **DONE 2026-09-23** — code + all rebuilds (L1 paragraph, KnowQA)                      |
 | T3.17     | Assert the invariants the pipeline assumes                                                                  | ✅ **decided** — integrity rules, implementation outstanding                            |
 | T3.18     | Does `check_text_alignment` catch a real problem?                                                           | **✅ DONE** 2026-09-07 — yes, in three modes; area labels now come from screen geometry |
 | T3.19     | Is `last_answer_area_visited_lbl` buggy?                                                                    | ⚠️ investigation                                                                       |
@@ -554,7 +584,32 @@ very differently here."
 at `data_utils.py:291` (cluster branch `:319-330`), reachable via
 `ci_method="bootstrap", ci_cluster="cluster"` (`logreg_model.py:132-152`).
 
-### T3.6 — Drop `"."` for first fixation duration, on all data ✅ S to change · **decided**
+### T3.6 — Drop `"."` for first fixation duration, on all data ✅ **DONE in code 2026-09-23** · data rebuild partial
+
+> **Status 2026-09-23.**
+>
+> * **Code: done.** `data_csv_generation.py::create_mean_first_fix_duration` now coerces with
+>   `pd.to_numeric(errors="coerce")` instead of `.replace(".", 0).astype(int)`. The docstring
+>   carries the *why*, the asymmetry with dwell/count, and the pointer to `pitfalls.md` §2.
+>   A second comment at `create_first_encounter_pupil_size` records the ordering dependency
+>   that survives (T3.11) and why `NaN > 0` preserves its behaviour exactly.
+> * **KnowQA: rebuilt and verified.** Numbers and controls in `findings.md`'s change log.
+>   The predicted conclusion change happened — A–D spread 24.4 ms → 7.3 ms, correlation with
+>   `skip_rate` −0.72…−0.97 → −0.02…−0.13.
+> * **✅ L1: rebuilt 2026-09-23** — Stage 1 (`python -m src.data_prep.data_csv_generation`, by
+>   Diana) then Stage 2 (`save_all_features`). Numbers in `findings.md`'s change log and §3.1.
+>   **Cleanest possible confirmation:** diffing all 217 columns of the model-ready table before
+>   and after, **exactly 10 changed and all 10 are first-fixation-duration** — every other
+>   column bit-identical, trial count 19,436 and base rate 0.8407 unchanged, and all ten
+>   `SELECT_1_COLS` features untouched, so the headline 0.83 cannot have moved.
+>   At the IA level the column is now float64 with 437,833 NaN (57.6% of interest areas) and
+>   **zero literal zeros**, which is the invariant worth re-checking after any future rebuild.
+> * **⚠️ Pilots (`testrun_QA`, `second_test`): NOT rebuilt, and not rebuildable from here.**
+>   `know_qa_dataprep.RAW_RUNS` registers only KnowQA; the pilots are built solely by
+>   `experiment_builder/data_prep_new_exp.ipynb`, which uses the **older identity scheme**, so
+>   re-running them is a separate change with its own blast radius (T5.10). Until someone does,
+>   the two pilots' `mean_first_fixation_duration` is on the **old** convention while L1-eventually
+>   and KnowQA are on the new one — an inconsistency that is now stated rather than silent.
 
 **Diana's decision, 2026-09-04: dropping is canonical.** Average first-fixation duration over
 the words that were actually fixated, everywhere. This aligns the answer path to the paragraph
@@ -582,8 +637,8 @@ the paragraph path already coerces this way, so the `features.py:47-49` / `:68` 
 claiming a 1:1 mirror become true rather than needing correction.
 
 **⚠️ One coupled decision this forces.** An area with *no* fixated words currently yields `0`;
-after the change it yields **NaN** (today: 257–829 rows per answer area, 5,810 for the
-question area). The model then fills NaN with `0.0` (`logreg_model.py:24`), which silently
+after the change it yields **NaN** (measured 2026-09-23 on L1: A 253 / B 784 / C 829 / D 785
+per answer area, 5,810 for the question area). The model then fills NaN with `0.0` (`logreg_model.py:24`), which silently
 reintroduces exactly the zero-fill we just removed — but now only for the all-skipped cases,
 which is worse than doing it uniformly.
 
@@ -592,7 +647,7 @@ which is worse than doing it uniformly.
 zero-filling *every unfixated word* (which is the point — it was making per-area differences
 out of skip rate), while an area with *no* fixated word at all still arrives at the model as
 `0` via the global fill. The two are different in scale — the first affects nearly every row,
-the second 257–829 rows per answer area — which is why fixing the first is worth doing even
+the second 253–829 rows per answer area — which is why fixing the first is worth doing even
 with the second left standing. T3.14 lists what has to be commented and reported.
 
 **Expected effects, to check against after the rerun:**
@@ -617,8 +672,14 @@ number change — log it (see `findings.md` change log).
   any *machine-selected* comparison sets built from the JSONs were pruned on the inflated
   correlations at a 0.8 threshold — if those appear in the model-comparison figure, they shift.
 
-* `reports/plots/basic_stats_barcharts` and `basic_stats_heatmaps` include this metric, and 36
-  barchart figures are mirrored into `papers/.../figures/basic_stats_barcharts`.
+* ~~`reports/plots/basic_stats_barcharts` and `basic_stats_heatmaps` include this metric, and 36
+  barchart figures are mirrored into `papers/.../figures/basic_stats_barcharts`.~~
+  **Restated 2026-09-23 — this bullet was written before T1.3.** The figures are now at
+  `reports/attention_allocation/{figures,tables}/` and there is **no paper impact at all**:
+  Overleaf mirroring is off (`plot_output.PAPER_MIRROR_ENABLED = False`) and the paper repo's
+  own commit `fab3aa2` deleted all 198 previously-mirrored files. So regenerating these figures
+  changes nothing under `papers/`. They still need re-running once L1 is rebuilt, and unlike
+  before, each now writes its numbers to `tables/` alongside the figure.
 
 * `findings.md` §3.1 quotes the current answer-side values — update after the rerun.
 
@@ -683,7 +744,40 @@ This bears directly on the draft2 `\todo` about robustness/VIF: "the selected ar
 every attention metric" reads as five converging results, and the correlation structure says
 it is closer to two. Worth stating either way — see `findings.md` §3.1.
 
-### T3.14 — Missing-value policy for the exclude-convention features ✅ **DECIDED 2026-09-05: keep the zero fill, document it loudly**
+### T3.14 — Missing-value policy for the exclude-convention features ✅ **DONE 2026-09-23** (decided 2026-09-05)
+
+> **Status 2026-09-23 — done, behaviour bit-identical, with point 2 amended by Diana.**
+>
+> Verified before/after on the headline model: coefficients and intercept identical to the old
+> blanket-`fillna(0)` path, **max absolute difference exactly 0.0** — on a clean frame *and* on
+> one with an injected unexplained NaN. Nothing moved; the fill simply stopped being anonymous.
+>
+> **The amendment, recorded because it changes the item rather than implements it.** T3.14 as
+> written asked for the fill to be *scoped* to the two exclude-convention families, and it was
+> first built that way (raising on anything else). Diana's ruling, 2026-09-23: **fill every
+> `None` with zero, as before.** The simplest data-prep rule is the one she is keeping, and
+> being mindful about it means documenting and counting it — not narrowing it. So the scoping
+> was removed and the markers demoted to a *diagnostic*. The obligation of this item is
+> unchanged and still met: the imputation is named, counted, located and registered.
+>
+> | # | Requirement | Where it landed |
+> |---|---|---|
+> | 1 | loud comment at the fill | `models/logreg_model.py` — a header block stating what the value asserts per family, that it is an assumption not a measurement, and that it is provisional |
+> | 2 | ~~named, per-family, not blanket~~ **amended by Diana 2026-09-23 — the fill stays blanket** | Every NaN in the feature matrix still becomes `0`; **the simplicity of one rule over the whole matrix is the point, and it is what the project has always done.** `EXCLUDE_CONVENTION_MARKERS = ("pupil_size", "first_fixation_duration")` + `is_exclude_convention_column()` therefore do **not** gate the fill — they separate the missingness we can *explain* from any we cannot, so a NaN outside them still gets `0` but **warns** on the way (`unexpected_imputed_`). Warn, don't block: the fill is the policy |
+> | 3 | the count is reported | `imputed_cell_counts(df, feature_cols)` — computable **without fitting**, so the Methods number is a property of the dataset. `knowledge_regimes_analysis/descriptives.py` now calls it instead of counting inline, so the two cannot drift |
+> | 4 | imputed cells stay identifiable | `imputed_counts_` and `imputed_mask_` on the fitted model |
+> | 5 | note in `conventions.md` | new **Register of accepted deviations**, entry 1 |
+>
+> **The Methods number (L1, 2026-09-23): 253 cells = 0.130% of the headline feature matrix**
+> (19,436 × 10), all in `mean_max_fix_pupil_size_z__correct`; the other nine features have none.
+>
+> **Point 4 is not hypothetical, and the doc below had it slightly wrong.** The 137 genuine
+> zeros in the `first_encounter_avg_pupil_size_z` family are not scattered — **135 of them are
+> in `__distance_closest` alone**, plus one each in `__contrast` and `__distance_furthest`.
+> That is structural rather than coincidental: `distance_closest` is the *minimum* absolute
+> gap between the correct area and any wrong one, so it is exactly 0 whenever two areas tie.
+> That single column carries 135 genuine zeros *and* 383 imputed ones, which is precisely the
+> case where the two would be indistinguishable without the mask.
 
 > **Diana's decision.** Pupil and first-fixation-duration features **keep filling with** **`0`** **at
 > feature/model-prep time for now** — but the fill must be *clearly commented*, not implicit.
@@ -706,8 +800,10 @@ violation. So the whole obligation of this item is now the documenting.
    applied to everything. Even keeping the same behaviour, the code should show that someone
    chose it for these columns.
 3. **The count is reported** — how many cells, in which columns, as a share of trials. Today:
-   `mean_max_fix_pupil_size_z__correct` **257 NaN = 1.32% of trials**; the other nine
-   `SELECT_1_COLS` features none. This number goes in Methods.
+   `mean_max_fix_pupil_size_z__correct` **253 NaN = 1.30% of trials**; the other nine
+   `SELECT_1_COLS` features none. This number goes in Methods. **Since T3.6 (2026-09-23) there
+   is a second family to count** — first-fixation duration now carries NaN in the same cells.
+   *(Was 257 before the T3.18 rebuild — `findings.md` §8.)*
 4. **Imputed cells stay identifiable** — see the `first_encounter_avg_pupil_size_z` note
    below, where 137 cells are genuinely 0 and would otherwise be indistinguishable from the
    filled ones.
@@ -743,10 +839,13 @@ was filled.
 | pupil (z-scored)        | "this area had this participant's mean dilation" | a specific, false claim |
 | first fixation duration | a zero-length fixation                           | physically impossible   |
 
-**Volume.** Pupil: 10,039 NaN cells per metric — question area 5,810, answers A 257 /
-B 784 / C 829 / D 787. First-fixation duration will gain NaN in exactly the same cells once
-T3.6 lands. In the headline model today: `mean_max_fix_pupil_size_z__correct`, **257 NaN =
-1.32% of trials**; the other nine `SELECT_1_COLS` features have none.
+**Volume.** Re-measured on L1 2026-09-23. Per metric family: **8,461** NaN across the five
+*area* columns — question 5,810, answers A 253 / B 784 / C 829 / D 785 — and **10,021** across
+all ten columns once the five derived contrasts are included. *(The old "10,039 per metric"
+was the ten-column total quoted next to a five-column breakdown; see `pitfalls.md` §2.)*
+First-fixation duration gained NaN in exactly the same cells when **T3.6 landed 2026-09-23**.
+In the headline model: `mean_max_fix_pupil_size_z__correct`, **253 NaN = 1.30% of trials**;
+the other nine `SELECT_1_COLS` features have none, and T3.6 did not change that.
 
 ⚠️ **Note the question area: 5,810 trials (30%).** Any feature built on question-area pupil or
 first-fixation duration is missing for nearly a third of trials. Nothing in `SELECT_1_COLS`
@@ -944,7 +1043,53 @@ Not currently in `SELECT_1_COLS`, so the headline model is unaffected — but
 `findings.md` §2's ~68–71% figure comes from the *before-confirm* variant, not this one, and
 the paper's "80%" claim needs to be attributed to whichever variant actually produced it.
 
-### T3.20 — One pupil baseline per dataset, and every consumer reaching for the right one ✅ S–M · **requirement**
+### T3.20 — One pupil baseline per dataset, and every consumer reaching for the right one ✅ **DONE in code 2026-09-23** · rebuilds outstanding
+
+> **Status 2026-09-23.** Three decisions and four code changes.
+>
+> **Decisions (Diana, 2026-09-23):**
+> 1. **The baseline unit is the person, everywhere** — including KnowQA, where a participant's
+>    several sessions and all three knowledge regimes pool into one baseline. This **reverses**
+>    the previous per-`session_id` choice. The old argument (baseline pupil shifts between
+>    sittings, so a session baseline removes that nuisance variance) is true and is kept in the
+>    docstring, but was outweighed: it also removes real between-session differences in the
+>    person's state, and it made KnowQA's pupil features a different quantity from L1's.
+>    `pupil_norm_unit="session"` remains selectable.
+> 2. **The paragraph screen computes its own baseline**, from paragraph fixations.
+> 3. **Every person must have a baseline** — a missing one is an error, not a NaN column.
+>
+> **Code:**
+> * `pupil_norm.py` — **no default source.** `get_participant_pupil_stats` and
+>   `zscore_pupil_by_participant` lost their L1 defaults and raise unless a caller names the
+>   baseline. The module no longer imports any dataset path at all, which is what let the wrong
+>   one leak in. `compute_participant_pupil_stats` takes `group_col`.
+> * `pupil_norm.zscore_pupil_by_participant` — **two new guards**: every `participant_col`
+>   value in the frame must appear in the stats table, and its `pupil_sd` must be present and
+>   positive. Previously a participant absent from the stats merged to NaN mean/SD and yielded
+>   a silently all-NaN `_z` column; with a stats table from the *wrong dataset* no id matches
+>   at all, so **every** z went NaN.
+> * `answer_RTs/features.py` — new `compute_paragraph_pupil_stats`, which **streams** the
+>   multi-GB paragraph fixation report (count/sum/sum-of-squares per participant, combined at
+>   the end; verified equal to the in-memory computation to ~1e-15). `paragraph_fixations_path`
+>   is threaded through all four builders so the source is always named.
+> * `know_qa_dataprep.py` — `pupil_norm_unit` defaults to `"participant"`, so `main()` now
+>   writes `KnowQA_runs/Auxiliary/participant_pupils.csv` **from KnowQA's own fixations**. That
+>   supersedes the 80-byte pre-Stage-0 leftover, so the "there is no correct file" half of this
+>   item is closed by the same change.
+>
+> **Rebuilds.** (b) **L1's paragraph features are rebuilt (2026-09-23)**, in the same pass as
+> T6.1 — the 12 paragraph pupil z columns moved from −0.58…−0.81 to ≈0, which is the clearest
+> evidence this bug was material: those values were measuring the gap between two screens, not
+> anyone's pupil. (a) **KnowQA is still outstanding** (session → participant baseline).
+> **No paper number is affected either way** — see the blast-radius note below.
+>
+> **Blast radius, re-measured 2026-09-23 (the paragraph half is far smaller than this item
+> assumed).** The original text says "`answer_RTs` and the `RT_correlations` proportions do use
+> these columns". `RT_correlations` **does not reference pupil at all**, and
+> `model_data.build_trial_level_model_df` merges only `PARAGRAPH_PROPORTION_COLS`
+> (`area_dwell_proportion__{critical,distractor,outside}`) into the model-ready table — **no
+> paragraph pupil column reaches any model.** So the only consumer of paragraph pupil z is
+> `answer_RTs`, which is parked. The KnowQA half is the one that touches live descriptives.
 
 **Diana's requirement, 2026-09-05:** *each dataset creates a pupil-stats file of its own, and
 whatever needs z-scored pupils uses the correct one.* That is the whole item; the two bugs
@@ -1100,7 +1245,7 @@ subsumes the old T3.15 and interacts with T6.1.
 | T3.10    | Fold-level CIs use `se = std/sqrt(n_folds)`, treating overlapping folds as independent → anti-conservative. Also an unweighted mean over folds regardless of each fold's `n_eval`, and a silent fallback to z=1.96 for any `ci` outside {.90,.95,.99}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `cross_validation.py:876-901`                                                     | These are the CIs on the comparison figure                                                                                   |
 | T3.11    | Five group-feature functions mutate the caller's frame in place, creating an undocumented ordering dependency (`create_first_encounter_pupil_size` only works because `create_mean_first_fix_duration` already coerced a column to int). Also leaks `area_skipped` and `"."→0` coercions into the saved output                                                                                                                                                                                                                                                                                                                                                                                                                                    | `data_csv_generation.py:458, 475, 490, 513-514, 533`, `:1221`                     | Running a subset via `group_function_names=[...]` can compare `str > int`                                                    |
 | T3.12 ↪️ | **ABSORBED into T3.14.** **The global** **`fill_value = 0.0`** **is wrong for exclude-convention columns.** Measured 2026-09-04: the pupil family is the only one carrying real NaN (10,039 cells per metric — question 5,810, answers A 257 / B 784 / C 829 / D 787). Filling a *z-score* with 0 asserts "this area had this participant's mean pupil size" for an area never looked at. Live in the headline model: `mean_max_fix_pupil_size_z__correct` has **257 NaN (1.32% of trials)**, the other nine `SELECT_1_COLS` features have none — 0.132% of the feature matrix. T3.6 will add first-fixation duration to the same problem. **Not** an issue for RT/TFD/dwell/count: those have zero NaN and their zeros are real data (see below) | `logreg_model.py:24`, `:57-58`                                                    | **Fix tracked as T3.14** — per-column fill policy, covering both families. Report the imputation count in Methods either way |
-| T3.20 ✅  | **decided, implementation outstanding. Every dataset owns its own pupil baseline, and every consumer uses the right one** — full item as its own section above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `pupil_norm.py`, `know_qa_dataprep.py:415`/`:931`, `answer_RTs/features.py:199`   | Requirement set 2026-09-05. Absorbs T3.8                                                                                     |
+| T3.20 ✅  | **DONE in code 2026-09-23. Every dataset owns its own pupil baseline, and every consumer uses the right one** — full item as its own section above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `pupil_norm.py`, `know_qa_dataprep.py:415`/`:931`, `answer_RTs/features.py:199`   | Requirement set 2026-09-05. Absorbs T3.8                                                                                     |
 | —        | *Retracted 2026-09-04:* this row previously claimed `0` in the RT/TFD family was ambiguous between "read for zero ms", "never read" and "region absent". Wrong — **every area exists on every trial** (zero NaN in `mean_dwell_time`/`skip_rate` across all five answer areas, and all three paragraph spans always present), and the RT/TFD/TimeSinceOffset families contain **no NaN at all**. So `0` there means exactly one thing: never fixated. Under the coverage-inclusive convention that is real data needing no handling                                                                                                                                                                                                               | —                                                                                 | no action                                                                                                                    |
 
 ***
@@ -1291,7 +1436,55 @@ is absorbed as Stage C**, which is where the correctness work concentrates.
 > silent `how="left"`, and every filter without a stated scientific reason. Each one is either
 > justified in a comment or removed.
 
-### T6.1 — Separate paragraph preprocessing from QA preprocessing, and from RT prediction ⚠️ M–L · **structural, already specified**
+### T6.1 — Separate paragraph preprocessing from QA preprocessing, and from RT prediction ✅ **DONE 2026-09-23**
+
+> **Status.** All three separations landed, ahead of the restructure proper.
+>
+> **(a) Extraction out of the modelling module.** `predictive_modeling/answer_RTs/features.py`
+> is now a thin compatibility surface — it re-exports the names its two callers use
+> (`answer_RTs/model_data.py`, and `statistics/RT_correlations/proportions.py`, the live
+> text-QA analysis) and builds nothing. The extraction lives in `derived/paragraph_prep.py`.
+> So retiring `answer_RTs/` as a modelling strand no longer risks retiring the extraction.
+>
+> **(b) The QA prep no longer produces paragraph-derived columns.**
+> `reading_times.build_rt_and_tfd` is answer-only; its paragraph branch moved to
+> `paragraph_prep.build_paragraph_rt_tfd`. With it went the `how="inner"` merge that silently
+> dropped trials with answer data but no paragraph data, and the `include_paragraph` flag
+> threaded through four call layers. `data_csv_generation` opens no paragraph report at all.
+>
+> **(c) One paragraph pipeline, one output, one owner.** `derived/paragraph_prep.py` reads the
+> paragraph reports, computes its own pupil baseline (T3.20), builds the span metrics through
+> the shared `area_metrics`, builds the per-span RT/TFD, and writes one table.
+> `model_data.PARAGRAPH_MODEL_COLS` joins it explicitly — the dwell proportions *and* the
+> RT/TFD columns that used to arrive through `RT_and_TFD.csv`, same names, same values.
+>
+> **Side effect worth having:** the paragraph IA read is now `usecols`-limited to **15 of 157
+> columns**, which is what makes a paragraph rebuild possible at all on this machine — the
+> unchunked full read wanted well over 12 GB.
+>
+> ⚠️ **Soft spot:** a paragraph column absent from the cache is skipped rather than raising, so
+> a stale cache yields a trial frame quietly missing its paragraph RT columns. Rebuild after
+> changing the paragraph pipeline.
+>
+> **One real bug, caught by the before/after check rather than by reading.** Moving the
+> paragraph RT columns to the paragraph table gave them **two owners** for one build: the trial
+> frame still picked them up from `RT_and_TFD.csv` (an `all_participants.csv` built before T6.1
+> has them baked in by the old Stage 1), *and* the paragraph join brought them. Pandas
+> resolved that the way it always does — it suffixed them `_x` and `_y` — so all 18 columns
+> silently stopped existing under the names every feature set refers to. No error, no warning;
+> exactly the shape of the `_x`/`_y` failure that took down the dwell-proportion maps earlier
+> (`findings.md` change log, 2026-09-20).
+>
+> Fixed in two places, both of which should have been there from the start:
+>
+> * `build_trial_level_rt_tfd_features` now iterates **answer regions only**, so the paragraph
+>   regions have exactly one owner. Stale paragraph columns on an old `all_participants.csv`
+>   are ignored rather than used, and disappear on the next Stage 1 rebuild.
+> * the paragraph merge **raises on any column collision** and asserts the row count, instead
+>   of letting pandas disambiguate silently.
+>
+> Worth remembering as a pattern, not just an incident: *moving* a column between producers is
+> the moment to check for two producers, and `how="left"` will never tell you.
 
 **Diana's requirement, 2026-09-05.** Three things are currently tangled that should be three
 things. Stated as three separations:

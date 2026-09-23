@@ -52,12 +52,26 @@ ANSWER_RT_TFD_METRICS = (
 )
 
 # Paragraph-screen spans and the dwell-proportion columns they produce
-# (feature_groups.PARAGRAPH_BASED). Built per span by answer_RTs.features and
-# cached in PARAGRAPH_SPAN_FEATURES_PATH; the trial frame gets them as-is.
+# (feature_groups.PARAGRAPH_BASED). Built per span by derived/paragraph_prep.py
+# and cached in PARAGRAPH_SPAN_FEATURES_PATH; the trial frame gets them as-is.
 PARAGRAPH_SPANS = ("critical", "distractor", "outside")
 PARAGRAPH_PROPORTION_COLS = tuple(
     f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
 )
+
+# The per-span RT / TFD / TimeSinceOffset columns. These used to reach the trial
+# frame through RT_and_TFD.csv, because the ANSWER pipeline built them; since
+# T6.1 (2026-09-23) the paragraph pipeline owns them and they arrive through the
+# paragraph join instead. Same column names, same values, different provenance --
+# and now an explicit join rather than a silent by-product of preparing the
+# answer screen.
+PARAGRAPH_RT_TFD_COLS = tuple(
+    f"{metric}_{span}"
+    for metric in ANSWER_RT_TFD_METRICS
+    for span in RT_PARAGRAPH_REGIONS
+)
+
+PARAGRAPH_MODEL_COLS = PARAGRAPH_PROPORTION_COLS + PARAGRAPH_RT_TFD_COLS
 
 # ---------------------------------------------------------------------
 # Small helpers
@@ -228,10 +242,20 @@ def build_trial_level_rt_tfd_features(
     """
     keep_cols = _deduplicate_keep_cols(keep_cols)
 
+    # ANSWER regions only. The paragraph regions used to be taken from here too,
+    # because the answer pipeline built them into RT_and_TFD.csv; since T6.1 the
+    # paragraph table owns them and they arrive through the paragraph join. Two
+    # sources for one column name is not a tie to break -- pandas silently
+    # suffixes them `_x`/`_y` and the feature simply stops existing under the name
+    # every feature set refers to.
+    #
+    # NOTE: an `all_participants.csv` built before T6.1 still carries the
+    # paragraph RT columns, merged in by the old Stage 1. They are ignored here
+    # rather than used, and disappear on the next Stage 1 rebuild.
     metric_cols = [
         f"{m}_{r}"
         for m in ANSWER_RT_TFD_METRICS
-        for r in tuple(RT_ANSWER_REGIONS) + tuple(RT_PARAGRAPH_REGIONS)
+        for r in tuple(RT_ANSWER_REGIONS)
         if f"{m}_{r}" in df.columns
     ]
 
@@ -279,25 +303,31 @@ def build_trial_level_rt_tfd_features(
 def build_trial_level_paragraph_features(
     paragraph_features: Optional[pd.DataFrame] = None,
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
-    feature_cols: Sequence[str] = PARAGRAPH_PROPORTION_COLS,
+    feature_cols: Sequence[str] = PARAGRAPH_MODEL_COLS,
 ) -> pd.DataFrame:
     """
-    One row per trial with the paragraph-screen dwell proportions:
+    One row per trial with the paragraph-screen features the model uses:
 
         area_dwell_proportion__critical / __distractor / __outside
+        RT_* / TFD_* / TimeSinceOffset_* per span
 
-    i.e. the share of the trial's paragraph dwell time spent on each span --
-    the same quantity as the per-answer `area_dwell_proportion__*` columns, but
-    grouped by paragraph span rather than answer area. Read from the cache
-    written by `answer_RTs.features.save_paragraph_features`; run that first if
-    the file is missing.
+    The dwell proportions are the same quantity as the per-answer
+    `area_dwell_proportion__*` columns, grouped by paragraph span rather than
+    answer area. Read from the cache written by
+    `derived.paragraph_prep.save_paragraph_features`; run that first if the file
+    is missing.
+
+    A column named in `feature_cols` but absent from the cache is skipped rather
+    than raising, because an older cache predates the RT/TFD half. That is worth
+    knowing: a stale cache silently yields a trial frame with no paragraph RT
+    columns, so rebuild it after changing the paragraph pipeline.
     """
     if paragraph_features is None:
         path = Path(paragraph_features_path)
         if not path.exists():
             raise FileNotFoundError(
                 f"Paragraph-span features not found at {path}. Build them with "
-                "src.predictive_modeling.answer_RTs.features.save_paragraph_features()."
+                "src.derived.paragraph_prep.save_paragraph_features()."
             )
         paragraph_features = pd.read_csv(path)
 
@@ -448,7 +478,43 @@ def build_trial_level_model_df(
             paragraph_features=paragraph_features,
             paragraph_features_path=paragraph_features_path,
         )
+        # A name carried by both frames would be silently suffixed `_x`/`_y`, and
+        # the feature every feature set refers to would simply stop existing --
+        # no error, just a column gone missing. Caught here rather than
+        # discovered when a model reports a KeyError three steps later.
+        # The paragraph cache lives at ONE global path, so a dataset with no
+        # paragraph screen that leaves `include_paragraph_features=True` gets
+        # joined against L1's table. Today the ids do not collide and every
+        # column comes back NaN, which is harmless but silent -- and it would
+        # stop being harmless the moment a future dataset reused an L1 id.
+        # Warn rather than raise: an empty join is a configuration mistake, not a
+        # reason to lose the run.
+        overlap = len(
+            set(map(tuple, out[list(TRIAL_ID_COLS)].values))
+            & set(map(tuple, paragraph_df[list(TRIAL_ID_COLS)].values))
+        )
+        if overlap == 0:
+            print(
+                f"  WARNING: the paragraph cache ({paragraph_features_path}) shares "
+                f"no trial with this dataset, so all {len(paragraph_df.columns) - 2} "
+                "paragraph columns will be NaN. If this dataset has no paragraph "
+                "screen, pass include_paragraph_features=False."
+            )
+
+        clash = (set(out.columns) & set(paragraph_df.columns)) - set(TRIAL_ID_COLS)
+        if clash:
+            raise ValueError(
+                f"Paragraph features collide with columns already on the trial "
+                f"frame: {sorted(clash)}. Each of these has two owners; since "
+                "T6.1 the paragraph table is the only one. The usual cause is an "
+                "`all_participants.csv` built before T6.1, whose Stage 1 baked "
+                "the paragraph RT columns into the answer table."
+            )
+        before = len(out)
         out = out.merge(paragraph_df, on=list(TRIAL_ID_COLS), how="left")
+        assert len(out) == before, (
+            f"paragraph join changed the row count: {before} -> {len(out)}"
+        )
 
     if include_last_lbl_before_confirm_features:
         last_before_confirm_df = build_trial_level_last_visited_features(
@@ -516,6 +582,7 @@ def save_all_features(
     verbose: bool = True,
     paragraph_features: Optional[pd.DataFrame] = None,
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
+    include_paragraph_features: bool = True,
 ) -> pd.DataFrame:
     """
     Build the full trial-level feature DataFrame (every include_* flag turned on)
@@ -524,6 +591,12 @@ def save_all_features(
 
     `paragraph_features` / `paragraph_features_path` point at the paragraph-span
     cache to join in -- see `build_trial_level_model_df`.
+
+    **Pass `include_paragraph_features=False` for a dataset with no paragraph
+    screen.** The cache path is global, so leaving it on joins that dataset
+    against L1's paragraph table: every column comes back NaN today, but only
+    because the participant ids happen not to collide. KnowQA and both pilots
+    pass False.
     """
     trial_df = build_trial_level_model_df(
         df=df,
@@ -536,7 +609,7 @@ def save_all_features(
         include_rt_tfd_features=True,
         include_total_answering_rt=True,
         include_pattern_features=True,
-        include_paragraph_features=True,
+        include_paragraph_features=include_paragraph_features,
         paragraph_features=paragraph_features,
         paragraph_features_path=paragraph_features_path,
     )

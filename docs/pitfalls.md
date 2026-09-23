@@ -71,10 +71,18 @@ both ↔ skip_rate r ≈ −0.55; first-fix ↔ dwell r = 0.56. `area_dwell_prop
 independent (r = 0.23 with dwell), because it is normalized by the trial total rather than by
 word count. Five named metrics, closer to two independent ones.
 
-> **Decided (2026-09-04): drop `"."` for first fixation duration, on all data.**
-> Implementation and blast radius: `todo.md` T3.6. Until it lands, the answer-side and
-> paragraph-side columns of the same name are different measures. The pupil columns already
-> drop on both paths and are fine.
+> **Decided (2026-09-04), and ✅ implemented in code 2026-09-23: drop `"."` for first fixation
+> duration, on all data.** `create_mean_first_fix_duration` coerces with
+> `pd.to_numeric(errors="coerce")`, matching what the paragraph path always did — so the
+> answer-side and paragraph-side columns of the same name are **now one measure**, and
+> `features.py`'s long-standing claim of a 1:1 mirror became true rather than aspirational.
+> The pupil columns already dropped on both paths and are unchanged.
+>
+> **L1 and KnowQA are both rebuilt (2026-09-23)**; the two pilots are not, so their
+> `mean_first_fixation_duration` is still on the old convention — stated rather than silent.
+> On L1 the change touched **exactly 10 of 217** model-ready columns, all of them
+> first-fixation-duration, leaving the headline feature set bit-identical. Measured numbers in
+> `findings.md` §3.1 and its change log.
 >
 > **Corollary: never fill this column's NaN with `0`.** A zero-length fixation does not exist,
 > so the model's global `fill_value = 0.0` would put an impossible value back. It needs a
@@ -108,20 +116,48 @@ TFD and TimeSinceOffset families contain **no NaN at all** in
 Under the coverage-inclusive convention above, that zero is real data — "spent no time reading
 it" — and needs no special handling.
 
-### Where imputation *is* a problem: the pupil family
+### Where imputation *is* a problem: the exclude-convention families
 
-Pupil metrics follow the exclude convention, so they are the only family carrying genuine
-NaN — 10,039 cells per metric (question 5,810; answers A 257 / B 784 / C 829 / D 787), one
-for every area a participant never fixated.
+> **Updated 2026-09-23 (T3.6 landed in code).** This section used to say the pupil family was
+> *the only* one carrying genuine NaN. That is no longer true: first-fixation duration now
+> excludes unread words too, so it carries NaN in **exactly the same cells** — verified
+> identical per area on L1. Two families, one policy.
+>
+> The numbers below were also re-measured, and two were wrong:
+>
+> * **The old "10,039 cells per metric" did not match its own breakdown.** 10,039 was the sum
+>   over all **ten** columns of a metric family (5 areas + 5 derived contrasts); the
+>   per-area list printed beside it summed to 8,467. Both are useful, but they are different
+>   quantities and were being quoted as one.
+> * **257 → 253**, and **D 787 → 785**, since the T3.18 rebuild (`findings.md` §8).
+
+Pupil metrics and — since T3.6 — first-fixation duration follow the exclude convention, so they
+are the families carrying genuine NaN, one cell for every area a participant never fixated.
+Measured on L1, 2026-09-23:
+
+| scope | cells per metric family |
+|---|---|
+| the five **area** columns | **8,461** — question 5,810 · A 253 · B 784 · C 829 · D 785 |
+| all **ten** columns (areas + the five derived contrasts) | **10,021** |
+
+The contrasts inherit NaN asymmetrically, which is worth knowing before quoting either number:
+`__wrong_mean` is NaN only when *all three* wrong answers were unfixated (158 trials), while
+`__contrast`, `__distance_furthest` and `__distance_closest` are NaN when *either* side is (383).
 
 The model then fills every NaN with `0.0` (`logreg_model.py:24`). These are **z-scores**, so
 `0` asserts *this area had exactly this participant's mean pupil size* — a specific and false
 claim about an area that was never looked at.
 
 Live in the headline model: `mean_max_fix_pupil_size_z__correct` is in `SELECT_1_COLS` and has
-**257 NaN (1.32% of trials)**; the other nine features have none. That is 0.132% of the
+**253 NaN (1.30% of trials)**; the other nine features have none. That is 0.130% of the
 feature matrix — too small to threaten the reported accuracy, big enough to belong in Methods.
-Once T3.6 lands, first-fixation duration will acquire NaN in the same places.
+
+**T3.6 has now landed in code, and it does not change that number.** `SELECT_1_COLS` contains
+no first-fixation column, so the headline model still imputes exactly those 253 cells. What
+changed is the *scope of the policy*: the fill now covers a second family, so the Methods
+sentence T3.14 requires has two counts to state, not one. Verified on KnowQA (870 trials),
+where the first-fixation family went from 0 to 295 NaN cells while the pupil family stayed at
+1,180 and every `SELECT_1_COLS` count was unchanged.
 
 **Decided 2026-09-05 (`todo.md` T3.14): the `0` fill stays at model-prep time for now, and is
 documented rather than removed** — commented where it happens, counted, and reported in
@@ -175,7 +211,8 @@ sessions. Regime and session are two different ways the same person's trials get
   correct-trials-only analyses, exclusion thresholds, and so on.
 - **KnowQA sessions.** Here one `participant_id` really does span several sittings *within*
   the same file, so per-participant features pool across them. Pupil z-scoring is already done
-  per `session_id`; the strategy features are not.
+  per `participant_id` against that dataset's own fixations (T3.20, 2026-09-23 — it was
+  per `session_id` until then); the strategy features still are not scoped at all.
 - **The prefix-completion map** (descriptive path) is learned from the group it is run on, so
   hunters and gatherers get different completion maps. Population-scoped rather than
   participant-scoped, so this one genuinely differs by frame — it shifts the dominant label
@@ -231,12 +268,20 @@ For KnowQA, `TRIAL_INDEX` is a composite (`b2l01t005`) rather than an integer �
 `derived.reading_times.load_paragraph_fixations` coerces `TRIAL_INDEX` to int64 and drops what
 won't convert, which would silently reduce the paragraph fixations to nothing.
 
-`know_qa_dataprep.run_pipeline:884` therefore **hard-refuses** `include_paragraph=True` with
-an explanatory error. That guard is correct behaviour — don't remove it to make a run go
-through. **No todo item: working as intended.** Note the deeper reason is simply that
-KnowQA has no paragraph data exported at all (only a third of its trials show a paragraph,
-and `data_paths.py` defines no paragraph path for any Study 2 run) — the dtype issue is a
+`know_qa_dataprep.run_pipeline` therefore **hard-refuses** `include_paragraph=True` with an
+explanatory error. That guard is correct behaviour — don't remove it to make a run go through.
+**No todo item: working as intended.** Note the deeper reason is simply that KnowQA has no
+paragraph data exported at all (only a third of its trials show a paragraph, and
+`data_paths.py` defines no paragraph path for any Study 2 run) — the dtype issue is a
 secondary blocker that would also need fixing if that ever changed.
+
+> **Changed 2026-09-23 (T6.1).** The answer pipeline has **no paragraph step left to turn on**:
+> paragraph features are built by `derived/paragraph_prep.py`, and `data_csv_generation` opens
+> no paragraph report at all. So the refusal is no longer protecting a flag that would do
+> something — it is there to tell a caller who passes it that KnowQA has no paragraph data to
+> build from, rather than silently handing back a table with no paragraph columns. The dtype
+> hazard itself is unchanged and still lives in `load_paragraph_fixations`, which
+> `paragraph_prep` calls.
 
 Related: `load_all_features` pins `participant_id` to `str` because KnowQA ids are all digits
 and would otherwise be inferred as int, breaking merges.

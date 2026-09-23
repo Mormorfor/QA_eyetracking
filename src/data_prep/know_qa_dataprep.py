@@ -53,18 +53,28 @@ One place does require a numeric TRIAL_INDEX:
 the un-coercible rows, so a composite id would silently reduce the paragraph
 fixation report to nothing. KnowQA has no paragraph report yet and the
 paragraph steps are off, so `run_pipeline` refuses `include_paragraph=True`
-rather than let that happen quietly.
+rather than let that happen quietly. Since T6.1 the answer pipeline has no
+paragraph step at all -- `derived/paragraph_prep.py` owns that screen -- so the
+refusal is now about there being no KnowQA paragraph data to build from.
 
-Pupil normalization follows the session, not the person
--------------------------------------------------------
-`participant_id` covering several sessions has one real consequence for the
-features: pupil z-scoring is the pipeline's only per-participant step
-(`derived.pupil_norm.compute_participant_pupil_stats` groups by
-`participant_id`), so a person's sessions would be pooled into a single
-mean/SD. Pupil baseline shifts between sittings (setup, lighting, fatigue), so
-this module z-scores within the session instead -- `clean_reports` does the mm
-scaling and z-scoring itself and the pipeline's own pupil base feature is
-skipped. Pass `pupil_norm_unit="participant"` to pool them instead.
+Pupil normalization follows the person
+--------------------------------------
+Pupil z-scoring is the pipeline's only per-participant step, and its baseline
+unit is the **person** -- one baseline per `participant_id`, pooled across all
+of that person's recording sessions and across all three knowledge regimes
+(Diana, 2026-09-23, `todo.md` T3.20). This matches L1, so "this participant's
+typical pupil size" means the same thing project-wide, and it means every
+dataset writes its own `Auxiliary/participant_pupils.csv` from its own
+fixations.
+
+This module previously z-scored within `session_id`, on the argument that
+baseline pupil size shifts between sittings (setup, lighting, fatigue) and a
+session baseline removes that nuisance variance. That is true but was rejected:
+it also removes real between-session differences in the person's state, and it
+made KnowQA's pupil features a different quantity from L1's. The session-scoped
+path is still reachable with `pupil_norm_unit="session"` (or
+`--pupil-norm-unit session`), which moves the z-scoring into `clean_reports` and
+excludes the pipeline's own pupil base feature.
 """
 
 from __future__ import annotations
@@ -741,15 +751,28 @@ def compute_pupil_stats_by(fixations: pd.DataFrame, group_col: str) -> pd.DataFr
 def add_zscored_pupil_columns_by(
     ia_df: pd.DataFrame,
     fixations_df: pd.DataFrame,
-    group_col: str = Con.SESSION_ID,
+    group_col: str = Con.PARTICIPANT_ID,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Scale the IA pupil columns to mm and z-score them within `group_col`.
 
-    The same work as `data_csv_generation.add_zscored_pupil_columns`, except
-    that function z-scores within `participant_id`. For KnowQA a person can
-    have several recording sessions, and pupil baseline shifts between them
-    (setup, lighting, fatigue), so pooling a person's sessions into one mean/SD
-    is the wrong baseline -- normalize within the session instead.
+    The same work as `data_csv_generation.add_zscored_pupil_columns`, with the
+    baseline unit as a parameter.
+
+    **The unit is the PERSON, not the session (Diana, 2026-09-23, `todo.md`
+    T3.20).** One KnowQA participant sits for several recording sessions, and a
+    person's baseline pools across all of them -- including across knowledge
+    regimes, which is fine because the regimes are what we want to compare
+    *within* a common scale.
+
+    This reverses an earlier choice, and the earlier argument is worth keeping
+    rather than deleting: baseline pupil size does shift between sittings
+    (setup, lighting, fatigue), so a session-scoped baseline removes that
+    nuisance variance. It was rejected because it also removes real
+    between-session differences in the person's state, and because "this
+    participant's typical pupil size" should mean one thing across the project
+    -- L1 has always been per person. `session` remains available via
+    `group_col` / `--pupil-norm-unit` if the session-scoped version is ever
+    wanted for a comparison.
 
     Returns (ia_df with the `_z` columns, the stats used).
     """
@@ -782,7 +805,7 @@ def add_zscored_pupil_columns_by(
 
 def clean_reports(
     raw_dir: Path,
-    pupil_norm_unit: str = "session",
+    pupil_norm_unit: str = "participant",
     strict: bool = True,
     verbose: bool = True,
 ) -> dict[str, Path]:
@@ -871,10 +894,40 @@ def _require_pupil_z_columns(ia_path: Path) -> None:
         )
 
 
+def _refuse_participant_over_session_cleaned(ia_path: Path) -> None:
+    """Fail early on the mirror image of `_require_pupil_z_columns`.
+
+    The session path does not merely ADD `_z` columns -- `add_zscored_pupil_columns_by`
+    overwrites the raw pupil columns with their millimetre values in place. So a
+    cleaned report written under `"session"` holds mm, not the tracker's area
+    units.
+
+    Running the participant path over that would scale again: mm treated as an
+    area, square-rooted a second time. Nothing would raise, no column would go
+    missing, and every pupil z-score in the run would be quietly wrong -- the
+    exact failure mode `conventions.md` calls a plausible-looking wrong number.
+    Re-run the clean step so the raw columns come back in area units.
+
+    (The guard above covers the opposite mistake. Only one of the two directions
+    was checked until 2026-09-23, and this is the one that corrupts silently
+    rather than failing.)
+    """
+    header = pd.read_csv(ia_path, nrows=0)
+    already = [f"{c}_z" for c in PUPIL_IA_COLUMNS if f"{c}_z" in header.columns]
+    if already:
+        raise ValueError(
+            f"{ia_path} already carries {already}, so it was cleaned with "
+            "pupil_norm_unit='session' -- and its raw pupil columns hold "
+            "millimetres, not area units. Running the participant path over it "
+            "would scale them a second time and silently produce wrong z-scores. "
+            "Re-run the clean step with pupil_norm_unit='participant' first."
+        )
+
+
 def run_pipeline(
     cleaned_dir: Path,
     out_dir: Path,
-    pupil_norm_unit: str = "session",
+    pupil_norm_unit: str = "participant",
     include_paragraph: bool = False,
     verbose: bool = True,
 ) -> Path:
@@ -902,11 +955,14 @@ def run_pipeline(
         )
     if include_paragraph:
         raise ValueError(
-            "include_paragraph=True is unsupported for KnowQA: "
-            "derived.reading_times.load_paragraph_fixations coerces TRIAL_INDEX "
-            "to int64 and drops what will not convert, so the composite trial "
-            "ids would silently reduce the paragraph fixations to nothing. Make "
-            "that loader dtype-agnostic before turning this on."
+            "include_paragraph=True is unsupported for KnowQA, and since T6.1 "
+            "(2026-09-23) the answer pipeline has no paragraph step to turn on "
+            "at all -- paragraph features are built separately by "
+            "derived/paragraph_prep.py. KnowQA has no paragraph report to build "
+            "them from: only a third of its trials show a paragraph and no "
+            "paragraph path is registered for any Study 2 run. This argument is "
+            "kept so a caller that passes it is told, rather than silently "
+            "getting a table with no paragraph columns."
         )
 
     cleaned_dir = Path(cleaned_dir)
@@ -933,6 +989,11 @@ def run_pipeline(
         # session; the pipeline's version would redo it per participant.
         excluded.add(PUPIL_BASE_FUNC)
         _require_pupil_z_columns(ia_path)
+    else:
+        # ...and the mirror image: the pipeline is about to scale and z-score
+        # per participant, which is only correct if the cleaned report still
+        # holds raw area units.
+        _refuse_participant_over_session_cleaned(ia_path)
     base_function_names = [
         name
         for name, entry in dcg.FUNCTION_REGISTRY.items()
@@ -945,22 +1006,18 @@ def run_pipeline(
         # The single canonical fixations report: feeds both the pupil stats and
         # create_fixation_sequence_tags, so all group features can run.
         fixations_path=fix_path,
-        # Both of the next two are INERT on this path, and deliberately kept.
-        # KnowQA needs no participant-level pupil baseline: pupil size is already
-        # z-scored per `session_id` in Stage 0, which is the right unit here
-        # because one participant_id spans several sittings. So
-        # `add_zscored_pupil_columns` is excluded above (see PUPIL_BASE_FUNC), and
-        # main() gates its whole pupil-stats block on that base feature running --
-        # nothing reads or writes a pupil-stats file for KnowQA.
+        # These two are LIVE under the default pupil_norm_unit="participant"
+        # (T3.20): main() computes the baseline from THIS run's fixations report
+        # (`fixations_path=fix_path` above, never L1's) and writes it to
+        # `pupil_stats_path`, so KnowQA owns a real per-dataset pupil-stats file
+        # instead of having none. That file supersedes the 80-byte pre-Stage-0
+        # leftover that used to sit there.
         #
-        # They stay because the alternative is worse: `pupil_stats_path` defaults
-        # to L1's PARTICIPANT_PUPILS_PATH, so dropping it would mean that anyone
-        # re-enabling the base feature for KnowQA would silently baseline against
-        # L1's answer screen -- exactly the bug `todo.md` T3.20 is about. Pinned
-        # here, that cannot happen.
-        #
-        # NB: `data/KnowQA_runs/Auxiliary/participant_pupils.csv` on disk is a
-        # leftover from a pre-Stage-0 run, NOT output of this path. Do not read it.
+        # Under pupil_norm_unit="session" they go inert instead: Stage 0 does the
+        # z-scoring, `add_zscored_pupil_columns` is excluded above (see
+        # PUPIL_BASE_FUNC), and main() gates its whole pupil-stats block on that
+        # base feature running. They stay passed either way so the path is named
+        # in one place regardless of which unit is in force.
         compute_pupil_stats=True,
         pupil_stats_path=aux_dir / "participant_pupils.csv",
         button_clicks_path=aux_dir / "button_clicks_data.csv",
@@ -970,7 +1027,6 @@ def run_pipeline(
         # last-label + RT/TFD features, fed by the button clicks built below
         add_last=True,
         add_rts=True,
-        include_paragraph=False,
         rebuild_button_clicks=True,
         # Button clicks come from the fixations report itself (it holds both the
         # message-list and fixation columns), not the legacy CSV + TSV pair.
@@ -1070,7 +1126,7 @@ STEPS = ("convert", "clean", "pipeline", "features")
 def prepare_know_qa(
     run: str = DEFAULT_RUN,
     steps: Iterable[str] = STEPS,
-    pupil_norm_unit: str = "session",
+    pupil_norm_unit: str = "participant",
     strict: bool = True,
     verbose: bool = True,
     runs: Mapping[str, tuple[Path, Path]] = RAW_RUNS,
@@ -1161,7 +1217,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--pupil-norm-unit",
-        default="session",
+        default="participant",
         choices=list(PUPIL_NORM_UNITS),
         help="baseline pupil sizes are z-scored against; 'participant' pools a "
         "person's sessions",

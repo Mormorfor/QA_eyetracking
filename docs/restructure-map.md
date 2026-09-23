@@ -356,9 +356,59 @@ if it is over RT, it belongs here. That is the test.
 
 This split is also the fix for **T3.11**: the five in-place mutating functions create an
 undocumented ordering dependency (`create_first_encounter_pupil_size` only works because
-`create_mean_first_fix_duration` already coerced a column to int). Once they are separate
+`create_mean_first_fix_duration` already coerced a column). Once they are separate
 modules with explicit inputs and outputs, the dependency has to be written down or it breaks
 loudly.
+
+> **Note added 2026-09-23, after T3.6 landed.** That ordering dependency is now *commented* at
+> both ends, but it is **not** fixed — and the split is what has to fix it. Three things this
+> stage must get right, learned by doing the T3.6 change:
+>
+> 1. **The `"."` coercion is currently a side effect of a metric function**, not an ingest
+>    step. `create_mean_first_fix_duration` coerces `IA_FIRST_FIXATION_DURATION` in place and
+>    then takes the mean; `create_first_encounter_pupil_size` silently depends on that having
+>    happened (it filters `> 0`). Under the split the coercion moves to `ingest/readers.py` and
+>    **both** consumers receive an already-numeric column, so `features/area_metrics.py` and
+>    `features/pupil.py` become pure. Until then, running either group function alone via
+>    `group_function_names=[...]` compares `str > int` and raises.
+> 2. **The include/exclude convention must move with the metrics, per metric.** It is not a
+>    global policy: dwell time and fixation count keep unread words as `0`, first-fixation
+>    duration and pupil exclude them. The unified T1.7 functions are parameterized by the
+>    grouping column — they must **also** carry the missing-value convention per metric, or the
+>    merge will silently pick one and flatten the distinction. `pitfalls.md` §2 is the
+>    statement of record; the asymmetry is deliberate.
+> 3. **The coercion leaks into the saved table**, so `all_participants.csv` now stores
+>    `IA_FIRST_FIXATION_DURATION` as float-with-NaN rather than int. Anything that reads the
+>    saved IA-level file and expects an int column needs to know. Making ingest own the
+>    coercion makes this a stated output schema instead of a side effect.
+
+> **Update 2026-09-23 — part of this stage has already landed, outside the restructure.**
+> T1.7 and T6.1 were done early, because T3.6 made the divergence between the two metric
+> implementations concrete enough to act on. Two modules now exist in the *current* tree,
+> named and shaped so the eventual move is a rename rather than a rewrite:
+>
+> | now | destination in this map |
+> |---|---|
+> | `src/derived/area_metrics.py` — the eight metrics, parameterized by grouping column | `features/area_metrics.py` (§6.1's row, already done) |
+> | `src/derived/paragraph_prep.py` — the whole paragraph screen: reports → one feature table | `features/paragraph/` (§3) |
+>
+> What that settles in advance of Stage C:
+>
+> * **the answer pipeline no longer reads paragraph input**, so the `ingest`/`features`
+>   boundary this map describes at §4 is already real for that half;
+> * **`include_paragraph` is gone** — the flag §7 wanted to replace with a `has_paragraph`
+>   dataset property no longer exists to replace. A dataset simply does or does not run the
+>   paragraph pipeline;
+> * **the `how="inner"` paragraph merge is gone**, so one of the silent exclusions the
+>   restructure was meant to catch is already caught;
+> * `answer_RTs/features.py` is now a compatibility surface, which resolves the map's open
+>   question about what happens to that file when `answer_RTs/` is parked — §5.1's table had
+>   no row for it.
+>
+> Still outstanding from §6.1: the `"."` coercion is centralized *within* each pipeline but
+> still lives in `features`-layer code rather than `ingest/readers.py`, and the QA metric
+> wrappers still mutate the caller's frame to preserve `all_participants.csv`'s schema. T3.11
+> is what finishes that.
 
 ### 6.2 The two starting-strategy implementations → one
 
