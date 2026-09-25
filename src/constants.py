@@ -13,6 +13,14 @@ REPEATED_TRIAL_COLUMN = "repeated_reading_trial"
 PRACTICE_TRIAL_COLUMN = "practice_trial"
 QUESTION_PREVIEW_COLUMN = "question_preview"
 
+# Study 2's manipulation, replacing question preview: how much the participant
+# knows when they reach the answer screen ("full knowledge" / "partial
+# knowledge" / "no knowledge"). Unlike question_preview this is WITHIN
+# participant -- every KnowQA participant meets all three -- so splitting on it
+# splits a person's trials. See pitfalls.md 3 and the scope_by parameter in
+# derived/pattern_breaking.py. Absent on L1.
+REGIME_COLUMN = "regime"
+
 SELECTED_ANSWER_POSITION_COLUMN = "selected_answer_position"
 CORRECT_ANSWER_POSITION_COLUMN = "correct_answer_position"
 ANSWERS_ORDER_COLUMN = "answers_order"
@@ -117,6 +125,15 @@ BREAKS_X_DOMINANCE_NO_Q = "breaks_x_dominance_no_q"
 # starting strategy and the participant's dominant one (0 = identical).
 STRATEGY_DISTANCE_WITH_Q = "strategy_distance_with_q"
 STRATEGY_DISTANCE_NO_Q = "strategy_distance_no_q"
+
+# How many trials the participant's dominant strategy was estimated from, per
+# q-variant. Carried onto every trial next to the score it is the denominator
+# of: a dominance score over 12 trials is a worse estimate than one over 50,
+# and under a narrowed scope (see scope_df / scope_by in
+# derived/pattern_breaking.py) that shrinkage is otherwise invisible. This is
+# what makes the chosen scope legible in a saved feature table -- todo.md T3.21.
+N_STRATEGY_TRIALS_WITH_Q = "n_strategy_trials_with_q"
+N_STRATEGY_TRIALS_NO_Q = "n_strategy_trials_no_q"
 
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"

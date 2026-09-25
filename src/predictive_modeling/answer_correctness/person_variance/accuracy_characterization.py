@@ -50,9 +50,20 @@ def per_person_feature_means(
     participant_col: str = Con.PARTICIPANT_ID,
 ) -> pd.DataFrame:
     """Mean value of each feature per participant (non-numeric values coerced to
-    NaN and skipped)."""
+    NaN and skipped).
+
+    SCOPE: computed over whatever trials are in ``trial_df`` -- the driver
+    notebook passes the global feature table, so today these are a participant's
+    full trial set. ``n_trials`` is returned alongside so a narrowed frame is
+    visible rather than silent: a mean over 12 trials and a mean over 54 look
+    identical otherwise (`todo.md` T3.21 row 8).
+    """
     feat_numeric = trial_df[list(characterize_cols)].apply(pd.to_numeric, errors="coerce")
-    return feat_numeric.groupby(trial_df[participant_col]).mean().reset_index()
+    out = feat_numeric.groupby(trial_df[participant_col]).mean().reset_index()
+    n_trials = (
+        trial_df.groupby(participant_col).size().rename("n_trials").reset_index()
+    )
+    return out.merge(n_trials, on=participant_col, how="left")
 
 
 def _plot_accuracy_vs_class_balance(merged, acc_metric, label):

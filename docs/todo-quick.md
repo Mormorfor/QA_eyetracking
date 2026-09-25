@@ -21,7 +21,6 @@ go looking.)*
 
 | Item      | Why it's first                                                                                                    |
 | --------- | ----------------------------------------------------------------------------------------------------------------- |
-| **T3.21** | the last thing blocking T1.6's `scope` parameter                                                                  |
 | **T3.1**  | the fix is one word in three places, and it's high impact                                                         |
 | **T3.17** | cheap, and changes no number if the invariants hold                                                               |
 | **T4.2**  | not a fix at all — just re-run the plots (the `statistics.ipynb` blocker is gone as of 2026-09-21, see T1.4/T2.5) |
@@ -38,7 +37,7 @@ go looking.)*
 
 * **T1.5** — A table of ~10 tiny cleanups: dead code, duplicate definitions, unused imports, stale docstrings, orphan `.pyc`. *(S ·* ***two rows closed*** *— the two* *`paper_dirs`* *conventions went with* *`paper_dirs`* *itself under T1.3, and its last stale references were cleared 2026-09-21 (dead constant in* *`loo_runs.py`, three notebook copies, one markdown cell teaching the removed API); the duplicate* *`save_plot_and_report`* */* *`maybe_save_plot`* *save paths are gone too.* ***One row is worse than written**:* *`_wilson_ci`* *is nested* ***three*** *times in* *`visualisations_correctness_measures.py`, not once)*
 
-* **T1.6** — Merge the two "starting strategy" implementations into one function in `derived/`. *(M ·* ***all but done*** *2026-09-20 — there is now one implementation of every dominance quantity and* *`viz/`* *only plots; what is left is purely the* *`scope`* *parameter, i.e. T3.21)*
+* **✅ DONE — T1.6** — Merge the two "starting strategy" implementations into one function in `derived/`. *(**done*** *— one implementation since 2026-09-20 with* *`viz/`* *only plotting; the* *`scope`* *parameter it was waiting on landed with T3.21 on 2026-09-25, and the last loose end — where the prefix-completion map is learned — was decided with it: **one map over the whole dataset**, no longer per group)*
 
 * **✅ DONE — T1.7** — Merge the QA and paragraph implementations of the same eight per-area metrics into one set parameterized by grouping column. *(**done*** *2026-09-23 — one implementation in* *`derived/area_metrics.py`. All seven QA metrics reproduce the saved table to ≤5e-13 (CSV round-trip only) and* *`first_encounter`* *is bit-identical, so **no QA number moved**. Two things the merge turned up: the two* *`num_label_visits`* *were **not the same measure** (disagreed on **77% of trials** — the paragraph side dropped off-area fixations the answer side resolves to the nearest word; now shared, which moves paragraph counts upward), and* *`first_encounter_pupil_size`* *silently depended on row order, now an explicit* *`IA_ID`* *sort)*
 
@@ -99,7 +98,7 @@ go looking.)*
 
 * **✅ DONE in code — T3.20** — Every dataset writes its own pupil baseline and every consumer reads the right one. *(**done*** *2026-09-23 — no default source any more (both resolvers raise unless the baseline is named);* *`pupil_norm`* *imports no dataset path at all; **every person must have a baseline** and a missing one or a non-positive SD now raises instead of yielding a silently all-NaN* *`_z`* *column; the paragraph screen computes its own baseline by **streaming** the multi-GB paragraph fixation report; KnowQA's* *`pupil_norm_unit`* *defaults to* *`"participant"`* *so it finally writes its own* *`participant_pupils.csv`* *from its own fixations.* ***⚠️ Rebuilds outstanding**: KnowQA pupil z and L1 paragraph-span pupil features both move. **No paper number affected** — no paragraph pupil column reaches any model, and* *`RT_correlations`* *never touches pupil)*
 
-* **T3.21** — Give every participant-level aggregate an explicit `scope` flag; default `within_group` for models, `global` for descriptive figures. *(M ·* ***decided*** *· blocks T1.6 and T6.1)*
+* **✅ DONE — T3.21** — Give every participant-level aggregate an explicit scope. *(**done*** *2026-09-25, all 13 rows — two parameters, not one enum:* *`scope_df`* *= which trials estimate it (default: the frame given),* *`scope_by`* *= how they are partitioned (default: per participant, pooling regimes and sessions).* *`n_strategy_trials_{with,no}_q`* *records the scope.* ***No number moved anywhere***, *L1/KnowQA/both pilots rebuilt and diffed. Rulings: completion map learned over the whole dataset (row 5); KnowQA regime comparison stays session-scoped for train/test symmetry (row 7); rows 8/9 got counts not parameters; rows 12/13 needed a sentence, and 13 turned out inert —* *`TRIAL_ANSWERS`* *is consumed by nothing. Produced the paper's missing all-participants X%: **53.6% raw / 57.2% completed**)*
 
 ## T4 · Outputs and artifacts
 

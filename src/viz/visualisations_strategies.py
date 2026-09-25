@@ -470,6 +470,7 @@ def run_all_strategy_plots(
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     save: Optional[bool] = None,
     to_paper=None,
+    include_all: bool = True,
 ) -> dict:
     """
     Build strategy data from simplified sequences and run all strategy analyses
@@ -478,6 +479,21 @@ def run_all_strategy_plots(
     - uses FIRST `window_len` entries of the simplified sequence
     - always drops 'question' tokens
     - `kind` chooses between SIMPLIFIED_FIX_SEQ_BY_LOCATION / ...BY_LABEL
+
+    The interrupted-scan completion map is learned ONCE, over every participant
+    in ``all_participants``, and the same map is then applied to each group.
+    Diana, 2026-09-25: the completion should use the whole population of the
+    dataset. It used to be learned inside the group loop, so hunters and
+    gatherers repaired the same short scan differently -- a property of the
+    grouping rather than of the behaviour (`todo.md` T3.21 row 5).
+
+    One map per DATASET, not across datasets: learning it over L1 and KnowQA
+    together would make Study 1's descriptive numbers depend on Study 2 data.
+
+    ``include_all`` adds the all-participants group. It is on by default because
+    the paper reports a dominant-strategy prevalence for the whole sample, and
+    that number had never been produced -- this function used to hardcode
+    ``include_all=False`` (`findings.md` 1.2).
 
     Returns nested dict:
         results[group_name] = {
@@ -489,8 +505,21 @@ def run_all_strategy_plots(
     """
     results = {}
 
+    # One map for the whole dataset, learned before the group loop so every
+    # group repairs short scans the same way.
+    population_strat = build_starting_strategies(
+        all_participants,
+        kind=kind,
+        window_len=window_len,
+        drop_question=True,
+        out_col=Con.STRATEGY_COL,
+    )
+    population_prefix_map = build_prefix_completion_map(
+        population_strat[Con.STRATEGY_COL], full_len=window_len
+    )
+
     groups = split_participant_groups(
-        all_participants, split=split_groups, include_all=False
+        all_participants, split=split_groups, include_all=include_all
     )
     for group_name, df in groups.items():
         df_strat = build_starting_strategies(
@@ -517,7 +546,7 @@ def run_all_strategy_plots(
             strat_col=Con.STRATEGY_COL,
             full_len=window_len,
             col_suffix="_completed",
-            prefix2full=None,
+            prefix2full=population_prefix_map,
         )
 
         completed_col = f"{Con.STRATEGY_COL}_completed"

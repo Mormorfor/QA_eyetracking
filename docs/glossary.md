@@ -281,6 +281,8 @@ Code-side constants:
 | `BREAKS_PATTERN_WITH_Q` / `_NO_Q` | this trial's starting strategy differs from the participant's dominant one; two variants, question tokens kept vs. dropped |
 | `BREAKS_X_DOMINANCE_*` | interaction: `breaks_pattern × dominance_score` — "how much breaking matters, scaled by how consistent the person is" |
 | `STRATEGY_DISTANCE_*` | graded version: token-level Levenshtein distance from the dominant strategy |
+| `N_STRATEGY_TRIALS_*` | how many trials the dominant strategy was estimated from, per q-variant. **Read this before reading a dominance score** — the score is a proportion and looks the same at n=145 and n=46. It is what records the scope the feature was built under (`todo.md` T3.21) |
+| `REGIME_COLUMN` (`regime`) | Study 2's knowledge regime, §5. Carried into the trial-level table since 2026-09-25 so it can be grouped on after the fact; absent on L1 |
 
 **Caveat 1 — frame dependence.** These are computed over whatever trials are in the frame
 passed in, so a participant needs their **full trial set** present.
@@ -336,9 +338,16 @@ comparison goes through `derived/pattern_breaking.has_dominant_strategy`, with
 `DEFAULT_DOMINANCE_THRESHOLD = 0.5` beside it. **Canonical: hunters 48.89% raw / 53.33%
 completed, gatherers 58.33% / 61.11%.**
 
-**Caveat 4 — no all-participants figure.** `run_all_strategy_plots` calls
-`split_participant_groups(..., include_all=False)`, so only hunters and gatherers are
-produced.
+**Caveat 4 — ~~no all-participants figure~~ resolved 2026-09-25.** `run_all_strategy_plots`
+used to hardcode `split_participant_groups(..., include_all=False)`, which is why draft2's
+`X%` had never been computed. It is now a parameter defaulting to `True`, and the number
+exists: **all participants 53.6% raw / 57.2% completed** (n = 360), alongside the unchanged
+hunters and gatherers figures above.
+
+**Caveat 5 — the completion map is learned over the whole dataset**, not per group
+(Diana, 2026-09-25). One map is built before the group loop and applied to hunters,
+gatherers and all-participants alike, so the repair is not a property of the grouping. Per
+dataset, though — L1 and KnowQA learn separate maps. See `pitfalls.md` §4.
 
 **Note — clockwise and counter-clockwise are not code categories.** Strategies are raw
 location tuples; `plot_dominant_strategy_counts_above_threshold` ranks them and the top two

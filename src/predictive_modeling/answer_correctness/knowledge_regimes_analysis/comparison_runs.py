@@ -5,9 +5,28 @@ The new (question-answering) experiment assigns each article a *knowledge regime
 of the L1 data and evaluates it separately on each regime of the new data, so we can
 compare how well the model transfers to each condition.
 
-The regime lives in the raw IA report (``regime`` column) but is dropped during
-feature building, so it is re-attached to the model-ready features on the trial keys
-``(participant_id, TRIAL_INDEX)`` before splitting.
+The regime lives in the raw IA report (``regime`` column). It is also carried into
+the model-ready table since 2026-09-25, so ``attach_regime`` will use the column
+already present and only falls back to re-joining it from the IA report on the trial
+keys ``(participant_id, TRIAL_INDEX)`` for tables built before that.
+
+SCOPE OF THE PARTICIPANT-LEVEL FEATURES -- a deliberate choice, not an accident
+(Diana, 2026-09-25; `todo.md` T3.21 row 7). The dominance / pattern-breaking columns
+on the new data are computed **across the participant's whole session**, pooling the
+three regimes, because that is a globally-built feature table being sliced by regime
+here rather than rebuilt per regime.
+
+That is the right scope for THIS comparison, and the reason is train/test symmetry:
+the L1 model is fitted on features where dominance is a participant-level trait over
+all of that person's trials. Rebuilding per regime would hand the model a feature
+estimated over ~48 trials where it was trained on one estimated over ~54, i.e. the
+same column name meaning a different thing at test time than at training time.
+
+The per-regime version answers a different and genuinely interesting question --
+*does a person's scanning strategy shift between knowledge regimes* -- and it is
+real: on the current data one participant's dominance runs 0.224 under full knowledge
+against 0.630 under partial. That belongs in its own descriptive analysis, built with
+``pattern_scope_by=["regime"]``, not in this transfer comparison.
 
 Everything is parameterized by path/DataFrame, so the same entry point works for the
 current three-participant test run and, unchanged, for the full experiment once its

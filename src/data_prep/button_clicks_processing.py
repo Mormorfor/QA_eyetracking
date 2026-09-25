@@ -109,6 +109,28 @@ def build_trial_answers_df(
       trial (all_answers[len(prev_all_answers):]).
     - False: ALL_ANSWERS already stores only this trial's clicks (fixed at the
       experiment stage), so the trial answers are the parsed list as-is.
+
+    SEQUENTIAL, not aggregate -- the one quantity in this pipeline that depends on
+    trial ORDER rather than on a set of trials (`todo.md` T3.21 row 13). The
+    cumulative branch shifts within participant, so it diffs against the previous
+    *present* trial. If a participant's trials were ever incomplete here, the diff
+    would silently absorb the missing trials' clicks. No scope flag makes sense
+    for this; the right guard is an ordering/completeness assertion, which belongs
+    with the other join assertions in T3.17.
+
+    Measured 2026-09-25, so the risk is known rather than assumed: L1 TRIAL_INDEX
+    is NOT gap-free here -- 342 of 360 participants have gaps, because this table
+    is built before the practice / repeated-reading filter and spans 24,046 trials
+    against the 19,436 that reach modeling. So the diff is already running over a
+    non-contiguous index.
+
+    What keeps that from mattering today: **nothing consumes TRIAL_ANSWERS.** It is
+    written here and joined into the trial-level diagnostics frame, and no module
+    reads it. In particular ANSWER_PRESS_NUMBER -- which IS live, and is one of the
+    ten headline model features -- does not come from this diff at all; it is read
+    straight off the fixation report's own column (see `build_trial_level_df`). So
+    this is a latent hazard in an unconsumed column, not a live defect. Anything
+    that starts reading TRIAL_ANSWERS needs the assertion first.
     """
     trial_answers = (
         df[[participant_col, trial_col, answers_col]]

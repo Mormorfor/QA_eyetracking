@@ -89,10 +89,22 @@ def per_person_univariate_consistency(
 
     rmat = pd.DataFrame(per_pid).T  # participants x features
 
+    # How many trials each retained participant's correlations rest on. SCOPE:
+    # these are per-person quantities over whatever trial_df held, so a narrowed
+    # frame would shrink every correlation's basis silently -- the count is what
+    # makes that visible (`todo.md` T3.21 row 9). The driver passes the global
+    # table today, so this is the participant's full trial set.
+    rmat.attrs["n_trials_per_participant"] = (
+        trial_df.groupby(participant_col).size().reindex(rmat.index)
+    )
+
     valid = rmat.notna().sum()
     summ = pd.DataFrame({
         "n_valid": valid,
         "coverage": valid / len(rmat),
+        "median_trials_per_participant": float(
+            rmat.attrs["n_trials_per_participant"].median()
+        ),
         "mean_r": rmat.mean(),
         "median_r": rmat.median(),
         "std_r": rmat.std(ddof=1),

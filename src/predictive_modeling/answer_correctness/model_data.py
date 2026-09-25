@@ -418,6 +418,9 @@ def build_trial_level_model_df(
     dwell_col: str = Con.IA_DWELL_TIME,
     paragraph_features: Optional[pd.DataFrame] = None,
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
+    optional_keep_cols: Sequence[str] = (Con.REGIME_COLUMN, Con.SESSION_ID),
+    pattern_scope_df: Optional[pd.DataFrame] = None,
+    pattern_scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Build the final one-row-per-trial modeling dataframe.
@@ -429,11 +432,29 @@ def build_trial_level_model_df(
     (participant_id, TRIAL_INDEX). A `df` from a different experiment therefore
     needs its own cache passed via `paragraph_features`/`paragraph_features_path`,
     or those columns come back NaN.
+
+    `keep_cols` is required to exist; `optional_keep_cols` is carried when
+    present and skipped otherwise. The split is deliberate: `regime` and
+    `session_id` are Study 2 identity/condition columns that L1 does not have,
+    so demanding them would make one pipeline refuse one of its two datasets --
+    but dropping them silently is what left the trial-level table unable to be
+    grouped by regime at all, which is why they are named here rather than
+    left out.
+
+    `pattern_scope_df` / `pattern_scope_by` set the scope of the participant-level
+    pattern-breaking features -- which trials estimate the dominant strategy, and
+    how they are partitioned. Defaults (None/None) estimate over `df` itself,
+    pooled per participant. See `derived.pattern_breaking` and `todo.md` T3.21.
     """
+    present_optional = [
+        c for c in optional_keep_cols
+        if c in df.columns and c not in (keep_cols or [])
+    ]
+
     trial_core = _build_trial_core(
         df=df,
         target_col=target_col,
-        keep_cols=keep_cols,
+        keep_cols=list(keep_cols or []) + present_optional,
     )
 
     out = trial_core.copy()
@@ -470,7 +491,13 @@ def build_trial_level_model_df(
         )
 
     if include_pattern_features:
-        pattern_df = build_trial_level_pattern_features(df, kind="location", window_len=4)
+        pattern_df = build_trial_level_pattern_features(
+            df,
+            kind="location",
+            window_len=4,
+            scope_df=pattern_scope_df,
+            scope_by=pattern_scope_by,
+        )
         out = out.merge(pattern_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_paragraph_features:
@@ -583,11 +610,21 @@ def save_all_features(
     paragraph_features: Optional[pd.DataFrame] = None,
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
     include_paragraph_features: bool = True,
+    pattern_scope_df: Optional[pd.DataFrame] = None,
+    pattern_scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Build the full trial-level feature DataFrame (every include_* flag turned on)
     and save it to `output_path` as CSV. The CSV can later be read back with
     `load_all_features`.
+
+    The cache this writes is the whole dataset, so its participant-level
+    pattern features are estimated over every trial the participant has --
+    the widest scope there is. That is the right default for a cache meant to
+    be sliced descriptively, and the wrong one to hand to cross-validation as
+    `trial_df`: see `cross_validation.evaluate_one_fold_on_regimes` and
+    `todo.md` T3.21. `pattern_scope_by` narrows it, e.g. `["regime"]` for a
+    per-regime dominance score on KnowQA.
 
     `paragraph_features` / `paragraph_features_path` point at the paragraph-span
     cache to join in -- see `build_trial_level_model_df`.
@@ -612,6 +649,8 @@ def save_all_features(
         include_paragraph_features=include_paragraph_features,
         paragraph_features=paragraph_features,
         paragraph_features_path=paragraph_features_path,
+        pattern_scope_df=pattern_scope_df,
+        pattern_scope_by=pattern_scope_by,
     )
 
     output_path = Path(output_path)

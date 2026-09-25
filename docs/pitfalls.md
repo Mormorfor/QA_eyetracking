@@ -169,9 +169,42 @@ the imputed value is an assumption, not a measurement.
 ## 3. Participant-level features are computed over the trials you pass
 
 `pattern_breaking.py` computes the dominant strategy and dominance score **over whatever
-trials are in the frame handed to it**, and says so at `:247`. So the rule is:
+trials are in the frame handed to it**. So the rule used to be:
 
 > **Anything participant-level needs that participant's full trial set.**
+
+> **Superseded for the strategy family, 2026-09-25 (`todo.md` T3.21).** That rule was the
+> right instinct and the wrong default. "The participant's full trial set" is the *widest*
+> scope, and under cross-validation it is the leaking one — a dominance score summarising all
+> of someone's trials, attached to a training row, is a function of the held-out data.
+>
+> **The scope is now an argument, on two axes**, and the default is the safe one:
+>
+> | | question | default |
+> |---|---|---|
+> | `scope_df` | which trials estimate the aggregate | the frame being featurised — never wider |
+> | `scope_by` | how that population is partitioned beneath the participant | not at all: one value per participant, pooling knowledge regimes *and* sessions |
+>
+> So the rule is now: **the scope is whatever you asked for, and the trial count says which.**
+> `n_strategy_trials_{with,no}_q` rides alongside the score on every trial — a proportion
+> looks identical whether it came from 145 trials or 46, and the count is the only thing that
+> distinguishes them.
+>
+> Read a saved dominance score by checking its `n_strategy_trials_*` first. On KnowQA, 145
+> means pooled across that person's regimes and sittings; ~48 means one regime.
+>
+> **The two axes apply to the strategy/dominance family.** The rest of T3.21's list was closed
+> alongside it on 2026-09-25, each on its own terms rather than by bolting the same two
+> parameters everywhere:
+>
+> | | |
+> |---|---|
+> | pupil baselines | settled separately by T3.20 |
+> | prefix-completion map | one map per dataset, over everyone in it (§4) — population-scoped, so neither axis describes it |
+> | KnowQA regime comparison | stays session-scoped, for train/test symmetry with the L1-trained model |
+> | `person_variance` means and correlations | always driven globally; they got **counts**, not parameters, so a narrowed frame would be visible |
+> | dominant-eye crosstab | descriptive, already reported `n_total` — unchanged by decision |
+> | `TRIAL_ANSWERS` | sequential, not aggregate; no flag applies. Inert today because nothing reads the column |
 
 ### The two studies split in opposite ways — this is the thing to get right
 
@@ -207,16 +240,27 @@ sessions. Regime and session are two different ways the same person's trials get
   passing a globally prebuilt `trial_df`, is faster but forfeits the leakage guarantee.
   Whichever is used, be aware the two notebooks driving CV use different paths, so their
   numbers need not match exactly.
+
+  *Worth knowing (2026-09-25): per-slice is not a preference, it is forced.* The third
+  option — estimate on the training rows and score eval trials against that — cannot work for
+  the `unseen_subject` regimes, where the participant has no training trials at all. So the
+  only two available scopes are "within the slice" and "across the whole dataset", and the
+  second is the leaking one. On KnowQA the gap is measurable: estimating over the full set
+  rather than the slice flips `breaks_pattern_no_q` on **52 of 300** no-knowledge trials.
 - **Any trial-level filtering** that keeps a participant but drops some of their trials —
   correct-trials-only analyses, exclusion thresholds, and so on.
 - **KnowQA sessions.** Here one `participant_id` really does span several sittings *within*
   the same file, so per-participant features pool across them. Pupil z-scoring is already done
   per `participant_id` against that dataset's own fixations (T3.20, 2026-09-23 — it was
-  per `session_id` until then); the strategy features still are not scoped at all.
-- **The prefix-completion map** (descriptive path) is learned from the group it is run on, so
-  hunters and gatherers get different completion maps. Population-scoped rather than
-  participant-scoped, so this one genuinely differs by frame — it shifts the dominant label
-  for ~1.1% of participants. (`todo.md` T1.6 decides where the map is learned.)
+  per `session_id` until then). The strategy features **pool across sittings by default**
+  since 2026-09-25 — that is now a stated choice rather than an accident, and
+  `scope_by=["session_id"]` separates them. A KnowQA participant has 3 sittings and 145
+  trials, so the pooled estimate is the wide one.
+- **The prefix-completion map** used to be learned from the group it was run on, so hunters
+  and gatherers repaired the same short scan differently. **Settled 2026-09-25: one map per
+  dataset, learned over every participant in it**, built once before the group loop. It is
+  population-scoped rather than participant-scoped, so it is the one quantity here that
+  neither `scope_df` nor `scope_by` describes. No paper number moved (§4).
 
 **`todo.md` T3.21** lists every quantity with this shape and is where the rule gets decided:
 the scope becomes an explicit flag — compute within the group being analysed, or over the
@@ -256,8 +300,22 @@ a 50%-dominant participant still produced a dozen others.
 > (`glossary.md` §8 Caveat 2), but a **third** implementation in `visualisations_dominant_eye.py`
 > did have an order-dependent tie-break, which moved one participant.
 >
-> **What still waits on T3.21** is not the duplication but the *scope* of the completion map,
-> which is still learned population-wide over whatever frame it is given (T3.21 row 5).
+> **The scope parameters landed 2026-09-25** (T3.21): `build_trial_level_pattern_features`
+> takes `scope_df` and `scope_by`, so "which trials estimate the dominant strategy, and how
+> they are partitioned" is now asked rather than inherited.
+>
+> **The completion map was the last piece, and it is settled** (Diana, 2026-09-25): **one map,
+> learned over the entire population of a dataset.** `run_all_strategy_plots` builds it once
+> before the group loop and applies the same map to hunters, gatherers and all-participants
+> alike, so repairing a short scan is no longer a property of which group you happened to be
+> in. **One map per dataset, not across datasets** — pooling L1 with KnowQA would make Study 1's
+> descriptive numbers depend on Study 2 data.
+>
+> **No paper number moved.** The pooled map disagrees with the old per-group maps on 9
+> (hunters) and 4 (gatherers) rare prefixes, and none of those flip a participant past the 50%
+> threshold: completed prevalence stays **53.33% / 61.11%**. Worth a sentence in the paper —
+> it means the completed figures are insensitive to how the repair was learned, which is the
+> obvious thing to ask about a repair heuristic.
 
 ---
 

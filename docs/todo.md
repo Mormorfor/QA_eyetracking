@@ -151,10 +151,11 @@ dominant counts 96 / 110 with top-2 71/20 and 89/14.
 `viz/visualisations.py` re-exports the moved functions so existing notebook imports keep
 working; new code should import from `derived` directly.
 
-**Not touched, deliberately:** the strategy *construction* (`build_strategy_dataframe` vs
-`build_starting_strategies`) and the prefix completion. That is **T1.6** proper and stays
-blocked on **T3.21** — "who is dominant, given per-trial strategies" is not scope-dependent,
-"which trials go in" is. `plot_dominance_gap` also still builds its own props matrix, because
+**Not touched at the time, deliberately:** the strategy *construction*
+(`build_strategy_dataframe` vs `build_starting_strategies`) and the prefix completion. That was
+**T1.6** proper, and it was blocked on **T3.21** — "who is dominant, given per-trial
+strategies" is not scope-dependent, "which trials go in" is. *(Both landed 2026-09-25 with
+T3.21; the completion map is now learned once over the whole dataset.)* `plot_dominance_gap` also still builds its own props matrix, because
 it needs the *second*-largest share as well as the largest; it applies no threshold.
 
 ### T1.3 — ✅ **DONE 2026-09-20.** One saving framework, used everywhere
@@ -296,11 +297,12 @@ express it is not.
 > completion (`build_prefix_completion_map` / `add_completed_strategy_column`). `viz/` plots
 > and nothing else.
 >
-> **What is left is the one thing this item was really blocked on: the** **`scope`** **parameter.**
-> Diana, 2026-09-20: *"keep it as is for now, we will deal with T3.21 in its own time."* So
-> the completion map is still learned population-wide over whatever frame it is given — row 5
-> of **T3.21**, behaviour deliberately unchanged in the move. The consolation is that it now
-> has to be changed in **one** place instead of two.
+> **What was left was the one thing this item was really blocked on: the** **`scope`**
+> **parameter.** Diana, 2026-09-20: *"keep it as is for now, we will deal with T3.21 in its own
+> time."* ✅ **Done 2026-09-25.** The scope became `scope_df` / `scope_by`, and row 5's
+> completion map is now learned **once over the whole dataset** rather than population-wide
+> over whatever frame it was handed — exactly the one place the 2026-09-20 merge had reduced
+> it to. No paper number moved.
 >
 > The `complete: bool` / `window_len` / `drop_question` parameterisation this item describes
 > is effectively satisfied: `build_starting_strategies` already takes `window_len` and
@@ -462,7 +464,7 @@ They are *not* a priority order. This index is the reading order.
 | --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ measured · **high impact**                                                           |
 | T3.3      | Coefficient CIs wrong three ways                                                                            | ⚠️ **high impact, unverified**                                                         |
-| T3.21     | Participant-level accumulative features — scope flag, default `within_group`                                | ✅ **decided**, implementation outstanding; blocks the last of T1.6, T6.1               |
+| T3.21     | Participant-level accumulative features — `scope_df` / `scope_by`, defaulting to the frame given, pooled    | ✅ **DONE 2026-09-25**, all 13 rows closed; unblocks T1.6 and T6.1                      |
 | T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **DONE 2026-09-23** — code + all four datasets rebuilt                               |
 | T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **DONE 2026-09-23** — fill named, scoped, counted, masked; coefficients identical     |
 | T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ **DONE 2026-09-23** — code + all rebuilds (L1 paragraph, KnowQA)                      |
@@ -1132,7 +1134,64 @@ whichever default argument happens to be in scope.
 Numbers move for any paragraph pupil feature. Not in `SELECT_1_COLS`, so the headline model is
 unaffected; `answer_RTs` and the `RT_correlations` proportions do use these columns.
 
-### T3.21 — Participant-level accumulative features: one rule, and a flag ⚠️ M · **methodological, cross-cutting**
+### T3.21 — Participant-level accumulative features: one rule, and a flag ✅ **DONE in code 2026-09-25** · M · **methodological, cross-cutting**
+
+> **What landed (2026-09-25).** The strategy/dominance family — rows 1, 2, 3 and 6 of the
+> table below — carries the scope explicitly. Rows 5, 7, 8, 9, 12 and 13 were closed in the
+> same sitting; see *The remaining rows* at the end of this item. Every row now has a stated
+> position, so the item is complete.
+>
+> **The flag is two parameters, not the single enum this item originally specified.** Diana's
+> requirement, 2026-09-25: *default to within the dataframe provided (so train without the
+> test), but across all the regimes pooled together; with the ability to go broader by
+> including the test set, or tighter by separating the regimes.* That does not fit on one
+> axis — "global, per regime" is a meaningful fourth combination and is the only one that can
+> answer *does a person's scanning strategy shift between knowledge regimes*. So:
+>
+> | parameter | axis | default |
+> |---|---|---|
+> | `scope_df` | **which trials** estimate the aggregate | `None` → the frame being featurised |
+> | `scope_by` | **how that population is partitioned** beneath the participant | `None` → one value per participant, pooling regimes *and* sessions |
+>
+> On `derived/pattern_breaking.py::build_trial_level_pattern_features`, threaded through
+> `model_data.build_trial_level_model_df` / `save_all_features` as `pattern_scope_df` /
+> `pattern_scope_by`. `dominant_strategy_by_participant` — the single collapse point since
+> T1.6 — takes the partition axis as `by=`.
+>
+> **Sessions pool by default** (Diana, 2026-09-25): grouping is by `participant_id` alone, so
+> all 145 of a KnowQA person's trials estimate one score. `scope_by=["session_id"]` narrows it.
+>
+> **The scope is recorded as `n_strategy_trials_{with,no}_q`**, carried onto every trial next
+> to the score it is the denominator of — point 4 below, which turned out to also satisfy
+> point 3. Column *names* were deliberately not suffixed: `SELECT_1_COLS` and every saved
+> feature-set JSON name these columns, and a dominance score is a proportion that looks
+> identical whether it came from 145 trials or 46, so the count is what makes the scope
+> legible. `PATTERN_FEATURE_COLS` is an allowlist, so the new columns do not enter any
+> feature set.
+>
+> **A coverage assertion replaces the silent failure.** A trial whose
+> `(participant[, scope_by])` key is absent from the estimating frame used to get a NaN
+> dominant strategy, which compares unequal to everything and silently scored as
+> `breaks_pattern = 1`. That is now an assertion — the `conventions.md` "join whose coverage
+> must be total" case.
+>
+> **Numbers: nothing moved.** Default scope reproduces the pre-change tables exactly —
+> verified column-by-column on all eight pattern features against the saved L1 table
+> (19,436 trials, bit-identical). L1 went 217 → 219 columns and KnowQA 196 → 200
+> (`regime`, `session_id`, and the two counts); no shared column changed. Backups at
+> `*.pre_t321.bak`.
+>
+> **`regime` and `session_id` now survive into the trial-level table** (Diana, 2026-09-25),
+> via a new `optional_keep_cols` on `build_trial_level_model_df` — carried when present,
+> skipped otherwise, because L1 has neither. Before this the saved table could not be grouped
+> by regime at all, and `knowledge_regimes_analysis` had to re-join it from the IA report.
+>
+> **Measured, worth keeping:** on KnowQA the two axes are not cosmetic. Estimating over the
+> full set rather than the slice flips `breaks_pattern_no_q` on **52 of 300** no-knowledge
+> trials — that is the size of the leak this item exists to close. And the per-regime scope
+> is a usable estimator here, not a degenerate one: **46–50 trials per (participant, regime)**
+> against 145 pooled, comparable to L1's ~54 per participant. Consequence (1) below was
+> written before that number was known and is milder than feared.
 
 **Diana's requirement, 2026-09-05:** wherever a feature is accumulated over a participant's
 trials, it must be possible to **choose** whether it is computed *within the group being
@@ -1232,6 +1291,32 @@ regimes*, the global version cannot answer it, and will look like a null result.
 **Sequencing:** this must be settled before T1.6 (unifying the two starting-strategy
 implementations), because the unified function is exactly where the flag lives. It also
 subsumes the old T3.15 and interacts with T6.1.
+
+*(Point 1 was superseded by the two-parameter design; point 3 was satisfied by point 4 rather
+than by renaming columns — see the note at the top of this item. Point 5 lives in the
+`build_trial_level_pattern_features` docstring, which states both axes and why the default is
+what it is. T1.6 is now fully unblocked.)*
+
+**The remaining rows, closed 2026-09-25.** Every row of the table above now has a stated
+position. Three needed a ruling from Diana; three turned out to need a sentence rather than a
+parameter.
+
+| row | Quantity | Resolution |
+|---|---|---|
+| 5 | prefix-completion map | ✅ **Decided (Diana, 2026-09-25): one map, learned over the entire population — but within a dataset.** Hoisted out of the group loop in `run_all_strategy_plots`, so hunters, gatherers and all-participants now repair a short scan the same way instead of the repair being a property of the grouping. *Not* pooled across datasets: learning it over L1 and KnowQA together would make Study 1's descriptive numbers depend on Study 2 data. **No paper number moved** — the pooled map disagrees with the per-group maps on 9 (hunters) / 4 (gatherers) rare prefixes, and none flip a participant past the 50% threshold, so completed prevalence stays 53.33% / 61.11%. That is robustness evidence worth a sentence in the paper. |
+| 7 | KnowQA regime split in `comparison_runs.py` | ✅ **Decided (Diana, 2026-09-25): keep it across the session, and say so.** The reason is train/test symmetry, and it is the argument to record: the L1 model is fitted where dominance is a participant-level trait over all of that person's trials, so rebuilding per regime would hand the model a feature estimated over ~48 trials where it was trained on one estimated over ~54 — the same column name meaning a different thing at test time. Now stated in the module docstring rather than being a side effect of slicing a prebuilt table. The per-regime version answers a different question and belongs in its own descriptive analysis (`pattern_scope_by=["regime"]`). |
+| 8, 9 | `person_variance` per-person means and feature↔outcome correlations | ✅ **Count added, no scope parameter.** Both are descriptive and both are always driven with the global feature table, so no caller needs the axes; what they lacked was visibility. `per_person_feature_means` now returns `n_trials`, and `per_person_univariate_consistency` carries `median_trials_per_participant` in its summary plus the full per-participant count on `rmat.attrs`. Same principle as `n_strategy_trials`: a mean over 12 trials and a mean over 54 look identical otherwise. |
+| 12 | dominant eye × strategy crosstab | ✅ **Nothing to change, and now said so in the docstring.** Descriptive, so there is no split and no leakage to avoid, and it already returned `n_total` — the scope was visible all along. Recorded so the absence of a change is a decision rather than an oversight. |
+| 13 | `TRIAL_ANSWERS` sequential diff | ✅ **Latent, and lower-stakes than this table implied.** Two things measured 2026-09-25. First, L1's `TRIAL_INDEX` is *already* non-contiguous here — 342 of 360 participants have gaps, because this table is built before the practice / repeated-reading filter (24,046 trials against modeling's 19,436) — so a naive "complete and consecutive" assertion would fire on nearly everyone and is the wrong guard. Second, and decisively, **nothing consumes `TRIAL_ANSWERS`**: it is written and joined into the diagnostics frame and never read. `ANSWER_PRESS_NUMBER`, which *is* live and is one of the ten headline features, is read straight off the fixation report's own column and does not touch this diff. So the hazard is real but inert; the ordering assertion still belongs with T3.17, and anything that starts reading the column needs it first. Documented at the function. |
+
+**Pilots rebuilt** (Diana, 2026-09-25): `testrun_QA` and `second_test` both 196 → 199 columns
+(`regime` plus the two counts; neither has `session_id`), no value moved. All four datasets are
+now on one schema.
+
+**One paper number produced that never existed.** `run_all_strategy_plots` hardcoded
+`include_all=False`, which is why draft2's `X%` had never been computed (`findings.md` §1.2).
+It is now a parameter defaulting to `True`: **53.6% raw / 57.2% after completion** for all 360
+participants, with hunters and gatherers unchanged at 48.9/53.3 and 58.3/61.1.
 
 ### T3.4 — Smaller number-movers (contains T3.5 and T3.7–T3.12) ⚠️
 

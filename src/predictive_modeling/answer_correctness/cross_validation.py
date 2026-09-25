@@ -199,7 +199,15 @@ def evaluate_one_fold_on_regimes(
     By default the trial-level features are (re)built from ``df`` once per
     regime, so participant-level features (the pattern-breaking / dominance
     columns) are computed inside each regime and nothing leaks from the eval
-    regimes into training.
+    regimes into training. In the T3.21 vocabulary this is
+    ``pattern_scope_df=None`` on each slice: the aggregate is estimated over
+    exactly the frame being featurised.
+
+    Per-slice is not a preference here, it is forced. The alternative -- estimate
+    the aggregate on the training rows and score eval trials against it -- cannot
+    work for the ``unseen_subject`` regimes, where the participant has no
+    training trials at all. So the only two options are "within the slice" and
+    "across the whole dataset", and the second is the leaking one.
 
     ``trial_fold_df`` short-circuits that: pass this fold's slice of an
     already-built trial-level table -- one row per trial, carrying the
@@ -208,6 +216,9 @@ def evaluate_one_fold_on_regimes(
     of magnitude faster, and identical for per-trial features; note that a table
     built over the whole dataset has its participant-level features computed
     across regimes, so the leakage guarantee above no longer holds for those.
+    That table is the ``scope_df=<everything>`` case, and on KnowQA the
+    difference is measurable: estimating over the full set rather than the slice
+    flips ``breaks_pattern_no_q`` on 52 of 300 no-knowledge trials.
     """
 
     if eval_regimes is None:

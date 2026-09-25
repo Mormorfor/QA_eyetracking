@@ -109,6 +109,7 @@ def build_starting_strategies(
     window_len: int = DEFAULT_WINDOW_LEN,
     drop_question: bool = True,
     out_col: str = C.STARTING_STRATEGY_COL,
+    keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """Per-trial starting strategy from the simplified fixation sequence.
 
@@ -116,10 +117,17 @@ def build_starting_strategies(
     ``window_len`` entries of ``simpl_fix_by_loc`` (or ``simpl_fix_by_label``
     when ``kind="label"``), stored as a tuple in ``out_col``.
 
+    ``keep_cols`` carries extra trial-level columns through to the output --
+    used to bring a grouping column (``regime``, ``session_id``) alongside the
+    strategy so a narrower scope can be taken later. They must be constant
+    within a trial; a column that varies would make the per-trial dedup below
+    pick an arbitrary value, so that is asserted rather than assumed.
+
     Required columns:
       C.PARTICIPANT_ID
       C.TRIAL_ID
       the relevant simplified-sequence column (see ``kind``)
+      anything named in ``keep_cols``
     """
     if kind == "location":
         seq_col = C.SIMPLIFIED_FIX_SEQ_BY_LOCATION
@@ -128,17 +136,33 @@ def build_starting_strategies(
     else:
         raise ValueError("kind must be 'location' or 'label'")
 
-    required = [C.PARTICIPANT_ID, C.TRIAL_ID, seq_col]
+    keep_cols = [c for c in (keep_cols or []) if c not in (C.PARTICIPANT_ID, C.TRIAL_ID)]
+    required = [C.PARTICIPANT_ID, C.TRIAL_ID, seq_col] + keep_cols
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise KeyError(f"Missing required columns: {missing}")
 
     out = df[required].drop_duplicates(subset=[C.PARTICIPANT_ID, C.TRIAL_ID]).copy()
+
+    if keep_cols:
+        # The dedup above keeps the first row per trial. If a keep_col varied
+        # within a trial that would silently pick one of several values, and the
+        # scope this column defines would then be wrong for some trials.
+        n_trials = len(df.drop_duplicates(subset=[C.PARTICIPANT_ID, C.TRIAL_ID]))
+        n_distinct = len(df[[C.PARTICIPANT_ID, C.TRIAL_ID] + keep_cols].drop_duplicates())
+        assert n_distinct == n_trials, (
+            f"keep_cols {keep_cols} are not constant within a trial: "
+            f"{n_distinct} distinct (trial, {keep_cols}) combinations for "
+            f"{n_trials} trials"
+        )
+
     out[out_col] = out[seq_col].apply(
         lambda s: _starting_window(s, window_len=window_len, drop_question=drop_question)
     )
 
-    return out[[C.PARTICIPANT_ID, C.TRIAL_ID, out_col]].reset_index(drop=True)
+    return out[[C.PARTICIPANT_ID, C.TRIAL_ID] + keep_cols + [out_col]].reset_index(
+        drop=True
+    )
 
 
 def compute_dominant_starting_strategy(
@@ -188,6 +212,7 @@ def dominant_strategy_by_participant(
     per_trial: pd.DataFrame,
     id_col: str = C.PARTICIPANT_ID,
     strat_col: str = C.STARTING_STRATEGY_COL,
+    by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """Collapse a per-trial starting-strategy frame to one row per participant.
 
@@ -202,12 +227,30 @@ def dominant_strategy_by_participant(
     reimplementing the modal pick -- four near-copies of it, with three
     different tie-breaks, were merged into this one on 2026-09-20.
 
-    Note the SCOPE caveat that applies to every caller: the dominance score is
-    computed over whatever trials are in ``per_trial``. See the module note on
-    ``build_trial_level_pattern_features`` and ``todo.md`` T3.21.
+    SCOPE, two axes (``todo.md`` T3.21):
+
+    * *Which trials* -- the dominance score is computed over whatever is in
+      ``per_trial``. That is the caller's choice and cannot be made here; see
+      ``scope_df`` on :func:`build_trial_level_pattern_features`.
+    * *How they are partitioned* -- ``by`` adds grouping columns beneath
+      ``id_col``, so ``by=["regime"]`` gives one dominant strategy per
+      (participant, regime) instead of one per participant. Default ``None``
+      pools everything the participant has in ``per_trial``, across knowledge
+      regimes and across sessions alike (Diana, 2026-09-25).
+
+    ``C.N_STRATEGY_TRIALS`` is returned alongside, and is what makes a narrowed
+    scope visible: the score is a proportion, so it looks the same whether it
+    came from 145 trials or 46.
     """
+    by = list(by or [])
+    group_cols = [id_col] + by
+    missing = [c for c in group_cols if c not in per_trial.columns]
+    if missing:
+        raise KeyError(f"Missing grouping columns: {missing}")
+
     rows = []
-    for pid, g in per_trial.groupby(id_col, sort=False):
+    for key, g in per_trial.groupby(group_cols, sort=False):
+        key = key if isinstance(key, tuple) else (key,)
         counts = Counter(g[strat_col])
         n_trials = int(sum(counts.values()))
 
@@ -216,7 +259,7 @@ def dominant_strategy_by_participant(
 
         rows.append(
             {
-                id_col: pid,
+                **dict(zip(group_cols, key)),
                 C.DOMINANT_STARTING_STRATEGY: dominant,
                 C.DOMINANCE_SCORE: top_count / n_trials if n_trials else float("nan"),
                 C.N_STRATEGY_TRIALS: n_trials,
@@ -225,8 +268,8 @@ def dominant_strategy_by_participant(
 
     return pd.DataFrame(
         rows,
-        columns=[
-            id_col,
+        columns=group_cols
+        + [
             C.DOMINANT_STARTING_STRATEGY,
             C.DOMINANCE_SCORE,
             C.N_STRATEGY_TRIALS,
@@ -568,6 +611,9 @@ def build_trial_level_pattern_features(
     window_len: int = DEFAULT_WINDOW_LEN,
     add_interaction: bool = True,
     add_distance: bool = True,
+    *,
+    scope_df: Optional[pd.DataFrame] = None,
+    scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """Per-trial pattern-breaking features for the model.
 
@@ -588,29 +634,95 @@ def build_trial_level_pattern_features(
     and the participant's dominant one (a graded ``breaks_pattern``; 0 when they
     match).
 
-    The dominant strategy and dominance score are computed over the trials
-    present in ``df``, so pass the full (unfiltered) trial set.
+    ``n_strategy_trials_{with,no}_q`` is always returned: it is the denominator
+    the dominance score was computed from, and the only thing in the output that
+    reveals how wide the scope was.
+
+    SCOPE -- two independent axes (``todo.md`` T3.21). The hazard this replaces
+    is a per-participant quantity computed from "whatever rows the function was
+    given" and then read as though it described the participant.
+
+    ``scope_df`` -- WHICH TRIALS estimate the dominant strategy.
+      ``None`` (default): ``df`` itself. Under cross-validation that means the
+      aggregate never sees a trial outside the frame being featurised, which is
+      the leakage guarantee -- a globally-estimated dominance score is a summary
+      of all of a participant's trials including the held-out ones, and
+      attaching it to a training row shows the model a function of the test set.
+      Pass a wider frame to estimate over it instead (e.g. the participant's
+      full trial set for a descriptive figure, where there is no split and the
+      honest number is the global one).
+
+    ``scope_by`` -- HOW that population is PARTITIONED beneath the participant.
+      ``None`` (default): one dominant strategy per participant, pooling across
+      knowledge regimes and across sessions. ``["regime"]`` gives one per
+      (participant, regime), which is the only version that can answer "does
+      this person's scanning strategy shift between knowledge regimes" -- the
+      pooled one cannot, and will look like a null result. The columns named
+      here must exist in ``df`` (and in ``scope_df`` when given) and be constant
+      within a trial.
+
+      L1's hunters/gatherers split needs neither axis: ``question_preview`` is
+      between-participant, so a participant's whole trial set is in one group
+      already (``pitfalls.md`` 3).
 
     Required columns:
       C.PARTICIPANT_ID
       C.TRIAL_ID
       the relevant simplified-sequence column (see ``kind``)
+      anything named in ``scope_by``
     """
+    scope_by = list(scope_by or [])
+
     variants = [
         (False, C.BREAKS_PATTERN_WITH_Q, C.DOMINANCE_SCORE_WITH_Q,
-         C.BREAKS_X_DOMINANCE_WITH_Q, C.STRATEGY_DISTANCE_WITH_Q),
+         C.BREAKS_X_DOMINANCE_WITH_Q, C.STRATEGY_DISTANCE_WITH_Q,
+         C.N_STRATEGY_TRIALS_WITH_Q),
         (True, C.BREAKS_PATTERN_NO_Q, C.DOMINANCE_SCORE_NO_Q,
-         C.BREAKS_X_DOMINANCE_NO_Q, C.STRATEGY_DISTANCE_NO_Q),
+         C.BREAKS_X_DOMINANCE_NO_Q, C.STRATEGY_DISTANCE_NO_Q,
+         C.N_STRATEGY_TRIALS_NO_Q),
     ]
 
     out: pd.DataFrame | None = None
-    for drop_question, breaks_col, score_col, inter_col, dist_col in variants:
+    for drop_question, breaks_col, score_col, inter_col, dist_col, n_col in variants:
         per_trial = build_starting_strategies(
-            df, kind=kind, window_len=window_len, drop_question=drop_question
+            df,
+            kind=kind,
+            window_len=window_len,
+            drop_question=drop_question,
+            keep_cols=scope_by,
         )
-        dominant = dominant_strategy_by_participant(per_trial, id_col=C.PARTICIPANT_ID)
 
-        merged = per_trial.merge(dominant, on=C.PARTICIPANT_ID, how="left")
+        # The aggregate is estimated over scope_df when given, over the frame
+        # being featurised otherwise. Both go through the same per-trial builder
+        # so the strategy definition cannot drift between them.
+        if scope_df is None:
+            scope_per_trial = per_trial
+        else:
+            scope_per_trial = build_starting_strategies(
+                scope_df,
+                kind=kind,
+                window_len=window_len,
+                drop_question=drop_question,
+                keep_cols=scope_by,
+            )
+
+        join_keys = [C.PARTICIPANT_ID] + scope_by
+        dominant = dominant_strategy_by_participant(
+            scope_per_trial, id_col=C.PARTICIPANT_ID, by=scope_by
+        )
+
+        merged = per_trial.merge(dominant, on=join_keys, how="left")
+        # A trial whose (participant, scope_by) key is absent from the estimating
+        # frame would get a NaN dominant strategy, which compares unequal to
+        # everything and silently scores as breaks_pattern=1. That is a plausible
+        # wrong number rather than a crash, so it is asserted.
+        unmatched = int(merged[C.DOMINANT_STARTING_STRATEGY].isna().sum())
+        assert unmatched == 0, (
+            f"{unmatched} of {len(merged)} trials have no dominant strategy: their "
+            f"{join_keys} do not appear in the estimating frame. Pass a scope_df "
+            "that covers every trial in df."
+        )
+
         merged[breaks_col] = (
             merged[C.STARTING_STRATEGY_COL] != merged[C.DOMINANT_STARTING_STRATEGY]
         ).astype(int)
@@ -626,11 +738,14 @@ def build_trial_level_pattern_features(
             ]
             cols.append(dist_col)
 
-        merged = merged.rename(columns={C.DOMINANCE_SCORE: score_col})
+        merged = merged.rename(
+            columns={C.DOMINANCE_SCORE: score_col, C.N_STRATEGY_TRIALS: n_col}
+        )
         cols.append(score_col)
         if add_interaction:
             merged[inter_col] = merged[breaks_col] * merged[score_col]
             cols.append(inter_col)
+        cols.append(n_col)
 
         piece = merged[list(TRIAL_ID_COLS) + cols]
         out = piece if out is None else out.merge(piece, on=list(TRIAL_ID_COLS))

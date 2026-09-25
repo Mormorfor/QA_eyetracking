@@ -133,9 +133,20 @@ And the `before_after_summary` dicts **[printed]**:
 **The group difference holds in the direction draft2 claims:** gatherers (no question
 preview) are more strategy-consistent than hunters (preview) — 58.3% vs 48.9% raw.
 
-> ⚠️ **The all-participants figure (draft2's `X%`) has not been computed.**
-> `run_all_strategy_plots` calls `split_participant_groups(..., include_all=False)`, so only
-> hunters and gatherers are produced. One argument change gets it.
+> ✅ **The all-participants figure (draft2's `X%`) now exists — computed 2026-09-25.**
+> `run_all_strategy_plots` used to hardcode `include_all=False`; it is now a parameter
+> defaulting to `True`.
+>
+> | all 360 participants | raw | after completion |
+> |---|---|---|
+> | **`≥50%` of trials** | **53.6%** | **57.2%** |
+>
+> Between the two groups, as it must be (hunters 48.9/53.3, gatherers 58.3/61.1 — both
+> unchanged). **This is the `X%` draft2 asks for**, and it is computed under the same `≥`
+> convention as the group figures.
+>
+> ⚠️ Computed by Claude on 2026-09-25 from `all_participants.csv` and not yet checked by
+> Diana — the same standing caveat as the rest of this file.
 
 ### 1.3 Completion barely moves the result — which is good news
 
@@ -659,6 +670,8 @@ the latter, say what the new conclusion is.
 | *(retracted)* | `todo.md` T3.2 — I had this as "nest feature selection inside CV folds". **`SELECT_1_COLS` is a manual pick, not machine-selected**, so there is no leakage to fix and no rerun. What remains is a Methods sentence | — | — | **no change — my error, corrected 2026-09-05** |
 | *(pending)* | `todo.md` T3.3 — coefficient CIs via participant-clustered bootstrap | every coefficient figure, `significant_only` filtering | CIs widen | expected **conclusion change** on which coefficients count as significant. |
 | 2026-09-06 *(reruns 09-07)* | `todo.md` T3.18 — `add_IA_screen_location` now places words on the answer screen by their interest-area rectangle (`IA_TOP` / `IA_LEFT`) instead of by counting tokens in the stored text. The token-count assignment is still computed and compared; geometry wins where they differ, and every correction is printed | every per-area metric, the fixation sequences and everything built on them (strategies, XYX/XYXY, `seq_len`), last-visited labels, per-region RT/TFD, preference matching, and all `__correct` / `__wrong_mean` / `__contrast` features — but **only on the affected trials** | L1 **54 interest areas on 10 of 19,436 trials** (0.007% of interest areas); KnowQA 4 IAs on 1 of 154; second_test 24 IAs on 6 of 361; testrun_QA none. Verified identical to the current labels on every other trial | **value only.** The corrected labels were derived independently two ways — screen geometry, and reconciling `IA_LABEL` against the stored text — which agreed 10/10 on L1's affected trials. Too few trials to move any reported figure. **Datasets rebuilt 2026-09-07** — KnowQA and both pilots re-run, L1 re-run by Diana. Fixed in the same pass: `total_answering_RT_normalized` now divides by the **measured interest-area count** rather than the stored token count, which had it ~2% low on the 10 L1 `truncated` and 7 Study 2 `merged` trials. The question of whether that word was displayed is **answered, not assumed**: it rendered off the bottom of the screen (it would start at y ≈ 1404 against a 1401 maximum for any interest area anywhere in L1), so it was never readable and the measured count is the correct denominator. **Verified after the rebuild (2026-09-07):** 19,436 trials / 760,628 interest areas / 360 participants all unchanged, base rate still 0.8407, no area falls to `unknown`, and the on-disk labels agree with an independent reconstruction on **all** 19,436 trials while differing from the old token-count logic on exactly the 10. One downstream number did move: `mean_max_fix_pupil_size_z__correct` imputations **257 → 253** (§8) |
+| 2026-09-25 | **T3.21** — participant-level scope became two explicit parameters (`scope_df` = which trials estimate the aggregate, `scope_by` = how they are partitioned), defaulting to the frame being featurised, pooled per participant. `n_strategy_trials_{with,no}_q` now carried; `regime` and `session_id` carried into the trial-level table | `derived/pattern_breaking.py`, `answer_correctness/model_data.py`, `cross_validation.py` docstring; L1 and KnowQA feature tables rebuilt | L1 217 → **219** cols, KnowQA 196 → **200**. **No shared column changed value** | **no change — additive only.** Verified rather than assumed: all eight pattern features recomputed under the default scope are bit-identical to the saved L1 table across 19,436 trials, and a full-table diff of both datasets found no moved column. What the default *does* change is availability: the scope is now asked for instead of inherited. Backups at `*.pre_t321.bak`. **Measured while verifying, not previously known:** estimating over the full KnowQA set rather than the per-regime slice flips `breaks_pattern_no_q` on **52 of 300** no-knowledge trials — the size of the leak the default avoids. And per-regime dominance varies sharply within a person (participant 4000: 0.224 full-knowledge → 0.630 partial-knowledge) where the pooled score is a flat 0.372 for everyone — descriptive only at n=6, but it is the shift the pooled scope cannot show |
+| 2026-09-25 | **T3.21 rows 5, 7–9, 12, 13 — the remainder.** Prefix-completion map now learned **once over the whole dataset** instead of per group (Diana's ruling); `run_all_strategy_plots` gained `include_all=True`; `person_variance` gained per-participant trial counts; rows 7, 12, 13 stated rather than changed | `viz/visualisations_strategies.py`, `person_variance/{accuracy_characterization,univariate_consistency}.py`, three docstrings; both pilots rebuilt | completed prevalence **53.33% / 61.11% unchanged**; pilots 196 → 199 cols, nothing moved | **no change — and the null is the point.** The pooled map disagrees with the old per-group maps on 9 (hunters) / 4 (gatherers) rare prefixes, but none flip a participant past the 50% threshold. So the completed figures are **insensitive to how the repair was learned**, which pre-empts the obvious objection to a repair heuristic and is worth a sentence in the paper. **One number that did not exist now does:** all-participants prevalence **53.6% raw / 57.2% completed** (§1.2) — draft2's `X%`. |
 
 ---
 

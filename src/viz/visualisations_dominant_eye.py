@@ -38,6 +38,13 @@ def build_dominant_strategy_by_eye(
     first `window_len` visits) and how often it occurs, and attach
     their dominant eye (EYE_TRACKED).
 
+    SCOPE: over whatever trials are in ``df``. This is descriptive rather than
+    predictive -- no train/test split, so there is no leakage to avoid and the
+    honest scope is simply the population being described. `n_total` is already
+    returned, so a narrowed frame is visible in the output rather than silent;
+    that is why this was left as it is when the scope parameters landed
+    (`todo.md` T3.21 row 12).
+
     Returns one row per participant:
         [participant_id, eye_col, dominant_strategy, n_trials, n_total, dominant_prop]
     """
