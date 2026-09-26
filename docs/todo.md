@@ -14,15 +14,17 @@ paper; T6 is the structural rewrite we haven't designed yet.
 | **Risk**     | how much can break, or how much a reported result moves                                               |
 | **Verified** | ✅ I confirmed it against stored output · ⚠️ read from code only, **check with a shell before acting** |
 
-### Status markers — `✅ DONE` is not the same as `✅ decided`
+### Status markers — `✅ DONE` is not the same as `🟡 decided`
 
-`✅` was doing two jobs in this file. Split as of 2026-09-20:
+`✅` was doing two jobs in this file. Split as of 2026-09-20, and given distinct colours on
+2026-09-26 — **green means finished, and nothing else does.**
 
 | Marker          | Means                                                                                   |
 | --------------- | --------------------------------------------------------------------------------------- |
 | **✅ DONE**      | finished. Nothing left for anyone. Any number it moved is in `findings.md`'s change log |
 | **↪️ ABSORBED** | no longer an item in its own right — folded into another, which is named                |
-| ✅ **decided**   | Diana has ruled; **the implementation is still outstanding.** Not done                  |
+| **⏭️ PUSHED**   | real, understood, measured where possible — and **deliberately not before the restructure.** Diana's ruling. Distinct from ⏸ deferred: deferred is open-ended, pushed has a stated point at which it comes back |
+| **🟡 decided**  | Diana has ruled; **the implementation is still outstanding.** Not done — green is reserved for finished |
 | ⏸ **deferred**  | deliberately not now                                                                    |
 | ⚠️              | read from code, never executed — verify before acting (see §V)                          |
 
@@ -462,22 +464,49 @@ They are *not* a priority order. This index is the reading order.
 
 | #         | Item                                                                                                        | Status                                                                                 |
 | --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ measured · **high impact**                                                           |
+| T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ **DONE 2026-09-26** — 24 analyses rerun; **one result flipped to n.s.**               |
 | T3.3      | Coefficient CIs wrong three ways                                                                            | ⚠️ **high impact, unverified**                                                         |
 | T3.21     | Participant-level accumulative features — `scope_df` / `scope_by`, defaulting to the frame given, pooled    | ✅ **DONE 2026-09-25**, all 13 rows closed; unblocks T1.6 and T6.1                      |
 | T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **DONE 2026-09-23** — code + all four datasets rebuilt                               |
 | T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **DONE 2026-09-23** — fill named, scoped, counted, masked; coefficients identical     |
 | T3.20     | One pupil baseline per dataset; right consumer, right file (absorbs T3.8)                                   | ✅ **DONE 2026-09-23** — code + all rebuilds (L1 paragraph, KnowQA)                      |
-| T3.17     | Assert the invariants the pipeline assumes                                                                  | ✅ **decided** — integrity rules, implementation outstanding                            |
+| T3.17     | Assert the invariants the pipeline assumes                                                                  | 🟡 **decided** — integrity rules, implementation outstanding                            |
 | T3.18     | Does `check_text_alignment` catch a real problem?                                                           | **✅ DONE** 2026-09-07 — yes, in three modes; area labels now come from screen geometry |
 | T3.19     | Is `last_answer_area_visited_lbl` buggy?                                                                    | ⚠️ investigation                                                                       |
 | T3.2      | Say in Methods that features were hand-picked                                                               | ⚠️ low impact (was high — retracted); figure-2 concern checked and closed              |
 | T3.13     | Dwell/count stay coverage-inclusive                                                                         | **✅ DONE** — resolved, no action                                                       |
 | T3.15     | Two feature-provenance paths in `cross_validation.py`                                                       | **↪️ ABSORBED** into T3.21 (which settles the direction)                               |
 | T3.4      | Smaller number-movers — holds T3.5, T3.7–T3.12                                                              | mixed                                                                                  |
+| T3.22     | Trials are treated as independent when they are nested in participants and items                            | **⏭️ PUSHED** to after the restructure — measured, changes no conclusion               |
 | ~~T3.16~~ | *(ordinal A>B>C>D structure in the model — considered and declined 2026-09-05; number retired, not reused)* | —                                                                                      |
 
-### T3.1 — Fisher tests run on the wrong grain ✅ S to fix · **high impact**
+### T3.1 — ~~Fisher tests run on the wrong grain~~ ✅ **DONE 2026-09-26** · **high impact**
+
+> **Fixed and rerun.** The three tests now take the trial-level frame and read the split the
+> builder already computed; `_check_trial_frame` raises on a duplicated
+> `(participant_id, TRIAL_INDEX)`, so the IA frame can no longer reach them. 24 analyses
+> regenerated.
+>
+> **One conclusion changed**, exactly as this item warned: `seq_len_threshold · gatherers ·
+> threshold-2` goes **p 7.7e-09 → 0.189, significant → n.s.** — its `≤ 2` group is 116 trials,
+> and the old p came from inflating those into ~4,500 IA rows. The other 23 survive at
+> p < 1e-3. Full before/after in `findings.md`'s change log.
+>
+> **Two corrections to what this item said**, both found in the doing:
+> - **"One word in three places" was wrong.** Each test *re-derived* its own split from raw
+>   columns, and in `correctness_by_trial_mean_dwell_threshold_test` that re-derivation —
+>   `groupby().transform()`, which broadcasts back to IA rows — *was* the bug. Passing
+>   `trial_df` alone would have left it recomputing a per-word mean over a frame that no
+>   longer had words. The tests had to stop re-deriving.
+> - **The blast radius was smaller than stated**: 24 analyses (24 figures, 48 tables), not
+>   ~96 files / ~51 figures. That count predated the T1.3 tree inversion, and the current
+>   sweeps are narrower — thresholds 2–5 rather than 2–7, and **XYXY is not generated at all**
+>   (`run_all_back_and_forth_pattern_plots` defaults `use_xyxy=False`, so only XYX exists on
+>   disk). Whether XYXY should be restored is a scope question, not part of this item.
+
+---
+
+Original diagnosis, retained.
 
 `derived/correctness_measures.py` builds a trial-level frame for each plot, then hands the
 **interest-area-level** frame to the significance test:
@@ -1335,6 +1364,67 @@ participants, with hunters and gatherers unchanged at 48.9/53.3 and 58.3/61.1.
 
 ***
 
+### T3.22 — Trials are treated as independent when they are nested in participants and items ⏭️ **PUSHED to after the restructure** · M–L · **precision, not direction**
+
+> **Diana's ruling, 2026-09-26: mixed effects would help in a number of places here, but none
+> of it happens before the restructure.** Written down, commented at the one site where it is
+> now the *only* remaining assumption, and left. This is the first ⏭️ PUSHED item.
+
+**The issue.** Fisher's exact test — and every other test here that counts trials — assumes
+each observation is an independent draw. Since T3.1 one observation is one trial, which is the
+right grain. But the 19,436 trials are not 19,436 independent draws: they come from **360
+participants** (54 trials each) and **972 items** (20 each), and both levels carry real
+between-cluster variance. Same *kind* of error as T3.1, one level up and far smaller: T3.1
+counted each trial ~39 times; this counts each trial once but treats clustered trials as a
+fresh random sample.
+
+**Measured 2026-09-26** on `L1_model_ready_all_features.csv` (one-way ANOVA ICC on a binary
+outcome — an approximation):
+
+| clustering | ICC | mean cluster | design effect | effective n |
+| --- | --- | --- | --- | --- |
+| by `participant_id` | 0.041 | 54 | 3.15 | ~6,200 |
+| by `text_id_with_q` | **0.126** | 20 | 3.40 | ~5,700 |
+
+So the honest n is nearer **6,000 than 19,436**. Participants and items are **crossed, not
+nested**, so the two design effects do not multiply — that figure is the right order, not a
+precise correction. Note the **item** level is the stronger one, which matches `findings.md`
+§7's record of `text_id_with_q` random-effect variance running ~4.8× the `participant_id`
+variance. Any fix that handles only participants handles the smaller half.
+
+**It changes no conclusion.** Participant-clustered bootstrap (2,000 resamples of
+participants) against the Fisher p:
+
+| case | Fisher p | clustered 95% CI on OR | clustered p |
+| --- | --- | --- | --- |
+| all participants, threshold 4 | 4.3e-60 | [2.42, 3.17] | <0.001 |
+| all participants, threshold 2 | 2.9e-04 | [1.40, 3.36] | <0.001 |
+| gatherers, threshold 2 *(T3.1's flip)* | 0.189 | [0.90, 2.65] | 0.142 |
+
+Every interval that should exclude OR = 1 still does, and the one T3.1 flipped to n.s. is n.s.
+under both. **The p-values are far too small; the findings are not in doubt.**
+
+**Where the same shape appears.** Recorded so the eventual pass has a list, not so each
+becomes its own item:
+
+| Where | Status |
+| --- | --- |
+| the four correctness Fisher tests (`correctness_measures_tests.py` ×3, `preference_correctness_tests.py`) | the measured case above; commented at `_check_trial_frame` |
+| **T3.3** — coefficient CIs ignore clustering by participant | already its own open item; same root cause |
+| `statistics/RT_correlations/` | clusters on participant **only**. Its own `__init__.py` docstring says trials are nested in participants *and in texts*; the text level is unhandled — and it is the larger one |
+| `statistics/mixed_area_comparisons.py` | fits at area level with 4 area rows per trial and a `participant_id` group + `text_id` variance component, but ⚠️ **no trial-level random effect** — read from code, never executed |
+
+**Why after the restructure, not before.** `restructure-map.md` §3 puts inference in
+`modeling/inference.py` and one `lib/stats/resampling.py`, so a clustered-CI implementation
+lands once rather than four times. Doing it now means writing it into four places that are
+about to move. T3.3 is the same argument and the same stage (**D**).
+
+**When it comes back**, the cheapest honest version is not a mixed model: report the odds ratio
+with a cluster-bootstrap CI instead of a Fisher p, reusing the machinery that already exists in
+`RT_correlations/bootstrap.py`. A crossed participant×item resample is the fuller answer.
+
+***
+
 ## T4 · Outputs and artifacts
 
 ### T4.0 — Standing requirement: every analysis persists its numbers, not just its figures ✅ measured · **agenda item**
@@ -1436,8 +1526,14 @@ non-empty siblings**, so the folder looks fine:
 
 The `matching_correctness` one was already noted here as a single file; it is six.
 The 15 under `correctness_measures` were not recorded anywhere — and that folder is live
-paper code (`correctness_associations` in the restructure map), whose figures **T3.1** will
-require regenerating anyway.
+paper code (`correctness_associations` in the restructure map).
+
+> ✅ **Moot for the `correctness_measures` 15 as of 2026-09-26.** The T1.3 inversion removed
+> the whole `reports/plots/` tree, and T3.1's rerun regenerated
+> `reports/correctness_associations/` from scratch — so those 15 no longer exist to be empty.
+> The two *continuous* folders listed above were regenerated by T1.3 rather than by T3.1,
+> which touches only the three threshold/pattern analyses. The `matching_correctness` 6 are
+> likewise gone with the old tree.
 
 > ✅ **Unblocked 2026-09-21 — it is a pure rerun again.** This used to read "not a pure rerun
 > after all": the 108 `area_significance_heatmaps` figures come from

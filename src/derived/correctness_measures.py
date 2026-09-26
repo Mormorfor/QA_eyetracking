@@ -282,7 +282,7 @@ def compute_seq_len_threshold_summary(
     test_res = None
     if add_significance:
         test_res = correctness_by_seq_len_threshold_test(
-            df=df, threshold=threshold, seq_col=seq_col, correct_col=correct_col
+            trial_df=trial_df, threshold=threshold
         )
 
     return summary_df.reset_index(drop=True), test_res
@@ -300,7 +300,6 @@ def compute_back_and_forth_pattern_summary(
     Returns (summary_df, fisher_result, pattern_name).
     """
     pattern_name = "XYXY" if use_xyxy else "XYX"
-    pattern_fn = has_back_and_forth_xyxy if use_xyxy else has_back_and_forth_xyx
 
     trial_df = build_trial_df_for_back_and_forth_pattern(
         df, seq_col, correct_col, use_xyxy=use_xyxy
@@ -317,9 +316,7 @@ def compute_back_and_forth_pattern_summary(
 
     test_res = None
     if add_significance:
-        test_res = correctness_by_sequence_pattern_test(
-            df=df, pattern_fn=pattern_fn, seq_col=seq_col, correct_col=correct_col
-        )
+        test_res = correctness_by_sequence_pattern_test(trial_df=trial_df)
 
     return summary_df.reset_index(drop=True), test_res, pattern_name
 
@@ -351,7 +348,7 @@ def compute_trial_mean_dwell_threshold_summary(
     test_res = None
     if add_significance:
         test_res = correctness_by_trial_mean_dwell_threshold_test(
-            df=df, threshold=threshold, dwell_col=dwell_col, correct_col=correct_col
+            trial_df=trial_df, threshold=threshold
         )
 
     return summary_df.reset_index(drop=True), test_res

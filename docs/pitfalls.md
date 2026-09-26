@@ -25,7 +25,14 @@ by a factor of ~39.
 > **Rule: any statistical test on a trial-level property must run on a trial-level frame.**
 > Recover it with `groupby([TRIAL_ID, PARTICIPANT_ID]).first()`.
 
-Open fix: `todo.md` T3.1.
+✅ **Closed 2026-09-26 (`todo.md` T3.1).** The three correctness Fisher tests were the live
+instance of this: they were handed the IA frame and counted every word as an observation.
+They now read the trial-level frame's already-computed split, and `_check_trial_frame` raises
+on a duplicated `(participant_id, TRIAL_INDEX)` rather than testing whatever it was given.
+One result flipped to non-significant — see `findings.md`'s change log.
+
+The *rule* above is unchanged and still the thing to remember; what changed is that one
+family of tests can no longer break it silently.
 
 ---
 

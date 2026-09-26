@@ -5,9 +5,12 @@ detail, reasoning, blast radius or measured number lives in `todo.md` under the 
 one exception is *Your own reminders* at the end, which has no counterpart there.
 
 Status key: **✅ DONE** = finished, nothing left for anyone · **↪️ ABSORBED** = folded into
-another item, which is named · **decided** = the ruling is made, **implementation still
-outstanding** · **ready** = nothing blocks it · **blocked** = waits on another item ·
-**deferred** = deliberately not now · ⚠️ = read from code, never executed (see §V of `todo.md`).
+another item, which is named · **⏭️ PUSHED** = real and understood, **deliberately not before
+the restructure** (unlike *deferred*, it has a stated point at which it returns) ·
+**🟡 decided** = the ruling is made, **implementation still outstanding** (green is reserved
+for finished) · **ready** = nothing blocks it · **blocked** = waits on another item ·
+**deferred** = deliberately not now · ⚠️ = read from code, never executed (see §V of
+`todo.md`).
 
 **Nothing here is waiting on a decision from you.** Anything not ✅ DONE or ↪️ ABSORBED is
 work outstanding on Claude's side, or a deliberate deferral.
@@ -21,9 +24,11 @@ go looking.)*
 
 | Item      | Why it's first                                                                                                    |
 | --------- | ----------------------------------------------------------------------------------------------------------------- |
-| **T3.1**  | the fix is one word in three places, and it's high impact                                                         |
 | **T3.17** | cheap, and changes no number if the invariants hold                                                               |
 | **T4.2**  | not a fix at all — just re-run the plots (the `statistics.ipynb` blocker is gone as of 2026-09-21, see T1.4/T2.5) |
+| **T1.8**  | one stray column; S                                                                                               |
+
+*(T3.1 was the head of this list and is done — 2026-09-26.)*
 
 ***
 
@@ -60,7 +65,9 @@ go looking.)*
 > The tier is mostly one principle violated repeatedly: a silent alteration where a loud error
 > belonged. Read the intro table in `todo.md` before picking items off individually.
 
-* **T3.1** — Fisher tests are handed the IA-level frame instead of the trial-level one, inflating n by ~39×; ~96 data files and ~51 figures carry wrong p-values (bars and CIs are fine). *(S · ready · high impact)*
+* **✅ DONE — T3.1** — The three correctness Fisher tests now run at trial grain, reading the split the builder already computed instead of re-deriving it; `_check_trial_frame` raises on a duplicated `(participant_id, TRIAL_INDEX)`. *(**done*** *2026-09-26 — 24 analyses rerun (24 figures, 48 tables); n 760,628 → 19,436.* ***One conclusion changed**: gatherers · threshold-2 goes p 7.7e-09 → 0.189, significant → n.s., its* *`≤ 2`* *group being 116 trials. The other 23 survive at p < 1e-3. Bars/CIs verified untouched — no* *`__summary.csv`* *differs and 23 of 24 figures are byte-identical.* ***Two corrections to the item**: it was not "one word in three places" — each test re-derived its own split, and for the dwell test that re-derivation* ***was*** *the bug; and the blast radius was 24 analyses, not ~96 files / ~51 figures, a count that predated the T1.3 inversion. **XYXY is not generated at all** —* *`use_xyxy`* *defaults False — which is a scope question, not part of this item)*
+
+* **⏭️ PUSHED — T3.22** — Trials are treated as independent when they are nested in 360 participants and 972 items, so every count-based p here is too small. *(M–L ·* ***pushed past the restructure**, Diana 2026-09-26 — measured: ICC 0.041 by participant / **0.126 by item**, effective n ~6,000 not 19,436. A participant-clustered bootstrap* ***moves no conclusion***, so this is precision, not direction. Same root cause as* ***T3.3***; also live in* *`RT_correlations`* *(participant-only clustering, item level unhandled and larger) and ⚠️* *`mixed_area_comparisons`* *(no trial-level random effect). Waits for* *`modeling/inference.py`* *so clustered inference lands once — stage **D**)*
 
 * **T3.2** — Write one Methods sentence saying the ten features were hand-picked on domain grounds, not searched. *(S · low impact — the earlier leakage claim was retracted)*
 
@@ -74,7 +81,7 @@ go looking.)*
 
   * **↪️ ABSORBED — T3.8** — *(into T3.20)*
 
-  * **T3.9** — Keep the `val_*` regimes and report them; stop averaging all six regimes into one balanced-accuracy number. *(decided)*
+  * **T3.9** — Keep the `val_*` regimes and report them; stop averaging all six regimes into one balanced-accuracy number. *(🟡 decided)*
 
   * **T3.10** — Fold-level CIs treat overlapping folds as independent, average folds unweighted, and fall back silently to z=1.96 — these are the CIs on the comparison figure.
 
@@ -126,9 +133,9 @@ go looking.)*
 
 * **T5.6** — Document and enforce the build order between `answer_RTs.features` and `answer_correctness.model_data`. *(S)*
 
-* **T5.7** — Ship instructions for placing your own OneStop download, plus one clear failure message when it isn't there. *(S ·* ***decided**)*
+* **T5.7** — Ship instructions for placing your own OneStop download, plus one clear failure message when it isn't there. *(S ·* ***🟡 decided**)*
 
-* **T5.8** — Keep `all_participants_with_practice.csv`; keep both pilots runnable; `paragraph_RT_run_based.csv` waits for the restructure. *(S ·* ***decided**)*
+* **T5.8** — Keep `all_participants_with_practice.csv`; keep both pilots runnable; `paragraph_RT_run_based.csv` waits for the restructure. *(S ·* ***🟡 decided**)*
 
 * **T5.9** — Two EyeBench entry points write the same cache with different feature definitions, and the cache can't say which one made it. *(M)*
 

@@ -13,7 +13,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:50"
+    "saved_at": "2026-09-26T16:01:52"
   },
   "correctness_by_back_and_forth__group-gatherers__pattern-xyx": {
     "plot": "correctness_by_back_and_forth",
@@ -29,7 +29,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:24"
+    "saved_at": "2026-09-26T16:01:40"
   },
   "correctness_by_back_and_forth__group-hunters__pattern-xyx": {
     "plot": "correctness_by_back_and_forth",
@@ -45,7 +45,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:11"
+    "saved_at": "2026-09-26T16:01:34"
   },
   "correctness_by_matching__group-all_participants__mode-polarity__metric-area_dwell_proportion": {
     "plot": "correctness_by_matching",
@@ -1069,7 +1069,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:22:04"
+    "saved_at": "2026-09-26T16:00:53"
   },
   "correctness_by_seq_len_threshold__group-all_participants__threshold-3": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1085,7 +1085,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:22:34"
+    "saved_at": "2026-09-26T16:01:04"
   },
   "correctness_by_seq_len_threshold__group-all_participants__threshold-4": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1101,7 +1101,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:23:03"
+    "saved_at": "2026-09-26T16:01:16"
   },
   "correctness_by_seq_len_threshold__group-all_participants__threshold-5": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1117,7 +1117,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:23:31"
+    "saved_at": "2026-09-26T16:01:28"
   },
   "correctness_by_seq_len_threshold__group-gatherers__threshold-2": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1133,7 +1133,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:20:52"
+    "saved_at": "2026-09-26T16:00:23"
   },
   "correctness_by_seq_len_threshold__group-gatherers__threshold-3": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1149,7 +1149,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:21:05"
+    "saved_at": "2026-09-26T16:00:29"
   },
   "correctness_by_seq_len_threshold__group-gatherers__threshold-4": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1165,7 +1165,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:21:20"
+    "saved_at": "2026-09-26T16:00:35"
   },
   "correctness_by_seq_len_threshold__group-gatherers__threshold-5": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1181,7 +1181,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:21:35"
+    "saved_at": "2026-09-26T16:00:41"
   },
   "correctness_by_seq_len_threshold__group-hunters__threshold-2": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1197,7 +1197,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:19:59"
+    "saved_at": "2026-09-26T15:59:59"
   },
   "correctness_by_seq_len_threshold__group-hunters__threshold-3": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1213,7 +1213,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:20:12"
+    "saved_at": "2026-09-26T16:00:05"
   },
   "correctness_by_seq_len_threshold__group-hunters__threshold-4": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1229,7 +1229,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:20:25"
+    "saved_at": "2026-09-26T16:00:11"
   },
   "correctness_by_seq_len_threshold__group-hunters__threshold-5": {
     "plot": "correctness_by_seq_len_threshold",
@@ -1245,7 +1245,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:20:38"
+    "saved_at": "2026-09-26T16:00:17"
   },
   "correctness_by_total_answering_rt__group-all_participants__rt-CONFIRM_FINAL_ANSWER_RT__nbins-10__minn-10": {
     "plot": "correctness_by_total_answering_rt",
@@ -1360,7 +1360,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:55"
+    "saved_at": "2026-09-26T16:01:55"
   },
   "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-50": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1376,7 +1376,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:54"
+    "saved_at": "2026-09-26T16:01:54"
   },
   "correctness_by_trial_mean_dwell_threshold__group-all_participants__threshold-75": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1392,7 +1392,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:54"
+    "saved_at": "2026-09-26T16:01:55"
   },
   "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-100": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1408,7 +1408,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:53"
+    "saved_at": "2026-09-26T16:01:54"
   },
   "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-50": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1424,7 +1424,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:52"
+    "saved_at": "2026-09-26T16:01:53"
   },
   "correctness_by_trial_mean_dwell_threshold__group-gatherers__threshold-75": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1440,7 +1440,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:53"
+    "saved_at": "2026-09-26T16:01:54"
   },
   "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-100": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1456,7 +1456,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:52"
+    "saved_at": "2026-09-26T16:01:53"
   },
   "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-50": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1472,7 +1472,7 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:51"
+    "saved_at": "2026-09-26T16:01:53"
   },
   "correctness_by_trial_mean_dwell_threshold__group-hunters__threshold-75": {
     "plot": "correctness_by_trial_mean_dwell_threshold",
@@ -1488,6 +1488,6 @@
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:52"
+    "saved_at": "2026-09-26T16:01:53"
   }
 }
