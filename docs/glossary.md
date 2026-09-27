@@ -124,7 +124,7 @@ So plausibility runs **A > B > C > D**, and the data follows it (selection 84.07
 | `SELECTED_ANSWER_LABEL_COLUMN` | `selected_answer_label` | which label the participant chose |
 | `SELECTED_ANSWER_POSITION_COLUMN` | `selected_answer_position` | which position they chose |
 | `CORRECT_ANSWER_POSITION_COLUMN` | `correct_answer_position` | where the correct answer sat |
-| `IS_CORRECT_COLUMN` | `is_correct` | 1 if selected == correct. A trial can never lack a confirmed selection, so the NaN-compares-unequal branch is unreachable — it should be an assertion (`todo.md` T3.17) |
+| `IS_CORRECT_COLUMN` | `is_correct` | 1 if selected == correct. A trial can never lack a confirmed selection, so the NaN-compares-unequal branch is unreachable — ✅ since 2026-09-27 `add_is_correct` **raises** on a null position rather than scoring it as wrong (`todo.md` T3.17) |
 
 ---
 
@@ -462,7 +462,7 @@ Vocabulary for the error-analysis Results subsection (expanded substantially in 
 | **testrun_QA / second_test** | the two pilots that preceded KnowQA |
 | **EyeBench** | the lab's external paragraph-feature extraction pipeline, vendored into `src/external/EyeBench/` |
 | **matching / preference matching** | whether the answer the participant selected is the one their gaze "preferred" on a given metric |
-| **strange trials** | `data/strange_trials.csv` — old trials that looked suspicious, chiefly **zero fixations**. Historical; may not even hold against the current data, and nothing important depends on it. Not a live exclusion mechanism |
+| **strange trials** | `data/strange_trials.csv` — 9 old trials flagged for having **zero fixations**. ✅ **Verified 2026-09-27 (T3.7): the list still holds exactly** — recomputing zero-dwell trials on the current `all_participants.csv` gives the same 9, across the same 6 participants. So it is accurate, not stale. It is still **not a live exclusion mechanism**: those 9 trials are in the modeling table with all-zero RT/TFD. The other datasets have them too and no file lists them — KnowQA 1, second_test **10** (one participant, t22–t31 consecutive: a tracker dropout), testrun_QA 0. Whether zero-fixation trials belong in the modeling table is an open exclusion question, not something the code decides |
 
 ---
 
@@ -477,6 +477,16 @@ Vocabulary for the error-analysis Results subsection (expanded substantially in 
   fine as long as they are shown separately. What does change: `summary_overall_df` should
   stop averaging all six regimes into a single `mean_balanced_accuracy`, since that number
   mixes val and test (`todo.md` T3.9).
+
+✅ **Done 2026-09-27, with a correction.** Nothing in the project tunes, so val and test are
+interchangeable held-out samples — measured, test 0.769 vs val 0.762 — and mixing them was
+the *lesser* fault. The real one was that the single number also averaged the three
+**novelty** regimes, which ask different questions and differ hugely in size (~875 / ~875 /
+**97** trials per fold). A regime name is now parsed into its two axes, `split` (val/test)
+and `novelty` (`new_item` / `new_subject` / `both`); `eval_split` chooses which splits to
+evaluate, defaulting to both; and `summary_by_novelty_df` carries the three numbers the
+paper reports. Pooling val+test roughly doubles n on the `both` cell, which is the smallest
+and the one the headline comes from.
 
 - `L1`/`L2` mean native / second language (§13).
 - **"Partial knowledge"** is the canonical name for Study 2's middle regime (§5).

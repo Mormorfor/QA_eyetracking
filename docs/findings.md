@@ -9,10 +9,15 @@
 > as a map of what results exist and where they came from. It is **not** an authoritative
 > record of what this project found.
 >
-> **The real ledger gets written after the restructure.** Once `todo.md` T1.3 and T4.0 land —
-> every analysis persisting its numbers as CSV alongside its figures — this file can be
-> *regenerated from `reports/report_data/`* instead of transcribed from pictures. That version
-> will be trustworthy. This one is a stopgap for the gap that made it necessary.
+> **The real ledger gets written after the restructure — decided, not merely hoped**
+> (Diana, 2026-09-27, `todo.md` T4.0). The mechanism half is already done: since T1.3 landed
+> on 2026-09-20 every analysis writes its numbers as CSV alongside its figure, so the source
+> material now exists. The rebuild itself is **⏭️ pushed** until she triple-checks everything
+> manually after the restructure — regenerating now would transcribe numbers that are about
+> to move again, and the restructure is what settles which of them still mean anything.
+>
+> **This header comes off at that point, and not before.** Until then the file stays what it
+> is: a map of which results exist and where they came from, not a record of what they are.
 
 The empirical results this project appears to have established, with the code and output that
 produced each. Compiled from `notebooks/vizes for purpouse/`, `notebooks/statistics.ipynb`,
@@ -628,9 +633,12 @@ presentation notebook. `?` Is this in the paper? It reads like it should be.
 5. **Two `paper_dirs` conventions:** `["papers/correctness_prediction"]` in
    `presentation_prep.ipynb` vs `["papers/correctness_prediction/figures"]` in
    `answer_prediction_paper_visualisations.ipynb` — one of them lands a level deep.
-6. **Stale docstring:** `mixed_text_answer_effects.py` says its plotting lives in
-   `src.viz.visualisations_text_answer_effects`. That module does not exist; the plotting is
-   inside the statistics module itself.
+6. ~~**Stale docstring:** `mixed_text_answer_effects.py` says its plotting lives in
+   `src.viz.visualisations_text_answer_effects`.~~ ✅ **Fixed 2026-09-27** (`todo.md` T1.5) — the
+   docstring now points at the module itself, where the plotting actually is.
+   ⚠️ **But the module does not import at all**: pymer4 0.9.0 replaced `Lmer` with the
+   lowercase `lmer`, so line 31 raises. Tracked as `todo.md` **T2.6**, ⏭️ pushed to stage E — so
+   §7's numbers cannot currently be regenerated even if someone wanted to.
 
 ---
 
@@ -645,6 +653,7 @@ the latter, say what the new conclusion is.
 
 | Date | Change | Affected | Old → New | Conclusion? |
 |---|---|---|---|---|
+| 2026-09-27 | **T3.10** — the fold mean behind every CV accuracy is now **weighted by** `n_eval`. Fold eval sets differ by up to 43% within a regime, so a plain average let a small fold count as much as a large one. The unweighted value is kept alongside as `unweighted_mean_*` | every `mean_balanced_accuracy` / `mean_accuracy` / `mean_metric` in the CV summary frames, and the error bars built from them | 10 folds, hunters, `SELECT_1_COLS`: largest shift **0.204 pp** (`val_unseen_subject_unseen_item` 0.7645 → 0.7625); `test_unseen_subject_unseen_item` 0.7554 → 0.7551; all other regimes under 0.12 pp | **value only** — no ordering between models or regimes changed at this magnitude. Note the standard error is **unchanged and still treats folds as independent** (T3.10 part 1, declined 2026-09-27), so the bars remain too narrow; only their centre moved |
 | 2026-09-20 | **T1.3** — every figure and its numbers now go through one `save_output`; outputs move to `reports/<analysis>/{figures,tables}/` with key-value filenames | the whole `reports/` tree; 33 source files, 11 notebooks | paths and filenames change; **no computed value changes** | **no change.** Verified rather than assumed: loading `all_participants.csv` plainly and via the regeneration driver's category-typed path give byte-identical group counts (16051 / 3385 at threshold 4). |
 | 2026-09-20 | **Stale saved numbers caught by the regeneration** — the old `report_data/` CSVs predate the current `all_participants.csv` | `correctness_by_seq_len_threshold`, 4 of 12 tables | thresh 4 all-participants: `> 4` n 16054 → **16051**, `≤ 4` n 3382 → **3385**; acc .82241 → .82238 and .92726 → .92733. thresh 5 and the gatherers/hunters variants shift by 1–3 trials | **value only** — three trials sit on the boundary and the data changed under the old CSVs (they were written before the Sept text-alignment fixes). The direction and size of every effect are unchanged. Not caused by T1.3. |
 | 2026-09-20 | **Y-axis label corrected** on the area label×location heatmaps — `matrix_plot_ABCD` labelled *both* axes `area_screen_loc`; the y axis is indexed by `area_label` | all 320 `basic_stats_heatmaps` figures (now `attention_allocation`) | wrong axis label → correct | **no numeric change** — the pivot was always right, only its label was wrong. Every one of those figures is replaced. |

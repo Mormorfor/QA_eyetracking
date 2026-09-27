@@ -11,8 +11,6 @@ if str(PROJECT_ROOT) not in sys.path:
 import pandas as pd
 import numpy as np
 import ast
-import os
-import itertools
 from collections import Counter
 
 from src import constants as C
@@ -230,8 +228,31 @@ def add_is_correct(df: pd.DataFrame) -> pd.DataFrame:
     """
     Adds IS_CORRECT_COLUMN to the dataframe based on comparison of selected and correct answer positions.
 
+    A trial can never lack a confirmed selection -- the task does not let a
+    participant leave one without confirming -- so a null position is a data
+    fault, not a participant who abstained. Asserted rather than handled
+    (`todo.md` T3.17b) because the equality below makes NaN compare unequal,
+    which would score the fault as a *wrong answer* and put it in the model as
+    a real incorrect trial. Verified 2026-09-27: zero nulls across all four
+    datasets.
     """
     out = df.copy()
+
+    for col in (C.SELECTED_ANSWER_POSITION_COLUMN, C.CORRECT_ANSWER_POSITION_COLUMN):
+        null = out[col].isna()
+        if null.any():
+            # Name the trials, not just the count -- but this runs inside a base
+            # feature, so fall back to whatever id columns exist rather than
+            # turning an informative failure into a KeyError.
+            id_cols = [c for c in (C.PARTICIPANT_ID, C.TRIAL_ID) if c in out.columns]
+            offenders = out.loc[null, id_cols].drop_duplicates()
+            raise ValueError(
+                f"{col} is null on {int(null.sum())} interest-area row(s) "
+                f"covering {len(offenders)} trial(s); is_correct would score "
+                f"each as incorrect. First 5: "
+                f"{offenders.head(5).to_dict('records')}"
+            )
+
     out[C.IS_CORRECT_COLUMN] = (
         out[C.SELECTED_ANSWER_POSITION_COLUMN] == out[C.CORRECT_ANSWER_POSITION_COLUMN]
     ).astype(int)
@@ -598,7 +619,6 @@ def create_mean_area_dwell_time(df: pd.DataFrame) -> pd.DataFrame:
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
     """
-    am.coerce_ia_columns(df, inplace=True)
     return am.mean_dwell_time(df, C.AREA_LABEL_COLUMN)
 
 
@@ -613,7 +633,6 @@ def create_mean_area_fix_count(df: pd.DataFrame) -> pd.DataFrame:
     - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
 
     """
-    am.coerce_ia_columns(df, inplace=True)
     return am.mean_fixations_count(df, C.AREA_LABEL_COLUMN)
 
 
@@ -644,7 +663,6 @@ def create_mean_first_fix_duration(df: pd.DataFrame) -> pd.DataFrame:
     Consequence: an area in which no word was fixated yields NaN, not 0 --
     5,810 question areas and 253-829 per answer area on L1.
     """
-    am.coerce_ia_columns(df, inplace=True)
     return am.mean_first_fix_duration(df, C.AREA_LABEL_COLUMN)
 
 
@@ -663,7 +681,6 @@ def create_skip_rate(df: pd.DataFrame) -> pd.DataFrame:
     - Compute the mean of AREA_SKIPPED → skip_rate
 
     """
-    am.coerce_ia_columns(df, inplace=True)
     # write_indicator=True keeps `area_skipped` on the caller's frame, where the
     # saved IA-level table expects it.
     return am.skip_rate(df, C.AREA_LABEL_COLUMN, write_indicator=True)
@@ -682,7 +699,6 @@ def create_dwell_proportions(df: pd.DataFrame) -> pd.DataFrame:
 
     Any resulting NaN values (e.g., if TOTAL_TRIAL_DWELL_TIME is 0) are replaced by 0.
     """
-    am.coerce_ia_columns(df, inplace=True)
     # keep_totals=True: total_area_dwell_time and total_dwell_time are merged into
     # the saved IA-level table, so dropping them would change its schema.
     return am.dwell_proportion(df, C.AREA_LABEL_COLUMN, keep_totals=True)
@@ -715,13 +731,13 @@ def create_mean_pupil_size_metrics(df: pd.DataFrame) -> pd.DataFrame:
 def create_first_encounter_pupil_size(df: pd.DataFrame) -> pd.DataFrame:
     """Pupil size at the first fixated word of each area.
 
-    ORDERING DEPENDENCY, unchanged: this reads IA_FIRST_FIXATION_DURATION as a
-    number, and the column arrives from the report as text carrying "."
-    sentinels. It is numeric here only because an earlier group function called
-    `am.coerce_ia_columns(..., inplace=True)` on the same frame. Running this one
-    alone (`group_function_names=[...]`) still raises. Splitting these into
-    separate modules must make the coercion an input rather than a side effect
-    (`todo.md` T3.11).
+    Reads IA_FIRST_FIXATION_DURATION as a number. The column arrives from the
+    report as text carrying "." sentinels; it is resolved once by
+    `generate_new_row_features` before any group function runs, so this no
+    longer depends on `create_mean_first_fix_duration` having gone first and
+    `group_function_names=[...]` on a subset works (`todo.md` T3.11, fixed
+    2026-09-27). If the frame does reach here uncoerced, `area_metrics`
+    raises and names the missing step rather than comparing str with int.
     """
     df_local = df.copy()
 
@@ -1334,6 +1350,25 @@ def generate_new_row_features(functions, df, default_join_columns=None, verbose=
         default_join_columns = [C.TRIAL_ID, C.PARTICIPANT_ID, C.AREA_LABEL_COLUMN]
 
     result_df = df.copy()
+
+    # Resolve the report's "." sentinel to numbers ONCE, before any metric runs
+    # (`todo.md` T3.11). This used to happen inside five of the group functions,
+    # each coercing the shared frame on the way past, so which metrics you asked
+    # for decided whether the others got numbers -- `create_first_encounter_pupil_size`
+    # worked only because `create_mean_first_fix_duration` had run first, and
+    # `group_function_names=[...]` on a subset could compare str with int.
+    #
+    # `inplace=True` is deliberate: the coerced columns are expected in the saved
+    # IA-level table, so dropping the mutation here would change
+    # `all_participants.csv`'s schema. What changes is that it is now one named
+    # step with an owner, not a side effect of whichever metric ran first.
+    # `pupil=False`: the pupil columns are scaled to mm and z-scored by an earlier
+    # base function, and re-coercing them here would undo that.
+    #
+    # The paragraph pipeline already does the same thing at `paragraph_prep.py`
+    # (`coerce_ia_columns(paragraph_ia, pupil=True)`), and the restructure moves
+    # this line to `ingest/readers.py` -- one line relocates, nothing else.
+    am.coerce_ia_columns(result_df, inplace=True)
 
     for func, func_kwargs in functions:
         if verbose:

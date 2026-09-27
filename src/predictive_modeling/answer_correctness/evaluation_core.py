@@ -234,7 +234,7 @@ def collect_logreg_coef_summaries(
     return summaries
 
 
-def fit_model_on_prepared_full_data(
+def fit_julia_mixed_model_on_prepared_full_data(
     model,
     fit_df: pd.DataFrame,
     *,
@@ -244,12 +244,26 @@ def fit_model_on_prepared_full_data(
     coef_kwargs: Optional[dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Fit one model on an already prepared full dataframe (no train/test split).
+    Fit the Julia GLMER model on an already prepared full dataframe (no split).
 
-    Intended for:
-    - full-data coefficient inspection
-    - full-data random-effects inspection
-    - fit-all reporting workflows
+    **This is a mixed-model-only helper, by design** -- it is not a generic
+    "fit any model on everything" entry point, and the name used to suggest it
+    was (`todo.md` T2.3). It unconditionally reads `get_random_effects()` and
+    `get_random_effect_variance_summary()`, which only
+    `models/julia_model.TrialLevelJuliaGLMERModel` implements; the live
+    `TrialLevelLogRegModel` has no random effects to report, so passing it here
+    raises `AttributeError`. That is the intended behaviour, not a gap to fill:
+    a model with no random effects has nothing to say in this return value.
+
+    For a full-data fit of the *logistic* model, use
+    `collect_logreg_coef_summaries` above, which is what the paper's
+    coefficient figures go through.
+
+    Returns the fixed-effect coefficient summary alongside the per-participant
+    and per-text random-effect tables and the variance-covariance summary --
+    i.e. how much of the correctness signal sits with the person versus the
+    item. Mixed effects are out of scope for the current paper
+    (`research-context.md` §6), so this is future-directions code.
     """
     feat_cols = None if feature_cols is None else list(feature_cols)
     fit_kwargs = dict(fit_kwargs or {})

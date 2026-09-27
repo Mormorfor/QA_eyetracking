@@ -4,6 +4,13 @@ from typing import List
 import pandas as pd
 
 from src import constants as Con
+# Upward import: `common/` reaching into `answer_correctness/`. Deliberate and
+# temporary -- `restructure-map.md` merges feature_groups.py and this file into
+# one `modeling/feature_sets.py`, at which point it stops being an inversion.
+# The alternative was a second copy of the LAST_* lists, which is the drift that
+# T1.5 and T1.6 were both about. feature_groups imports only constants, so there
+# is no cycle.
+from src.predictive_modeling.answer_correctness import feature_groups as fg
 
 DERIVED_BASE_FEATURES = [
     "seq_len",
@@ -34,14 +41,6 @@ RT_TFD_ANSWER_METRICS = (
 )
 RT_TFD_ANSWER_REGIONS = ("question", "answer_A", "answer_B", "answer_C", "answer_D")
 RT_TFD_PARAGRAPH_REGIONS = ("outside", "distractor", "critical")
-# Correct/wrong contrast suffixes derived from the answer regions.
-RT_TFD_CONTRAST_SUFFIXES = (
-    Con.CORRECT_SUFFIX,
-    Con.WRONG_MEAN_SUFFIX,
-    Con.CONTRAST_SUFFIX,
-    Con.DISTANCE_FURTHEST_SUFFIX,
-    Con.DISTANCE_CLOSEST_SUFFIX,
-)
 # Correct/wrong contrast suffixes derived from the answer regions.
 RT_TFD_CONTRAST_SUFFIXES = (
     Con.CORRECT_SUFFIX,
@@ -110,9 +109,28 @@ def get_pattern_feature_cols(df: pd.DataFrame) -> List[str]:
 
 def get_last_visited_feature_cols(df: pd.DataFrame) -> List[str]:
     """
-    Return one-hot last-visited feature columns.
+    Return the last-before-action one-hot feature columns present in df.
+
+    Takes the canonical list from `feature_groups.LAST_ALL` rather than
+    prefix-matching, for two reasons (`todo.md` T2.4).
+
+    First, the prefix it used to match -- `last_visited_` -- names nothing.
+    `model_data` builds these with `last_before_confirm` / `last_before_select`
+    (`build_trial_level_last_visited_features`), so the function returned `[]`
+    on every frame and this block was silently absent from
+    `get_full_feature_cols`.
+
+    Second, and the reason the fix is not simply a corrected prefix: the 16
+    built columns are **not** a usable feature block. Each family is six
+    mutually exclusive one-hots (answer_A-D, question, nan) that sum to 1 --
+    perfectly collinear with an intercept -- plus `correct` / `wrong`, which
+    are linear functions of the same indicators. `LAST_ALL` is the encoding the
+    rest of the project already uses: the long one-hot form with `answer_D`
+    held out as the reference level, and `nan` / `correct` / `wrong` excluded.
+    Matching on a prefix would have put the collinear block back, and under L2
+    that produces unstable coefficients rather than an error.
     """
-    return sorted(c for c in df.columns if c.startswith("last_visited_"))
+    return [c for c in fg.LAST_ALL if c in df.columns]
 
 
 def get_rt_tfd_feature_cols(df: pd.DataFrame) -> List[str]:
@@ -148,7 +166,7 @@ def get_full_feature_cols(df: pd.DataFrame) -> List[str]:
       - area features
       - derived features
       - pattern-breaking features
-      - last visited one-hot features
+      - last-before-confirm / last-before-select one-hots (feature_groups.LAST_ALL)
       - RT / TFD / TimeSinceOffset features (per-region: answer + paragraph)
     """
     cols: List[str] = []

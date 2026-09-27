@@ -62,12 +62,6 @@ def _extract_last_ia_from_tuple_list(x):
     except Exception:
         return pd.NA
 
-    # tuples_ = ast.literal_eval(x)
-    # last_item = tuples_[-1]
-    # ia = last_item[1]
-    #
-    # return int(ia)
-
 
 def extract_last_areas_from_trial_level_df(
     trial_df: pd.DataFrame,

@@ -13,6 +13,7 @@ from src.derived.correctness_measures import (
     compute_seq_len_threshold_summary,
     compute_back_and_forth_pattern_summary,
     compute_trial_mean_dwell_threshold_summary,
+    wilson_ci,
 )
 from src.viz.viz_helpers import (
     add_significance_bracket,
@@ -211,17 +212,8 @@ def plot_correctness_by_sequence_len_continuous(
         agg = agg[agg["n"] >= int(min_n_per_len)].copy()
 
     # Accuracy + Wilson CI
-    def _wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
-        if n <= 0:
-            return (np.nan, np.nan)
-        phat = k / n
-        denom = 1 + (z**2) / n
-        center = (phat + (z**2) / (2 * n)) / denom
-        half = (z / denom) * np.sqrt((phat * (1 - phat) + (z**2) / (4 * n)) / n)
-        return (max(0.0, center - half), min(1.0, center + half))
-
     agg["accuracy"] = agg["k_correct"] / agg["n"]
-    cis = agg.apply(lambda r: _wilson_ci(int(r["k_correct"]), int(r["n"])), axis=1)
+    cis = agg.apply(lambda r: wilson_ci(int(r["k_correct"]), int(r["n"])), axis=1)
     agg["ci_low"] = [c[0] for c in cis]
     agg["ci_high"] = [c[1] for c in cis]
 
@@ -579,15 +571,6 @@ def plot_correctness_by_trial_mean_dwell_continuous(
       bin_left, bin_right, bin_center, n, k_correct, accuracy, ci_low, ci_high
     """
 
-    def _wilson_ci(k: int, n: int, z: float = 1.96):
-        if n <= 0:
-            return (np.nan, np.nan)
-        phat = k / n
-        denom = 1 + (z**2) / n
-        center = (phat + (z**2) / (2 * n)) / denom
-        half = (z / denom) * np.sqrt((phat * (1 - phat) + (z**2) / (4 * n)) / n)
-        return (max(0.0, center - half), min(1.0, center + half))
-
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, dwell_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
 
@@ -675,7 +658,7 @@ def plot_correctness_by_trial_mean_dwell_continuous(
 
     agg["accuracy"] = agg["k_correct"] / agg["n"]
 
-    cis = agg.apply(lambda r: _wilson_ci(int(r["k_correct"]), int(r["n"])), axis=1)
+    cis = agg.apply(lambda r: wilson_ci(int(r["k_correct"]), int(r["n"])), axis=1)
     agg["ci_low"] = [c[0] for c in cis]
     agg["ci_high"] = [c[1] for c in cis]
 
@@ -810,15 +793,6 @@ def plot_correctness_by_total_answering_rt_continuous(
     if missing_cols:
         raise ValueError(f"Missing required column(s): {missing_cols}")
 
-    def _wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
-        if n <= 0:
-            return (np.nan, np.nan)
-        phat = k / n
-        denom = 1 + (z**2) / n
-        center = (phat + (z**2) / (2 * n)) / denom
-        half = (z / denom) * np.sqrt((phat * (1 - phat) + (z**2) / (4 * n)) / n)
-        return (max(0.0, center - half), min(1.0, center + half))
-
     d = df[required_cols].copy()
     d[rt_col] = pd.to_numeric(d[rt_col], errors="coerce")
     d[correct_col] = pd.to_numeric(d[correct_col], errors="coerce")
@@ -919,7 +893,7 @@ def plot_correctness_by_total_answering_rt_continuous(
     agg["accuracy"] = agg["k_correct"] / agg["n"]
 
     cis = agg.apply(
-        lambda r: _wilson_ci(int(r["k_correct"]), int(r["n"])),
+        lambda r: wilson_ci(int(r["k_correct"]), int(r["n"])),
         axis=1,
     )
     agg["ci_low"] = [c[0] for c in cis]

@@ -34,6 +34,8 @@ from src.derived.preference_matching import compute_trial_matching
 
 from src.derived.pattern_breaking import build_trial_level_pattern_features
 
+from src.checks import assert_full_coverage
+
 from src.derived.reading_times import (
     ANSWER_REGIONS as RT_ANSWER_REGIONS,
     PARAGRAPH_REGIONS as RT_PARAGRAPH_REGIONS,
@@ -469,11 +471,9 @@ def build_trial_level_model_df(
             add_correct_wrong_contrasts=True,
         )
         drop_cols = [target_col]
-        out = out.merge(
-            area_df.drop(columns=[c for c in drop_cols if c in area_df.columns]),
-            on=list(TRIAL_ID_COLS),
-            how="left",
-        )
+        area_df = area_df.drop(columns=[c for c in drop_cols if c in area_df.columns])
+        assert_full_coverage(out, area_df, TRIAL_ID_COLS, "area features")
+        out = out.merge(area_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_derived_features:
         derived_df = build_trial_level_derived_features(
@@ -484,11 +484,11 @@ def build_trial_level_model_df(
             target_col=target_col,
         )
         drop_cols = [target_col]
-        out = out.merge(
-            derived_df.drop(columns=[c for c in drop_cols if c in derived_df.columns]),
-            on=list(TRIAL_ID_COLS),
-            how="left",
+        derived_df = derived_df.drop(
+            columns=[c for c in drop_cols if c in derived_df.columns]
         )
+        assert_full_coverage(out, derived_df, TRIAL_ID_COLS, "derived features")
+        out = out.merge(derived_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_pattern_features:
         pattern_df = build_trial_level_pattern_features(
@@ -498,6 +498,7 @@ def build_trial_level_model_df(
             scope_df=pattern_scope_df,
             scope_by=pattern_scope_by,
         )
+        assert_full_coverage(out, pattern_df, TRIAL_ID_COLS, "pattern-breaking features")
         out = out.merge(pattern_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_paragraph_features:
@@ -537,6 +538,12 @@ def build_trial_level_model_df(
                 "`all_participants.csv` built before T6.1, whose Stage 1 baked "
                 "the paragraph RT columns into the answer table."
             )
+        # No assert_full_coverage here, unlike every other block (T3.17): this
+        # is the one block not built from `df`, so partial coverage is a real
+        # state rather than a pipeline fault -- a dataset with no paragraph
+        # screen legitimately matches nothing, which the warning above reports.
+        # The row count must still not move, which duplicate keys in the cache
+        # would do silently.
         before = len(out)
         out = out.merge(paragraph_df, on=list(TRIAL_ID_COLS), how="left")
         assert len(out) == before, (
@@ -549,6 +556,9 @@ def build_trial_level_model_df(
             feature_col=Con.LAST_LBL_BEFORE_CONFIRM,
             prefix="last_before_confirm",
         )
+        assert_full_coverage(
+            out, last_before_confirm_df, TRIAL_ID_COLS, "last-before-confirm features"
+        )
         out = out.merge(last_before_confirm_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_last_lbl_before_select_features:
@@ -557,6 +567,9 @@ def build_trial_level_model_df(
             feature_col=Con.LAST_LBL_BEFORE_SELECT,
             prefix="last_before_select",
         )
+        assert_full_coverage(
+            out, last_before_select_df, TRIAL_ID_COLS, "last-before-select features"
+        )
         out = out.merge(last_before_select_df, on=list(TRIAL_ID_COLS), how="left")
 
     if include_rt_tfd_features:
@@ -564,17 +577,18 @@ def build_trial_level_model_df(
             df=df,
             target_col=target_col,
         )
-        out = out.merge(
-            rt_tfd_df.drop(columns=[c for c in [target_col] if c in rt_tfd_df.columns]),
-            on=list(TRIAL_ID_COLS),
-            how="left",
+        rt_tfd_df = rt_tfd_df.drop(
+            columns=[c for c in [target_col] if c in rt_tfd_df.columns]
         )
+        assert_full_coverage(out, rt_tfd_df, TRIAL_ID_COLS, "RT/TFD features")
+        out = out.merge(rt_tfd_df, on=list(TRIAL_ID_COLS), how="left")
 
     if numeric_feature_cols:
         numeric_df = build_trial_level_constant_numeric_features(
             df=df,
             feature_cols=numeric_feature_cols,
         )
+        assert_full_coverage(out, numeric_df, TRIAL_ID_COLS, "constant numeric features")
         out = out.merge(numeric_df, on=list(TRIAL_ID_COLS), how="left")
 
     # Trial-level total answering RT, taken from the raw CONFIRM_FINAL_ANSWER_RT
@@ -592,6 +606,7 @@ def build_trial_level_model_df(
             Con.CONFIRM_FINAL_ANSWER_RT: Con.TOTAL_ANSWERING_RT,
         })
 
+        assert_full_coverage(out, total_rt_df, TRIAL_ID_COLS, "total answering RT")
         out = out.merge(total_rt_df, on=list(TRIAL_ID_COLS), how="left")
 
     return out

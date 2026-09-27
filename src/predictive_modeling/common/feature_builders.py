@@ -1,9 +1,7 @@
 # feature_builders.py
 
-from typing import Sequence, Tuple, List, Optional
-import numpy as np
+from typing import Sequence, Optional
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
 
 from src import constants as Con
 from src.constants import TRIAL_ID_COLS

@@ -25,7 +25,7 @@ from src.predictive_modeling.answer_correctness.model_data import (
     load_all_features,
 )
 from src.predictive_modeling.answer_correctness.evaluation_core import (
-    evaluate_models_on_prepared_split, fit_model_on_prepared_full_data,
+    evaluate_models_on_prepared_split, fit_julia_mixed_model_on_prepared_full_data,
 )
 
 from src.predictive_modeling.answer_correctness.models.logreg_model import (
@@ -828,7 +828,7 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     feat_cols = _resolve_feature_cols(fit_df, feature_cols)
 
-    res = fit_model_on_prepared_full_data(
+    res = fit_julia_mixed_model_on_prepared_full_data(
         model=model,
         fit_df=fit_df,
         target_col=Con.IS_CORRECT_COLUMN,

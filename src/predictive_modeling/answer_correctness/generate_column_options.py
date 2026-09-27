@@ -141,13 +141,11 @@ def _record_skip(
 #   2  complete                           ALL_FEATURES
 #   3  general_plus_last_<x>              general + each LAST_* (ans/confirm/select/all)
 #   4  general_plus_<rt|tfd|tso|rt_tfd_tso>  general + each base RT-family group
-#   5  <group3|group4>_plus_<rt_int|tfd_int|rt_tfd_int>  add interaction terms
 #   6  baseline_<last_*|rt|tfd|tso|rt_tfd_tso>  8 baselines, each set alone
 #   7  select_1[_plus_<...>]              SELECT_1_COLS in place of general for groups 3+4
 #   8  derived_with_num_selects           DERIVED_COLS + NUM_OF_SELECTS
 #   9  question_only                      PER_QUESTION_COLS
 #   10 area_only                          AREA_COLS
-#   11 interactions_and_rt_tfd_tso        RT/TFD/TSO base + RT/TFD interactions
 #   12 <general|complete>_<pruned_t**|aic|pruned_t**_aic>  feature selection (7 each)
 
 DEFAULT_CORR_THRESHOLDS: Tuple[float, ...] = (0.5, 0.7, 0.9)
@@ -178,13 +176,16 @@ def _rt_family_groups() -> Dict[str, List[str]]:
     }
 
 
-def _interaction_groups() -> Dict[str, List[str]]:
-    return {
-        "rt_int": list(fg.RT_INTERACTION_COLS),
-        "tfd_int": list(fg.TFD_INTERACTION_COLS),
-        "rt_tfd_int": list(fg.RT_TFD_INTERACTION_COLS),
-    }
-
+# Groups 5 and 11 -- the RT/TFD *interaction* sets -- were removed on 2026-09-27
+# (`todo.md` T2.1). They were built from fg.RT_INTERACTION_COLS / TFD_INTERACTION_COLS /
+# RT_TFD_INTERACTION_COLS, which name paragraph-x-answer product columns
+# ("RT_normalized_critical__x__RT_normalized_answer_A"). Those constants were deleted from
+# feature_groups.py in commit c5f6470, and the columns they named are not built by anything
+# and appear in no dataset -- so the 31 feature sets involved could only ever have referenced
+# columns that do not exist. Restoring the constants would have resurrected that, which is
+# why the references were removed instead. Recover the definitions from
+# `git show 5fd5079:src/predictive_modeling/answer_correctness/feature_groups.py` if the
+# interaction terms are ever actually built.
 
 def _save_set_collection(
     sets: Dict[str, Sequence[str]],
@@ -385,30 +386,6 @@ def generate_general_plus_rt_family_sets(
 
 
 # --------------------------------------------------------------------------
-# Group 5: groups 3 and 4 augmented with RT / TFD / both interaction terms
-#   For each base in (last_confirm, last_confirm_compact, last_select,
-#   last_select_compact, last_all, last_all_compact, rt, tfd, tso,
-#   rt_tfd_tso) we add each of (rt_int, tfd_int, rt_tfd_int) on top of
-#   `general + base`. 10 * 3 = 30 sets.
-# --------------------------------------------------------------------------
-def generate_general_plus_addons_with_interactions_sets(
-    folder_path: str = COL_SAVE_PATH,
-    *,
-    verbose: bool = True,
-    rerun: bool = True,
-) -> Dict[str, Path]:
-    base = list(fg.GENERAL_FEATURES)
-    sets: Dict[str, Sequence[str]] = {}
-    addons = {**_last_groups(), **_rt_family_groups()}
-    interactions = _interaction_groups()
-    for addon_name, addon_cols in addons.items():
-        for int_name, int_cols in interactions.items():
-            identifier = f"general_plus_{addon_name}_plus_{int_name}"
-            sets[identifier] = _dedupe_keep_order(base + addon_cols + int_cols)
-    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
-
-
-# --------------------------------------------------------------------------
 # Group 6: 8 baselines — each last group alone, each RT-family group alone
 # --------------------------------------------------------------------------
 def generate_baseline_sets(
@@ -478,23 +455,6 @@ def generate_area_only_set(
     rerun: bool = True,
 ) -> Dict[str, Path]:
     sets: Dict[str, Sequence[str]] = {"area_only": list(fg.AREA_COLS)}
-    return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
-
-
-# --------------------------------------------------------------------------
-# Group 11: RT/TFD/TSO base columns + RT/TFD interaction terms (one set)
-# --------------------------------------------------------------------------
-def generate_interactions_and_rt_family_set(
-    folder_path: str = COL_SAVE_PATH,
-    *,
-    verbose: bool = True,
-    rerun: bool = True,
-) -> Dict[str, Path]:
-    sets: Dict[str, Sequence[str]] = {
-        "interactions_and_rt_tfd_tso": _dedupe_keep_order(
-            list(fg.RT_TFD_OFFSET_COLS) + list(fg.RT_TFD_INTERACTION_COLS)
-        )
-    }
     return _save_set_collection(sets, folder_path, verbose, rerun=rerun)
 
 
@@ -598,20 +558,13 @@ def generate_all_feature_column_sets(
         generate_general_plus_rt_family_sets(folder_path, verbose=verbose, rerun=rerun)
     )
 
-    # 5: groups 3+4 with RT / TFD / both interaction terms
-    saved_paths.update(
-        generate_general_plus_addons_with_interactions_sets(
-            folder_path, verbose=verbose, rerun=rerun
-        )
-    )
-
     # 6: 8 baselines
     saved_paths.update(generate_baseline_sets(folder_path, verbose=verbose, rerun=rerun))
 
     # 7: select_1 + each last / RT-family addon
     saved_paths.update(generate_select_1_sets(folder_path, verbose=verbose, rerun=rerun))
 
-    # 8, 9, 10, 11: focused subsets
+    # 8, 9, 10: focused subsets
     saved_paths.update(
         generate_derived_with_num_selects_set(folder_path, verbose=verbose, rerun=rerun)
     )
@@ -621,10 +574,6 @@ def generate_all_feature_column_sets(
     saved_paths.update(
         generate_area_only_set(folder_path, verbose=verbose, rerun=rerun)
     )
-    saved_paths.update(
-        generate_interactions_and_rt_family_set(folder_path, verbose=verbose, rerun=rerun)
-    )
-
     # 12: feature selection on general and complete
     saved_paths.update(
         generate_feature_selection_sets(
@@ -831,16 +780,15 @@ def plot_feature_frequency_from_full_jsons(
         raise FileNotFoundError(f"No JSON files found in: {columns_folder}")
 
     def matches(path: Path) -> bool:
+        # The needles are already lowercase, so only the filename needs folding.
         name = path.name if case_sensitive else path.name.lower()
-        prune = "pruned" if case_sensitive else "pruned"
-        aic = "aic" if case_sensitive else "aic"
-        return (prune in name) or (aic in name)
+        return ("pruned" in name) or ("aic" in name)
 
     matched_files = [p for p in json_paths if matches(p)]
 
     if not matched_files:
         raise FileNotFoundError(
-            f"No JSON files with 'full' in the filename found in: {columns_folder}"
+            f"No JSON files with 'pruned' or 'aic' in the filename found in: {columns_folder}"
         )
 
     if verbose:
@@ -888,7 +836,7 @@ def plot_feature_frequency_from_full_jsons(
     ax.set_xlabel("Frequency across matching files")
     ax.set_ylabel("Feature")
     ax.set_title(
-        title or f"Feature appearance frequency across JSON files with 'full' in filename"
+        title or "Feature appearance frequency across JSON files with 'pruned' or 'aic' in filename"
     )
 
     plt.tight_layout()
@@ -983,11 +931,6 @@ def generate_k_most_frequent_feature_sets_from_full_files(
         print(
             f"Using {len(matched_files)} files (must={list(must)}, any_of={list(any_of)})"
         )
-
-    # ------------------------------------------------------------------
-    # Last groups (same as your generator)
-    # ------------------------------------------------------------------
-    LAST_ALL
 
     # ------------------------------------------------------------------
     # Count frequencies

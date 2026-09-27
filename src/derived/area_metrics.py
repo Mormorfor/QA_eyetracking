@@ -123,8 +123,37 @@ def coerce_ia_columns(
 # The metrics
 # ---------------------------------------------------------------------------
 
+def _require_numeric(df: pd.DataFrame, cols: Sequence[str], fn: str) -> None:
+    """Fail loudly if a measure column is still report text.
+
+    `todo.md` T3.11. These columns arrive from the report carrying `"."` for
+    "no fixation landed here", and every metric below assumes they have already
+    been resolved to numbers. That used to be arranged by each metric coercing
+    the caller's frame in place on the way past, which made the result depend
+    on the order the metrics happened to run in -- and running one on its own
+    failed with an opaque dtype error deep inside a groupby.
+
+    The coercion is now a single explicit step (`coerce_ia_columns`), done once
+    before any metric: `generate_new_row_features` for the answer pipeline,
+    `paragraph_prep` for the paragraph one. This says so when it is skipped,
+    instead of letting a comparison between `str` and `int` decide.
+    """
+    bad = [
+        c for c in cols
+        if c in df.columns and not pd.api.types.is_numeric_dtype(df[c])
+    ]
+    if bad:
+        raise TypeError(
+            f"{fn}: {bad} arrived as text rather than numbers. Run "
+            f"coerce_ia_columns() on the frame once before computing any "
+            f"metric -- it resolves the report's '.' sentinel, and doing it per "
+            f"metric is what T3.11 removed."
+        )
+
+
 def mean_dwell_time(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
     """Mean per-word dwell time in the area. Unread words count as 0."""
+    _require_numeric(df, [C.IA_DWELL_TIME], "mean_dwell_time")
     return df.groupby(_group_cols(area_col), as_index=False).agg(
         **{C.MEAN_DWELL_TIME: (C.IA_DWELL_TIME, "mean")}
     )
@@ -132,6 +161,7 @@ def mean_dwell_time(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
 
 def mean_fixations_count(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
     """Mean fixations per word in the area. Unread words count as 0."""
+    _require_numeric(df, [C.IA_FIXATIONS_COUNT], "mean_fixations_count")
     return df.groupby(_group_cols(area_col), as_index=False).agg(
         **{C.MEAN_FIXATIONS_COUNT: (C.IA_FIXATIONS_COUNT, "mean")}
     )
@@ -143,6 +173,7 @@ def mean_first_fix_duration(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
     Unread words arrive as NaN from `coerce_ia_columns` and `.mean()` skips
     them, so an area in which nothing was fixated yields NaN rather than 0.
     """
+    _require_numeric(df, [C.IA_FIRST_FIXATION_DURATION], "mean_first_fix_duration")
     return df.groupby(_group_cols(area_col), as_index=False).agg(
         **{C.MEAN_FIRST_FIXATION_DURATION: (C.IA_FIRST_FIXATION_DURATION, "mean")}
     )
@@ -160,6 +191,7 @@ def skip_rate(
     caller's frame. The answer pipeline relies on that -- the column reaches the
     saved IA-level table -- so it is preserved rather than quietly dropped.
     """
+    _require_numeric(df, [C.IA_DWELL_TIME], "skip_rate")
     if write_indicator:
         df[C.AREA_SKIPPED] = (df[C.IA_DWELL_TIME] == 0).astype(int)
         d = df

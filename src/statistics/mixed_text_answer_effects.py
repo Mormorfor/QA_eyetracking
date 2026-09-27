@@ -13,7 +13,7 @@ This module contains:
 - extraction of participant-specific effects
 
 All plotting lives in:
-    src.viz.visualisations_text_answer_effects
+    this module (the plotting lives here, not in src/viz/)
 """
 
 import os

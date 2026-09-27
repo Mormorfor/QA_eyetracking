@@ -351,6 +351,11 @@ Requires explaining OneStopQA's answer-construction logic, or pointing readers t
 > preview-only. Do not mix its numbers into this subsection, and do not treat the
 > disagreement as a contradiction to resolve — different method, superseded strand.
 >
+> ⚠️ **It also does not import today** (`todo.md` **T2.6**, ⏭️ pushed to stage E): pymer4 0.9.0
+> replaced `Lmer` with the lowercase `lmer`, so `from pymer4.models import Lmer` fails at line 31.
+> That matters for the sentence below about what is *worth reviving* — reviving it means an API
+> migration first, not just re-running the notebook.
+>
 > The promising part worth keeping: it models item and participant as random effects, which
 > `RT_correlations` handles by aggregating to participant level instead.
 

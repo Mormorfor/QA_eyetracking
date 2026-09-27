@@ -20,6 +20,54 @@ from src.predictive_modeling.answer_correctness.evaluation_core import evaluate_
 from src.predictive_modeling.common.feature_specs import get_full_feature_cols
 
 # ---------------------------------------------------------------------
+# Regime vocabulary
+# ---------------------------------------------------------------------
+# A fold regime name encodes two independent things, and reading it as one
+# opaque string is what made the summary tables hard to interpret (T3.9):
+#
+#   test_unseen_subject_unseen_item
+#   ^^^^                               SPLIT   -- which held-out half
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^   NOVELTY -- what kind of generalization
+#
+# NOVELTY is the scientific question -- a new item, a new subject, or both --
+# and is the axis the paper reports on, under the short names below.
+#
+# SPLIT is an artifact of how the folds were built: each held-out novelty cell
+# was halved so one half could be used for tuning. Nothing here tunes (the
+# logreg has no searched hyperparameters), so `val` and `test` are two
+# interchangeable held-out samples of the same population. They are kept
+# separable rather than merged because that may stop being true; `eval_split`
+# is the choice. Pooling matters most for the `both` cell, which is by far the
+# smallest (~97 trials per fold) and is where the headline number comes from.
+
+NOVELTY_BY_CELL: Dict[str, str] = {
+    "seen_subject_unseen_item": "new_item",
+    "unseen_subject_seen_item": "new_subject",
+    "unseen_subject_unseen_item": "both",
+}
+
+EVAL_SPLITS = ("test", "val", "both")
+
+
+def parse_regime(regime: str) -> Tuple[str, str]:
+    """``"test_unseen_subject_unseen_item"`` -> ``("test", "both")``."""
+    for split in ("val", "test"):
+        prefix = f"{split}_"
+        if regime.startswith(prefix):
+            cell = regime[len(prefix):]
+            return split, NOVELTY_BY_CELL.get(cell, cell)
+    return "train", NOVELTY_BY_CELL.get(regime, regime)
+
+
+def eval_regimes_for_split(eval_split: str = "both") -> List[str]:
+    """The evaluation regimes belonging to `eval_split`, in reporting order."""
+    if eval_split not in EVAL_SPLITS:
+        raise ValueError(f"eval_split must be one of {EVAL_SPLITS}, got {eval_split!r}")
+    splits = ("val", "test") if eval_split == "both" else (eval_split,)
+    return [f"{s}_{cell}" for cell in NOVELTY_BY_CELL for s in splits]
+
+
+# ---------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------
 
@@ -45,6 +93,7 @@ class CrossValidationRunResult:
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]]
     summary_df: pd.DataFrame
     summary_by_regime_df: pd.DataFrame
+    summary_by_novelty_df: pd.DataFrame
     summary_overall_df: pd.DataFrame
 
 
@@ -193,6 +242,7 @@ def evaluate_one_fold_on_regimes(
     keep_cols: Optional[Sequence[str]] = None,
     train_regime: str = "train_train",
     eval_regimes: Optional[Sequence[str]] = None,
+    eval_split: str = "both",
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "cluster",
     coef_ci: float = 0.95,
@@ -232,14 +282,7 @@ def evaluate_one_fold_on_regimes(
     """
 
     if eval_regimes is None:
-        eval_regimes = [
-            "val_seen_subject_unseen_item",
-            "test_seen_subject_unseen_item",
-            "val_unseen_subject_seen_item",
-            "test_unseen_subject_seen_item",
-            "val_unseen_subject_unseen_item",
-            "test_unseen_subject_unseen_item",
-        ]
+        eval_regimes = eval_regimes_for_split(eval_split)
 
     def _regime_frame(regime: str) -> pd.DataFrame:
         if trial_fold_df is not None:
@@ -317,6 +360,7 @@ def run_cross_validation_on_predefined_folds(
     df_participant_col: str = Con.PARTICIPANT_ID,
     df_text_col: str = Con.TEXT_ID_COLUMN,
     eval_regimes: Optional[Sequence[str]] = None,
+    eval_split: str = "both",
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
@@ -374,6 +418,7 @@ def run_cross_validation_on_predefined_folds(
                 target_col=target_col,
                 keep_cols=keep_cols,
                 eval_regimes=eval_regimes,
+                eval_split=eval_split,
                 coef_ci_method=coef_ci_method,
                 coef_ci_cluster=coef_ci_cluster,
                 coef_ci=coef_ci,
@@ -401,41 +446,20 @@ def run_cross_validation_on_predefined_folds(
                     }
                 )
 
-    summary_df = pd.DataFrame(rows_summary)
-
-    summary_by_regime_df = (
-        summary_df.groupby(["model", "regime"], as_index=False)
-        .agg(
-            folds=("fold", "nunique"),
-            mean_accuracy=("accuracy", "mean"),
-            std_accuracy=("accuracy", "std"),
-            mean_balanced_accuracy=("balanced_accuracy", "mean"),
-            std_balanced_accuracy=("balanced_accuracy", "std"),
-            mean_n_eval=("n_eval", "mean"),
-            total_n_eval=("n_eval", "sum"),
-        )
-        .sort_values(["model", "regime"])
-        .reset_index(drop=True)
-    )
-
-    summary_overall_df = (
-        summary_df.groupby(["model"], as_index=False)
-        .agg(
-            folds=("fold", "nunique"),
-            mean_accuracy=("accuracy", "mean"),
-            std_accuracy=("accuracy", "std"),
-            mean_balanced_accuracy=("balanced_accuracy", "mean"),
-            std_balanced_accuracy=("balanced_accuracy", "std"),
-            total_n_eval=("n_eval", "sum"),
-        )
-        .sort_values(["model"])
-        .reset_index(drop=True)
-    )
+    # One aggregator for both runners -- this block used to be a second,
+    # near-identical copy of _aggregate_cv_summary (T3.9).
+    (
+        summary_df,
+        summary_by_regime_df,
+        summary_by_novelty_df,
+        summary_overall_df,
+    ) = _aggregate_cv_summary(rows_summary)
 
     return CrossValidationRunResult(
         per_fold_results=per_fold_results,
         summary_df=summary_df,
         summary_by_regime_df=summary_by_regime_df,
+        summary_by_novelty_df=summary_by_novelty_df,
         summary_overall_df=summary_overall_df,
     )
 
@@ -444,42 +468,125 @@ def run_cross_validation_on_predefined_folds(
 # Combined-folds CV runner (e.g. all_participants = hunters + gatherers)
 # ---------------------------------------------------------------------
 
+def _weighted_fold_means(
+    frame: pd.DataFrame,
+    keys: List[str],
+    value_cols: Sequence[str] = ("accuracy", "balanced_accuracy"),
+    weight_col: str = "n_eval",
+) -> pd.DataFrame:
+    """
+    Mean of a per-fold metric, weighted by how many trials each fold scored.
+
+    `todo.md` T3.10. Fold eval sets are not the same size -- on hunters the
+    `both` cell ranges 78-120 trials per fold, a 43% spread, and
+    `seen_subject_unseen_item` 702-1080 -- so a plain mean lets a fold that
+    scored 78 trials count as much as one that scored 120.
+
+    **Exact for `accuracy`, an approximation for `balanced_accuracy`.** Pooling
+    accuracy over folds *is* the n-weighted mean. Balanced accuracy is the mean
+    of sensitivity and specificity, so pooling it properly needs the per-fold
+    confusion counts, which the summary rows do not carry. Weighting by
+    `n_eval` is the right direction -- bigger folds are better estimates -- but
+    it is not identical to scoring every held-out trial at once.
+    """
+    rows = []
+    for key_vals, g in frame.groupby(keys, sort=False):
+        if not isinstance(key_vals, tuple):
+            key_vals = (key_vals,)
+        w = g[weight_col].astype(float)
+        total = w.sum()
+        rec = dict(zip(keys, key_vals))
+        for col in value_cols:
+            rec[f"mean_{col}"] = (
+                float((g[col].astype(float) * w).sum() / total)
+                if total else float("nan")
+            )
+        rows.append(rec)
+    return pd.DataFrame(rows)
+
+
+_SUMMARY_AGG = dict(
+    folds=("fold", "nunique"),
+    # `mean_*` is overwritten below with the n_eval-weighted mean (T3.10); the
+    # plain average is kept beside it as `unweighted_mean_*` so the difference
+    # stays auditable rather than silently replaced.
+    unweighted_mean_accuracy=("accuracy", "mean"),
+    std_accuracy=("accuracy", "std"),
+    unweighted_mean_balanced_accuracy=("balanced_accuracy", "mean"),
+    std_balanced_accuracy=("balanced_accuracy", "std"),
+    mean_n_eval=("n_eval", "mean"),
+    total_n_eval=("n_eval", "sum"),
+)
+
+
 def _aggregate_cv_summary(
     rows_summary: List[Dict[str, Any]],
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Build the (per-row, by-regime, overall) summary tables from raw rows."""
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Build the four summary tables from the raw per-(model, fold, regime) rows.
+
+    The split into four is the point (`todo.md` T3.9). The old pair collapsed
+    the two axes of a regime name into one opaque string, so the only "overall"
+    number averaged three different generalization questions together,
+    unweighted, with val and test mixed in.
+
+    ========================  ===================================================
+    frame                     one row per / answers
+    ========================  ===================================================
+    ``summary_df``            model x fold x regime -- the raw material, now
+                              carrying ``split`` and ``novelty`` as columns
+    ``summary_by_regime_df``  model x regime -- the finest reported grain
+    ``summary_by_novelty_df`` model x novelty -- **the three numbers the paper
+                              reports**, pooling whichever splits were evaluated
+    ``summary_overall_df``    model x split -- one number per held-out half.
+                              Still averages across novelty regimes, so it is a
+                              run health-check, *not* a headline: read
+                              ``summary_by_novelty_df`` for that
+    ========================  ===================================================
+
+    ``mean_accuracy`` / ``mean_balanced_accuracy`` are **weighted by**
+    ``n_eval`` (T3.10), so a fold that scored 78 trials no longer counts as
+    much as one that scored 120. The plain average is kept alongside as
+    ``unweighted_mean_*``. The *spread* columns (``std_*``) are untouched, and
+    so is the standard error in :func:`summarize_cv_results_by_regime`: folds
+    share ~80% of their training data, so no simple correction makes
+    ``std/sqrt(n_folds)`` honest, and Diana's call (2026-09-27) is to leave it
+    and say so rather than invent one.
+    """
     summary_df = pd.DataFrame(rows_summary)
 
-    summary_by_regime_df = (
-        summary_df.groupby(["model", "regime"], as_index=False)
-        .agg(
-            folds=("fold", "nunique"),
-            mean_accuracy=("accuracy", "mean"),
-            std_accuracy=("accuracy", "std"),
-            mean_balanced_accuracy=("balanced_accuracy", "mean"),
-            std_balanced_accuracy=("balanced_accuracy", "std"),
-            mean_n_eval=("n_eval", "mean"),
-            total_n_eval=("n_eval", "sum"),
+    parsed = summary_df["regime"].map(parse_regime)
+    summary_df["split"] = [p[0] for p in parsed]
+    summary_df["novelty"] = [p[1] for p in parsed]
+
+    def _by(keys: List[str]) -> pd.DataFrame:
+        agg = summary_df.groupby(keys, as_index=False).agg(**_SUMMARY_AGG)
+        weighted = _weighted_fold_means(summary_df, keys)
+        return (
+            agg.merge(weighted, on=keys, how="left", validate="one_to_one")
+            .sort_values(keys)
+            .reset_index(drop=True)
         )
-        .sort_values(["model", "regime"])
-        .reset_index(drop=True)
+
+    summary_by_regime_df = _by(["model", "regime"])
+    summary_by_novelty_df = _by(["model", "novelty"])
+    summary_overall_df = _by(["model", "split"])
+
+    # Record what each frame pooled, so a saved table can be read back later
+    # without having to guess which splits went into it.
+    summary_by_novelty_df["splits_pooled"] = "+".join(
+        sorted(summary_df["split"].unique())
+    )
+    summary_overall_df["novelties_pooled"] = "+".join(
+        sorted(summary_df["novelty"].unique())
     )
 
-    summary_overall_df = (
-        summary_df.groupby(["model"], as_index=False)
-        .agg(
-            folds=("fold", "nunique"),
-            mean_accuracy=("accuracy", "mean"),
-            std_accuracy=("accuracy", "std"),
-            mean_balanced_accuracy=("balanced_accuracy", "mean"),
-            std_balanced_accuracy=("balanced_accuracy", "std"),
-            total_n_eval=("n_eval", "sum"),
-        )
-        .sort_values(["model"])
-        .reset_index(drop=True)
+    return (
+        summary_df,
+        summary_by_regime_df,
+        summary_by_novelty_df,
+        summary_overall_df,
     )
-
-    return summary_df, summary_by_regime_df, summary_overall_df
 
 
 def load_combined_fold_assignment_csv(
@@ -515,6 +622,7 @@ def run_cross_validation_on_combined_folds(
     df_participant_col: str = Con.PARTICIPANT_ID,
     df_text_col: str = Con.TEXT_ID_COLUMN,
     eval_regimes: Optional[Sequence[str]] = None,
+    eval_split: str = "both",
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
@@ -581,6 +689,7 @@ def run_cross_validation_on_combined_folds(
                 target_col=target_col,
                 keep_cols=keep_cols,
                 eval_regimes=eval_regimes,
+                eval_split=eval_split,
                 coef_ci_method=coef_ci_method,
                 coef_ci_cluster=coef_ci_cluster,
                 coef_ci=coef_ci,
@@ -608,7 +717,12 @@ def run_cross_validation_on_combined_folds(
                     }
                 )
 
-    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(
+    (
+        summary_df,
+        summary_by_regime_df,
+        summary_by_novelty_df,
+        summary_overall_df,
+    ) = _aggregate_cv_summary(
         rows_summary
     )
 
@@ -616,6 +730,7 @@ def run_cross_validation_on_combined_folds(
         per_fold_results=per_fold_results,
         summary_df=summary_df,
         summary_by_regime_df=summary_by_regime_df,
+        summary_by_novelty_df=summary_by_novelty_df,
         summary_overall_df=summary_overall_df,
     )
 
@@ -631,7 +746,9 @@ def save_cross_validation_run(
     Save the summary tables of a cross-validation run as CSVs under ``out_dir``.
 
     Writes ``{run_name}_summary.csv`` (one row per model/fold/regime),
-    ``{run_name}_summary_by_regime.csv`` and ``{run_name}_summary_overall.csv``.
+    ``{run_name}_summary_by_regime.csv``, ``{run_name}_summary_by_novelty.csv``
+    (the three reported generalization numbers) and
+    ``{run_name}_summary_overall.csv``.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -639,11 +756,13 @@ def save_cross_validation_run(
     paths = {
         "summary": out_dir / f"{run_name}_summary.csv",
         "by_regime": out_dir / f"{run_name}_summary_by_regime.csv",
+        "by_novelty": out_dir / f"{run_name}_summary_by_novelty.csv",
         "overall": out_dir / f"{run_name}_summary_overall.csv",
     }
 
     cv_out.summary_df.to_csv(paths["summary"], index=False)
     cv_out.summary_by_regime_df.to_csv(paths["by_regime"], index=False)
+    cv_out.summary_by_novelty_df.to_csv(paths["by_novelty"], index=False)
     cv_out.summary_overall_df.to_csv(paths["overall"], index=False)
 
     if verbose:
@@ -668,6 +787,7 @@ def update_combined_cv_run(
     df_participant_col: str = Con.PARTICIPANT_ID,
     df_text_col: str = Con.TEXT_ID_COLUMN,
     eval_regimes: Optional[Sequence[str]] = None,
+    eval_split: str = "both",
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "cluster",
@@ -736,6 +856,7 @@ def update_combined_cv_run(
             df_participant_col=df_participant_col,
             df_text_col=df_text_col,
             eval_regimes=eval_regimes,
+            eval_split=eval_split,
             feature_cols_by_model=add_feature_cols_by_model,
             keep_cols=keep_cols,
             coef_ci_method=coef_ci_method,
@@ -753,7 +874,12 @@ def update_combined_cv_run(
         raise ValueError("Update produced an empty run (nothing kept, nothing added).")
     combined = pd.concat(frames, ignore_index=True)
 
-    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(
+    (
+        summary_df,
+        summary_by_regime_df,
+        summary_by_novelty_df,
+        summary_overall_df,
+    ) = _aggregate_cv_summary(
         combined.to_dict("records")
     )
 
@@ -761,6 +887,7 @@ def update_combined_cv_run(
         per_fold_results=(cv_new.per_fold_results if cv_new is not None else {}),
         summary_df=summary_df,
         summary_by_regime_df=summary_by_regime_df,
+        summary_by_novelty_df=summary_by_novelty_df,
         summary_overall_df=summary_overall_df,
     )
 
@@ -800,12 +927,18 @@ def load_cross_validation_run(
         )
 
     rows = pd.read_csv(summary_path).to_dict("records")
-    summary_df, summary_by_regime_df, summary_overall_df = _aggregate_cv_summary(rows)
+    (
+        summary_df,
+        summary_by_regime_df,
+        summary_by_novelty_df,
+        summary_overall_df,
+    ) = _aggregate_cv_summary(rows)
 
     return CrossValidationRunResult(
         per_fold_results={},
         summary_df=summary_df,
         summary_by_regime_df=summary_by_regime_df,
+        summary_by_novelty_df=summary_by_novelty_df,
         summary_overall_df=summary_overall_df,
     )
 
@@ -896,18 +1029,28 @@ def summarize_cv_results_by_regime(
     if df.empty:
         raise ValueError("No rows found for the requested selection.")
 
+    # Only three levels are tabulated. Asking for any other used to fall back to
+    # z=1.96 while the caller -- and the plot title, which is built from `ci` --
+    # went on saying whatever was asked for, so a picture could be drawn at 95%
+    # and labelled "80% CI" (`todo.md` T3.10). Refuse instead.
     z_map = {
         0.90: 1.645,
         0.95: 1.96,
         0.99: 2.576,
     }
-    z = z_map.get(ci, 1.96)
+    if ci not in z_map:
+        raise ValueError(
+            f"ci must be one of {sorted(z_map)}, got {ci!r}. These are the only "
+            f"levels with a tabulated z here; anything else would have been "
+            f"drawn at z=1.96 and labelled with the level you asked for."
+        )
+    z = z_map[ci]
 
     out = (
         df.groupby("regime", as_index=False)
         .agg(
             n_folds=("fold", "nunique"),
-            mean_metric=(metric_col, "mean"),
+            unweighted_mean_metric=(metric_col, "mean"),
             std_metric=(metric_col, "std"),
             min_metric=(metric_col, "min"),
             max_metric=(metric_col, "max"),
@@ -918,7 +1061,21 @@ def summarize_cv_results_by_regime(
         .reset_index(drop=True)
     )
 
+    # Weighted by how many trials each fold actually scored (T3.10). Fold eval
+    # sets differ by up to 43% within a regime, so a plain mean lets a small
+    # fold count as much as a large one.
+    weighted = _weighted_fold_means(df, ["regime"], value_cols=(metric_col,))
+    out = out.merge(
+        weighted.rename(columns={f"mean_{metric_col}": "mean_metric"}),
+        on="regime", how="left", validate="one_to_one",
+    )
+
     out["std_metric"] = out["std_metric"].fillna(0.0)
+    # NOT corrected for the overlap between folds -- see T3.10. Folds share
+    # ~80% of their training data, so this understates the true uncertainty and
+    # the bars are narrower than they should be. Left as-is by decision
+    # (Diana, 2026-09-27): there is no agreed estimator to switch to, so the
+    # honest move is to say what it is rather than dress it up.
     out["se_metric"] = out["std_metric"] / np.sqrt(out["n_folds"])
     out["ci_low"] = (out["mean_metric"] - z * out["se_metric"]).clip(lower=0.0)
     out["ci_high"] = (out["mean_metric"] + z * out["se_metric"]).clip(upper=1.0)

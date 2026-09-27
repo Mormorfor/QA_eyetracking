@@ -227,8 +227,6 @@ def get_coef_summary(model: LogisticRegression,
 #--------------------------------
 # Stats
 #--------------------------------
-import numpy as np
-import pandas as pd
 from scipy.stats import norm
 
 # https://stats.stackexchange.com/questions/89484/how-to-compute-the-standard-errors-of-a-logistic-regressions-coefficients

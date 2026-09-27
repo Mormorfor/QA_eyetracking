@@ -173,10 +173,16 @@ Adding a feature means registering it in `FUNCTION_REGISTRY` with its `join_colu
 `load_all_features()` reads it back with `participant_id` pinned to `str` — necessary
 because KnowQA ids are all digits and would otherwise be inferred as int, breaking merges.
 
-> All eight merges are `how="left"`, so a trial missing from any block would silently gain
-> NaN columns, which the model then fills with `0.0`. **A trial should never be missing from
-> one block and present in another** — they all derive from the same trial set — so this is an
-> invariant to assert rather than a case to absorb (`todo.md` T3.17).
+> Every merge is `how="left"`, so a trial missing from any block would silently gain NaN
+> columns, which the model then fills with `0.0`. **A trial should never be missing from
+> one block and present in another** — they all derive from the same trial set.
+>
+> ✅ **Asserted since 2026-09-27 (`todo.md` T3.17).** `checks.assert_full_coverage` runs
+> before eight of the nine merges and raises, naming the block and the trials, if the right
+> side misses a key or repeats one. **The paragraph merge is exempt by design** — it is the
+> one block not built from the same frame, so a dataset with no paragraph screen legitimately
+> matches nothing. The invariant held on all four datasets when the guard went in, so no
+> number moved.
 
 ---
 
@@ -376,8 +382,11 @@ least visible.
    that `0` is real data: every area exists on every trial, so it means "never fixated".
    → **no action needed** — confirmed correct 2026-09-04.
 
-7. **Trials with no recorded selection are scored `is_correct = 0`**, not excluded.
-   → **`todo.md` T3.5**
+7. ~~**Trials with no recorded selection are scored `is_correct = 0`**, not excluded.~~
+   → ✅ **fixed 2026-09-27** (`todo.md` T3.5, absorbed into T3.17). `add_is_correct` now
+   raises on a null `selected_answer_position` or `correct_answer_position` instead of
+   scoring the trial as a wrong answer. Measured: the case does not occur on any of the
+   four datasets.
 
 8. **`add_base_features` leaves a spurious `index` column** — a double `reset_index`, so the
    saved table starts with row numbers under that name. It used to be an L1-only quirk; as of
@@ -431,4 +440,5 @@ from the repo root. The `"../reports/..."` string literals scattered through `sr
   first (`todo.md` T5.8).
 - A trial **should never** be present in one feature block and absent from another, and a
   trial **can never** lack a confirmed selection. Both are invariants to assert rather than
-  handle (`todo.md` T3.17).
+  handle — ✅ **both asserted 2026-09-27** (`todo.md` T3.17), and both verified to hold, so
+  neither guard changed a number.

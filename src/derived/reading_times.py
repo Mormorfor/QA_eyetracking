@@ -21,6 +21,7 @@ from src.data_paths import (
     IA_PARAGRAPH_PATH,
     RT_AND_TFD_PATH,
 )
+from src.checks import assert_full_coverage
 
 
 ANSWER_AREA_COL = "area_label"
@@ -220,7 +221,49 @@ def compute_run_based_rt(
         for (pid, tid), g in last_dur_src.groupby(keys, sort=False)
     }
 
+    # ------------------------------------------------------------------
+    # T3.7: a trial whose click row is missing, or whose IA_ID -> area_label
+    # lookup comes back empty, silently produces a row of zeros here --
+    # indistinguishable from "this area was never read", which is a real and
+    # common value in this family. Guarded rather than absorbed.
+    #
+    # The check is deliberately scoped to trials that HAVE fixations. A trial
+    # the tracker recorded nothing for legitimately has no click row and no
+    # resolvable labels, and its zeros are honest; demanding coverage for it
+    # would halt a rebuild over real (if degenerate) data. Measured 2026-09-27:
+    # 9 such trials in L1 -- exactly the set in data/strange_trials.csv -- 1 in
+    # KnowQA, 10 in second_test, 0 in testrun_QA.
+    # ------------------------------------------------------------------
+    fixated_trials = set(last_dur_by_trial)
+    all_trials = set(
+        map(tuple, ia_data[keys].drop_duplicates().itertuples(index=False, name=None))
+    )
+    unfixated = all_trials - fixated_trials
+
+    fixated_df = pd.DataFrame(sorted(fixated_trials), columns=keys)
+    assert_full_coverage(
+        fixated_df, button_clicks_df, keys, "run-based RT: button-click rows"
+    )
+
+    unresolved = sorted(t for t in fixated_trials if not lookup_by_trial.get(t))
+    if unresolved:
+        raise ValueError(
+            f"run-based RT: {len(unresolved)} trial(s) have fixations but no "
+            f"IA_ID -> {area_col} mapping at all, so every region would "
+            f"accumulate 0 and be written as a real zero. This is a key or "
+            f"dtype mismatch between the IA table and its own area labels, not "
+            f"missing data. First 5: {unresolved[:5]}"
+        )
+
+    if unfixated:
+        print(
+            f"  [run-based RT] {len(unfixated)} of {len(all_trials)} trial(s) have no "
+            f"recorded fixation; their RT comes out 0 because nothing was read, "
+            f"not because a join failed. Example: {sorted(unfixated)[:3]}"
+        )
+
     rt_rows = []
+    unmatched_ids: list[tuple] = []
     for _, row in button_clicks_df.iterrows():
         pid, tid = row["participant_id"], row["TRIAL_INDEX"]
         pairs = _parse_fixation_pairs(row[fixation_col])
@@ -248,6 +291,13 @@ def compute_run_based_rt(
             continue
 
         rt_per_area = {r: 0 for r in regions}
+        # A populated lookup is not enough: if the IA_IDs in the click table do
+        # not match the IA_IDs in the IA table, every label resolves to None,
+        # nothing accumulates, and the row is written as real zeros. Counted
+        # here and raised on below -- the empty-lookup check above cannot see
+        # this case, because the lookup dict is populated, just with other ids.
+        if not any(lbl in rt_per_area for lbl in labels):
+            unmatched_ids.append((pid, tid))
         n = len(timestamps)
         i = 0
         while i < n:
@@ -271,6 +321,18 @@ def compute_run_based_rt(
         out_row = {"participant_id": pid, "TRIAL_INDEX": tid}
         out_row.update(rt_per_area)
         rt_rows.append(out_row)
+
+    # Only trials the IA table says were fixated: a trial with no fixations can
+    # legitimately resolve nothing (see the scoping note above).
+    unmatched_fixated = sorted(t for t in unmatched_ids if t in fixated_trials)
+    if unmatched_fixated:
+        raise ValueError(
+            f"run-based RT: {len(unmatched_fixated)} fixated trial(s) had "
+            f"fixations in the click table whose IA_IDs match no interest area "
+            f"in the IA table, so every region accumulated 0 and would be "
+            f"written as a real zero. The two tables disagree about IA_ID. "
+            f"First 5: {unmatched_fixated[:5]}"
+        )
 
     rt_df = pd.DataFrame(rt_rows, columns=keys + regions)
 
