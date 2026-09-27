@@ -1,12 +1,12 @@
 {
-  "last_label_before_confirm__group-all_participants__scale-prop": {
+  "last_label_before_confirm__group-all_P__scale-prop": {
     "plot": "last_label_before_confirm",
     "facets": {
       "group": "all_participants",
       "scale": "prop"
     },
     "produced_by": "src.viz.visualisations_last_label.plot_last_label_before_confirm_freq",
-    "figure": "last_label_before_confirm__group-all_participants__scale-prop.png",
+    "figure": "last_label_before_confirm__group-all_P__scale-prop.png",
     "subdir": null,
     "tables": [
       "summary"

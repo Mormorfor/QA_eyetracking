@@ -1052,7 +1052,7 @@ def _infer_model_family(model_name: str) -> Optional[str]:
 
 def collect_correctness_run_reports(
     report_dirs: Union[str, Path, Sequence[Union[str, Path]]],
-    filename: str = "model_summary.csv",
+    filename: str = "model_summary*__summary.csv",
     recursive: bool = True,
     sort_by: str = "balanced_accuracy",
     ascending: bool = False,
@@ -1073,7 +1073,11 @@ def collect_correctness_run_reports(
             ]
 
     filename:
-        CSV filename to search for. Default: "model_summary.csv"
+        Glob for the run-summary CSVs. Default "model_summary*__summary.csv",
+        which is what `save_output` writes: the stem is `model_summary` plus the
+        run/model facets, and `__summary` is the `tables=` key. The pre-T1.3
+        layout wrote a bare `model_summary.csv` one directory per run, so a
+        plain filename no longer matches anything.
 
     recursive:
         If True, searches all nested subfolders.

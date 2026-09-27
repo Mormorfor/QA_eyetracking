@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_output
+from src.viz.plot_output import collect_tables, save_output
 from src.viz.viz_helpers import split_participant_groups
 
 
@@ -173,17 +173,21 @@ def run_all_area_metric_plots(
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS_VIZES
 
-    for metric in metrics:
-        for dq in drop_question_variants:
-            print(f"\n=== {metric} (drop_questions={dq}) ===")
+    # A sweep over metric x drop_questions x group x selected: up to 240 figures.
+    # Their matrices pool into one long table rather than 240 small ones -- see
+    # plot_output.collect_tables.
+    with collect_tables("attention_allocation", plots=["area_label_by_loc_heatmap"]):
+        for metric in metrics:
+            for dq in drop_question_variants:
+                print(f"\n=== {metric} (drop_questions={dq}) ===")
 
-            label_vs_loc_mat(
-                metric,
-                all_participants,
-                drop_questions=dq,
-                split_groups=split_groups,
-                show=show,
-                save=save,
-                to_paper=to_paper,
-            )
+                label_vs_loc_mat(
+                    metric,
+                    all_participants,
+                    drop_questions=dq,
+                    split_groups=split_groups,
+                    show=show,
+                    save=save,
+                    to_paper=to_paper,
+                )
 

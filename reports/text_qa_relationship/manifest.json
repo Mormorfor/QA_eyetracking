@@ -1,17 +1,17 @@
 {
-  "text_qa_corr_map__measure-dwell_proportions__panels-all_participants+hunters+gatherers": {
+  "text_qa_corr_map__measure-dwell_props__panels-all_P+hunters+gatherers": {
     "plot": "text_qa_corr_map",
     "facets": {
       "measure": "dwell_proportions",
-      "panels": "all participants+hunters+gatherers"
+      "panels": "all_participants+hunters+gatherers"
     },
     "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
-    "figure": "text_qa_corr_map__measure-dwell_proportions__panels-all_participants+hunters+gatherers.png",
+    "figure": "text_qa_corr_map__measure-dwell_props__panels-all_P+hunters+gatherers.png",
     "subdir": null,
     "tables": [
-      "all participants__n",
-      "all participants__p_adj",
-      "all participants__r",
+      "all_participants__n",
+      "all_participants__p_adj",
+      "all_participants__r",
       "gatherers__n",
       "gatherers__p_adj",
       "gatherers__r",
@@ -20,9 +20,9 @@
       "hunters__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:49"
+    "saved_at": "2026-09-27T17:01:36"
   },
-  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-All_participants": {
+  "text_qa_corr_map__measure-reading_times__scaling-norm__group-all_P": {
     "plot": "text_qa_corr_map",
     "facets": {
       "measure": "reading_times",
@@ -30,7 +30,7 @@
       "group": "All participants"
     },
     "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
-    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-All_participants.png",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-norm__group-all_P.png",
     "subdir": null,
     "tables": [
       "normalized RT__n",
@@ -41,9 +41,9 @@
       "normalized TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:51"
+    "saved_at": "2026-09-27T17:01:33"
   },
-  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-gatherers": {
+  "text_qa_corr_map__measure-reading_times__scaling-norm__group-gatherers": {
     "plot": "text_qa_corr_map",
     "facets": {
       "measure": "reading_times",
@@ -51,7 +51,7 @@
       "group": "gatherers"
     },
     "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
-    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-gatherers.png",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-norm__group-gatherers.png",
     "subdir": null,
     "tables": [
       "normalized RT__n",
@@ -62,9 +62,9 @@
       "normalized TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:52"
+    "saved_at": "2026-09-27T17:01:34"
   },
-  "text_qa_corr_map__measure-reading_times__scaling-normalized__group-hunters": {
+  "text_qa_corr_map__measure-reading_times__scaling-norm__group-hunters": {
     "plot": "text_qa_corr_map",
     "facets": {
       "measure": "reading_times",
@@ -72,7 +72,7 @@
       "group": "hunters"
     },
     "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
-    "figure": "text_qa_corr_map__measure-reading_times__scaling-normalized__group-hunters.png",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-norm__group-hunters.png",
     "subdir": null,
     "tables": [
       "normalized RT__n",
@@ -83,9 +83,9 @@
       "normalized TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:51"
+    "saved_at": "2026-09-27T17:01:33"
   },
-  "text_qa_corr_map__measure-reading_times__scaling-pure__group-All_participants": {
+  "text_qa_corr_map__measure-reading_times__scaling-pure__group-all_P": {
     "plot": "text_qa_corr_map",
     "facets": {
       "measure": "reading_times",
@@ -93,7 +93,7 @@
       "group": "All participants"
     },
     "produced_by": "src.statistics.RT_correlations.plots.plot_corr_map_pair",
-    "figure": "text_qa_corr_map__measure-reading_times__scaling-pure__group-All_participants.png",
+    "figure": "text_qa_corr_map__measure-reading_times__scaling-pure__group-all_P.png",
     "subdir": null,
     "tables": [
       "pure RT__n",
@@ -104,7 +104,7 @@
       "pure TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:52"
+    "saved_at": "2026-09-27T17:01:32"
   },
   "text_qa_corr_map__measure-reading_times__scaling-pure__group-gatherers": {
     "plot": "text_qa_corr_map",
@@ -125,7 +125,7 @@
       "pure TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:54"
+    "saved_at": "2026-09-27T17:01:32"
   },
   "text_qa_corr_map__measure-reading_times__scaling-pure__group-hunters": {
     "plot": "text_qa_corr_map",
@@ -146,6 +146,6 @@
       "pure TFD__r"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:48:53"
+    "saved_at": "2026-09-27T17:01:32"
   }
 }

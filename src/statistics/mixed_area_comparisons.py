@@ -19,7 +19,7 @@ from statsmodels.stats.multitest import multipletests
 
 import matplotlib.pyplot as plt
 
-from src.viz.plot_output import save_output
+from src.viz.plot_output import collect_tables, save_output
 from src.viz.visualisations_area_significance_heatmaps import plot_pairwise_significance_heatmap
 
 from src import constants as Con
@@ -77,6 +77,16 @@ def mixed_area_analysis(
     dedup[stat_col] = pd.to_numeric(dedup[stat_col], errors="coerce")
     dedup = dedup.dropna(subset=[stat_col, area_col, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN]).copy()
     dedup = dedup.reset_index(drop=True)
+
+    # pandas 3 reads text columns as StringDtype, and patsy cannot interpret that
+    # as a dtype -- `C(area_label)` raises
+    # `TypeError: Cannot interpret '<StringDtype(na_value=nan)>' as a data type`
+    # before any model is fitted. Under pandas 2 these arrived as `object`, which
+    # is what patsy wants, so this restores the dtype the formula was written
+    # against rather than changing the model. Cast the three columns the formula
+    # and the grouping actually use, not the whole frame.
+    for _col in (area_col, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN):
+        dedup[_col] = dedup[_col].astype(object)
 
     formula = f"{stat_col} ~ 0 + C({area_col})"
     model = smf.mixedlm(
@@ -276,38 +286,45 @@ def run_all_area_mixed_models(
         "gatherers": <results dict from run_models_for_group>,
       }
     """
-    hunters_res = run_models_for_group(
-        hunters,
-        group_name="hunters",
-        metrics=metrics,
-        alpha=alpha,
-        save=save,
-        to_paper=to_paper,
-        trial_cols=trial_cols,
-    )
+    # A sweep over group x metric x selected: up to 120 figures. Their pairwise
+    # tables pool into one long table -- see plot_output.collect_tables.
+    with collect_tables("attention_allocation", plots=["area_pairwise_significance"]):
+        hunters_res = run_models_for_group(
+            hunters,
+            group_name="hunters",
+            metrics=metrics,
+            alpha=alpha,
+            save=save,
+            to_paper=to_paper,
+            trial_cols=trial_cols,
+        )
 
-    gatherers_res = run_models_for_group(
-        gatherers,
-        group_name="gatherers",
-        metrics=metrics,
-        alpha=alpha,
-        save=save,
-        to_paper=to_paper,
-        trial_cols=trial_cols,
-    )
-    all_participants = pd.concat([hunters, gatherers], ignore_index=True)
-    all_participants_res = run_models_for_group(
-        all_participants,
-        group_name="all participants",
-        metrics=metrics,
-        alpha=alpha,
-        save=save,
-        to_paper=to_paper,
-        trial_cols=trial_cols,
-    )
+        gatherers_res = run_models_for_group(
+            gatherers,
+            group_name="gatherers",
+            metrics=metrics,
+            alpha=alpha,
+            save=save,
+            to_paper=to_paper,
+            trial_cols=trial_cols,
+        )
+        all_participants = pd.concat([hunters, gatherers], ignore_index=True)
+        all_participants_res = run_models_for_group(
+            all_participants,
+            # Underscored, like every other group name in the project. This was
+            # "all participants" until 2026-09-27 and was the only call site
+            # spelling it with a space, which split one group across two names in
+            # manifest.json (the filenames agreed, because slug() normalises).
+            group_name="all_participants",
+            metrics=metrics,
+            alpha=alpha,
+            save=save,
+            to_paper=to_paper,
+            trial_cols=trial_cols,
+        )
 
     return {
         "hunters": hunters_res,
         "gatherers": gatherers_res,
-        "all participants": all_participants_res,
+        "all_participants": all_participants_res,
     }

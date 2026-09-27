@@ -237,6 +237,42 @@ Four rules follow, and the first is the one that matters:
 4. **Adding an analysis means adding a key to `plot_output.ANALYSES`,** not inventing a folder
    at the call site. The registry is validated so a typo fails loudly instead of hiding a
    figure in a new top-level directory.
+5. **Shortening a name means adding a row to `plot_output.ABBREVIATIONS`,** not passing a short
+   string at the call site. Same reason as the registry: a concept shortened in two places gets
+   two spellings, and the two sets of figures stop being comparable. The table is applied to
+   every path component (facet values, plot names, table names, `subdir`), facet *keys* are
+   deliberately left alone because they are what makes a name readable, and `manifest.json`
+   keeps the full unabbreviated facets so the index stays queryable on real column names.
+
+   This exists because the names had grown to within **one character** of Windows' 260-char path
+   limit, which meant the repo only checked out from a root of ≤ 60 characters — a release
+   blocker, since a public reader clones wherever they like. Now ≤ 101. Added 2026-09-27;
+   the measurements and the alternatives considered are in `restructure-map.md` §9.
+
+### A sweep writes one table, not one table per figure
+
+Added 2026-09-27. A *sweep* is a runner that loops over a facet grid — `attention_allocation`
+is three plot families over group × metric × selected × questions, 480 figures. Saving each
+figure's numbers beside it produced **600 CSVs averaging 506 bytes**, each a 4×4 matrix. That
+meets the letter of "persist the numbers" and misses the point: you cannot group, filter or
+plot across 600 files without writing a globbing script first.
+
+```python
+with collect_tables("attention_allocation", plots=["area_bars"]):
+    ...                      # the runner's existing loop, unchanged
+# -> reports/attention_allocation/tables/area_bars__summary.csv, facets as columns
+```
+
+- **Figures are untouched** — still one file each. Only the tables pool.
+- **The per-figure call still passes its real `tables=`.** Nothing declares itself numberless;
+  only the destination changes, so rule 1 above is intact.
+- **The pooled table keeps the full, unabbreviated facet values** (`area_dwell_proportion`, not
+  `dwell_prop`), so it is queryable on the project's real column names.
+- Calling a plot function *outside* a collector still writes its own table, which is right —
+  a single figure asked for on its own should carry its numbers next to it.
+
+This is what makes T4.0's "`findings.md` regenerates from saved CSVs" realistic: a groupby over
+one long table, rather than a glob over several hundred.
 
 Overleaf mirroring is a single switch (`to_paper`, gated by `PAPER_MIRROR_ENABLED`) and is
 currently **off** — see `pitfalls.md` §7.

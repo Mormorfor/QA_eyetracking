@@ -69,8 +69,9 @@ prefixes — none for L1, `NEW_EXP_`, `SECOND_TEST_`, `KNOW_QA_`. Two consequenc
 
 - **Adding a study means writing another dozen constants and threading them through call
   sites.** That is the opposite of "open to adding new things by default".
-- **Hand-maintained constants go stale silently.** Six currently point at files that are not
-  there ⚠️ *(read from directory listings; verify with a shell before acting)*:
+- **Hand-maintained constants go stale silently.** **Nine** currently point at files or
+  directories that are not there — ✅ re-measured 2026-09-27 by importing `data_paths` and
+  testing `.exists()`, so these are no longer read off a directory listing:
 
   | constant | points at | actually |
   |---|---|---|
@@ -78,6 +79,20 @@ prefixes — none for L1, `NEW_EXP_`, `SECOND_TEST_`, `KNOW_QA_`. Two consequenc
   | `GATHERERS_LAST_PATH` | `Auxiliary/gatherers_last.csv` | not present |
   | `N1_BASE_PATH` `N2_` `N3_` | `Experiment/n{1,2,3}_base.csv` | live in `Experiment/onestop_list_bases/` |
   | `EXPERIMENT_TEXT_COMPLETED_PATH` | `…_completed.csv` | the file is `.zip` |
+  | **`COL_SAVE_PATH`** | `report_data/answer_correctness/feature_columns` | **whole tree deleted** in `496f8d0` |
+  | **`CROSS_VALIDATION_RUNS_DIR`** | `report_data/answer_correctness/cross_validation_runs` | **deleted** in `496f8d0` |
+  | **`PER_PERSON_LOO_RESULTS_DIR`** | `report_data/per_person_corr_loo_results` | **deleted** in `496f8d0` |
+
+  The last three are new, and they are a different kind from the first six: they are not typos
+  that drifted, they are **live destinations orphaned by the `reports/` inversion**. All three
+  are recoverable from `496f8d0^` (the 109 feature-column JSONs, 3 CV summaries and the 66.5 MB
+  LOO pickle are intact in git), but the artefacts there are **pre-rebuild**, so they need
+  *regenerating* rather than restoring. **Stage B has to decide where each one points**, and
+  `COL_SAVE_PATH` is the one that blocks work: `answer_corr_prediction.ipynb` cell 21 globs it
+  for the five feature-set JSONs that define the paper's model comparison, so the CV cannot be
+  re-run until it has a home. Whether those five JSONs are *reports* or *configuration* is the
+  open question — they are hand-specified feature sets consumed by the headline run, and the
+  same cell already defines three more inline.
 
   And the branding leaks into the data itself: **KnowQA's model-ready table is named
   `L1_model_ready_all_features.csv`**, as are the two pilots'. Three files claiming to be L1.
@@ -561,9 +576,87 @@ T5.8.
 > without its folder. `save_output` validates the analysis name against a registry, so a typo
 > cannot quietly mint a new top-level folder.
 >
-> What has *not* happened: the old `reports/plots/` and `reports/report_data/` trees are still
-> in place (1,812 files, tracked in git) pending a decision on removing them. Stage E's other
-> work — `viz/` dissolving into per-analysis `plots.py` — is untouched.
+> ~~What has *not* happened: the old `reports/plots/` and `reports/report_data/` trees are still
+> in place (1,812 files, tracked in git) pending a decision on removing them.~~
+> **Superseded 2026-09-27:** both old trees were **deleted in `496f8d0`**, and with them all 329
+> zero-byte PNGs. `reports/` now holds only the seven `<analysis>/` folders — 710 figures, zero
+> zero-byte, every one with a `tables/` sibling. They remain readable at `496f8d0^`.
+> Stage E's other work — `viz/` dissolving into per-analysis `plots.py` — is untouched.
+>
+> ### ✅ Resolved 2026-09-27 by abbreviation — max checkout root 60 → 101 characters
+>
+> Diana's call: **keep the names readable words, just shorten them.** So the fix is an
+> abbreviation table, not a structural change — the other three remodels below (giving `subdir`
+> one meaning, sweeps as tidy tables, a checked path budget) are **not done** and stay on the
+> shelf until a need shows up.
+>
+> `plot_output.ABBREVIATIONS` is the single place a shortening is defined — 36 rows, e.g.
+> `all_participants → all_P`, `first_encounter_avg_pupil_size → first_enc_pupil`,
+> `correctness_by_trial_mean_dwell_continuous → corr_by_dwell_cont`. It is applied to **every
+> path component** — facet values, plot names, table names *and* the `subdir` — which is what
+> makes one table sufficient: a subdir is always either a plot name or a facet value.
+>
+> | | before | after |
+> |---|---|---|
+> | longest relative path | 199 | **158** |
+> | longest absolute path (root = 59) | 259 / 260 | **218** |
+> | paths over 240 characters | 136 | **0** |
+> | **supportable checkout root** | **60** | **101** |
+>
+> Three properties the table is built to keep:
+> - **Facet keys are never abbreviated** — `group-hunters`, not `g-hunters`. The keys are what
+>   make the name readable and they are short already.
+> - **`manifest.json` keeps the full, unabbreviated facets**, so the index stays queryable on
+>   real column names; only the on-disk label shortens.
+> - **Two checks run at import** — the table must be injective (two concepts must never
+>   abbreviate to one string) and must not map onto its own keys (which would chain).
+>
+> Lookup is deliberately **case-insensitive**, which fixed a live inconsistency: the
+> all-participants group reached `save_output` as `all participants`, `All participants` *and*
+> `all_participants` from three different plot families. Those are now one name. Worth fixing at
+> the call sites too — normalising here stops it splitting a group across two filenames, but it
+> is papering over a caller disagreement.
+>
+> 1,435 of 1,608 existing files were renamed to match, and all 713 manifest entries repointed.
+> The rename was validated before it ran: for every manifest entry the textual transform had to
+> reproduce `build_stem()` exactly — 710/710, zero mismatches — and re-running
+> `text_qa_relationship` afterwards overwrote the renamed files rather than creating duplicates.
+>
+> ---
+>
+> ### ⚠️ The original measurement, kept as the reasoning (2026-09-27)
+>
+> The longest absolute path under `reports/` is **259 characters**, against Windows' 260-char
+> limit, and **136 paths already exceed 240**. The offender is the pattern, not one bad name:
+>
+> ```
+> reports\attention_allocation\tables\first_encounter_avg_pupil_size\
+>   area_label_by_loc_heatmap__group-all_participants__metric-first_encounter_avg_pupil_size__
+>   selected-D__questions-included__matrix.csv
+> ```
+>
+> The repo root is 59 characters here. **Anyone who clones to a path even one character deeper
+> cannot check the repo out on Windows** without long-path support switched on — which makes
+> this a **release blocker (Stage G)**, not a tidiness question, since the public repo will be
+> cloned to arbitrary locations. It already bites in practice: reading these files needed the
+> `\\?\` extended-length prefix twice while auditing.
+>
+> Two things make it worse than the raw number suggests: the facet is repeated inside the
+> filename *and* in the `subdir/` above it (`first_encounter_avg_pupil_size` appears twice in
+> the path above), and §9's own design note calls that redundancy deliberate.
+>
+> **Not turned into a T-item — this is Diana's call**, and the options differ a lot in cost:
+> shorten facet values, drop the `subdir/` level now the filename is self-describing, hash long
+> stems, or simply document "enable long paths" as a prerequisite.
+>
+> **Decided: shorten the values.** The three unused options are recorded here because they are
+> the fallbacks if 101 characters ever stops being enough:
+>
+> | remodel | gain | why it was not needed |
+> |---|---|---|
+> | give `subdir` one meaning (it is currently a facet value 1,104×, a plot name 210×, something else 195× — and always repeated in the filename) | +39 | abbreviation got there without changing the layout |
+> | sweeps as tidy tables — `attention_allocation` is 480 figures and 600 tables from 3 families × 4 groups × 14 metrics × 4 selected × 2 question-settings, the tables averaging 506 bytes at shape 4×4 | +4 to the worst path, but −600 files | still worth doing on its own merits for T4.0: one long table per family is queryable, and `findings.md` would regenerate by a groupby instead of globbing 600 files |
+> | a checked path budget in `save_output` | — | would turn this from a convention into an invariant that fails on Diana's machine rather than at a reader's clone |
 
 Today: `reports/{plots,report_data}/<topic>/`, with **9 of 15 plot topics having no
 `report_data` counterpart** and three of the six that do having a *different name*
@@ -664,16 +757,34 @@ Ordered so that each stage is independently verifiable and the riskiest work hap
 scaffolding that makes it checkable. Every stage ends with a run that must reproduce or
 deliberately change a known number.
 
-| Stage | What | Numbers move? | T-items landing |
-|---|---|---|---|
-| **0** | **Quick wins, no restructuring.** Cheap, independent, high value. | **yes** (T3.1) | T3.1, T1.1, T1.4, verify T2.4 |
-| **A** | **Make it a package.** `pyproject.toml`, `__init__.py` throughout, one import convention, delete the `sys.path` hacks (including the one inside `data_paths.py:6`), `environment.yml`. **Nothing moves.** | no | T5.1, T5.2, T5.4 |
-| **B** | **`config/` + `lib/`.** Lift generic primitives; kill the two duplicate `wilson_ci`s and the two extra save paths; split `viz_helpers.py`; build the dataset registry; fix the six stale constants; migrate the ~40 hardcoded `"../reports/..."` literals. | no | T1.5, T5.3, part of T3.20 |
-| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | **yes** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5 |
-| **D** | **`modeling/`.** Extract CV, evaluation, model wrappers and inference. Clustered bootstrap CIs become reachable and default. | **yes** | T3.3, T3.9, T3.10, T5.11, T2.4 |
-| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.18, T3.19 |
-| **F** | **Entry points.** `scripts/`, thin notebooks, notebook-only logic lifted into the package. | no | T5.6, T5.10 |
-| **G** | **Data + release.** The `data/` moves (individually approved), README, run-from-scratch verification. | no | T5.5, T5.7, T5.8, T5.9, §8 |
+> ### Status, 2026-09-27 — the number-moving work is already done
+>
+> **Stage 0 is complete, and every T-item once scheduled for stages C, D and E has landed
+> ahead of its stage** — done as standalone fixes between 2026-09-20 and 2026-09-27, each with
+> a `findings.md` change-log entry. Two stages also landed structurally ahead of time: **§9's
+> `reports/` inversion shipped with T1.3**, and the old `reports/{plots,report_data}/` trees
+> were deleted in `496f8d0`.
+>
+> **This changes the risk profile of the whole plan.** C and D were called the dangerous stages
+> *because numbers move there*. They no longer do: what remains in C, D and E is **file
+> movement**, which means the "every number identical" check the map only claimed for stage B
+> now applies to every remaining stage. Stage C's warning below is kept for the record but no
+> longer describes the work.
+>
+> What is genuinely untouched: **A** (no `pyproject.toml`, no `environment.yml`, 21 bare-import
+> sites, 4 `__init__.py` and all of them vendored), the `config/` + `lib/` *lift* in **B**, and
+> **F** and **G** entirely.
+
+| Stage | What | Numbers move? | T-items landing | Status |
+|---|---|---|---|---|
+| **0** | **Quick wins, no restructuring.** Cheap, independent, high value. | **yes** (T3.1) | T3.1, T1.1, T1.4, verify T2.4 | ✅ **complete** |
+| **A** | **Make it a package.** `pyproject.toml`, `__init__.py` throughout, one import convention, delete the `sys.path` hacks (including the one inside `data_paths.py:6`), `environment.yml`. **Nothing moves.** | no | T5.1, T5.2, T5.4 | ⬜ **untouched** — and now the only thing between here and stage B |
+| **B** | **`config/` + `lib/`.** Lift generic primitives; kill the two duplicate `wilson_ci`s and the two extra save paths; split `viz_helpers.py`; build the dataset registry; fix the six stale constants; migrate the ~40 hardcoded `"../reports/..."` literals. | no | T1.5, T5.3, part of T3.20 | 🟨 **partly done.** T5.3 ✅ (**0** literals left anywhere in source, 2026-09-27), T1.5 ✅, T3.20 ✅. **Remaining: the lift itself** — `config/`, `lib/`, the dataset registry, and the stale constants, now **nine** not six (below) |
+| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | ~~**yes**~~ **no longer** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5 | 🟨 **every listed T-item ✅ done.** `derived/area_metrics.py`, `derived/paragraph_prep.py` and `src/checks.py` already exist. **Remaining: the moves** into `ingest/` + `features/`, plus new **T3.24** |
+| **D** | **`modeling/`.** Extract CV, evaluation, model wrappers and inference. Clustered bootstrap CIs become reachable and default. | ~~**yes**~~ **no longer** | T3.3, T3.9, T3.10, T5.11, T2.4 | 🟨 **T3.3 ✅ T3.9 ✅ T3.10 ✅ T2.4 ✅.** **Remaining: the extraction**, plus T5.11 and new **T3.22** |
+| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.18, T3.19 | 🟨 **T1.3 ✅ T4.1 ✅ T3.18 ✅, and §9's inversion already shipped** — `reports/<analysis>/{figures,tables}/`, 710 figures, **0** zero-byte. **Remaining:** dissolving `viz/`, T2.2 + T2.6 into `explorations/`, T3.19, and T4.0 + T4.2 which are ⏭️ pushed to Diana's manual check |
+| **F** | **Entry points.** `scripts/`, thin notebooks, notebook-only logic lifted into the package. | no | T5.6, T5.10 | ⬜ **untouched** |
+| **G** | **Data + release.** The `data/` moves (individually approved), README, run-from-scratch verification. | no | T5.5, T5.7, T5.8, T5.9, §8 | ⬜ **untouched** — no README yet |
 
 **Why this order.** Stage A costs almost nothing and makes every later stage's imports
 mechanical instead of fragile. Stage B is pure consolidation with no behaviour change, so it

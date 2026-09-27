@@ -35,9 +35,10 @@ import inspect
 import json
 import re
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional, Sequence, Union
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -176,28 +177,216 @@ def _pick(value: Any, default_field: str) -> Any:
 _SLUG_STRIP = re.compile(r"[^0-9A-Za-z._+-]+")
 
 
-def slug(value: Any) -> str:
+# ---------------------------------------------------------------------------
+# Abbreviations
+#
+# Names are read by a person, so they stay words rather than codes -- but the
+# project's column vocabulary is long (`first_encounter_avg_pupil_size_z` is 32
+# characters) and it lands in the filename *and* in the folder above it. Left
+# alone, the longest path under reports/ reaches 259 of Windows' 260-character
+# limit, so the repo only checks out on Windows from a root of <= 60 characters.
+#
+# This is the one place abbreviations are defined. Add a row rather than
+# shortening a name at a call site, or the same concept ends up with two
+# spellings -- which is exactly what `ANALYSES` exists to prevent for folders.
+#
+# Applied to every path component: facet values, plot names, table names and the
+# `subdir`. That is what makes it sufficient -- a subdir is always either a plot
+# name or a facet value, so one table covers all three.
+#
+# `manifest.json` keeps the FULL, unabbreviated facets, so nothing is lost: the
+# manifest is the index, the filename is the human-readable label.
+# ---------------------------------------------------------------------------
+
+ABBREVIATIONS: Dict[str, str] = {
+    # participant groups
+    "all_participants": "all_P",
+    "all_participants+hunters+gatherers": "all_P+hunters+gatherers",
+    # per-area metrics -- "fix" and "size" carry no information here, every one
+    # of these is a fixation measure and a size
+    "first_encounter_avg_pupil_size_z": "first_enc_pupil_z",
+    "first_encounter_avg_pupil_size": "first_enc_pupil",
+    "mean_first_fixation_duration": "mean_first_fix_dur",
+    "mean_avg_fix_pupil_size_z": "mean_avg_pupil_z",
+    "mean_max_fix_pupil_size_z": "mean_max_pupil_z",
+    "mean_min_fix_pupil_size_z": "mean_min_pupil_z",
+    "mean_avg_fix_pupil_size": "mean_avg_pupil",
+    "mean_max_fix_pupil_size": "mean_max_pupil",
+    "mean_min_fix_pupil_size": "mean_min_pupil",
+    "area_dwell_proportion": "dwell_prop",
+    "mean_fixations_count": "mean_fix_count",
+    "num_label_visits": "n_lbl_visits",
+    "mean_dwell_time": "mean_dwell",
+    "sequence_length": "seq_len",
+    "fixation_count": "fix_count",
+    # plot names -- the correctness_by_* family is 29-42 characters
+    "correctness_by_trial_mean_dwell_continuous": "corr_by_dwell_cont",
+    "correctness_by_trial_mean_dwell_threshold": "corr_by_dwell_thresh",
+    "correctness_by_seq_len_continuous": "corr_by_seq_len_cont",
+    "correctness_by_seq_len_threshold": "corr_by_seq_len_thresh",
+    "correctness_by_total_answering_rt": "corr_by_total_RT",
+    "correctness_by_back_and_forth": "corr_by_back_forth",
+    "correctness_by_matching": "corr_by_matching",
+    "area_pairwise_significance": "area_pairwise_sig",
+    "area_label_by_loc_heatmap": "area_lbl_by_loc",
+    "dominant_strategies_above_threshold": "dom_strat_above_thresh",
+    "dominant_strategy_by_eye_crosstab": "dom_strat_by_eye_tab",
+    "dominant_strategies_by_eye": "dom_strat_by_eye",
+    "dominant_strategy_proportion": "dom_strat_prop",
+    "dominance_raw_vs_completed": "dom_raw_vs_compl",
+    "strategy_count_distribution": "strat_count_dist",
+    "strategy_completed": "strat_completed",
+    # misc long facet values
+    "CONFIRM_FINAL_ANSWER_RT": "confirm_RT",
+    "dwell_proportions": "dwell_props",
+    "normalized": "norm",
+}
+
+# Two concepts abbreviating to one string would silently merge two real results.
+_collisions = {
+    short: [long for long in ABBREVIATIONS if ABBREVIATIONS[long] == short]
+    for short in set(ABBREVIATIONS.values())
+}
+_clashes = {s: L for s, L in _collisions.items() if len(L) > 1}
+if _clashes:
+    raise ValueError(f"ABBREVIATIONS is not injective: {_clashes}")
+# An abbreviation that is itself a key would apply twice and be unstable.
+_chained = set(ABBREVIATIONS.values()) & set(ABBREVIATIONS)
+if _chained:
+    raise ValueError(f"ABBREVIATIONS maps onto its own keys (would chain): {_chained}")
+
+# Lookup is case-insensitive, because the same concept is spelled several ways at
+# the call sites -- the all-participants group arrives as "all participants",
+# "All participants" and "all_participants" from three different plot families.
+# (That inconsistency is worth fixing upstream; normalising here stops it
+# splitting one group across two filenames in the meantime.) `slug` itself stays
+# case-preserving, so `answer_A` and `answer_a` are still distinct -- only the
+# table lookup folds case, which is safe exactly while no two keys differ only by
+# case.
+_ci = [k.lower() for k in ABBREVIATIONS]
+_dupe_ci = {k for k in _ci if _ci.count(k) > 1}
+if _dupe_ci:
+    raise ValueError(f"ABBREVIATIONS keys collide case-insensitively: {_dupe_ci}")
+_ABBREV_CI = {k.lower(): v for k, v in ABBREVIATIONS.items()}
+del _collisions, _clashes, _chained, _ci, _dupe_ci
+
+
+def slug(value: Any, *, abbreviate: bool = False) -> str:
     """Normalise one name component. Spaces and separators collapse to ``_``.
 
     Case is preserved: ``answer_A`` and ``answer_a`` are different columns in this
     project, so lowercasing names would merge two real things.
+
+    ``abbreviate=True`` additionally maps the whole component through
+    :data:`ABBREVIATIONS`. It is applied *after* normalisation, so the three
+    spellings of the all-participants group (``all participants``,
+    ``All participants``, ``all_participants``) all reach the table as one key.
     """
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, float) and value.is_integer():
         value = int(value)
     text = _SLUG_STRIP.sub("_", str(value).strip())
-    return re.sub(r"_+", "_", text).strip("_")
+    text = re.sub(r"_+", "_", text).strip("_")
+    return _ABBREV_CI.get(text.lower(), text) if abbreviate else text
 
 
 def build_stem(plot: str, facets: Mapping[str, Any]) -> str:
-    """Build the shared filename stem for a figure and its tables."""
-    parts = [slug(plot)]
+    """Build the shared filename stem for a figure and its tables.
+
+    Facet *keys* are never abbreviated -- they are the short half already, and
+    they are what makes the name readable (`group-hunters`, not `g-hunters`).
+    """
+    parts = [slug(plot, abbreviate=True)]
     for key, value in facets.items():
         if value is None:
             continue
-        parts.append(f"{slug(key)}-{slug(value)}")
+        parts.append(f"{slug(key)}-{slug(value, abbreviate=True)}")
     return "__".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Collecting a sweep into one table
+#
+# Some analyses are parameter sweeps: `attention_allocation` is 3 plot families
+# over group x metric x selected x questions, which used to write 600 separate
+# CSVs averaging 506 bytes -- each a 4x4 matrix. That satisfies "persist the
+# numbers" only in the letter. One long table per family, with the facets as
+# columns, is the same numbers in a form you can actually group and filter, and
+# it is what lets `findings.md` be regenerated by a groupby rather than by
+# globbing several hundred files.
+#
+# The figures are still written one per file -- only the tables are pooled.
+# ---------------------------------------------------------------------------
+
+_TABLE_SINK: Optional["TableCollector"] = None
+
+
+class TableCollector:
+    """Accumulates the tables of one sweep; see :func:`collect_tables`."""
+
+    def __init__(self, analysis: str, plots: Optional[Sequence[str]] = None):
+        self.analysis = analysis
+        self.plots = set(plots) if plots else None
+        self.rows: Dict[str, list] = {}
+
+    def claims(self, analysis: str, plot: str) -> bool:
+        return analysis == self.analysis and (self.plots is None or plot in self.plots)
+
+    def add(self, plot: str, facets: Mapping[str, Any], tables: Mapping[str, Any]) -> None:
+        for name, obj in tables.items():
+            if not isinstance(obj, pd.DataFrame):
+                continue          # json payloads keep their own file
+            self.rows.setdefault(f"{plot}__{name}", []).append(
+                obj.assign(**{k: v for k, v in facets.items() if v is not None})
+            )
+
+    def flush(self, save: bool = True) -> Dict[str, Any]:
+        """Write one long table per (plot, table-name) pair."""
+        written = {}
+        for key, frames in self.rows.items():
+            plot, _, name = key.partition("__")
+            long_df = pd.concat(frames, ignore_index=True)
+            written[key] = save_output(
+                None,
+                analysis=self.analysis,
+                plot=plot,
+                tables={name: long_df},
+                save=save,
+                manifest=False,   # not a figure; the long table is its own record
+            )                     # no facets: this IS the family's table
+        return written
+
+
+@contextmanager
+def collect_tables(analysis: str, plots: Optional[Sequence[str]] = None):
+    """Pool every table written inside the block into one long table per family.
+
+    ``plots`` limits the collection to named plot families; omit it to take
+    everything written under ``analysis``. Nesting is not supported -- one sweep
+    at a time is the only thing this is for.
+    """
+    global _TABLE_SINK
+    if _TABLE_SINK is not None:
+        raise RuntimeError("collect_tables is already active; it does not nest")
+    _TABLE_SINK = TableCollector(analysis, plots)
+    try:
+        yield _TABLE_SINK
+    finally:
+        sink, _TABLE_SINK = _TABLE_SINK, None
+    sink.flush()
+
+
+def abbreviate_subdir(subdir: Union[str, Path, None]) -> Path:
+    """Apply :data:`ABBREVIATIONS` to each component of a ``subdir``.
+
+    A subdir is always either a plot name or a facet value, so it draws on the
+    same vocabulary as the stem and must shorten with it -- otherwise the long
+    name is removed from the filename and left in the folder above it.
+    """
+    if not subdir:
+        return Path()
+    return Path(*(slug(part, abbreviate=True) for part in Path(subdir).parts))
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +564,7 @@ def save_output(
         )
 
     base = analysis_dir(analysis)
-    leaf = Path(subdir) if subdir else Path()
+    leaf = abbreviate_subdir(subdir)
     result = SavedOutput(stem=stem, analysis=analysis)
 
     if fig is not None:
@@ -387,10 +576,17 @@ def save_output(
         fig.savefig(fig_path, dpi=dpi, bbox_inches=bbox_inches)
         result.figure = fig_path
 
-    for name, obj in tables.items():
-        result.tables[name] = _write_table(
-            obj, base / "tables" / leaf, f"{stem}__{slug(name)}"
-        )
+    if _TABLE_SINK is not None and _TABLE_SINK.claims(analysis, plot):
+        # A sweep is collecting: the numbers go into one long table at the end
+        # instead of one small file per figure. The figure is still written
+        # normally, and `tables=` was still required and passed -- the contract
+        # is unchanged, only the destination is.
+        _TABLE_SINK.add(plot, facets, tables)
+    else:
+        for name, obj in tables.items():
+            result.tables[name] = _write_table(
+                obj, base / "tables" / leaf, f"{stem}__{slug(name, abbreviate=True)}"
+            )
 
     if to_paper:
         # Same relative layout as reports/, under one root in the paper repo.
@@ -402,7 +598,7 @@ def save_output(
             result.paper["figure"] = paper_fig
         for name, obj in tables.items():
             result.paper[name] = _write_table(
-                obj, paper_base / "tables" / leaf, f"{stem}__{slug(name)}"
+                obj, paper_base / "tables" / leaf, f"{stem}__{slug(name, abbreviate=True)}"
             )
 
     if manifest:
@@ -414,7 +610,12 @@ def save_output(
                 "facets": {k: v for k, v in facets.items() if v is not None},
                 "produced_by": _caller(),
                 "figure": result.figure.name if result.figure else None,
-                "subdir": subdir,
+                # The abbreviated form, because this has to locate the file:
+                # `figures/<subdir>/<figure>` is how a reader resolves an entry,
+                # and the directory on disk is abbreviated like everything else.
+                # The unabbreviated value is not lost -- it is the facet it came
+                # from, recorded in full in `facets` above.
+                "subdir": str(leaf) if str(leaf) != "." else None,
                 "tables": sorted(tables),
                 "source": source,
                 "saved_at": _dt.datetime.now().isoformat(timespec="seconds"),

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src import constants as Con
-from src.viz.plot_output import save_output
+from src.viz.plot_output import collect_tables, save_output
 from src.viz.viz_helpers import split_participant_groups
 
 # ---------------------------------------------------------------------------
@@ -150,6 +150,10 @@ def run_all_area_barplots(
 
     groups = split_participant_groups(all_participants, split=split_groups)
 
-    results = {name: _run_for_group(df, name) for name, df in groups.items()}
+    # A sweep over group x metric x selected: up to 120 figures. Their summaries
+    # pool into one long table rather than 120 small ones -- see
+    # plot_output.collect_tables.
+    with collect_tables("attention_allocation", plots=["area_bars"]):
+        results = {name: _run_for_group(df, name) for name, df in groups.items()}
 
     return results

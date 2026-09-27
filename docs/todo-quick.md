@@ -45,6 +45,18 @@ the manual check.)*
 
 * **✅ DONE — T1.1** — Dominance threshold is `≥` everywhere, and the five copies of the modal-strategy pick are now one function in `derived/pattern_breaking.py`. *(**done*** *2026-09-20 — hunters 48.89/53.33, gatherers 58.33/61.11; a convergence onto the numbers already quoted, no figures to regenerate)*
 
+> ⚠️ **One regression from T1.3, found and fixed 2026-09-27.** The migration changed what the
+> run summaries are *called* but not what reads them. `save_output` writes
+> `model_summary__run-<run>__model-<model>__summary.csv`; both collectors still globbed for a
+> bare `model_summary.csv` (`answer_correctness_viz.collect_correctness_run_reports`,
+> `run_report_analysis.collect_and_plot_correctness_runs` / `collect_correctness_runs_by_mode`),
+> which matches nothing under the new layout — so **the model-comparison figure, draft2's
+> figure 2, could not be built.** It failed loudly (`pd.concat` on an empty list), not silently.
+> Defaults now glob `model_summary*__summary.csv`, and `answer_corr_prediction.ipynb` cells 14
+> and 15 read `reports/correctness_prediction/tables/` via `analysis_dir()` instead of the
+> deleted `reports/report_data/` tree. **Still untested end to end** — it cannot be exercised
+> until a CV run exists, which needs `COL_SAVE_PATH` rehomed (`restructure-map.md` §1.4).
+
 * **✅ DONE — T1.3** — One `save_output()` everywhere: 81 call sites, 33 source files, 11 notebooks; `tables=` is required so a figure cannot be saved without its numbers; outputs moved to `reports/<analysis>/{figures,tables}/` with key-value filenames; Overleaf mirroring off. *(**done*** *2026-09-20 — no numbers moved; lands* *`restructure-map.md`* *§9 early and most of T5.3; closes T4.1)*
 
 * **✅ DONE — T1.4** — Comments naming constants that no longer exist, fixed at all seven live sites. *(**done*** *2026-09-21 — documentation-only, verified by AST comparison;* *`statistics.ipynb`* *turned out to be already fixed, so this never became a breakage and T2.5 closes with it. Three of the seven were naming the wrong concept*, not just a stale name)
@@ -57,7 +69,9 @@ the manual check.)*
 
 * **~~T1.8~~ — removed 2026-09-27** — the stray `index` column. *(**premise expired**: all four datasets carry it now, so the schemas agree. And it is inert — row numbers, never reaches the trial-level model table, nothing reads it, ~5 MB on a 3.2 GB file. Number retired, not reused)*
 
-## T2 · Broken today — ✅ **tier closed 2026-09-27**: four fixed, two pushed to stage E
+## T2 · Broken today — ✅ **tier closed 2026-09-27**: five fixed, two pushed to stage E
+
+* **✅ DONE — T2.7** — `statistics/mixed_area_comparisons.py` **could not fit a single model** under the installed environment. **pandas 3.0 reads text columns as `StringDtype`**, and patsy cannot interpret that as a dtype, so `C(area_label)` raised `TypeError: Cannot interpret '<StringDtype(na_value=nan)>' as a data type` *before* any model was fitted — from a plain `read_csv`, nothing to do with how the caller loads. *(**found and fixed 2026-09-27** while pooling `attention_allocation`'s tables. This is **paper code** — it backs the Attention allocation Results subsection, and its 108 figures are the ones T4.2 says must come back — so "re-run the empty figures" was **blocked and nobody knew**: the family's outputs were last produced **2026-09-20** and every attempt since would have died. Fix: cast the three columns the formula and grouping actually use to `object` immediately before `smf.mixedlm`, which is the dtype they had under pandas 2 — restoring what the formula was written against rather than changing the model. **Verified** by re-running the family end to end)*
 
 * **✅ DONE — T2.1** — `generate_column_options.py` references three constants `feature_groups.py` no longer has. *(**done*** *2026-09-27 — the fix was* ***removal, not restoration***. *The constants named paragraph×answer product columns (`..._critical__x__..._answer_A`); they were deleted in commit* *`c5f6470`, *and* ***nothing builds those columns — zero* *`__x__`* *columns exist in any dataset***, *so putting them back would have resurrected 31 feature sets pointing at nothing. Removed* *`_interaction_groups()`, group 5 (30 sets), group 11 (1 set) and both orchestrator calls, leaving a comment with the git ref to recover the definitions if the terms are ever built.* ***Verified***: *`generate_all_feature_column_sets(df)`* *runs end to end —* ***62 sets, 0 naming a column absent from the data***, *so §V check 2 passes. The symptom stays* ***masked*** *by T5.2 unless* *`src/`* *is on* *`sys.path`, *as the notebooks put it.* ***Found in passing***: *the default* *`COL_SAVE_PATH`* *still points at* *`reports/report_data/answer_correctness/feature_columns`, *which **no longer exists** — T1.3 moved outputs to* *`reports/<analysis>/{figures,tables}/`. *Left alone: where feature-set JSONs belong in the new layout is a restructure question, and* *`restructure-map.md`* *files this module under* *`explorations/feature_search/`)*
 
@@ -128,7 +142,7 @@ the manual check.)*
 
 * **✅ DONE — T4.1** — `RT_correlations` used to save nothing, so a live Results subsection existed only as cell output in a 1.2 MB notebook. *(**done*** *2026-09-20 with T1.3 —* *`plot_corr_map_pair`* *now routes through* *`save_output`* *and carries r / BH-adjusted p / n with every map)*
 
-* **⏭️ PUSHED — T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(**pushed 2026-09-27**, Diana:* ***everything will be re-run as she checks***, *so there is nothing to re-run separately now — the empty files get refilled by the same pass that verifies them. Was unblocked 2026-09-21 (the* *`statistics.ipynb`* *`AttributeError`* *is gone), so this is a deferral of effort, not a blocker: **the rerun was never attempted, so whether it completes cleanly is still untested**. The 108* *`area_significance_heatmaps`* *figures are paper code, so they are the ones that must come back)*
+* **⏭️ PUSHED — T4.2** — **329** zero-byte PNGs from **two** failed syncs (21 of them sit beside non-empty siblings, in live `correctness_measures` / `matching_correctness` folders). *(**pushed 2026-09-27**, Diana:* ***everything will be re-run as she checks***, *so there is nothing to re-run separately now — the figures come back from the same pass that verifies them — **note, corrected 2026-09-27: there are no empty files left to refill.** All 329 went with the old `reports/{plots,report_data}/` trees, deleted in `496f8d0`; the 108 `area_significance_heatmaps` figures are now simply *absent* and have to be generated, not overwritten. Was unblocked 2026-09-21 (the* *`statistics.ipynb`* *`AttributeError`* *is gone), so this is a deferral of effort, not a blocker: **the rerun was never attempted, so whether it completes cleanly is still untested**. The 108* *`area_significance_heatmaps`* *figures are paper code, so they are the ones that must come back)*
 
 * **⏭️ PUSHED — T4.3** — `reports/` is tracked in git, including a 63 MB pickle. *(**pushed 2026-09-27** — Diana thought this was no longer true;* ***measured, and it is half true***. *The pickle is* ***gone from the working tree*** *(deleted in* *`496f8d0`* *"ploting revamp"), so nothing on disk carries it. But it is* ***still in git history*** *as a 63.4 MB blob, and* *`reports/`* *is* ***still tracked*** *— 1,615 files,* *`.gitignore`* *covers* *`/data/`* *and* *`/data_raw/`* *but not* *`/reports/`. *`.git`* *is* ***1.6 GB***. ***Worth knowing if repo size ever matters***: *the pickle is no longer the biggest problem —* ***notebooks are***. *History holds a 32 MB* *`visualisations.ipynb`, *a 30 MB* *`notebooks/vizes`* *blob and four copies of* *`preliminary_analysis.ipynb`* *at ~12 MB each. Still a release-time question, and still a git operation, so yours)*
 
@@ -142,7 +156,7 @@ the manual check.)*
 
 * **T5.2** — Settle on one import convention; two coexist and only work because notebooks push two paths onto `sys.path`. *(M)*
 
-* **T5.3** — Migrate ~40 hardcoded `"../reports/..."` literals to `PROJECT_ROOT`. *(M)*
+* **✅ DONE — T5.3** — Migrate ~40 hardcoded `"../reports/..."` literals to `PROJECT_ROOT`. *(**done** 2026-09-27 — most of it fell out of T1.3; the last four source-cell hits were cleared by hand. **Now 0 in `src/**.py` and 0 in notebook source cells**, verified by count. The ~276 remaining matches are stale printed paths inside stored notebook outputs, which are cosmetic and disappear on the next run)*
 
 * **T5.4** — Write `environment.yml`, pinned to Python 3.11. *(S)*
 

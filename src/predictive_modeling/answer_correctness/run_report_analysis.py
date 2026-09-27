@@ -18,7 +18,7 @@ from src.viz.plot_output import save_output
 
 def collect_and_plot_correctness_runs(
     report_dirs: Union[str, Path, Sequence[Union[str, Path]]],
-    filename: str = "model_summary.csv",
+    filename: str = "model_summary*__summary.csv",
     recursive: bool = True,
     sort_by: str = "balanced_accuracy",
     ascending: bool = False,
@@ -97,7 +97,7 @@ def collect_and_plot_correctness_runs(
 def collect_correctness_runs_by_mode(
     base_dir: Union[str, Path],
     modes: Optional[Mapping[str, str]] = None,
-    filename: str = "model_summary.csv",
+    filename: str = "model_summary*__summary.csv",
     recursive: bool = True,
     metric_col: str = "balanced_accuracy",
     index_col: str = "run_identifier",
@@ -127,7 +127,9 @@ def collect_correctness_runs_by_mode(
         {"new_item": "new_item", "new_subject": "new_subject", "both": "both"}.
         The column order in the output follows this mapping's order.
     filename:
-        Run summary CSV filename to look for. Default: "model_summary.csv".
+        Glob for the run-summary CSVs written by `save_output`.
+        Default: "model_summary*__summary.csv" -- the stem is `model_summary`
+        plus the run/model facets, and `__summary` is the `tables=` key.
     recursive:
         Search nested subfolders for the CSVs.
     metric_col:

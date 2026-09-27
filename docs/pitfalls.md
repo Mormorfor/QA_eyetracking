@@ -448,8 +448,18 @@ stamped 2026-03-17 09:37) are the well-known ones. A **second, separate failed w
 `matching_correctness/` — and those are the dangerous ones, because they sit next to
 non-empty siblings in folders that look populated.
 
-> **Still true of the old `reports/plots/` and `reports/report_data/` trees**, which are kept
-> until their replacements are checked:
-> 1. **Check `docs/findings.md` before deleting an old figure folder** — for those nine topics
->    the PNG may be the only copy of the number.
-> 2. **Don't trust a populated-looking old plot folder.** Some of those files are zero bytes.
+> **Correction, 2026-09-27: the old trees are gone, not kept.** This section used to say they
+> were retained "until their replacements are checked". They were **deleted in `496f8d0`
+> ("ploting revamp")** along with all 329 zero-byte PNGs, and `reports/` now holds only the
+> seven `<analysis>/` folders — 710 figures, **zero** zero-byte, every one with a `tables/`
+> sibling. So the two cautions that used to live here no longer apply to anything on disk.
+>
+> **What to do instead, if you need something from the old trees:** they are tracked in git, so
+> read them at `496f8d0^` (`git show '496f8d0^:reports/report_data/<path>'`) rather than
+> hunting the working tree. Three `data_paths` constants still point into them and now resolve
+> to nothing — `COL_SAVE_PATH`, `CROSS_VALIDATION_RUNS_DIR`, `PER_PERSON_LOO_RESULTS_DIR`; see
+> `restructure-map.md` §1.4, where they are now listed with the six older stale constants.
+>
+> **The one thing to carry forward:** anything recovered from `496f8d0^` is **pre-rebuild** —
+> earlier than T3.6, T3.18, T3.20, T3.21 and T3.10 — so it is a record of what the numbers used
+> to be, never a substitute for regenerating them.

@@ -29,13 +29,13 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:36"
   },
-  "dominance_raw_vs_completed__group-gatherers": {
+  "dom_raw_vs_compl__group-gatherers": {
     "plot": "dominance_raw_vs_completed",
     "facets": {
       "group": "gatherers"
     },
     "produced_by": "src.viz.visualisations_strategies.summarize_before_after",
-    "figure": "dominance_raw_vs_completed__group-gatherers.png",
+    "figure": "dom_raw_vs_compl__group-gatherers.png",
     "subdir": null,
     "tables": [
       "per_participant",
@@ -44,13 +44,13 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:38"
   },
-  "dominance_raw_vs_completed__group-hunters": {
+  "dom_raw_vs_compl__group-hunters": {
     "plot": "dominance_raw_vs_completed",
     "facets": {
       "group": "hunters"
     },
     "produced_by": "src.viz.visualisations_strategies.summarize_before_after",
-    "figure": "dominance_raw_vs_completed__group-hunters.png",
+    "figure": "dom_raw_vs_compl__group-hunters.png",
     "subdir": null,
     "tables": [
       "per_participant",
@@ -59,14 +59,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:35"
   },
-  "dominant_strategies_above_threshold__group-gatherers__kind-strategy_completed": {
+  "dom_strat_above_thresh__group-gatherers__kind-strat_completed": {
     "plot": "dominant_strategies_above_threshold",
     "facets": {
       "group": "gatherers",
       "kind": "strategy_completed"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_counts_above_threshold",
-    "figure": "dominant_strategies_above_threshold__group-gatherers__kind-strategy_completed.png",
+    "figure": "dom_strat_above_thresh__group-gatherers__kind-strat_completed.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -74,14 +74,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:39"
   },
-  "dominant_strategies_above_threshold__group-hunters__kind-strategy_completed": {
+  "dom_strat_above_thresh__group-hunters__kind-strat_completed": {
     "plot": "dominant_strategies_above_threshold",
     "facets": {
       "group": "hunters",
       "kind": "strategy_completed"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_counts_above_threshold",
-    "figure": "dominant_strategies_above_threshold__group-hunters__kind-strategy_completed.png",
+    "figure": "dom_strat_above_thresh__group-hunters__kind-strat_completed.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -89,14 +89,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:37"
   },
-  "dominant_strategies_by_eye__group-all_participants__eye-Left": {
+  "dom_strat_by_eye__group-all_P__eye-Left": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "all participants",
       "eye": "Left"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-all_participants__eye-Left.png",
+    "figure": "dom_strat_by_eye__group-all_P__eye-Left.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -104,14 +104,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:43"
   },
-  "dominant_strategies_by_eye__group-all_participants__eye-Right": {
+  "dom_strat_by_eye__group-all_P__eye-Right": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "all participants",
       "eye": "Right"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-all_participants__eye-Right.png",
+    "figure": "dom_strat_by_eye__group-all_P__eye-Right.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -119,14 +119,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:43"
   },
-  "dominant_strategies_by_eye__group-gatherers__eye-Left": {
+  "dom_strat_by_eye__group-gatherers__eye-Left": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "gatherers",
       "eye": "Left"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-gatherers__eye-Left.png",
+    "figure": "dom_strat_by_eye__group-gatherers__eye-Left.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -134,14 +134,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:42"
   },
-  "dominant_strategies_by_eye__group-gatherers__eye-Right": {
+  "dom_strat_by_eye__group-gatherers__eye-Right": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "gatherers",
       "eye": "Right"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-gatherers__eye-Right.png",
+    "figure": "dom_strat_by_eye__group-gatherers__eye-Right.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -149,14 +149,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:42"
   },
-  "dominant_strategies_by_eye__group-hunters__eye-Left": {
+  "dom_strat_by_eye__group-hunters__eye-Left": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "hunters",
       "eye": "Left"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-hunters__eye-Left.png",
+    "figure": "dom_strat_by_eye__group-hunters__eye-Left.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -164,14 +164,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:40"
   },
-  "dominant_strategies_by_eye__group-hunters__eye-Right": {
+  "dom_strat_by_eye__group-hunters__eye-Right": {
     "plot": "dominant_strategies_by_eye",
     "facets": {
       "group": "hunters",
       "eye": "Right"
     },
     "produced_by": "src.viz.visualisations_dominant_eye.plot_dominant_strategies_by_eye_sorted",
-    "figure": "dominant_strategies_by_eye__group-hunters__eye-Right.png",
+    "figure": "dom_strat_by_eye__group-hunters__eye-Right.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -179,7 +179,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:41"
   },
-  "dominant_strategy_by_eye_crosstab__group-all_participants": {
+  "dom_strat_by_eye_tab__group-all_P": {
     "plot": "dominant_strategy_by_eye_crosstab",
     "facets": {
       "group": "all participants"
@@ -193,7 +193,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:43"
   },
-  "dominant_strategy_by_eye_crosstab__group-gatherers": {
+  "dom_strat_by_eye_tab__group-gatherers": {
     "plot": "dominant_strategy_by_eye_crosstab",
     "facets": {
       "group": "gatherers"
@@ -207,7 +207,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:42"
   },
-  "dominant_strategy_by_eye_crosstab__group-hunters": {
+  "dom_strat_by_eye_tab__group-hunters": {
     "plot": "dominant_strategy_by_eye_crosstab",
     "facets": {
       "group": "hunters"
@@ -221,14 +221,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:41"
   },
-  "dominant_strategy_proportion__group-gatherers__kind-strategy": {
+  "dom_strat_prop__group-gatherers__kind-strategy": {
     "plot": "dominant_strategy_proportion",
     "facets": {
       "group": "gatherers",
       "kind": "strategy"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_hist",
-    "figure": "dominant_strategy_proportion__group-gatherers__kind-strategy.png",
+    "figure": "dom_strat_prop__group-gatherers__kind-strategy.png",
     "subdir": null,
     "tables": [
       "dominance"
@@ -236,14 +236,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:38"
   },
-  "dominant_strategy_proportion__group-gatherers__kind-strategy_completed": {
+  "dom_strat_prop__group-gatherers__kind-strat_completed": {
     "plot": "dominant_strategy_proportion",
     "facets": {
       "group": "gatherers",
       "kind": "strategy_completed"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_hist",
-    "figure": "dominant_strategy_proportion__group-gatherers__kind-strategy_completed.png",
+    "figure": "dom_strat_prop__group-gatherers__kind-strat_completed.png",
     "subdir": null,
     "tables": [
       "dominance"
@@ -251,14 +251,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:38"
   },
-  "dominant_strategy_proportion__group-hunters__kind-strategy": {
+  "dom_strat_prop__group-hunters__kind-strategy": {
     "plot": "dominant_strategy_proportion",
     "facets": {
       "group": "hunters",
       "kind": "strategy"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_hist",
-    "figure": "dominant_strategy_proportion__group-hunters__kind-strategy.png",
+    "figure": "dom_strat_prop__group-hunters__kind-strategy.png",
     "subdir": null,
     "tables": [
       "dominance"
@@ -266,14 +266,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:35"
   },
-  "dominant_strategy_proportion__group-hunters__kind-strategy_completed": {
+  "dom_strat_prop__group-hunters__kind-strat_completed": {
     "plot": "dominant_strategy_proportion",
     "facets": {
       "group": "hunters",
       "kind": "strategy_completed"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_dominant_strategy_hist",
-    "figure": "dominant_strategy_proportion__group-hunters__kind-strategy_completed.png",
+    "figure": "dom_strat_prop__group-hunters__kind-strat_completed.png",
     "subdir": null,
     "tables": [
       "dominance"
@@ -281,7 +281,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:36"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-A__questions-included": {
+  "first_visits_matrix__group-all_P__kind-label__selected-A__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -290,7 +290,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-A__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-A__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -298,7 +298,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:25"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-A__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-label__selected-A__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -307,7 +307,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-A__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-A__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -315,7 +315,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:25:59"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-B__questions-included": {
+  "first_visits_matrix__group-all_P__kind-label__selected-B__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -324,7 +324,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-B__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-B__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -332,7 +332,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:29"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-B__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-label__selected-B__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -341,7 +341,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-B__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-B__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -349,7 +349,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:04"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-C__questions-included": {
+  "first_visits_matrix__group-all_P__kind-label__selected-C__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -358,7 +358,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-C__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-C__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -366,7 +366,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:31"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-C__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-label__selected-C__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -375,7 +375,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-C__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-C__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -383,7 +383,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:05"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-D__questions-included": {
+  "first_visits_matrix__group-all_P__kind-label__selected-D__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -392,7 +392,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-D__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-D__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -400,7 +400,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:33"
   },
-  "first_visits_matrix__group-all_participants__kind-label__selected-D__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-label__selected-D__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -409,7 +409,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-label__selected-D__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-label__selected-D__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -417,7 +417,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:06"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-A__questions-included": {
+  "first_visits_matrix__group-all_P__kind-location__selected-A__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -426,7 +426,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-A__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-A__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -434,7 +434,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:26"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-A__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-location__selected-A__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -443,7 +443,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-A__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-A__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -451,7 +451,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:00"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-B__questions-included": {
+  "first_visits_matrix__group-all_P__kind-location__selected-B__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -460,7 +460,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-B__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-B__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -468,7 +468,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:30"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-B__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-location__selected-B__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -477,7 +477,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-B__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-B__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -485,7 +485,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:04"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-C__questions-included": {
+  "first_visits_matrix__group-all_P__kind-location__selected-C__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -494,7 +494,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-C__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-C__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -502,7 +502,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:32"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-C__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-location__selected-C__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -511,7 +511,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-C__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-C__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -519,7 +519,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:05"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-D__questions-included": {
+  "first_visits_matrix__group-all_P__kind-location__selected-D__questions-included": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -528,7 +528,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-D__questions-included.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-D__questions-included.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -536,7 +536,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:33"
   },
-  "first_visits_matrix__group-all_participants__kind-location__selected-D__questions-removed": {
+  "first_visits_matrix__group-all_P__kind-location__selected-D__questions-removed": {
     "plot": "first_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -545,7 +545,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "first_visits_matrix__group-all_participants__kind-location__selected-D__questions-removed.png",
+    "figure": "first_visits_matrix__group-all_P__kind-location__selected-D__questions-removed.png",
     "subdir": "first_visits",
     "tables": [
       "matrix"
@@ -1097,7 +1097,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:25:50"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-A__questions-included": {
+  "last_visits_matrix__group-all_P__kind-label__selected-A__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1106,7 +1106,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-A__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-A__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1114,7 +1114,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:27"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-A__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-label__selected-A__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1123,7 +1123,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-A__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-A__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1131,7 +1131,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:02"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-B__questions-included": {
+  "last_visits_matrix__group-all_P__kind-label__selected-B__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1140,7 +1140,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-B__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-B__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1148,7 +1148,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:30"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-B__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-label__selected-B__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1157,7 +1157,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-B__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-B__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1165,7 +1165,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:04"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-C__questions-included": {
+  "last_visits_matrix__group-all_P__kind-label__selected-C__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1174,7 +1174,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-C__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-C__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1182,7 +1182,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:32"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-C__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-label__selected-C__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1191,7 +1191,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-C__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-C__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1199,7 +1199,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:06"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-D__questions-included": {
+  "last_visits_matrix__group-all_P__kind-label__selected-D__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1208,7 +1208,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-D__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-D__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1216,7 +1216,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:33"
   },
-  "last_visits_matrix__group-all_participants__kind-label__selected-D__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-label__selected-D__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1225,7 +1225,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-label__selected-D__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-label__selected-D__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1233,7 +1233,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:07"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-A__questions-included": {
+  "last_visits_matrix__group-all_P__kind-location__selected-A__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1242,7 +1242,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-A__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-A__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1250,7 +1250,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:29"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-A__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-location__selected-A__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1259,7 +1259,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-A__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-A__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1267,7 +1267,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:03"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-B__questions-included": {
+  "last_visits_matrix__group-all_P__kind-location__selected-B__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1276,7 +1276,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-B__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-B__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1284,7 +1284,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:31"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-B__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-location__selected-B__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1293,7 +1293,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-B__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-B__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1301,7 +1301,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:05"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-C__questions-included": {
+  "last_visits_matrix__group-all_P__kind-location__selected-C__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1310,7 +1310,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-C__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-C__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1318,7 +1318,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:32"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-C__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-location__selected-C__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1327,7 +1327,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-C__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-C__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1335,7 +1335,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:06"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-D__questions-included": {
+  "last_visits_matrix__group-all_P__kind-location__selected-D__questions-included": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1344,7 +1344,7 @@
       "questions": "included"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-D__questions-included.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-D__questions-included.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1352,7 +1352,7 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:34"
   },
-  "last_visits_matrix__group-all_participants__kind-location__selected-D__questions-removed": {
+  "last_visits_matrix__group-all_P__kind-location__selected-D__questions-removed": {
     "plot": "last_visits_matrix",
     "facets": {
       "group": "all participants",
@@ -1361,7 +1361,7 @@
       "questions": "removed"
     },
     "produced_by": "src.viz.visualisations_simplified_visits.matrix_plot_simplified_visits",
-    "figure": "last_visits_matrix__group-all_participants__kind-location__selected-D__questions-removed.png",
+    "figure": "last_visits_matrix__group-all_P__kind-location__selected-D__questions-removed.png",
     "subdir": "last_visits",
     "tables": [
       "matrix"
@@ -1913,14 +1913,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:25:51"
   },
-  "strategy_count_distribution__group-gatherers__kind-strategy": {
+  "strat_count_dist__group-gatherers__kind-strategy": {
     "plot": "strategy_count_distribution",
     "facets": {
       "group": "gatherers",
       "kind": "strategy"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_strategy_count_distribution",
-    "figure": "strategy_count_distribution__group-gatherers__kind-strategy.png",
+    "figure": "strat_count_dist__group-gatherers__kind-strategy.png",
     "subdir": null,
     "tables": [
       "counts"
@@ -1928,14 +1928,14 @@
     "source": null,
     "saved_at": "2026-09-20T16:26:39"
   },
-  "strategy_count_distribution__group-hunters__kind-strategy": {
+  "strat_count_dist__group-hunters__kind-strategy": {
     "plot": "strategy_count_distribution",
     "facets": {
       "group": "hunters",
       "kind": "strategy"
     },
     "produced_by": "src.viz.visualisations_strategies.plot_strategy_count_distribution",
-    "figure": "strategy_count_distribution__group-hunters__kind-strategy.png",
+    "figure": "strat_count_dist__group-hunters__kind-strategy.png",
     "subdir": null,
     "tables": [
       "counts"
