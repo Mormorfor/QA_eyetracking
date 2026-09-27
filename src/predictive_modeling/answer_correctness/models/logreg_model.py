@@ -203,8 +203,17 @@ class TrialLevelLogRegModel:
             self,
             train_df: Optional[pd.DataFrame] = None,
             top_k: Optional[int] = None,
-            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
-            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
+            # Default to the participant-clustered BOOTSTRAP (Diana, 2026-09-27;
+            # todo.md T3.3). It refits the real penalised, class-weighted estimator
+            # on each resample, so it needs no approximation and no minimum cluster
+            # count -- which is why it is the right default for a small dataset
+            # such as KnowQA (6 participants), where the clustered-Wald sandwich is
+            # rank-deficient. The callers that cannot afford ~5,000 refits opt out
+            # explicitly: cross_validation.py (per fold x regime) and
+            # participant_level.py (per participant, where a single participant is
+            # one cluster and clustering is meaningless) both pass ci_method="wald".
+            ci_method: Literal["bootstrap", "wald", "none"] = "bootstrap",
+            ci_cluster: Literal["cluster", "row", "auto"] = "cluster",
             ci: float = 0.95,
             n_boot: int = 5000,
             seed: int = 42,
@@ -253,12 +262,20 @@ class TrialLevelLogRegModel:
             )
 
         elif ci_method == "wald":
+            # Clustered Wald is a cluster-robust sandwich (todo.md T3.3, 2026-09-27):
+            # no refitting, so it is the affordable option inside cross-validation,
+            # where 5,000 bootstrap refits per fold x regime is not.
             wald_df = wald_logreg_coef_cis(
                 model=self.model,
                 X=X,
                 y=y,
                 feature_names=cols_used,
                 ci=float(ci),
+                cluster=(
+                    train_df[Con.PARTICIPANT_ID].to_numpy()
+                    if ci_cluster == "cluster"
+                    else None
+                ),
             )
 
             out = out.merge(

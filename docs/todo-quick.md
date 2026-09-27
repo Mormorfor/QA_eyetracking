@@ -26,7 +26,6 @@ go looking.)*
 | --------- | ----------------------------------------------------------------------------------------------------------------- |
 | **T3.17** | cheap, and changes no number if the invariants hold                                                               |
 | **T4.2**  | not a fix at all — just re-run the plots (the `statistics.ipynb` blocker is gone as of 2026-09-21, see T1.4/T2.5) |
-| **T1.8**  | one stray column; S                                                                                               |
 
 *(T3.1 was the head of this list and is done — 2026-09-26.)*
 
@@ -46,13 +45,13 @@ go looking.)*
 
 * **✅ DONE — T1.7** — Merge the QA and paragraph implementations of the same eight per-area metrics into one set parameterized by grouping column. *(**done*** *2026-09-23 — one implementation in* *`derived/area_metrics.py`. All seven QA metrics reproduce the saved table to ≤5e-13 (CSV round-trip only) and* *`first_encounter`* *is bit-identical, so **no QA number moved**. Two things the merge turned up: the two* *`num_label_visits`* *were **not the same measure** (disagreed on **77% of trials** — the paragraph side dropped off-area fixations the answer side resolves to the nearest word; now shared, which moves paragraph counts upward), and* *`first_encounter_pupil_size`* *silently depended on row order, now an explicit* *`IA_ID`* *sort)*
 
-* **T1.8** — L1's `all_participants.csv` carries a stray `index` column KnowQA's doesn't, so "same pipeline, same columns" isn't quite true. *(S · ready)*
+* **~~T1.8~~ — removed 2026-09-27** — the stray `index` column. *(**premise expired**: all four datasets carry it now, so the schemas agree. And it is inert — row numbers, never reaches the trial-level model table, nothing reads it, ~5 MB on a 3.2 GB file. Number retired, not reused)*
 
 ## T2 · Broken today — all low priority, none on the paper's path
 
 * **T2.1** — `generate_column_options.py` references three constants `feature_groups.py` no longer has. *(**ran 2026-09-21*** *— the three constants are indeed gone, but the* *`AttributeError`* *is* ***masked**: T5.2's bare-import failure fires first, so T5.2 has to land before this item's symptom is even observable)*
 
-* **T2.2** — `answer_loc/` cannot import at all. *(**ran 2026-09-21*** *— reproduces,* ***and the item understates it**:* *`answer_loc_eval`* *fails earlier on T5.2's import convention, and* *`answer_loc_models.py:109`* *passes* *`multi_class=`, removed in scikit-learn 1.8.0. Fixing only what T2.2 lists would leave it broken)*
+* **⏭️ PUSHED — T2.2** — `answer_loc/` cannot import at all. *(**pushed 2026-09-27** — Diana: "don't care about answer loc, it can stay broken". May be tidied after the restructure, which files it under* *`explorations/answer_location/`* *where* ***parked code moves as-is, broken or not***. ***Ran 2026-09-21 and it is worse than the item says***: *`answer_loc_eval`* *fails earlier on T5.2's import convention, and* *`answer_loc_models.py:109`* *passes* *`multi_class=`, removed in scikit-learn 1.8.0 — so fixing only what is listed would leave it broken)*
 
 * **T2.3** — `fit_model_on_prepared_full_data` calls random-effects methods the live logreg doesn't implement; works only with the Julia backend. *(⚠️ · still never executed)*
 
@@ -67,11 +66,13 @@ go looking.)*
 
 * **✅ DONE — T3.1** — The three correctness Fisher tests now run at trial grain, reading the split the builder already computed instead of re-deriving it; `_check_trial_frame` raises on a duplicated `(participant_id, TRIAL_INDEX)`. *(**done*** *2026-09-26 — 24 analyses rerun (24 figures, 48 tables); n 760,628 → 19,436.* ***One conclusion changed**: gatherers · threshold-2 goes p 7.7e-09 → 0.189, significant → n.s., its* *`≤ 2`* *group being 116 trials. The other 23 survive at p < 1e-3. Bars/CIs verified untouched — no* *`__summary.csv`* *differs and 23 of 24 figures are byte-identical.* ***Two corrections to the item**: it was not "one word in three places" — each test re-derived its own split, and for the dwell test that re-derivation* ***was*** *the bug; and the blast radius was 24 analyses, not ~96 files / ~51 figures, a count that predated the T1.3 inversion. **XYXY is not generated at all** —* *`use_xyxy`* *defaults False — which is a scope question, not part of this item)*
 
+* **⏭️ PUSHED — T3.23** — **Read up on clustered CIs.** *(**Diana's item, not Claude's** · reading, not code · links live at the top of* *`common/data_utils.py::wald_logreg_coef_cis`*'s *docstring — three Diana added, four academic ones Claude added below them;* ***don't tidy either set away***, *they sit next to the formula on purpose. It is what makes* ***T3.3*** *(bootstrap vs Wald, currently split by cost) and* ***T3.22*** *(clustering as precision-not-direction) decisions rather than defaults. No number depends on it)*
+
 * **⏭️ PUSHED — T3.22** — Trials are treated as independent when they are nested in 360 participants and 972 items, so every count-based p here is too small. *(M–L ·* ***pushed past the restructure**, Diana 2026-09-26 — measured: ICC 0.041 by participant / **0.126 by item**, effective n ~6,000 not 19,436. A participant-clustered bootstrap* ***moves no conclusion***, so this is precision, not direction. Same root cause as* ***T3.3***; also live in* *`RT_correlations`* *(participant-only clustering, item level unhandled and larger) and ⚠️* *`mixed_area_comparisons`* *(no trial-level random effect). Waits for* *`modeling/inference.py`* *so clustered inference lands once — stage **D**)*
 
-* **T3.2** — Write one Methods sentence saying the ten features were hand-picked on domain grounds, not searched. *(S · low impact — the earlier leakage claim was retracted)*
+* **~~T3.2~~ — removed 2026-09-27** — one Methods sentence on the hand-picked features. *(**the paper's job, not the code's** — Diana. Number retired, not reused. What it established stands:* *`SELECT_1_COLS`* *is a manual pick so there is no selection-leakage caveat, and all six runs in the comparison figure are hand-specified. One code fact kept in* *`todo.md`*: *`collect_and_plot_correctness_runs`* *scans a directory rather than taking a curated list, so a machine-selected run saved later would join the figure silently)*
 
-* **T3.3** — Coefficient CIs ignore the L2 penalty, the class weights **and** clustering by participant; the clustered bootstrap that fixes it already exists and is never called. *(M · ⚠️ · the least-verified high-impact item)*
+* **✅ DONE (paper path) — T3.3** — `collect_logreg_coef_summaries`, the full-data fit behind the paper's coefficient figures, now defaults to the participant-clustered bootstrap; cell 29 of `answer_corr_prediction.ipynb` passes it explicitly. *(**done*** *2026-09-27 — L1's 12-feature headline model: intervals* ***1.44× wider*** *than Wald and* ***all 12 stay significant***, *stable across seeds and 2k/5k resamples. The item predicted a conclusion change; there isn't one.* ***Two corrections to the diagnosis***: *clustering is the* ***smallest*** *of the three defects (a row bootstrap already recovers 1.35× of the 1.44×), and* *`ci_cluster="auto"`* *silently means* ***row***, *not cluster.* ***Three paths, three settings*** *(Diana, 2026-09-27): L1 paper figures* ***bootstrap+cluster***; *cross-validation and KnowQA* ***wald+cluster***. *To make that defensible* *`wald_logreg_coef_cis`* *was rewritten as a* ***cluster-robust sandwich carrying the L2 penalty and class weights***, *so the Wald path has none of the three defects either — it reproduces the bootstrap to* ***within 2.5% on all 12 features at ~560× the speed***. ⚠️ ***KnowQA's clustered Wald is rank-deficient***: *6 clusters for 13 parameters, so* *`rank(meat)=6`* *and two intervals come out* ***3× too narrow***. ***KnowQA reverted to bootstrap the same day***; *`get_coef_summary`* *now defaults to bootstrap+cluster and the two cost-bound callers opt out explicitly. Wald still warns when* *`n_clusters <= n_params`. **Sandwich references are in the* *`wald_logreg_coef_cis`* *docstring** (Cameron & Miller 2015, Zeileis 2006, MacKinnon et al. 2023, Freedman 2006).* ***Do not report Study 2 coefficient significance at n=6 either way***)*
 
 * **T3.4** — Umbrella for the smaller movers below (T3.5, T3.7–T3.12). *(⚠️)*
 
@@ -119,7 +120,9 @@ go looking.)*
 
 * **T4.4** — Old JSONs, an orphan zip, 2.5 GB of archive CSVs, indistinguishable paper figure names. *(**deferred*** *until the restructure says what's still meaningful)*
 
-## T5 · Must run from scratch — required by the public release
+## T5 · Must run from scratch — ⏭️ **WHOLE TIER PUSHED to the restructure**
+
+> **Diana, 2026-09-27**: *"it makes more sense to deal with it on a codebase that is in a state I want it."* This **confirms** `restructure-map.md` §11 rather than deferring against it — all eleven items are already assigned to stages there (**A**: T5.1 / T5.2 / T5.4 · **B**: T5.3 · **D**: T5.11 · **F**: T5.6 / T5.10 · **G**: T5.5 / T5.7 / T5.8 / T5.9). Practical meaning: **don't pick one off individually** — each lands with its stage, on the tree that stage produces. Doing T5.1–T5.3 now would write import conventions and path migrations into a layout Stages A–C are about to replace. T5.7 and T5.8 are rulings, not outstanding work.
 
 * **T5.1** — Add `__init__.py` throughout; there are none anywhere in `src/`. *(S)*
 

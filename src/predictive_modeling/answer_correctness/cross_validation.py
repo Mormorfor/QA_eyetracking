@@ -175,6 +175,16 @@ def attach_trial_level_fold_regimes(
 # One-fold evaluation
 # ---------------------------------------------------------------------
 
+# Coefficient CIs inside cross-validation: WALD, but CLUSTERED by participant
+# (Diana, 2026-09-27; todo.md T3.3). Since 2026-09-27 `wald_logreg_coef_cis` is a
+# cluster-robust sandwich that also carries the L2 penalty and the class weights,
+# so the clustered-Wald interval is not an approximation of convenience: on L1's
+# 12-feature model it reproduces the clustered *bootstrap* to within 2.5% per
+# feature, at 0.13 s against 73 s -- ~560x faster. That speed is the whole reason
+# it is used here rather than the bootstrap: this runs per fold x regime.
+# The paper's reported coefficients do not come from here; they come from the
+# single full-data fit in evaluation_core.collect_logreg_coef_summaries, which
+# uses the bootstrap.
 def evaluate_one_fold_on_regimes(
     df: pd.DataFrame,
     *,
@@ -184,7 +194,7 @@ def evaluate_one_fold_on_regimes(
     train_regime: str = "train_train",
     eval_regimes: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
-    coef_ci_cluster: str = "row",
+    coef_ci_cluster: str = "cluster",
     coef_ci: float = 0.95,
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
@@ -310,7 +320,7 @@ def run_cross_validation_on_predefined_folds(
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
-    coef_ci_cluster: str = "row",
+    coef_ci_cluster: str = "cluster",
     coef_ci: float = 0.95,
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
@@ -508,7 +518,7 @@ def run_cross_validation_on_combined_folds(
     feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
-    coef_ci_cluster: str = "row",
+    coef_ci_cluster: str = "cluster",
     coef_ci: float = 0.95,
     coef_n_boot: int = 3000,
     coef_seed: int = 42,
@@ -660,7 +670,7 @@ def update_combined_cv_run(
     eval_regimes: Optional[Sequence[str]] = None,
     keep_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
-    coef_ci_cluster: str = "row",
+    coef_ci_cluster: str = "cluster",
     coef_ci: float = 0.95,
     coef_n_boot: int = 3000,
     coef_seed: int = 42,

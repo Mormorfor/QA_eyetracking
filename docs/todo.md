@@ -392,16 +392,23 @@ destination package once.
 
 ***
 
-### T1.8 — L1 and KnowQA `all_participants.csv` differ by a spurious column ⚠️ S · low risk
+### ~~T1.8~~ — *removed 2026-09-27: the premise expired, and the column is inert*
 
-`add_base_features` ends with `out.reset_index(drop=False)`. On the L1 path
-`add_zscored_pupil_columns:401` has already called `reset_index()`, so the final one adds a
-stray `index` column of row numbers. On the KnowQA path that base function is excluded, so the
-final reset restores `TRIAL_INDEX`/`participant_id` instead and no `index` column appears.
+**Diana, 2026-09-27.** ⚠️ **The claim was also wrong by the time it was removed** — recording
+that, per this file's own Rule 2, because it is asserted in the past tense elsewhere:
+**all four datasets now carry the `index` column**, so the schemas agree and "same pipeline,
+same columns" is true. `add_zscored_pupil_columns` is still excluded on the KnowQA path, so
+the route changed during the T6.1 / T3.20 rebuilds rather than the exclusion changing.
 
-Net effect: the two datasets' `all_participants.csv` have different schemas by one column.
-Harmless today, but it means "same pipeline, same columns" is not quite true — worth fixing
-before the public release so a reader diffing the two isn't misled.
+And the column does nothing: it is row numbers (`0, 1, 2, ...`), it **never reaches the
+trial-level model table** so it cannot enter a feature set, nothing reads it, and the one
+failure mode (`reset_index()` on a frame that already has an `index` column) does not raise —
+it yields `level_0`, and the only bare `reset_index()` calls are in the producers, which read
+raw reports rather than `all_participants.csv`. Cost of keeping: ~5 MB on a 3.2 GB file.
+
+**Number retired, not reused.** If a rebuild happens anyway for some other reason, dropping
+the column is a fair thing to fold in — a column literally named `index` is mildly confusing
+in a public release — but it is never worth a rebuild of its own.
 
 ## T2 · Things that are broken today
 
@@ -417,7 +424,7 @@ The exception is **T2.4**, which is not a breakage but a silent omission inside 
 | #    | What                                                                                                                                                                                                                                                                                | Where                                                           | Verified |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------- |
 | T2.1 | `generate_column_options.py` raises `AttributeError` unconditionally — references `fg.RT_INTERACTION_COLS`, `fg.TFD_INTERACTION_COLS`, `fg.RT_TFD_INTERACTION_COLS`, none of which exist in `feature_groups.py` any more                                                            | `:181-183`, `:401`, `:493`                                      | ✅ ran   |
-| T2.2 | `answer_loc/` cannot import: `build_area_metric_pivot` imported from `data_utils` (it lives in `feature_builders`), `group_vise_train_test_split` imported from a module that doesn't define it, and called with a signature that no longer exists                                  | `answer_loc_data.py:8-10`, `answer_loc_eval.py:10-13`, `:51-56` | ✅ ran   |
+| **⏭️ T2.2** | **PUSHED 2026-09-27 — may be tidied after the restructure; until then it stays broken, deliberately.** Diana: *"don't care about answer loc."* `answer_loc/` cannot import: `build_area_metric_pivot` imported from `data_utils` (it lives in `feature_builders`), `group_vise_train_test_split` imported from a module that doesn't define it and called with a dead signature — **plus two the item missed**, found when it was actually run: `answer_loc_eval` fails *earlier* on T5.2's bare-import convention, and `answer_loc_models.py:109` passes `multi_class=`, removed in scikit-learn 1.8.0. So fixing exactly what was listed would have left it broken. `restructure-map.md` §3 files it under `explorations/answer_location/`, and **parked code moves as-is, broken or not** — that is the point of the sibling directory | `answer_loc_data.py:8-10`, `answer_loc_eval.py:10-13`, `:51-56`, `answer_loc_models.py:109` | ✅ ran   |
 | T2.3 | `fit_model_on_prepared_full_data` unconditionally calls `model.get_random_effects()` — the live logreg implements neither that nor `get_random_effect_variance_summary()`. Works only with the Julia model.                                                                         | `evaluation_core.py:206`, `:240-241`                            | ⚠️       |
 | T2.4 | `get_last_visited_feature_cols` always returns `[]` — matches prefix `last_visited_`, but the built columns are `last_before_confirm*` / `last_before_select*`. So `get_full_feature_cols` (the default whenever `feature_cols=None`) silently contains **no** last-label features. | `common/feature_specs.py:111` vs `model_data.py:456`, `:465`    | ✅ ran   |
 | ~~T2.5~~ | ✅ **RESOLVED — not a breakage.** `notebooks/statistics.ipynb` cell 2 now passes `metrics=Con.AREA_METRIC_COLUMNS_MODELING`; fixed in the plots revamp, verified 2026-09-21. This was the one thing that could have promoted T1.4 out of the comment tier, and it did not | `statistics.ipynb` cell 2                                       | ✅       |
@@ -465,7 +472,7 @@ They are *not* a priority order. This index is the reading order.
 | #         | Item                                                                                                        | Status                                                                                 |
 | --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | T3.1      | Fisher tests run on the wrong grain                                                                         | ✅ **DONE 2026-09-26** — 24 analyses rerun; **one result flipped to n.s.**               |
-| T3.3      | Coefficient CIs wrong three ways                                                                            | ⚠️ **high impact, unverified**                                                         |
+| T3.3      | Coefficient CIs wrong three ways                                                                            | ✅ **DONE on the paper path 2026-09-27** — 1.44× wider, **no L1 conclusion change**     |
 | T3.21     | Participant-level accumulative features — `scope_df` / `scope_by`, defaulting to the frame given, pooled    | ✅ **DONE 2026-09-25**, all 13 rows closed; unblocks T1.6 and T6.1                      |
 | T3.6      | Drop `"."` for first fixation duration                                                                      | ✅ **DONE 2026-09-23** — code + all four datasets rebuilt                               |
 | T3.14     | Missing-value policy for the exclude-convention families                                                    | ✅ **DONE 2026-09-23** — fill named, scoped, counted, masked; coefficients identical     |
@@ -473,11 +480,12 @@ They are *not* a priority order. This index is the reading order.
 | T3.17     | Assert the invariants the pipeline assumes                                                                  | 🟡 **decided** — integrity rules, implementation outstanding                            |
 | T3.18     | Does `check_text_alignment` catch a real problem?                                                           | **✅ DONE** 2026-09-07 — yes, in three modes; area labels now come from screen geometry |
 | T3.19     | Is `last_answer_area_visited_lbl` buggy?                                                                    | ⚠️ investigation                                                                       |
-| T3.2      | Say in Methods that features were hand-picked                                                               | ⚠️ low impact (was high — retracted); figure-2 concern checked and closed              |
+| ~~T3.2~~  | *(one Methods sentence on the hand-picked features — **removed 2026-09-27**: the paper's job, not the code's. Number retired, not reused)* | —                                          |
 | T3.13     | Dwell/count stay coverage-inclusive                                                                         | **✅ DONE** — resolved, no action                                                       |
 | T3.15     | Two feature-provenance paths in `cross_validation.py`                                                       | **↪️ ABSORBED** into T3.21 (which settles the direction)                               |
 | T3.4      | Smaller number-movers — holds T3.5, T3.7–T3.12                                                              | mixed                                                                                  |
 | T3.22     | Trials are treated as independent when they are nested in participants and items                            | **⏭️ PUSHED** to after the restructure — measured, changes no conclusion               |
+| T3.23     | Read up on clustered CIs — **Diana's**, links in the `wald_logreg_coef_cis` docstring                       | **⏭️ PUSHED** to after the restructure — reading, not code; unblocks T3.3 and T3.22     |
 | ~~T3.16~~ | *(ordinal A>B>C>D structure in the model — considered and declined 2026-09-05; number retired, not reused)* | —                                                                                      |
 
 ### T3.1 — ~~Fisher tests run on the wrong grain~~ ✅ **DONE 2026-09-26** · **high impact**
@@ -539,62 +547,105 @@ figures are **correct**; only the stars, p-values and odds ratios are wrong.
 **Self-check:** in every affected folder, `summary.csv`'s `n` and `fisher.json`'s
 `counts.*.n` disagree by \~39×.
 
-### T3.2 — Say in Methods that the features were chosen by hand ⚠️ S · low impact
+### ~~T3.2~~ — *removed 2026-09-27: the paper's job, not the code's*
 
-**Corrected 2026-09-05.** An earlier version of this item claimed `SELECT_1_COLS` came out of
-`feature_selection.ipynb` and that the CV estimate was therefore optimistic. **That was wrong.**
-Diana picked the ten features **manually**, on domain grounds — small, and covering the space
-of the idea. Any future reselection will also be manual.
+**Diana, 2026-09-27: "I will justify my models in paper, I don't see a reason for it in the
+code."** The item had shrunk to "write one Methods sentence saying the ten features were
+hand-picked on domain grounds" — which is drafting, and `CLAUDE.md` is explicit that the paper
+is hers. It should never have been carrying a `T` number. **Number retired, not reused.**
 
-So there is **no automated selection inside or before the CV loop** for the headline model.
-`feature_cols_by_model` takes explicit column lists, and nothing in `cross_validation.py`
-consults the target when choosing features. The 0.83 does not need a leakage caveat.
+What the item established stays true and is recorded elsewhere, so nothing is lost by deleting
+it:
 
-**What remains is one sentence of Methods**, answering the draft2 `\todo` ("why these 10
-attention features and not another"): the features were selected by hand to be few and to
-cover the four behaviours the design targets — attention to correct, to wrong, to the
-question, and shifts between them — not by a search procedure. Draft2 already contains the
-substance of this answer in a comment; it just needs to be stated in the text.
+* **`SELECT_1_COLS` is a manual pick, not machine-selected**, so the CV estimate carries no
+  selection-leakage caveat. The earlier claim that it did was wrong and was retracted on
+  2026-09-05 — `findings.md`'s change log and `research-context.md` §5 and §7 both record it.
+* **Checked 2026-09-05:** every run in the model-comparison figure is a hand-specified feature
+  set; no `pruned` / `aic` / `k_most_frequent` run is present. Nothing to caveat.
 
-**Checked 2026-09-05 — no issue. ✅** An earlier version of this item asked whether any
-machine-selected feature set appears as a competitor in the model-comparison figure, which
-would have carried optimism the hand-picked headline does not. **It does not.** Read off
-`reports/report_data/answer_correctness/run_comparison/`, every run in the comparison is a
-hand-specified feature set:
+**One code fact kept, because it is the only part that was about the code** — and it is a live
+hazard rather than a task: `collect_and_plot_correctness_runs` (`answer_corr_prediction.ipynb`
+cell 14) does **not** take a curated model list. It **scans a directory**
+(`reports/report_data/answer_correctness/both/logreg`, `recursive=True`, `top_n=100`) and plots
+whatever it finds, so a future machine-selected run saved with `save=True` would join the
+comparison figure silently. Worth a glance at that folder before generating the final figure.
 
-| run                                      | balanced accuracy (`both`) | n features |
-| ---------------------------------------- | -------------------------- | ---------- |
-| `SELECTION + LAST + RT`                  | 0.8293                     | —          |
-| `SELECTION + LAST`                       | 0.8293                     | 12         |
-| `LAST`                                   | 0.8258                     | 2          |
-| `SELECTION - 10 features best performer` | 0.8150                     | 10         |
-| `BASELINE - correct+mean_wrong RT`       | 0.7094                     | 2          |
-| `BASELINE - total_answering_RT`          | 0.6348                     | 1          |
+### T3.3 — Coefficient CIs are wrong three ways ✅ **DONE on the paper path 2026-09-27** · M
 
-No `pruned` / `aic` / `k_most_frequent` run is present. `answer_corr_prediction.ipynb` cells 12
-and 17 *can* produce such runs, but none were saved into the comparison folder, so the figure
-is a fair comparison of hand-picked sets against two RT baselines. Nothing to fix or caveat.
+> **Fixed where the paper reads coefficients, and measured.** `collect_logreg_coef_summaries`
+> — the single full-data fit behind the coefficient figures — now defaults to
+> `ci_method="bootstrap", ci_cluster="cluster"`, and `answer_corr_prediction.ipynb` cell 29
+> passes it explicitly. The bootstrap refits the real estimator on each resample, so all three
+> defects below go at once rather than needing three fixes.
+>
+> **It matters, and it changes nothing.** On L1's 12-feature headline model the clustered
+> intervals are **1.44× wider** than Wald — and **all 12 coefficients stay significant**,
+> stable across seeds 1/7/42/99 and across 2,000 vs 5,000 resamples. This item predicted a
+> conclusion change; there isn't one on L1. Numbers in `findings.md`'s change log.
+>
+> **Two corrections to the diagnosis below**, both found by measuring:
+> - **Clustering is the *smallest* of the three defects, not the largest.** The item says
+>   "with ~50 trials per participant this understates SEs substantially". A *row* bootstrap —
+>   which fixes only the penalty and the class weights — already recovers **1.35×** of the
+>   1.44×. Clustering adds ~0.09. That fits `T3.22`'s measured ICC of 0.041 by participant:
+>   modest clustering in the outcome, and these are within-trial features.
+> - **`ci_cluster="auto"` does not mean "cluster".** In `logreg_model.get_coef_summary` only
+>   the literal `"cluster"` takes the clustered branch; `"auto"` falls through to the row
+>   bootstrap. Every call site that wants clustering must say so. Left as-is rather than
+>   redefined — changing what `auto` means is a behaviour change, not a fix.
+>
+> **Diana's split, 2026-09-27 — three paths, three settings:**
+>
+> | path | setting | why |
+> | --- | --- | --- |
+> | **L1, the paper's coefficient figures** | `bootstrap` + `cluster` | refits the real estimator; no approximation; cost is affordable on one full-data fit |
+> | **cross-validation** | **`wald` + `cluster`** | runs per fold × regime, so 5,000 refits each is not affordable |
+> | **KnowQA** | **`bootstrap` + `cluster`** | reverted 2026-09-27 — the clustered sandwich is rank-deficient at 6 clusters (below) |
+> | *per-person LOO* (`participant_level.py`) | `wald` + `row`, untouched | one participant **is** one cluster, so clustering is meaningless there |
+>
+> This is now structural rather than a convention: **`get_coef_summary` defaults to
+> `bootstrap` + `cluster`**, so anything ad hoc — a KnowQA fit included — gets the method
+> that needs no approximation. The two callers that cannot afford ~5,000 refits opt out
+> explicitly.
+>
+> **`wald_logreg_coef_cis` was rewritten to make that split defensible.** It is now a
+> cluster-robust sandwich whose bread carries the L2 penalty and the class weights, so the
+> Wald path no longer has *any* of the three defects — not just the clustering one. Validated
+> against the bootstrap on L1's 12-feature model: widths agree **within 2.5% on all 12**
+> (ratio 0.975–1.009), both 12/12 significant, at **0.13 s vs 73 s (~560× faster)**. The
+> stepwise reconstruction also confirms the bread fix independently — naive 0.1120 → row
+> sandwich 0.1489 (1.33×) → clustered sandwich 0.1602 (1.43×), against the bootstrap's
+> 1.35× / 1.44×.
+>
+> ⚠️ **KnowQA's clustered Wald is rank-deficient, and this is structural, not a tuning
+> problem.** Cluster-robust variance needs **more clusters than parameters**. KnowQA has
+> **6 clusters for 13 parameters**: the meat is a sum of 6 outer products, so `rank(meat) = 6`
+> and `pinv` absorbs the deficiency without complaint. Measured: two intervals come out **3×
+> narrower** than the bootstrap (`mean_fixations_count__question` 0.33 vs 1.10;
+> `ANSWER_PRESS_NUMBER` 0.14 vs 0.37), and it reports 4/12 significant against the
+> bootstrap's 5/12. The setting is kept as instructed, but the function now emits a
+> `RuntimeWarning` naming the counts whenever `n_clusters <= n_params` — it fires on KnowQA
+> and not on L1 or a 90%-of-participants CV fold. **The honest conclusion is unchanged either
+> way: do not report Study 2 coefficient significance at n = 6 participants.** Session
+> clustering (18) is not enough either — still fewer than 13.
+>
+> That limit is not this codebase's quirk: the cluster-robust estimator has rank at most
+> `min(G, k)` (MacKinnon, Nielsen & Webb 2023, arXiv:2205.03285), and the usual practical
+> guidance is `G` in the tens at least. **KnowQA was reverted to the bootstrap on
+> 2026-09-27** — it resamples clusters and refits, so it has no rank requirement, only the
+> ordinary small-sample imprecision. The warning stays in place for anyone who sets
+> `wald` + `cluster` on a small frame.
+>
+> **References for the sandwich itself** are in `wald_logreg_coef_cis`'s docstring
+> (Cameron & Miller 2015; Zeileis 2006; MacKinnon et al. 2023; Freedman 2006) — put there
+> rather than here because that is where someone reading the formula will be.
+>
+> **Still Wald-unclustered and untouched:** `generate_column_options.py`, which is broken
+> anyway (T2.1).
 
-> **One mechanism worth knowing, not a defect.** `collect_and_plot_correctness_runs`
-> (cell 14) does not take a curated list — it **scans a directory**
-> (`reports/report_data/answer_correctness/both/logreg`, `recursive=True`, `top_n=100`) and
-> plots whatever it finds. So the figure's contents are whatever has been saved there. That is
-> convenient, and it means a future machine-selected run saved with `save=True` would join the
-> comparison silently. Worth a glance at the folder before the final figure is generated.
+---
 
-The selection machinery itself (`feature_selection.ipynb`,
-`generate_column_options.py`) is not used for the reported model and
-`generate_column_options.py` is currently broken (T2.1) — future directions.
-
-> **Separate and still live: encoding-induced collinearity.** Zero-filling makes
-> `mean_first_fixation_duration__*` largely a restatement of `skip_rate__*` — r = −0.70 to
-> −0.84, against −0.12 to −0.26 when unfixated words are excluded. It does not affect the
-> manual pick (`SELECT_1_COLS` has `skip_rate__correct` and no first-fixation column), but it
-> is the concrete content of the draft2 `\todo` asking for "robustness checks? VIF analysis
-> to show coefficients are trustworthy?" — the honest answer being that two candidate features
-> were near-duplicates by construction rather than by behaviour. See `pitfalls.md` §2, T3.6.
-
-### T3.3 — Coefficient CIs are wrong three ways ⚠️ M · **high impact**
+Original diagnosis, retained.
 
 `wald_logreg_coef_cis` (`common/data_utils.py:233-288`) computes `cov = pinv(X'WX)` and:
 
@@ -699,7 +750,7 @@ number change — log it (see `findings.md` change log).
 * Columns: `mean_first_fixation_duration__{answer_A..D, question}` and the derived
   `__{correct, wrong_mean, contrast, distance_furthest, distance_closest}`.
 
-* The headline feature set is a **manual** pick, so it does not need reselecting (T3.2). But
+* The headline feature set is a **manual** pick, so it does not need reselecting. But
   any *machine-selected* comparison sets built from the JSONs were pruned on the inflated
   correlations at a 0.8 threshold — if those appear in the model-comparison figure, they shift.
 
@@ -881,7 +932,7 @@ the other nine `SELECT_1_COLS` features have none, and T3.6 did not change that.
 ⚠️ **Note the question area: 5,810 trials (30%).** Any feature built on question-area pupil or
 first-fixation duration is missing for nearly a third of trials. Nothing in `SELECT_1_COLS`
 currently is, but the feature-selection candidate pool contains such columns — so this
-interacts with T3.2 — the headline set is a manual pick and unaffected, but the
+interacts with the hand-picked headline set — which is unaffected — but the
 machine-selected comparison sets in the candidate pool are not.
 
 **Also needs deciding: how NaN propagates into the derived columns.** `__correct`,
@@ -937,7 +988,7 @@ the rebuild path. **So the same nominal model, run from two notebooks, need not 
 identical numbers** — and the paper does not currently say which it reports.
 
 This is one instance of the participant-level frame hazard (`pitfalls.md` §3) — not the
-hunters/gatherers split, which is safe. Unrelated to T3.2, since the headline features are a
+hunters/gatherers split, which is safe. No selection-leakage angle, since the headline features are a
 manual pick.
 
 **When it comes back:** whichever path survives the restructure, the paper should state which
@@ -1425,6 +1476,38 @@ with a cluster-bootstrap CI instead of a Fisher p, reusing the machinery that al
 
 ***
 
+### T3.23 — Read up on clustered CIs ⏭️ **PUSHED to after the restructure** · **Diana's, not Claude's**
+
+**This is a reading item, not a code item**, and it is in T3 because it is what has to happen
+before **T3.3** and **T3.22** can be re-decided rather than inherited. Neither of those is
+really settled by a default in a function signature: T3.3 currently splits bootstrap/Wald by
+*cost*, and T3.22 is parked on the judgement that clustering is a precision problem rather
+than a direction problem. Both of those are judgements, and they are Diana's to make with the
+method understood rather than delegated.
+
+**The links are in the code, deliberately** — `common/data_utils.py::wald_logreg_coef_cis`,
+at the top of its docstring. Diana added three there (Anderson's econ-104 chapter, Miratrix's
+`cluster_demo`, the economictheoryblog post); Claude added four academic references lower down
+(Cameron & Miller 2015; Zeileis 2006; MacKinnon, Nielsen & Webb 2023; Freedman 2006).
+**Do not tidy either set away** — they live next to the formula on purpose, because that is
+where someone puzzling over it will be.
+
+**What is worth being able to answer afterwards**, since that is the actual point:
+
+- why the sandwich has the form `H⁻¹ M H⁻¹`, and which of the two pieces clustering changes
+  (the meat, by summing scores *within* cluster before the outer product);
+- why `rank(meat) <= min(G, k)` makes the clustered Wald unusable on KnowQA at G = 6, k = 13 —
+  the fact that decided T3.3's KnowQA revert;
+- whether Freedman's objection applies here. He argues that if the model is roughly right the
+  ordinary SEs are fine, and if it is badly wrong the *coefficients* are the problem rather
+  than their SEs. That is the most directly relevant of the four to draft2's commented-out
+  significance sentences.
+
+**No number depends on this item.** It changes nothing by itself; it is what makes the two
+items it serves a decision rather than a default.
+
+***
+
 ## T4 · Outputs and artifacts
 
 ### T4.0 — Standing requirement: every analysis persists its numbers, not just its figures ✅ measured · **agenda item**
@@ -1570,9 +1653,33 @@ what decides which outputs are still meaningful. Inventory only:
 
 ***
 
-## T5 · Runs from scratch
+## T5 · Runs from scratch ⏭️ **WHOLE TIER PUSHED to the restructure**
 
 Required by the public release. Currently the repo runs only on Diana's machine.
+
+> **Diana, 2026-09-27: the whole tier waits.** *"All the reruns, tidy callers — it makes more
+> sense to deal with it on a codebase that is in a state I want it."*
+>
+> **This confirms the plan of record rather than deferring against it.** Every one of the
+> eleven items is *already* assigned to a restructure stage in `restructure-map.md` §11 —
+> there is no T5 work the map schedules as standalone:
+>
+> | stage | T5 items landing there |
+> | --- | --- |
+> | **A** — make it a package | T5.1 (`__init__.py`), T5.2 (one import convention), T5.4 (`environment.yml`) |
+> | **B** — `config/` + `lib/` | T5.3 (the hardcoded `"../reports/..."` literals) |
+> | **D** — `modeling/` | T5.11 (the redundant per-regime refits) |
+> | **F** — entry points | T5.6 (build order), T5.10 (the `data_prep_new_exp` collision) |
+> | **G** — data + release | T5.5 (README), T5.7, T5.8, T5.9 (EyeBench cache) |
+>
+> So the practical meaning is: **do not pick a T5 item off individually.** Each one lands with
+> its stage, on the tree that stage produces. Doing T5.1–T5.3 now would mean writing import
+> conventions and path migrations into a layout that Stages A–C are about to replace — the
+> same work twice, and the second time harder because the first version would have to be
+> unpicked.
+>
+> The two ✅ **decided** rows below (T5.7, T5.8) are rulings, not outstanding work; they stand
+> and do not need revisiting when the tier resumes.
 
 | #      | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Effort |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
@@ -1766,7 +1873,7 @@ record of what was asked and answered; the section stays so new questions have a
 | **`val_*`** **regimes** — report or drop?                         | T3.9                           | ✅ 2026-09-05 — **don't drop them**; report them, and stop pooling all six regimes into one average                                               |
 | **`reports/`** **in git**                                         | T4.3                           | ✅ 2026-09-05 — **not now**                                                                                                                       |
 | **`mixed_area_comparisons.py`** — paper code or future direction? | T6, `research-context.md` §3.3 | ✅ 2026-09-05 — **paper code.** Its 108 zero-byte figures move up in T4.2                                                                         |
-| **Which feature sets does figure 2 plot?**                        | T3.2                           | ✅ 2026-09-05 — **checked, not asked**: all six runs in the comparison are hand-specified; no machine-selected set is present. Question withdrawn |
+| **Which feature sets does figure 2 plot?**                        | ~~T3.2~~ (retired)             | ✅ 2026-09-05 — **checked, not asked**: all six runs in the comparison are hand-specified; no machine-selected set is present. Question withdrawn |
 | **Which provenance path backs the numbers?**                      | T3.15                          | ⏸ deferred to the restructure                                                                                                                    |
 | **`paragraph_RT_run_based.csv`**                                  | T5.8                           | ⏸ deferred — T6.1 is the item that will answer it                                                                                                |
 | **`participant_pupils.csv`** **for KnowQA**                       | T3.20                          | ✅ 2026-09-05 — each dataset writes its own                                                                                                       |

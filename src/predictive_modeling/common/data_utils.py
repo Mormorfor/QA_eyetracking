@@ -1,9 +1,11 @@
 # data_utils.py
 
+import warnings
 from typing import Sequence, Tuple, List, Optional, Mapping, Any
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.utils.class_weight import compute_sample_weight
 
 from src import constants as Con
 from src.data_paths import HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR
@@ -239,9 +241,66 @@ def wald_logreg_coef_cis(
 
     include_intercept: bool = False,
     use_pinv: bool = True,
+    cluster: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
     """
-    Wald CIs for sklearn LogisticRegression coefficients.
+    to read on this: https://www.jakemanderson.com/courses/econ_104/chapters/15c-cluster-robust-se
+        lmiratrix.github.io/MLM/cluster_demo.html
+        https://economictheoryblog.com/2016/09/25/clustered-standard-errors/
+        
+
+
+    Wald CIs for sklearn LogisticRegression coefficients, as a sandwich estimator.
+
+    ``cluster`` (e.g. ``participant_id``) gives cluster-robust CR1 intervals;
+    ``None`` treats each row as its own cluster, which is the heteroskedasticity-
+    robust (HC0) limit of the same formula.
+
+    **Rewritten 2026-09-27 (`todo.md` T3.3).** The previous version inverted the
+    plain information matrix ``pinv(X'WX)``, which was wrong three ways: it ignored
+    the L2 penalty although the fit is penalised, it ignored
+    ``class_weight="balanced"``, and it had no notion of clustering at all
+    (``n_clusters`` was hardcoded NaN). All three enter here:
+
+    * **penalty** -- sklearn minimises ``0.5 b'b + C * sum_i s_i * loss_i`` for
+      l2, so the bread is ``H = P + C * X' S W X`` with ``P = diag(0, 1, ..., 1)``
+      (the intercept is not penalised). Dropping ``P`` is what made the old SEs
+      unpenalised-MLE SEs for penalised estimates.
+    * **class weights** ``s_i`` enter both the bread and the score.
+    * **clustering** is the meat: scores are summed *within* cluster before the
+      outer product, so within-participant correlation stops being ignored.
+
+    The penalty is carried in the bread only -- it is not a sum over observations,
+    so it does not decompose per cluster. That is the conventional penalised-
+    M-estimator sandwich, and it is an approximation.
+
+    Validated against the clustered bootstrap on L1's 12-feature model: mean CI
+    width 1.44x Wald-old for both, agreeing to ~2% per feature. Use the bootstrap
+    where cost allows (it refits the real estimator and needs no approximation);
+    this exists because cross-validation cannot afford 5,000 refits per fold.
+
+    **Few clusters:** CR1's ``G/(G-1)`` correction is applied, but it does not
+    rescue very small ``G``. The cluster-robust variance estimator has rank at
+    most ``min(G, k)``, so with ``G <= k`` it is singular and ``pinv`` hides that
+    -- see the warning below. Check ``n_clusters`` in the output; KnowQA has 6
+    against 13 parameters, which is why it uses the bootstrap instead.
+
+    Reading, in the order worth reading it:
+
+    * Cameron & Miller (2015), "A Practitioner's Guide to Cluster-Robust
+      Inference", *J. Human Resources* 50(2):317-372. The standard guide; §2-§3
+      are the bread/meat derivation and the CR1 correction, §VI the few-clusters
+      problem. Free PDF at cameron.econ.ucdavis.edu/research/papers.html
+    * Zeileis (2006), "Object-Oriented Computation of Sandwich Estimators",
+      *J. Statistical Software* 16(9). Where the bread/meat naming used here
+      comes from, and the clearest short statement of the general form.
+    * MacKinnon, Nielsen & Webb (2023), "Cluster-Robust Inference: A Guide to
+      Empirical Practice", *J. Econometrics* 232(2):272-299 (arXiv:2205.03285).
+      Modern; states the ``rank <= min(G, k)`` limit and what few clusters do.
+    * Freedman (2006), "On the so-called Huber sandwich estimator and robust
+      standard errors", *The American Statistician* 60(4):299-302. Four pages
+      arguing the sandwich is often the wrong thing to reach for -- worth reading
+      precisely because it is the counter-case to everything above.
     """
     Xn = np.asarray(X, dtype=float)
     yn = np.asarray(y, dtype=float).reshape(-1)
@@ -249,20 +308,68 @@ def wald_logreg_coef_cis(
     n, p = Xn.shape
 
     p_hat = model.predict_proba(X)[:, 1]
-    w = p_hat * (1.0 - p_hat)
+
+    # Class weights, exactly as the fit used them.
+    if getattr(model, "class_weight", None) is None:
+        sw = np.ones(n, dtype=float)
+    else:
+        sw = compute_sample_weight(model.class_weight, yn)
+
+    w = sw * p_hat * (1.0 - p_hat)
 
     X_design = np.hstack([np.ones((n, 1)), Xn])
+    k = X_design.shape[1]
 
+    # Bread: penalised, weighted Hessian of sklearn's objective.
+    C_inv_scale = float(getattr(model, "C", 1.0))
     Xw = X_design * np.sqrt(w)[:, None]
-    A = Xw.T @ Xw
+    H = C_inv_scale * (Xw.T @ Xw)
+    if getattr(model, "penalty", "l2") == "l2":
+        P = np.eye(k)
+        P[0, 0] = 0.0          # the intercept is not penalised
+        H = H + P
 
     inv = np.linalg.pinv if use_pinv else np.linalg.inv
-    A_inv = inv(A)
+    H_inv = inv(H)
 
     theta = np.concatenate([model.intercept_.reshape(-1), model.coef_.reshape(-1)])
 
-    cov = A_inv
-    n_clusters = np.nan
+    # Meat: per-observation scores, summed within cluster.
+    u = (C_inv_scale * sw * (yn - p_hat))[:, None] * X_design
+
+    if cluster is None:
+        n_clusters = np.nan
+        meat = u.T @ u
+        correction = 1.0
+    else:
+        cl = np.asarray(cluster).reshape(-1)
+        uniq = pd.unique(cl)
+        n_clusters = int(len(uniq))
+        sums = np.vstack([u[cl == c].sum(axis=0) for c in uniq])
+        meat = sums.T @ sums
+        # CR1 small-sample correction.
+        correction = (n_clusters / max(n_clusters - 1, 1)) * ((n - 1) / max(n - k, 1))
+
+        # The meat is a sum of G outer products, so its rank is at most G. With
+        # G <= k it cannot support k parameters: pinv absorbs the deficiency
+        # silently and returns intervals that look ordinary and are not -- on
+        # KnowQA (G = 6, k = 13) some come out 3x NARROWER than the clustered
+        # bootstrap. Warn rather than raise: the setting is deliberate for now
+        # (Diana, 2026-09-27), but it must not be invisible. See todo.md T3.3.
+        if n_clusters <= k:
+            warnings.warn(
+                f"Cluster-robust Wald CIs with {n_clusters} clusters for {k} "
+                f"parameters: the meat matrix has rank <= {n_clusters} and cannot "
+                f"support {k} parameters, so these intervals are not "
+                f"trustworthy -- some will be far too narrow. Cluster-robust "
+                f"inference needs more clusters than parameters (and in practice "
+                f"well over ~30). Prefer ci_method='bootstrap', or do not report "
+                f"coefficient significance at this n.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    cov = correction * (H_inv @ meat @ H_inv)
 
     z = norm.ppf(1 - (1 - float(ci)) / 2)
     se = np.sqrt(np.clip(np.diag(cov), 0, np.inf))

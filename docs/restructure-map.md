@@ -669,9 +669,9 @@ deliberately change a known number.
 | **0** | **Quick wins, no restructuring.** Cheap, independent, high value. | **yes** (T3.1) | T3.1, T1.1, T1.4, verify T2.4 |
 | **A** | **Make it a package.** `pyproject.toml`, `__init__.py` throughout, one import convention, delete the `sys.path` hacks (including the one inside `data_paths.py:6`), `environment.yml`. **Nothing moves.** | no | T5.1, T5.2, T5.4 |
 | **B** | **`config/` + `lib/`.** Lift generic primitives; kill the two duplicate `wilson_ci`s and the two extra save paths; split `viz_helpers.py`; build the dataset registry; fix the six stale constants; migrate the ~40 hardcoded `"../reports/..."` literals. | no | T1.5, T5.3, part of T3.20 |
-| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | **yes** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5, T1.8 |
+| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | **yes** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5 |
 | **D** | **`modeling/`.** Extract CV, evaluation, model wrappers and inference. Clustered bootstrap CIs become reachable and default. | **yes** | T3.3, T3.9, T3.10, T5.11, T2.4 |
-| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.2, T3.18, T3.19 |
+| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.18, T3.19 |
 | **F** | **Entry points.** `scripts/`, thin notebooks, notebook-only logic lifted into the package. | no | T5.6, T5.10 |
 | **G** | **Data + release.** The `data/` moves (individually approved), README, run-from-scratch verification. | no | T5.5, T5.7, T5.8, T5.9, §8 |
 

@@ -379,9 +379,11 @@ least visible.
 7. **Trials with no recorded selection are scored `is_correct = 0`**, not excluded.
    → **`todo.md` T3.5**
 
-8. **`add_base_features` leaves a spurious `index` column** on the L1 path (double
-   `reset_index`) but not on the KnowQA path, so the two datasets' `all_participants.csv`
-   differ by one column. → **`todo.md` T1.8**
+8. **`add_base_features` leaves a spurious `index` column** — a double `reset_index`, so the
+   saved table starts with row numbers under that name. It used to be an L1-only quirk; as of
+   2026-09-27 **all four datasets carry it**, so the schemas agree rather than differing.
+   The column is inert: row numbers, never reaches the trial-level model table, nothing reads
+   it. → **no action** (was `todo.md` T1.8, removed 2026-09-27)
 
 9. `data/L1_based_data/all_participants_with_practice.csv` (~3.9 GB) and
    `Auxiliary/paragraph_RT_run_based.csv` are not registered in `data_paths.py`. The first is

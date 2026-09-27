@@ -443,7 +443,7 @@ Diana's own `\todo`s and placeholders, recorded here because most are code work.
 | Clockwise / counter-clockwise prevalence | **Already established** — `findings.md` §1.1. CW 71/89, CCW 20/14 (hunters/gatherers). No classifier needed; naming the tuples in the figure would help the reader. |
 | "interrupted scan completion for scan-passes shorter than four items" | **Exists** — the prefix-completion pair in `viz/visualisations_strategies.py`. Changes the result by ~2 points and flips 1.1% of participants, so the finding is robust to it (worth saying). |
 | `x%` — correct responses in the no-knowledge regime | From Study 2; needs enough participants to be meaningful. |
-| "why these 10 attention features and not another. Should I run a brute force try CV on each combination?" | **Not a code task — the answer is already the truth of what happened.** The ten features in `SELECT_1_COLS` were **picked by hand**, on domain grounds: few, and covering the four behaviours the design targets. They are not the output of the selection machinery, so there is no search to defend and no leakage to correct. Draft2 already says the substance in a comment ("we just tried to keep it small and cover the whole space of the idea") — it needs to move into the text. Any future reselection will also be manual. (`todo.md` T3.2) |
+| "why these 10 attention features and not another. Should I run a brute force try CV on each combination?" | **Not a code task — the answer is already the truth of what happened.** The ten features in `SELECT_1_COLS` were **picked by hand**, on domain grounds: few, and covering the four behaviours the design targets. They are not the output of the selection machinery, so there is no search to defend and no leakage to correct. Draft2 already says the substance in a comment ("we just tried to keep it small and cover the whole space of the idea") — it needs to move into the text. Any future reselection will also be manual. (Was `todo.md` T3.2; **removed 2026-09-27** — justifying the model is the paper's job, not the code's.) |
 | "'significance' / CIs are calculated very differently here" (now commented out) | The Wald coefficient CIs ignore the L2 penalty, the class weights, and clustering by participant. A participant-clustered bootstrap is already implemented in `common/data_utils.py` but never called. |
 | "some robustness checks? VIF analysis?" | VIF machinery exists in `common/`. |
 | "need to explain answer building logic" | Not code — but §3.6's findings depend on it. |
@@ -524,4 +524,4 @@ Attention allocation subsection, and its output folder is one of the zero-byte o
   keeps averaging B, C and D. Considered and set aside (§2).
 - **`SELECT_1_COLS` is a manual pick**, not an output of the selection machinery, so the
   CV estimate carries no selection-leakage caveat. Future reselection will also be manual
-  (§5, `todo.md` T3.2).
+  (§5; the corresponding todo item was removed 2026-09-27 as paper work).

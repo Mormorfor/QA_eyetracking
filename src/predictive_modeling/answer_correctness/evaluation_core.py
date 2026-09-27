@@ -161,8 +161,8 @@ def collect_logreg_coef_summaries(
     *,
     target_col: str = Con.IS_CORRECT_COLUMN,
     model_builder=None,
-    ci_method: str = "wald",
-    ci_cluster: str = "row",
+    ci_method: str = "bootstrap",
+    ci_cluster: str = "cluster",
     ci: float = 0.95,
 ) -> Dict[str, pd.DataFrame]:
     """
@@ -173,6 +173,29 @@ def collect_logreg_coef_summaries(
     per-fold coefficient tables once reloaded from disk, so coefficients are
     obtained from a single full-data fit per model. Feature sets that are empty
     (e.g. a dummy baseline) map to an empty DataFrame.
+
+    **Defaults are the participant-clustered bootstrap, not Wald** (`todo.md` T3.3,
+    changed 2026-09-27). This is the function the paper's coefficient figures come
+    from, and `wald_logreg_coef_cis` is wrong three ways for this model: it inverts
+    the unpenalised information matrix although the fit is L2-penalised, it ignores
+    `class_weight="balanced"`, and it ignores clustering by participant. The
+    bootstrap refits the *actual* estimator on each resample, so all three go away
+    at once.
+
+    Measured on L1's 12-feature headline model (2026-09-27): clustered-bootstrap
+    intervals are **1.45x wider** than Wald on average, and **all 12 coefficients
+    stay significant** -- so this corrects the intervals without moving a
+    conclusion. Most of that widening is the penalty and the class weights, not the
+    clustering: a *row* bootstrap already gives 1.35x.
+
+    Note `ci_cluster="cluster"` has to be said explicitly -- `get_coef_summary`'s
+    own `"auto"` falls through to the row bootstrap, which is not what the name
+    suggests.
+
+    Cost: ~70 s per feature set on L1 at the default 5,000 resamples. Cross-
+    validation still defaults to Wald (`cross_validation.py`), because it would
+    otherwise bootstrap inside every fold; its coefficients are not what the paper
+    reports.
 
     Returns
     -------
