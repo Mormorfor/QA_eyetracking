@@ -64,7 +64,9 @@ this specific codebase.
 
 | File                       | Contents                                                                                                       |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `docs/todo.md`             | the working list, tiered small → large, plus a "verify before trusting" section                                |
+| `docs/todo.md`             | the working list, tiered small → large, plus a "verify before trusting" section. `docs/todo-quick.md` is its one-line-per-item index |
+| `docs/done_before_restructure.md` | ✅ **start here for history.** Plain-language account of everything fixed 2026-09-20 → 10-06, grouped by what kind of problem it was. Re-verified against the code 2026-10-06 |
+| `docs/todo_after_restructure.md`  | everything still open and why it is waiting — by stage, by Diana's manual check, or hers rather than Claude's. **One item needs a ruling**, flagged at the top |
 | `docs/restructure-map.md`  | ✅ **AGREED 2026-09-05** — the target structure top to bottom, where every current file goes, and the staged order. **Read before touching layout, and follow it.** Still revisable, but it is the plan of record, not a suggestion. |
 | `docs/findings.md`         | ⚠️ **UNVERIFIED** — a map of what results exist and where they came from, assembled by Claude from saved figures and stdout. **Not checked by Diana; do not quote from it.** Useful before recomputing anything, so you know what a figure folder holds. To be regenerated properly after the restructure. |
 | `docs/research-context.md` | the science: both studies, what's claimed, paper-section → code map                                            |

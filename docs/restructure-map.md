@@ -5,9 +5,50 @@ answered; Diana signed it off as "tested and agreed upon for now". It stays **re
 expect implementation to argue back, particularly at the three friction points named in §13 —
 but a change to it is a decision to record here, not a preference to act on silently.
 
-**Nothing has been moved yet.** Agreeing the map is not permission to execute it. Stages run in
+**No file has been moved yet.** Agreeing the map is not permission to execute it. Stages run in
 the order set out in §11, and each one is proposed before it starts, per the hard rules in
 `CLAUDE.md`.
+
+---
+
+## Read this before starting — what the plan no longer has to do
+
+*Updated 2026-10-06. The map was written on 2026-09-05; a month of fixes happened before the
+restructure began, and several of them did the plan's work early. Re-verified against the code
+on 2026-10-06.*
+
+**The headline: the stages that were supposed to move numbers no longer do.** §11 calls C and
+D the dangerous ones *because results change there*. All of that work has already landed as
+standalone fixes, each with a `findings.md` change-log entry. **What remains in every
+remaining stage is file movement**, so "every number identical" — the check §11 claims only
+for stage B — now applies throughout. That is a materially easier job than the one described
+below.
+
+| Already true, so the plan can skip it | Where the map still describes it as a problem |
+|---|---|
+| **One save path.** `save_plot_and_report` and `maybe_save_plot` are gone; `save_output` is the only writer, and it *requires* the numbers behind each figure | §1.2's three-paths table |
+| **One `wilson_ci`.** All nested copies deleted | §1.2 |
+| **One starting-strategy implementation**, one threshold operator (`≥`) | §1.1's worked example, §6.2 |
+| **One per-area metric implementation** — `derived/area_metrics.py` already holds the shared formulas | §6.1's `features/area_metrics.py` row |
+| **Paragraph prep already split out** — `derived/paragraph_prep.py` exists; the QA pipeline opens no paragraph report | §6.1, §6.5, T6.1 |
+| **`reports/` already inverted** to `<analysis>/{figures,tables}/` | §9 (marked implemented) |
+| **No hardcoded `"../reports/…"` literals** anywhere in code or notebooks | §11 stage B's T5.3 |
+| **Join assertions exist** — `src/checks.py::assert_full_coverage`, 13 call sites | §11 stage C |
+| **Scope is an explicit argument** on participant-level aggregates | §11 stage C's T3.21 |
+
+**What is genuinely untouched**, and therefore what stages A → G still have to do:
+
+- **A** — no `pyproject.toml`, no `environment.yml`, 4 `__init__.py` (all vendored or in one
+  package), **20 lines** still using the bare-import convention.
+- **B** — the `config/` + `lib/` lift itself, and the dataset registry. Nine stale constants,
+  not six (§1.4) — and **`COL_SAVE_PATH` is the one that blocks work**, because the
+  cross-validation cannot be re-run until those five feature-set JSONs have a home.
+- **C, D, E, F, G** — the moves, exactly as written, minus the integrity work above.
+
+**One new file the map does not mention:** `knowledge_regimes_analysis/descriptives.py` is now
+**the largest module in the repo at 81 KB** — bigger than anything in §1.3's table. It is
+Study 2 work that grew after the map was written and has no row in §5. It wants the same
+treatment as the other oversized modules; where it lands is a stage-E question.
 
 Written 2026-09-05 against Diana's four answers:
 
@@ -32,36 +73,54 @@ threshold figure show?") is spread across `viz/visualisations_strategies.py` and
 implementations of the same starting-strategy concept** and **two different threshold
 operators** (T1.1, T1.6). Distance between related code is what let them drift.
 
-**1.2 — There is no layer for generic machinery, so generic things get copied.** Concretely,
-today there are **three separate plot-saving paths**:
+> ✅ **That particular drift was repaired 2026-09-20** — there is now one implementation and one
+> operator. A **third** copy turned up during the merge, in `visualisations_dominant_eye.py`,
+> with an unstable tie-break that moved one participant: three copies of a concept nobody
+> intended to write even twice.
+>
+> **The fault itself is untouched.** `src/viz/` still holds **14 modules named after plots**,
+> still separated from the analyses that compute their numbers. The repair was manual and
+> does not prevent the next drift — which is the whole argument for stage E.
 
-| path | where |
-|---|---|
-| `save_plot` / `save_fig` / `save_df_csv` | `viz/plot_output.py` |
-| `save_plot_and_report` | `viz/viz_helpers.py:149` |
-| `maybe_save_plot` | `predictive_modeling/common/viz_utils.py:12` |
+**1.2 — There is no layer for generic machinery, so generic things get copied.**
+✅ **The symptoms are fixed (2026-09-20/27); the missing layer is not.**
 
-and **two `wilson_ci`s** (`derived/correctness_measures.py:52`, and a nested `_wilson_ci` at
-`viz/visualisations_correctness_measures.py:608` — *in a file that already imports the real
-one*). Diana's own example — "wilcoxon CIs could maybe go to some general util folder" — is
-the correct instinct: there is no such folder, so the primitives live wherever they were first
-needed and get re-written when needed again.
+There used to be **three separate plot-saving paths** (`save_plot`/`save_fig`/`save_df_csv` in
+`viz/plot_output.py`, `save_plot_and_report` in `viz/viz_helpers.py`, `maybe_save_plot` in
+`predictive_modeling/common/viz_utils.py`) and **two `wilson_ci`s** — plus, found later, three
+*nested* copies of `_wilson_ci` inside a single file that already imported the real one.
 
-**1.3 — Some files carry several unrelated jobs.** The five largest are all mixed-purpose:
+Today there is **one** writer (`save_output`) and **one** `wilson_ci`. Verified 2026-10-06.
 
-| file | size | jobs it currently holds |
+**But the underlying fault is unchanged, and it is the reason for stage B:** there is still no
+`lib/` for generic primitives, so the next shared helper has nowhere to live and will be
+written twice again. Diana's own example — "wilcoxon CIs could maybe go to some general util
+folder" — is the correct instinct; the folder still does not exist. The duplicates were
+removed one at a time, which does not stop the next one.
+
+**1.3 — Some files carry several unrelated jobs.** ⚠️ **Table re-measured 2026-10-06 — the
+ranking changed, and it got worse, not better.**
+
+| file | size (was) | jobs it currently holds |
 |---|---|---|
-| `data_prep/data_csv_generation.py` | 56 KB | report loading · area metrics · sequences · pupil columns · RT orchestration · the pipeline `main()` |
+| **`knowledge_regimes_analysis/descriptives.py`** | **81 KB** *(new)* | **Not in the 2026-09-05 table at all** — Study 2 descriptive work that grew after the map was written. Now the **largest module in the repo**, and §5 has no row for it |
+| `data_prep/data_csv_generation.py` | **66 KB** (was 56) | report loading · base features · the `create_*` metric wrappers · sequences · pupil columns · the pipeline `main()`. **Grew** — T3.18's screen-geometry labelling and T3.17's assertions landed in it |
 | `answer_correctness/answer_correctness_viz.py` | 55 KB | every figure family for the model, in one module |
-| `data_prep/know_qa_dataprep.py` | 48 KB | KnowQA reading · trial-id construction · text alignment · session handling · its own pipeline |
-| `answer_correctness/cross_validation.py` | 39 KB | generic CV machinery **and** answer-correctness specifics **and** CV result plots |
-| `viz/visualisations_correctness_measures.py` | 36 KB | figures · a duplicated statistic · summary tables |
+| `data_prep/know_qa_dataprep.py` | **52 KB** (was 48) | KnowQA reading · trial-id construction · text alignment · session handling · its own pipeline |
+| `answer_correctness/cross_validation.py` | **48 KB** (was 39) | generic CV machinery **and** answer-correctness specifics **and** CV result plots. **Grew** — T3.9 and T3.10's regime and weighting work |
+| `viz/visualisations_correctness_measures.py` | **33 KB** (was 36) | figures · summary tables. The duplicated statistic is gone |
 
-`viz/viz_helpers.py` is the same fault in miniature and is the clearest illustration: in 150
-lines it holds `split_participant_groups` (domain — hunters/gatherers), `p_to_stars`
-(generic), `add_wilson_errorbars_and_ns` and `add_significance_bracket` (generic plotting),
-`ensure_dir` (generic io) and `save_plot_and_report` (a duplicate save path). Four different
-layers in one file.
+> **The point this makes is stronger than it was.** Three of these files grew while the cleanup
+> was happening, because correctness fixes had nowhere to go *except* the big file they were
+> fixing. That is the fault describing itself: without the layers, every improvement lands in
+> whichever module already does everything.
+
+`viz/viz_helpers.py` is the same fault in miniature — though it is now **165 lines holding six
+functions across three layers**, not four: `split_participant_groups` (domain —
+hunters/gatherers), `p_to_stars` (generic stats), `add_wilson_errorbars_and_ns`,
+`add_significance_bracket` and `barplot_accuracy` (generic plotting), plus `correctness_tables`
+(domain). ✅ `ensure_dir` and `save_plot_and_report` have gone, so the io layer and the
+duplicate save path are out of it — §5.2's split table is two rows shorter than it was.
 
 **1.4 — Everything dataset-shaped is hand-repeated per dataset.** `data_paths.py` is ~90 flat
 module-level constants in which the same five concepts appear four times under four different
@@ -275,6 +334,9 @@ honest — `explorations/` ships, clearly labelled as not backing the paper.
 |---|---|
 | `src/constants.py` | `config/columns.py` |
 | `src/data_paths.py` | `config/datasets.py` + `config/outputs.py` (split — §7) |
+| **`src/checks.py`** *(new, T3.17)* | `lib/checks.py` — it is already exactly what §3 planned to create: `assert_full_coverage`, 13 call sites |
+| **`derived/area_metrics.py`** *(new, T1.7)* | `features/area_metrics.py` — **already the single shared implementation** §6.1 asks for; this row is a rename, not a merge |
+| **`derived/paragraph_prep.py`** *(new, T6.1)* | `features/paragraph/` — paragraph IA prep, span metrics and RT/TFD, already separated from both the QA pipeline and `answer_RTs/` |
 | `derived/pupil_norm.py` | `features/pupil.py` |
 | `derived/reading_times.py` | `features/reading_times.py` |
 | `derived/select_confirm_last.py` | `features/last_visited.py` |
@@ -321,8 +383,9 @@ Two of those deserve a note:
 | `add_wilson_errorbars_and_ns` | `lib/plotting/annotate.py` | generic |
 | `add_significance_bracket` | `lib/plotting/annotate.py` | generic |
 | `barplot_accuracy` | `lib/plotting/annotate.py` | generic |
-| `ensure_dir` | `lib/io.py` | generic |
-| `save_plot_and_report` | **deleted** | duplicate save path |
+| ~~`ensure_dir`~~ | ~~`lib/io.py`~~ | ✅ **already gone** (2026-09-27) — had zero callers |
+| ~~`save_plot_and_report`~~ | ~~deleted~~ | ✅ **already deleted** (2026-09-20) with the save-path consolidation |
+| `correctness_tables` *(not in the original table)* | `analyses/correctness_associations/` | domain — builds the correctness summary tables |
 | `split_participant_groups` | `features/scope.py` | domain — knows about hunters/gatherers |
 
 The last row matters: `split_participant_groups` is the function whose `include_all=False`
@@ -358,16 +421,24 @@ if it is over RT, it belongs here. That is the test.
 
 ## 6. Files that get split, and how
 
-### 6.1 `data_csv_generation.py` (56 KB) → six modules
+### 6.1 `data_csv_generation.py` (**66 KB**, was 56) → six modules
 
-| new home | what moves |
-|---|---|
-| `ingest/readers.py` | `load_raw_*`, dtype handling, `"."` coercions |
-| `features/area_metrics.py` | every `create_*` per-area metric function |
-| `features/sequences.py` | simplified-sequence construction, visit counts |
-| `features/pupil.py` | the pupil column block, `create_first_encounter_pupil_size` |
-| `features/build.py` | the group-function registry and assembly |
-| `ingest/build.py` | `main()` / `run_pipeline` orchestration |
+**Partly done already.** T1.7 pulled the metric *formulas* out into
+`derived/area_metrics.py` so the answer and paragraph paths share one implementation, and T6.1
+pulled the paragraph work out into `derived/paragraph_prep.py`. What stayed behind is the
+pipeline: 35 functions — 11 `create_*` wrappers that call the shared formulas, 10 `add_*` base
+features, 2 loaders and `main()`. The file **grew anyway**, because T3.18 and T3.17 had
+nowhere else to land.
+
+| new home | what moves | state |
+|---|---|---|
+| `ingest/readers.py` | `load_raw_*`, dtype handling, `"."` coercions | to do |
+| `features/area_metrics.py` | every `create_*` per-area metric function | 🟨 **formulas already extracted** to `derived/area_metrics.py`; the 11 `create_*` wrappers still sit in the big file. This becomes a **move + rename**, not a merge |
+| `features/sequences.py` | simplified-sequence construction, visit counts | to do |
+| `features/pupil.py` | the pupil column block, `create_first_encounter_pupil_size` | to do |
+| `features/build.py` | the group-function registry and assembly | to do |
+| `ingest/build.py` | `main()` / `run_pipeline` orchestration | to do |
+| `features/paragraph/` | paragraph IA prep, span metrics, paragraph RT/TFD | ✅ **done** — `derived/paragraph_prep.py` (T6.1). The QA pipeline opens no paragraph report at all now |
 
 This split is also the fix for **T3.11**: the five in-place mutating functions create an
 undocumented ordering dependency (`create_first_encounter_pupil_size` only works because
@@ -425,15 +496,24 @@ loudly.
 > wrappers still mutate the caller's frame to preserve `all_participants.csv`'s schema. T3.11
 > is what finishes that.
 
-### 6.2 The two starting-strategy implementations → one
+### 6.2 The two starting-strategy implementations → one — ✅ **DONE 2026-09-20/25**
 
-`viz/visualisations_strategies.py::build_strategy_dataframe` (descriptive, with prefix
-completion) and `derived/pattern_breaking.py::build_starting_strategies` (model features, no
-completion) become one function in `features/strategies.py` with `window_len`,
-`drop_question`, `complete: bool` and `scope`. **T1.6**, and the reason it must wait for
-**T3.21**: the scope flag lives in exactly this function.
+This split no longer has to happen; only the **move** does.
 
-### 6.3 `cross_validation.py` (39 KB) → `modeling/{folds,crossval,evaluate}.py`
+`viz/visualisations_strategies.py::build_strategy_dataframe` is gone. There is one
+implementation, in `derived/pattern_breaking.py`, and `viz/` only plots:
+`build_starting_strategies`, `dominant_strategy_by_participant`, `has_dominant_strategy` (`≥`,
+the only operator left) and `build_prefix_completion_map` / `add_completed_strategy_column`.
+The scope parameters landed with **T3.21** (`scope_df`, `scope_by`), which is what the old
+wording meant by "the scope flag lives in exactly this function".
+
+**Stage C's job here is one rename:** `derived/pattern_breaking.py` →
+`features/strategies.py`. Two things found while merging are worth not re-learning: a
+**third** copy existed in `visualisations_dominant_eye.py` with an order-dependent tie-break,
+and the tie-breaking between the original two never actually diverged — the map's earlier
+claim that it did was wrong.
+
+### 6.3 `cross_validation.py` (**48 KB**, was 39) → `modeling/{folds,crossval,evaluate}.py`
 
 with the CV-result figures moving out to `analyses/correctness_prediction/plots/`. The generic
 half is what other analyses will reuse.
