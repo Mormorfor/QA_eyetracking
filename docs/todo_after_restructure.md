@@ -34,9 +34,8 @@ relevant files, and in several cases doing it earlier would mean doing it twice.
 
 | Stage | Item | What it is |
 |---|---|---|
-| **A** — make it a package | **T5.1** | There are no `__init__.py` files in `src/` (only 4, all vendored or in one package). Verified still absent |
-| **A** | **T5.2** | Two import conventions coexist — **20 lines** still use the bare form. They only work because notebooks push two paths onto `sys.path` |
-| **A** | **T5.4** | No `environment.yml` and no `pyproject.toml`. Verified: neither exists |
+| **A** — make it a package | ~~T5.1~~ ~~T5.2~~ ~~T5.4~~ | ✅ **Done 2026-10-06**, minus packaging — 22 `__init__.py`, one import convention (21 lines converted), `environment.yml` pinned. Verified by re-running an analysis: **45/45 tables byte-identical**. See `done_before_restructure.md` |
+| **A** | **`pyproject.toml`** | ⏸ **Deferred by decision** (Diana, 2026-10-06 — *"don't want to make it pip installable quite yet"*). Until it lands, the repo reaches its code through `PYTHONPATH` rather than an install, so the `sys.path` lines in `data_paths.py` and five notebooks stay. **The rule that replaces them for now:** the repo root is the only thing on the import path, never `src/` — see `pitfalls.md` §6 |
 | **B** — `config/` + `lib/` | **stale paths** | **Nine** constants in `data_paths.py` point at files or folders that aren't there. Six are old drift; three (`COL_SAVE_PATH`, `CROSS_VALIDATION_RUNS_DIR`, `PER_PERSON_LOO_RESULTS_DIR`) are live destinations orphaned when outputs moved. **`COL_SAVE_PATH` is the one that blocks things** — see §4 |
 | **C** — `ingest/` + `features/` | **T3.24** | The data-prep functions depend on running in a particular order, and that order is held by convention rather than declared. Better fixed when those functions are being moved anyway |
 | **D** — `modeling/` | **T5.11** | The cross-validation refits the same model six times per fold — 60 wasted fits per run. Pure speed, no correctness effect |

@@ -250,6 +250,18 @@ by one word. ✅ **The defect is real, and no longer reaches the areas** (`todo.
 resolved 2026-09-07): words are now assigned to areas by their on-screen rectangle
 (`IA_TOP` / `IA_LEFT`), so the stored text cannot move a boundary.
 
+### Which sequence each family reads
+
+| family | sequence | why |
+|---|---|---|
+| XYX / XYXY / `longest_alternating_answer_run` / `seq_len` | **label** (`simpl_fix_by_label`) | the question is which *answers* were flipped between |
+| starting strategy, dominance, first-visit matrices | **location** (`simpl_fix_by_loc`) | the question is the *scan geometry* — clockwise vs counter-clockwise |
+
+The first row changed from location to label on 2026-10-06 and **no number moved**: within a
+trial the two are a bijection, so the collapsed sequences are identical up to renaming. Verified
+on all 19,436 L1 trials, twice. The second row is **not** interchangeable — rendering a scan
+path by answer letter would destroy the clockwise finding.
+
 ### Hesitation patterns
 
 - **XYX** — the collapsed sequence ends in a back-and-forth between two options (`[A, B, A]`)

@@ -208,7 +208,7 @@ Fixes that move numbers are collected in `todo.md` T3.
 ## Saving figures and numbers — one path, and the numbers are not optional
 
 Established 2026-09-20 (`todo.md` T1.3). **Everything written under `reports/` goes through
-`viz/plot_output.py::save_output`, and nothing else writes there.** A new plotting function
+`lib/plotting/output.py::save_output`, and nothing else writes there.** A new plotting function
 that calls `fig.savefig` directly is a bug, not a shortcut.
 
 ```python
@@ -275,7 +275,7 @@ This is what makes T4.0's "`findings.md` regenerates from saved CSVs" realistic:
 one long table, rather than a glob over several hundred.
 
 Overleaf mirroring is a single switch (`to_paper`, gated by `PAPER_MIRROR_ENABLED`) and is
-currently **off** — see `pitfalls.md` §7.
+currently **off** — see `pitfalls.md` §8.
 
 ---
 
@@ -292,7 +292,7 @@ The repo will be **public, alongside the paper**. That means:
 ## Keep, don't delete
 
 Abandoned analyses stay in the repo as **future directions**, organized and labelled rather
-than removed. `answer_loc/`, `clusters/`, the older `statistics/mixed_*.py` strands and the
+than removed. `answer_loc/`, `clusters/`, the older `stats/mixed_*.py` strands and the
 Julia/R model backends are all in this category. If something genuinely has to go, it goes to
 `archive/` and gets a line in `docs/status.md` saying why.
 

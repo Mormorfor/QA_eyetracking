@@ -35,8 +35,9 @@ writing or changing any analysis code.
 
 1. **No git operations.** No commits, no branches, no staging. Describe changes; Diana commits.
 2. **No direct edits under** **`papers/`.** It is an Overleaf-synced repo with its own `.git`.
-   The automatic figure mirroring done by `viz/plot_output.py::save_plot(paper_dirs=[...])`
-   is an established mechanism and stays.
+   The automatic figure mirroring done by `lib/plotting/output.py::save_output(to_paper=True)`
+   is an established mechanism and stays. It is currently **switched off**
+   (`PAPER_MIRROR_ENABLED = False`) -- see `pitfalls.md` section 8.
 3. **Never hand-edit data files** in `data/` or `data_raw/`. Writing outputs through code
    we've agreed on is fine; opening a CSV and changing values is not.
 4. **Discuss before moving any data file.** Moving them is allowed; doing it without
@@ -83,31 +84,37 @@ them. Recorded so nobody goes looking:
 * **live / parked / future-directions** — `restructure-map.md` §3, where the split is
   structural (`analyses/` vs `explorations/`) rather than a list, plus `research-context.md` §7.
 
-## Current layout
+## Layout
 
-⚠️ **This is about to change** — an aggressive-but-staged restructure is planned
-(`docs/todo.md` T6). Treat this as a description of today, not a target.
+The restructure is **done** — stages 0 through G, finished 2026-10-07. `docs/restructure-map.md`
+is the record of what the shape is and why; `README.md` is the reader-facing version.
 
 ```
 src/
-  constants.py        column-name constants; the vocabulary
-  data_paths.py       the single registry of dataset locations
-  data_prep/          raw reports → IA-level all_participants.csv
-  derived/            feature definitions (RT, pupil, sequences, strategies)
-  predictive_modeling/
-    answer_correctness/   the paper's core model
-    answer_RTs/           answer reading-time regression
-    answer_loc/           [future directions — currently does not import]
-    common/               splits, coefficient CIs, feature selection
-  statistics/
-    RT_correlations/    text ↔ QA relationship — CURRENT
-    mixed_*.py          older strands [future directions]
-  viz/                plotting; plot_output.py is the single write path
-  external/EyeBench/  vendored lab code — replace wholesale, don't patch
-notebooks/            analysis drivers
-experiment_builder/   Study 2 design generation and data prep
-data_raw/ data/       inputs and processed outputs
-reports/              plots/ and report_data/ — generated outputs
-papers/               Overleaf-synced; read-only for Claude
-archive/              superseded work, kept deliberately
+  config/       vocabulary and locations — column names, the dataset registry, output roots
+  lib/          generic: stats, plotting, the single save path. Imports nothing above itself
+  ingest/       raw vendor reports -> tidy interest-area tables
+  features/     interest-area tables -> trial-level features
+  modeling/     cross-validation, metrics, model wrappers, coefficient inference
+  analyses/     paper code. One folder per question: compute · stats · plots
+  explorations/ kept and organised, explicitly NOT backing the paper
+  experiment/   how the Study 2 materials and design were generated
+  vendor/       third-party code, kept as received — replace wholesale, do not patch
+scripts/        build_dataset.py · run_analysis.py · make_paper_figures.py
+notebooks/      drivers/ · builders/ · exploration/ · experiment/ (each has a README)
+data/           datasets/{l1_onestop,knowqa,pilots/*}/{interim,features}/ · cv_folds/ · stimuli/
+reports/        <analysis>/{figures,tables}/ — mirrors analyses/
+papers/         Overleaf-synced; read-only from here
+archive/        superseded work, kept deliberately
 ```
+
+**Two rules the layout exists to enforce:**
+
+1. **Imports only point downwards** — `lib` → `config` → `ingest` → `features` → `modeling` →
+   `analyses`. Nothing imports `analyses`, and `lib` imports nothing from the project. There is
+   one documented exception, noted where it lives (`analyses/correctness_prediction/run.py`).
+2. **`analyses/` is paper code, `explorations/` is not**, and the path says which.
+
+**Entry points.** `python scripts/run_analysis.py --list` says what can be run without Jupyter.
+Everything under `reports/` is written by one function, `lib/plotting/output.py::save_output`,
+whose `tables=` argument is required — a figure cannot be saved without its numbers.

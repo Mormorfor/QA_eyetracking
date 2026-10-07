@@ -353,7 +353,94 @@ and would otherwise be inferred as int, breaking merges.
 
 ---
 
-## 6. The vendored EyeBench code is meant to be replaced wholesale
+## 6. A package named after a standard-library module will shadow it
+
+✅ **Fixed 2026-10-06 by renaming `src/statistics/` → `src/stats/`.** Kept because the mechanism
+is not obvious, costs a long debugging session when it bites, and the next person to add a
+folder gets to avoid it.
+
+`statistics` is a standard-library module name. A folder of ours with that name is harmless
+while `src/` is *off* the import path, and a live bug the moment it is on.
+
+**What happened (2026-10-06, found while adding `__init__.py` files).** The project used to put
+**two** entries on the path — the repo root *and* `src/` — because two import conventions
+coexisted (`from src.predictive_modeling…` and the bare `from predictive_modeling…`). With
+`src/` on the path, adding `src/statistics/__init__.py` turned that folder into a regular
+package, which **outranks the standard library**, and seaborn's
+`from statistics import NormalDist` resolved to our package instead. Twenty-one modules stopped
+importing.
+
+**Why it was dormant before.** Without an `__init__.py` the folder was a *namespace* package,
+and namespace packages are the lowest-precedence thing the import system will match — Python
+found the real `statistics.py` first. So the collision existed the whole time and was hidden by
+the absence of a file.
+
+> **The rule: the repo root is the only thing that belongs on the import path.** Everything is
+> reached as `src.…`. Adding `src/` back — in `.env`, in a notebook cell, in a `conftest.py`,
+> or via a `sys.path.insert` — silently re-arms this, and the failure surfaces in an unrelated
+> third-party library rather than anywhere near the cause.
+
+**How it was actually fixed, in two steps.** First the import convention was unified so `src/`
+came off the path at all (`todo.md` T5.2), which defused it. Then the folder was renamed
+`src/statistics/` → **`src/stats/`** (Diana, 2026-10-06: *"I am fully in favor of renaming our
+folders / files to avoid name conflicts"*), which removes it. Belt and braces, deliberately —
+the rename means the rule above can be broken without this particular bug coming back.
+
+**It was the only one.** Every directory and module name under `src/` was checked against the
+standard library and against every installed third-party top-level name: `statistics` was the
+single collision, and after the rename there are none. *(An earlier version of this entry said
+`src/external/` was "a second instance waiting to happen". That was wrong — `external` is not a
+standard-library name. Corrected 2026-10-06.)*
+
+Worth re-running that check when a new top-level folder is added, which the restructure will do
+several times — `analyses`, `modeling`, `features`, `ingest`, `lib`, `config` are all clear
+today.
+
+---
+
+## 6b. A Windows console cannot print half of what this project prints
+
+✅ **Fixed 2026-10-07 in `src/__init__.py`.** Recorded because the failure mode is maximally
+annoying and the fix is easy to undo by accident.
+
+Windows consoles default to **cp1252**, and the project prints characters it cannot encode:
+
+| character | where |
+|---|---|
+| `✓` | the "Done" line at the end of `ingest/build.py::main` |
+| `…` | the "Saving splits by column…" line |
+| `≤` `≥` | threshold group labels — `correctness_measures.py`, `strategies.py`, `stats/`, three `viz/` modules |
+| `→` `★` `↑↓` `β` `±` `−` | sequence joins, significance markers, heatmap annotations, plot titles |
+
+23 lines across 12 modules.
+
+**What it cost, 2026-10-07.** A full L1 rebuild ran for about an hour, wrote
+`all_participants.csv`, `hunters.csv`, `gatherers.csv` and every auxiliary table — and then died
+on its **final line**, `print("
+✓ Done.
+")`, with a `UnicodeEncodeError`. Nothing was lost,
+but nothing said so either: the traceback looks like the run failed.
+
+**Why the fix is an encoding setting and not a character strip.** Stripping the characters would
+have been a *data* change. Several of them are category labels that reach saved tables and figure
+legends — `≤ 4` versus `> 4` is the group label for the entire correctness-threshold family, in
+`reports/correctness_associations/tables/` and in every one of those figures. Renaming it to
+`<= 4` would silently invalidate comparisons against previously saved output. So `src/__init__.py`
+reconfigures `sys.stdout` / `sys.stderr` to UTF-8 with `errors="replace"`, which touches the
+console only; pandas writes files with its own encoding and is unaffected (verified: a `≤` label
+round-trips through `to_csv`/`read_csv` unchanged).
+
+> **Do not "clean this up" by deleting the reconfigure block.** It looks like defensive clutter
+> and is the one thing standing between a public reader on Windows and a crash on their first
+> run. `conventions.md` requires the repo to run from scratch on a clean machine; "remember to set
+> `PYTHONIOENCODING`" is not something a reader can be expected to know.
+
+*(Claude never hit this during development because every command it ran set
+`PYTHONIOENCODING=utf-8` — which is exactly why it survived to be found by a real run.)*
+
+---
+
+## 7. The vendored EyeBench code is meant to be replaced wholesale
 
 `src/external/EyeBench/utils - paragraph feature extraction.py` came from the lab's
 EyeBench/OneStop project and is kept as received. Two consequences:
@@ -371,9 +458,9 @@ Its cache can currently be written with either of two feature definitions (`todo
 
 ---
 
-## 7. Writing to `reports/` can also write to `papers/` — but it is currently switched off
+## 8. Writing to `reports/` can also write to `papers/` — but it is currently switched off
 
-`viz/plot_output.py::save_output(..., to_paper=True)` mirrors into **one** folder inside the
+`lib/plotting/output.py::save_output(..., to_paper=True)` mirrors into **one** folder inside the
 Overleaf repo, laid out exactly like the local tree:
 
 ```
@@ -421,10 +508,10 @@ now the only way to ask for the mirror.*
 
 ---
 
-## 8. Some results exist only as pixels — in the *old* tree
+## 9. Some results exist only as pixels — in the *old* tree
 
 > **Fixed at source 2026-09-20 (T1.3).** Every figure in the project is now written by
-> `viz/plot_output.py::save_output`, whose `tables=` argument is **required**. A figure cannot
+> `lib/plotting/output.py::save_output`, whose `tables=` argument is **required**. A figure cannot
 > be saved without its numbers being passed alongside it; a figure that genuinely has none
 > passes `tables={}`, which is greppable — "this has no numbers" became a stated choice rather
 > than an omission. `print_summaries` still exists, but it only controls console printing and

@@ -1,0 +1,7 @@
+{
+  "identifier": "last_confirm_compact",
+  "columns": [
+    "last_before_confirm_correct",
+    "last_before_confirm_question"
+  ]
+}

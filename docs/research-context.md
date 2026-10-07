@@ -263,7 +263,7 @@ for the answer ultimately selected — **lower skip rates, higher mean dwell dur
 
 **Code:** `derived/preference_matching.py`, `viz/visualisations_area_bars.py`,
 `viz/visualisations_preference_correctness.py` — plus
-`statistics/mixed_area_comparisons.py`, which produced the pairwise significance actually
+`stats/mixed_area_comparisons.py`, which produced the pairwise significance actually
 reported in `findings.md` §3.1.
 
 > **Status (2026-09-05): paper code.** Settled — `mixed_area_comparisons.py` is classified with
@@ -338,11 +338,11 @@ Spans: **critical** (contains the answer), **distractor** (supports a wrong answ
 
 Requires explaining OneStopQA's answer-construction logic, or pointing readers to it.
 
-**Code:** `statistics/RT_correlations/`, driven by `notebooks/text_associations.ipynb`.
+**Code:** `stats/RT_correlations/`, driven by `notebooks/text_associations.ipynb`.
 **This is the current and authoritative text–QA relationship analysis** (confirmed
 2026-09-04). Proportions of time, participant-level Fisher-z, FDR-corrected.
 
-> **`statistics/mixed_text_answer_effects.py` is an older, half-abandoned attempt** at the
+> **`stats/mixed_text_answer_effects.py` is an older, half-abandoned attempt** at the
 > same question and is **not** the source of these findings — it is future-directions code
 > with some directions worth revisiting. Its stored output (`findings.md` §7) reaches
 > materially different conclusions: `outside` (generic reading effort on the rest of the
@@ -467,10 +467,10 @@ machinery in Methods, so both columns point at the same code.
 |---|---|
 | Results · First-scan behavior | `derived/pattern_breaking.py`, `viz/visualisations_strategies.py`, `visualisations_simplified_visits.py` |
 | Results · End of trial behavior | `derived/select_confirm_last.py`, `viz/visualisations_last_label.py` |
-| Results · Attention allocation | `derived/preference_matching.py`, `viz/visualisations_area_bars.py`, `visualisations_preference_correctness.py`, **`statistics/mixed_area_comparisons.py`** (paper code, settled 2026-09-05 — see §7) |
+| Results · Attention allocation | `derived/preference_matching.py`, `viz/visualisations_area_bars.py`, `visualisations_preference_correctness.py`, **`stats/mixed_area_comparisons.py`** (paper code, settled 2026-09-05 — see §7) |
 | Results · Error analysis | `notebooks/general_model_confusion.ipynb`, `person_variance/mistake_types.py` |
 | Results · Participant-level coefficients | `person_variance/`, `participant_level.py` |
-| Results · Text Associations | `statistics/RT_correlations/` |
+| Results · Text Associations | `stats/RT_correlations/` |
 | Methods · Study 1 dataset / prep / features | `data_prep/`, `derived/`, `answer_correctness/model_data.py` |
 | Methods · Modeling, Models comparison | `answer_correctness/{cross_validation,evaluation_core,feature_groups}.py`, `models/{logreg,dummy}_model.py`, `answer_correctness_viz.py` |
 | Methods · Feature contributions | `common/data_utils.py` (coefficient CIs), `answer_correctness_viz.py` |
@@ -490,7 +490,7 @@ Attention allocation subsection, and its output folder is one of the zero-byte o
 |---|---|
 | `predictive_modeling/answer_RTs/` | predicting answer reading times from the paragraph text — **not working at present**. This is why draft2's "Paragraph associations" heading under Methods is empty |
 | Julia and R mixed-model backends | mixed effects have their own problems and were judged not important enough to pursue for this paper |
-| `statistics/mixed_text_answer_effects.py` | superseded; `RT_correlations/` is the current text–QA analysis |
+| `stats/mixed_text_answer_effects.py` | superseded; `RT_correlations/` is the current text–QA analysis |
 | `answer_correctness/unlikely_analysis.py` | stale; the error-analysis subsection is served by `general_model_confusion.ipynb` |
 | `predictive_modeling/answer_loc/` | predicting answer position |
 | `answer_correctness/clusters/` | participant clustering, superseded by `person_variance/` |

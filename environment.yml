@@ -1,0 +1,76 @@
+# Conda environment for QA_eyetracking_workspace.
+#
+#     conda env create -f environment.yml
+#     conda activate QA_eyetracking_env
+#
+# Then run everything from the repo root, so `import src...` resolves. There is
+# no `pip install -e .` yet, by decision -- the repo root goes on PYTHONPATH
+# instead (see `.env`, and the `sys.path` lines at the top of the driver
+# notebooks).
+#
+# ---------------------------------------------------------------------------
+# Why the versions are pinned, and pinned *tightly*
+# ---------------------------------------------------------------------------
+# Three of the breakages found during the 2026-09 cleanup were caused by a
+# dependency moving under the code, not by the code changing. None of them was
+# a crash at the call site; two were silent for weeks.
+#
+#   pandas 3.0       reads text columns as StringDtype, which patsy cannot
+#                    interpret -- `C(area_label)` raises before any model is
+#                    fitted. This took out `mixed_area_comparisons.py`, which is
+#                    paper code, and blocked re-running 108 figures that nobody
+#                    realised were unreachable. (todo.md T2.7)
+#   scikit-learn 1.8 removed `multi_class=`, which `answer_loc/` still passes.
+#                    (todo.md T2.2)
+#   pymer4 0.9       renamed the model classes to lowercase functions, so
+#                    `from pymer4.models import Lmer` fails. (todo.md T2.6)
+#
+# So: upgrade deliberately, one package at a time, and re-run the analyses
+# afterwards. `docs/findings.md`'s change log is where a moved number gets
+# recorded.
+#
+# Python 3.11 specifically: the vendored EyeBench extractor uses StrEnum (3.11+)
+# and carries one hand-reflowed f-string because multi-line f-string expressions
+# need 3.12. Both directions are constrained. (docs/pitfalls.md section 6)
+#
+# ⚠️ Not yet tested on a clean machine -- it reproduces the versions this project
+# currently runs on, which is not the same claim. Verifying it from scratch is
+# `todo.md` T5.4 / stage G.
+
+name: QA_eyetracking_env
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11.15
+
+  # --- core: required for the paper's analyses ---------------------------
+  - pandas=3.0.1
+  - numpy=2.4.2
+  - scipy=1.17.1
+  - scikit-learn=1.8.0
+  - statsmodels=0.14.6
+  - patsy=1.0.1            # statsmodels' formula layer; see the pandas 3 note
+  - matplotlib=3.10.8
+  - seaborn=0.13.2
+
+  # --- notebooks: every entry point is a notebook today ------------------
+  - ipython=8.18.1
+  - notebook=7.5.5
+
+  # --- parked strands ----------------------------------------------------
+  # Kept because the modules that need them still import at module level.
+  # `juliacall` is the awkward one: `run_model_bundles.py` imports the Julia
+  # backend at the top of the file, so a Julia toolchain is currently needed
+  # even to fit a plain logistic regression. The file says so itself at line 7.
+  # Making that import lazy is stage D work -- until then this is not optional.
+  - umap-learn=0.5.11      # participant clustering (explorations/)
+  - loguru=0.7.3           # used by the vendored EyeBench extractor
+  - polars=1.38.1          # read by the R glmer backend
+
+  - pip
+  - pip:
+      # Not on conda-forge for this platform, or easier to pin here.
+      - juliacall==0.9.31  # Julia GLMER backend -- see the note above
+      - pymer4==0.9.0      # R glmer backend; needs a working R install

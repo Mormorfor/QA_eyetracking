@@ -1,0 +1,14 @@
+{
+  "corr_by_answer_rt": {
+    "plot": "corr_by_answer_rt",
+    "facets": {},
+    "produced_by": "src.analyses.answer_rt_comparison.plots.plot_correctness_by_answer_a_vs_bcd_mean",
+    "figure": "corr_by_answer_rt.png",
+    "subdir": null,
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-10-07T16:54:36"
+  }
+}

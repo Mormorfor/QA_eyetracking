@@ -1,0 +1,7 @@
+{
+  "identifier": "correct_mean_wrong_RT",
+  "columns": [
+    "RT_normalized_correct",
+    "RT_normalized_wrong_mean"
+  ]
+}

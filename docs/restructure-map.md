@@ -38,8 +38,17 @@ below.
 
 **What is genuinely untouched**, and therefore what stages A → G still have to do:
 
-- **A** — no `pyproject.toml`, no `environment.yml`, 4 `__init__.py` (all vendored or in one
-  package), **20 lines** still using the bare-import convention.
+- **A** — 🟨 **mostly done 2026-10-06**, minus packaging: 22 `__init__.py`, one import
+  convention, `environment.yml` pinned. `pyproject.toml` is deliberately deferred, so the repo
+  still reaches its code via `PYTHONPATH` rather than an install. **One thing this uncovered
+  that the later stages inherit:** `src/statistics/` shadowed Python's standard-library
+  `statistics` module the moment `src/` was on `sys.path` and the folder became a real package
+  — seaborn's `from statistics import NormalDist` resolved to our code, and 21 modules stopped
+  importing. Fixed twice over: `src/` came off the path, and the folder was **renamed
+  `src/statistics/` → `src/stats/`** (Diana, 2026-10-06). Every other directory and module name
+  under `src/` was checked against the standard library and the installed third-party names —
+  that was the only collision, and the names §3 introduces (`analyses`, `modeling`, `features`,
+  `ingest`, `lib`, `config`) are all clear. Full account in `pitfalls.md` §6.
 - **B** — the `config/` + `lib/` lift itself, and the dataset registry. Nine stale constants,
   not six (§1.4) — and **`COL_SAVE_PATH` is the one that blocks work**, because the
   cross-validation cannot be re-run until those five feature-set JSONs have a home.
@@ -265,7 +274,7 @@ QA_eyetracking_workspace/
 │   │   │   ├── plots/                the 55 KB viz module, split up
 │   │   │   ├── person_variance/
 │   │   │   └── knowledge_regimes/
-│   │   └── text_qa_relationship/     was statistics/RT_correlations/
+│   │   └── text_qa_relationship/     was stats/RT_correlations/
 │   │
 │   ├── explorations/     parked. Same shape; not paper code.
 │   │   ├── answer_reading_times/     was answer_RTs/
@@ -303,6 +312,18 @@ QA_eyetracking_workspace/
 **`config/` vs `lib/`.** `lib` is code you could lift into another project unchanged. `config`
 is this project's vocabulary. Keeping them apart is what makes the "does this belong in lib?"
 question answerable: *if it mentions an eye-tracking column name, it is not lib.*
+
+> **One accepted exception, ruled 2026-10-07.** `lib/plotting/output.py` holds `ANALYSES` (the
+> 17 analysis names) and `ABBREVIATIONS` (36 shortenings of this project's column names). By the
+> test above those are vocabulary and belong in `config/outputs.py` — but `output.py` *uses* them
+> to build every filename, and `lib` may not import `config`, so honouring the rule means
+> rewiring the module to receive them as injected config and re-pointing all 35 call sites.
+>
+> **Diana's ruling: leave it** — *"separation is supposed to make things easier, not harder."*
+> So `lib/` here means "generic-ish helpers", not "portable without modification". The cost is
+> narrow and worth naming: `lib/` could not be lifted into another project as-is. Nothing else
+> is affected, and no number depends on it. Revisit only if that portability ever becomes a
+> real requirement.
 
 **`ingest/` vs `features/`.** Ingest is **dataset-shaped**: it knows what an EyeLink report
 looks like, how KnowQA's trial ids are built, that `"."` is a sentinel. Features are
@@ -343,10 +364,10 @@ honest — `explorations/` ships, clearly labelled as not backing the paper.
 | `derived/preference_matching.py` | `features/preference.py` |
 | `derived/pattern_breaking.py` | `features/strategies.py` (+ merge, §6.2) |
 | `derived/correctness_measures.py` | `analyses/correctness_associations/compute.py` |
-| `statistics/correctness_measures_tests.py` | `analyses/correctness_associations/stats.py` |
-| `statistics/mixed_area_comparisons.py` | `analyses/attention_allocation/stats.py` |
-| `statistics/preference_correctness_tests.py` | `analyses/attention_allocation/stats.py` |
-| `statistics/RT_correlations/**` | `analyses/text_qa_relationship/**` (shape already correct) |
+| `stats/correctness_measures_tests.py` | `analyses/correctness_associations/stats.py` |
+| `stats/mixed_area_comparisons.py` | `analyses/attention_allocation/stats.py` |
+| `stats/preference_correctness_tests.py` | `analyses/attention_allocation/stats.py` |
+| `stats/RT_correlations/**` | `analyses/text_qa_relationship/**` (shape already correct) |
 | `answer_correctness/person_variance/**` | `analyses/correctness_prediction/person_variance/**` |
 | `answer_correctness/knowledge_regimes_analysis/**` | `analyses/correctness_prediction/knowledge_regimes/**` |
 | `answer_correctness/models/**` | `modeling/models/**` |
@@ -362,8 +383,8 @@ honest — `explorations/` ships, clearly labelled as not backing the paper.
 | `viz/visualisations_last_label.py` | `analyses/last_visitation/plots.py` |
 | `viz/visualisations_time_segments.py` | `analyses/time_course/plots.py` |
 | `viz/visualisations_correctness_measures.py` | `analyses/correctness_associations/plots.py` |
-| `external/EyeBench/**` | `vendor/eyebench/**` |
-| `derived/external/EyeBench/runner.py` | `features/paragraph/eyebench.py` |
+| `external/EyeBench/**` | `vendor/eyebench/**` — ✅ **done 2026-10-06** |
+| ~~`derived/external/EyeBench/runner.py`~~ → ~~`features/paragraph/eyebench.py`~~ | **superseded by Diana's ruling (2026-10-06): `vendor/eyebench/runner.py`.** Everything EyeBench in one place — see the note below |
 | `experiment_builder/*.ipynb` | logic → `experiment/`, drivers → `notebooks/drivers/` |
 
 Two of those deserve a note:
@@ -371,9 +392,31 @@ Two of those deserve a note:
 - **`viz/visualisations.py` disappears.** It is a pure re-export façade — ten `from
   src.viz.X import …` lines and nothing else. Its job (one import point for notebooks) is done
   better by each analysis package's `__init__.py`.
-- **`derived/external/EyeBench/runner.py` is not a duplicate copy.** It imports from
-  `src.external.EyeBench.paragraph_trial_features`, so it is *our wrapper* around the vendored
-  code, sitting in a confusingly-named folder. Wrapper and vendor go to different places.
+- **`derived/external/EyeBench/runner.py` was not a duplicate copy** — it was *our wrapper*
+  around the vendored code, sitting in a confusingly-named folder. This row used to send wrapper
+  and vendor to different places.
+
+  > ✅ **Overruled by Diana, 2026-10-06:** *"EyeBench stuff is unimportant… keep it all in one
+  > place, try to avoid IT breaking MY code."* So all four pieces — the file as received, its
+  > trimmed `configs/`, our adapter and the driver — live in **`src/vendor/eyebench/`**.
+  >
+  > **What replaces the separation is a containment rule**, which is stronger and mechanically
+  > checkable: *nothing on the live path may import `src/vendor/` at module scope.* The one live
+  > consumer (`answer_RTs/model_data.py`) already imported lazily, inside the function. Verified
+  > 2026-10-06 — importing all 96 live modules leaves **no `src.vendor.*` entry in
+  > `sys.modules`**. A vendored breakage therefore cannot stop the project importing, which is
+  > what makes "replace wholesale" affordable.
+  >
+  > Also verified, because it was the thing most likely to break silently: the `importlib`
+  > by-path load of `utils - paragraph feature extraction.py` still resolves, and the
+  > `src.configs` alias still points at our trimmed copy. **Note `src.configs` (theirs, a fake
+  > package that exists only in `sys.modules` during extraction) is one character from
+  > `src.config` (ours).** Commented at the alias site.
+
+- **`src/external/scasim_wrapper.ipynb` was deleted, not moved.** An rpy2 wrapper around the
+  `tmalsburg/scanpath` R package; `archive/scasim_wrapper.ipynb` is **byte-identical** to it
+  (md5 `ee9ff8f8…`, both 8,681 bytes, both dated 2026-01-30). Removing the `src/` copy loses
+  nothing — the archived one is the copy to go back to.
 
 ### 5.2 The `viz_helpers.py` split — the pattern for every mixed file
 
@@ -417,11 +460,54 @@ answer areas and the boundary would otherwise blur within a month:
 If a future contrast is over IA metrics rather than RT, it belongs in `attention_allocation/`;
 if it is over RT, it belongs here. That is the test.
 
+### 5.4 The layering exception — ✅ **CLOSED 2026-10-06**
+
+Stage C left one import crossing the one-way boundary:
+
+```
+src/features/build.py:22  from src.ingest.geometry import _reconcile_area_with_geometry
+```
+
+**Fixed by option B** (Diana, 2026-10-06: *"Fix the `_reconcile_area_with_geometry` on the
+way"*). `features/build.py` is gone, split in two and moved into `ingest/`:
+
+| new file | holds | why there |
+|---|---|---|
+| `ingest/base_features.py` | the eight row-level `add_*` builders | they produce the **structure** of the tidy table — `area_screen_loc`, `n_interest_areas`, the `*_len` columns, the ids, the target — from the stimulus and the screen geometry, not from behaviour. That is ingest by the definition in both package docstrings |
+| `ingest/registry.py` | `FUNCTION_REGISTRY` + the four runners/accessors | the recipe names functions from **both** layers, so it cannot live in `features/` without that package importing `ingest/` |
+
+**Registry order is byte-identical** — 20 entries, same order, same `default_kwargs`. Verified:
+`all_participants.csv` rebuilds bit-identical (KnowQA 33,830 × 420, max diff 0.0), 93/97 modules
+import, and `grep` for `src.ingest` under `src/features/` returns nothing.
+
+Two things this surfaced, both recorded rather than silently settled:
+
+- **`add_total_answering_RT_normalized` is arguably a measurement**, not structure — it divides a
+  reading time by a word count. It moved with the other seven because it is row-level and reads
+  `n_interest_areas` from `add_IA_screen_location` directly above it. Flagged in the module
+  docstring and in the stage D proposal's "least sure" list.
+- **`ingest/` is becoming the pipeline layer, and the name will stop fitting.** Once stage D adds
+  the `trial` kind, the registry describes the whole generator rather than its IA half. That is a
+  naming question for stage D, deliberately not pre-empted here.
+
 ---
 
 ## 6. Files that get split, and how
 
-### 6.1 `data_csv_generation.py` (**66 KB**, was 56) → six modules
+### 6.1 `data_csv_generation.py` (**66 KB**, was 56) → six modules — ✅ **DONE 2026-10-06**
+
+> **It split nine ways, not six.** The 35 functions went to `ingest/readers.py` (2),
+> `ingest/build.py` (6), `ingest/geometry.py` (2), `features/build.py` (12),
+> `features/area_metrics.py` (5), `features/pupil.py` (3), `features/sequences.py` (3),
+> `features/last_visited.py` (1), `features/scope.py` (1) — every function in exactly one place.
+> `ingest/geometry.py` is the extra one Diana approved on 2026-10-06: the two functions that
+> encode the **screen layout** rather than the file format. The `state` column below is the
+> pre-stage picture, kept because the reasoning in the notes after it still applies.
+>
+> **T3.11's ordering dependency is written down but still not broken.** The modules are separate
+> now, so the dependency crosses a module boundary and is visible — but `FUNCTION_REGISTRY` still
+> encodes it as list order, which Diana ruled stays (**T3.24 declined**, 2026-10-06): *"there
+> should in the end be a default runner, and it should run things in order they are now."*
 
 **Partly done already.** T1.7 pulled the metric *formulas* out into
 `derived/area_metrics.py` so the answer and paragraph paths share one implementation, and T6.1
@@ -532,6 +618,37 @@ moves to the shared `ingest/` modules. This is where "study is a parameter" gets
 ---
 
 ## 7. The dataset registry — replacing 90 flat constants
+
+> ### ✅ Implemented 2026-10-06, with one deliberate deviation
+>
+> `src/config/datasets.py` now holds a frozen `Dataset` record per dataset plus `DATASETS`,
+> `dataset(key)`, `studies()` and `pilots()`. **Adding a dataset is one entry.**
+>
+> **The deviation: it describes the layout on disk today, not the target in §8.** No data file
+> has been moved — that needs agreeing move by move (`CLAUDE.md` hard rule 4). The record is
+> what makes those moves cheap when they happen: `root` changes in one place instead of a dozen
+> constants changing in four.
+>
+> **The flat constants are kept and *derived* from the record** rather than deleted. Eighteen of
+> them — the four-times-repeated `root` / `all_participants` / `aux` / `model_ready` — are now
+> one-line properties of a `Dataset`, so there is a single source of truth, while the ~27
+> modules that import them by name keep working. Migrating those call sites to
+> `dataset("l1").model_ready` is left for the stage that moves the files; doing it now would be
+> a second sweep over the same call sites.
+>
+> **Proved path-identical:** all **96** path constants were snapshotted before and compared
+> after — 0 changed, 0 missing, 0 added. Then 89/93 modules import and 45/45 tables come back
+> byte-identical.
+>
+> **Two notes on the sketch below, now that it is real:**
+> - `model_ready` is a property, and it is the one place that knows every dataset's
+>   trial-level table is called `L1_model_ready_all_features.csv` — so three of the four claim
+>   to be L1 data. That rename is move 7 in §8 and still needs approval.
+> - **`has_paragraph` no longer has the job the sketch gives it.** T6.1 already deleted the
+>   `include_paragraph` flag threaded through `data_csv_generation`; what survives is
+>   `include_paragraph_features` on the trial-level builder (`model_data.py`, 3 sites) plus
+>   KnowQA's refusal guard. The field is correct and present; wiring it to replace that
+>   remaining flag is a small follow-up, not something this change did.
 
 The single highest-leverage change for "open to adding new things by default".
 
@@ -858,13 +975,13 @@ deliberately change a known number.
 | Stage | What | Numbers move? | T-items landing | Status |
 |---|---|---|---|---|
 | **0** | **Quick wins, no restructuring.** Cheap, independent, high value. | **yes** (T3.1) | T3.1, T1.1, T1.4, verify T2.4 | ✅ **complete** |
-| **A** | **Make it a package.** `pyproject.toml`, `__init__.py` throughout, one import convention, delete the `sys.path` hacks (including the one inside `data_paths.py:6`), `environment.yml`. **Nothing moves.** | no | T5.1, T5.2, T5.4 | ⬜ **untouched** — and now the only thing between here and stage B |
-| **B** | **`config/` + `lib/`.** Lift generic primitives; kill the two duplicate `wilson_ci`s and the two extra save paths; split `viz_helpers.py`; build the dataset registry; fix the six stale constants; migrate the ~40 hardcoded `"../reports/..."` literals. | no | T1.5, T5.3, part of T3.20 | 🟨 **partly done.** T5.3 ✅ (**0** literals left anywhere in source, 2026-09-27), T1.5 ✅, T3.20 ✅. **Remaining: the lift itself** — `config/`, `lib/`, the dataset registry, and the stale constants, now **nine** not six (below) |
-| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | ~~**yes**~~ **no longer** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5 | 🟨 **every listed T-item ✅ done.** `derived/area_metrics.py`, `derived/paragraph_prep.py` and `src/checks.py` already exist. **Remaining: the moves** into `ingest/` + `features/`, plus new **T3.24** |
-| **D** | **`modeling/`.** Extract CV, evaluation, model wrappers and inference. Clustered bootstrap CIs become reachable and default. | ~~**yes**~~ **no longer** | T3.3, T3.9, T3.10, T5.11, T2.4 | 🟨 **T3.3 ✅ T3.9 ✅ T3.10 ✅ T2.4 ✅.** **Remaining: the extraction**, plus T5.11 and new **T3.22** |
-| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.18, T3.19 | 🟨 **T1.3 ✅ T4.1 ✅ T3.18 ✅, and §9's inversion already shipped** — `reports/<analysis>/{figures,tables}/`, 710 figures, **0** zero-byte. **Remaining:** dissolving `viz/`, T2.2 + T2.6 into `explorations/`, T3.19, and T4.0 + T4.2 which are ⏭️ pushed to Diana's manual check |
-| **F** | **Entry points.** `scripts/`, thin notebooks, notebook-only logic lifted into the package. | no | T5.6, T5.10 | ⬜ **untouched** |
-| **G** | **Data + release.** The `data/` moves (individually approved), README, run-from-scratch verification. | no | T5.5, T5.7, T5.8, T5.9, §8 | ⬜ **untouched** — no README yet |
+| **A** | **Make it a package.** `pyproject.toml`, `__init__.py` throughout, one import convention, delete the `sys.path` hacks (including the one inside `data_paths.py:6`), `environment.yml`. **Nothing moves.** | no | T5.1, T5.2, T5.4 | 🟨 **mostly done 2026-10-06.** ✅ **T5.1** 18 `__init__.py` added · ✅ **T5.2** one import convention, 21 lines converted, `src/` no longer on the path · ✅ **T5.4** `environment.yml`. **Deliberately not done:** `pyproject.toml` / `pip install -e .` (Diana, 2026-10-06 — not yet), so the remaining `sys.path` entries stay until it is. Verified by re-running `text_qa_relationship`: **45/45 tables byte-identical** |
+| **B** | **`config/` + `lib/`.** Lift generic primitives; kill the two duplicate `wilson_ci`s and the two extra save paths; split `viz_helpers.py`; build the dataset registry; fix the stale constants; migrate the hardcoded `"../reports/..."` literals. | no | T1.5, T5.3, part of T3.20 | ✅ **DONE 2026-10-06.** `src/config/` (columns · datasets · outputs) and `src/lib/` (stats/proportions · plotting/annotate) exist; the dataset registry is in (§7); the three dead output constants resolve; the five feature-set JSONs moved to a new top-level `configs/` (inputs, not results). **96/96 path constants proved unchanged, 89/93 modules import, 45/45 tables byte-identical.** Not done, by decision: migrating ~27 call sites off the flat constant names, and the §8 data moves |
+| **C** | **`ingest/` + `features/`.** The big correctness stage: separate paragraph from QA prep, unify the two per-area metric implementations, unify the two starting-strategy implementations, land the scope flag, assert every join. | ~~**yes**~~ **no longer** | T6.1, T1.7, T1.6, T3.6, T3.14, T3.20, T3.21, T3.17, T3.7, T3.5 | ✅ **DONE 2026-10-06** (proposal: `docs/decisions/2026-10-06-stage-c-proposal.md`). Every listed T-item was already done going in, so this was the moves only. `data_prep/` and `derived/external/` are **gone**; `src/ingest/` (readers · geometry · build · clicks · knowqa), `src/features/` (10 modules + `paragraph/`), `src/vendor/eyebench/` and `src/explorations/` exist. The `Dataset` record now carries `skip_base_features` and `has_paragraph`. **Verified: 92/96 modules import (same 4 parked), KnowQA pipeline bit-identical (33,830×420, max diff 0.0), 45/45 `text_qa` tables byte-identical to HEAD, no `src.vendor` in `sys.modules` from any live import.** **T3.24 declined** (Diana, 2026-10-06). The one layering exception it left was **closed 2026-10-06** as step 1 of stage D — see §5.4. |
+| **D** | **Unify feature generation, then `modeling/`.** One registry for every feature at every grain (`row` · `group` · `trial`), the produced-column map **observed** rather than declared, `needs` on each entry so the raw-column whitelist and a registry order-check both fall out of one declaration, the 8 `include_*` booleans become `Dataset.skip_features`, and the two overlapping feature-set modules merge. Then extract CV, evaluation, model wrappers and inference. | ~~**yes**~~ **no longer** | T3.3, T3.9, T3.10, T5.11, T2.4 | ✅ **DONE 2026-10-07.** T3.3 ✅ T3.9 ✅ T3.10 ✅ T2.4 ✅. **Steps 1, 2b and 6 done 2026-10-06.** Step 1 = the §5.4 layering fix. Step 6 = one fixation-to-area rule (`coalesce(exact, nearest)`, both screens) and run-based RT off the button-clicks table — **run out of order at Diana's instruction, and it moved numbers**: L1 answer +0.82%, L1 paragraph +1.77%, KnowQA 10 of 155 columns. It uncovered **two bugs**, one of them (`.agg("last")` skipping the NaN that marks a trial's final run) present in the paragraph RT since T6.1. Logged in `findings.md`. Step 2b = the `Screen` record: the paragraph and answer screens now share one metric-merge, one pupil prep, one RT assembly and one `RT_*`→`TimeSinceOffset_*` rename, **numbers bit-identical on all three artifacts**. **Proposal: `docs/decisions/2026-10-06-stage-d-proposal.md`.** ✅ **ALL STEPS DONE 2026-10-07** — 2, 2c, 3 and 5 on 10-07; step 4 audited and **dropped** (its premise did not hold); step 7 last. L1 prep was rerun on 10-07, so step 6's RT change is propagated and the `text_qa_relationship` RT tables were regenerated (19 files, reading-times only — the dwell-proportion maps are untouched, which is the predicted blast radius). **Step 7 moved no numbers and was verified so:** all 39 shared feature-set constants and all six `get_*_feature_cols` predicates return byte-identical results on the real L1 frame (19,436 × 219), all 20 cross-validation functions relocated with none missing, and the fold chain runs end to end on real data. `modeling/` imports nothing from `viz/` or `predictive_modeling/`; `features/` imports nothing from `ingest/`. 130/131 modules import (the one failure is parked `pymer4`). **The three open placements were ruled on 2026-10-07** and are in the proposal's table: the cache pair went to `features/build.py` renamed `save_model_ready` / `load_model_ready` (so `model_data.py` is deleted); the three never-called `make_*_dataset` builders were deleted outright; and `plot_confusion_heatmap` is agreed for `lib/plotting/` but **parked in `viz/` until `plot_output.py` moves there**, because `lib/` may import nothing outside `lib/`. `plot_output.py` moved to `lib/plotting/output.py` the same day, verified byte-identical on a `text_qa_relationship` regeneration, which let `plot_confusion_heatmap` land in `lib/plotting/confusion.py` as agreed. **Still open:** T5.11 and new **T3.22** — nothing else. (`ANALYSES` / `ABBREVIATIONS` staying in `lib/` is a ruled exception, §4.) |
+| **E** | **`analyses/` + `explorations/` + `reports/` inversion.** `viz/` dissolves into per-analysis `plots.py`; one saving framework everywhere; re-run what needs re-running. | figures only | T1.3, T4.0, T4.1, T4.2, T3.18, T3.19 | ✅ **DONE 2026-10-07** (proposal: `docs/decisions/2026-10-07-stage-e-proposal.md`). `viz/`, `stats/`, `derived/` and `predictive_modeling/` are **gone**; `analyses/` holds 7 folders / 48 modules and `explorations/` 8 / 30. The 1,717-line `answer_correctness_viz.py` split into 5 figure-family modules plus `explorations/mixed_models/plots.py`. **Verified: 132/133 modules import** (the one failure is parked `pymer4`), **`text_qa_relationship` regenerated byte-identical** — every table and figure, with only `manifest.json`'s `produced_by` changing, which is the field that records the module path and so is the proof the move happened. **Six of seven layers clean.** ⚠️ **One known violation:** `explorations/{feature_search,mixed_models}` import `analyses/correctness_prediction/run.py` (6 imports) — they want its *run* half and get its *plot* half with it. The fix is to split run from plot, a signature change on the paper's main run path, flagged rather than done. **Still pushed:** T4.0 and T4.2 (Diana's manual pass), T3.19 |
+| **F** | **Entry points.** `scripts/`, thin notebooks, notebook-only logic lifted into the package. | no | T5.6, T5.10 | ✅ **DONE 2026-10-07** (proposal: `docs/decisions/2026-10-07-stage-f-proposal.md`). **`scripts/`** holds `build_dataset.py` (the build order is now code, not documentation — T5.6), `run_analysis.py` (validated against `ANALYSES`, 5 analyses × 15 runners) and `make_paper_figures.py` (**a skeleton by decision** — 5 of 11 figure groups wired, the other 6 listed as TODO with their reasons rather than silently skipped). **`notebooks/`** split four ways — `drivers/` 9 · `builders/` 6 · `exploration/` 10 · `experiment/` 3 — each with a README saying what the folder is for; nothing left loose at the top. **`src/experiment/`** is new and is the answer to *where is the experiment source*: 13 functions lifted out of `experiment_builder/`, which is gone. Its three notebooks turned out to be three different things — generation, pilot ingest, and a `knowledge_regimes` driver — and were filed accordingly. **`analyses/answer_rt_comparison/`** lifts the correct-vs-distractor RT asymmetry out of a presentation notebook and **persists its numbers for the first time**; that was the last `ANALYSES` key without a folder bar the one investigation. **T5.10 was already done.** All 14 notebooks that resolved the repo root by `Path.cwd().parent` now walk up to the folder containing `src/`, so they work from any depth — several were already broken by the earlier subfolders. **Verified: 137/138 import** (the one failure is parked `pymer4`), 28/28 notebooks valid JSON, and `run_analysis.py --name last_visitation` reproduced its tables **byte-identical** to the notebook path |
+| **G** | **Data + release.** The `data/` moves (individually approved), README, run-from-scratch verification. | no | T5.5, T5.7, T5.8, T5.9, §8 | ✅ **DONE 2026-10-07.** All 11 §8 moves executed with `os.rename` (atomic, same filesystem — no copying, so no partial-write risk), **verified file-count and byte-total identical before and after: 132 files, 10,691,871,278 bytes, size multiset unchanged.** `data/` is gitignored, so there was no git safety net; the manifest was the safety net. **The three `data_raw` symlinks were never touched** and still resolve (14 + 7 + 7 entries). Move 7 — the one the map calls the correctness hazard — landed: `model_ready.csv` under each dataset, so three files stopped claiming to be L1. The registry cost exactly what it promised: **four `root=` lines and three properties**, plus one hardcoded filename in `ingest/knowqa.py` that would otherwise have kept writing the old name. **Nine stale constants resolved**; the five paths that still do not exist are output destinations not yet written, not dead pointers. **T5.9 closed** — the EyeBench cache now gets a `.meta.json` recording `fix_ptb_pos_double_mapping`, and the existing cache was back-labelled after determining empirically (68 of 70 `ptb_pos_*` columns non-zero) that it was built with the fix on. ⚠️ **T5.5 and T5.7 are NOT done and the stage is green without them.** A `README.md` was written covering the `L1` = native-speaker trap, the OneStop placement instructions and the build order, then **deleted the same day** — Diana, 2026-10-07: *"we have not yet begun documenting things."* Writing a reader-facing release document before deciding what the release says was premature, so the two items go back to open and belong to whatever documentation pass comes after the paper settles. **Verified: 137/138 import, all six layering invariants clean, and `run_analysis.py --name last_visitation` byte-identical after the move** |
 
 **Why this order.** Stage A costs almost nothing and makes every later stage's imports
 mechanical instead of fragile. Stage B is pure consolidation with no behaviour change, so it
