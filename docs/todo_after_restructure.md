@@ -85,9 +85,12 @@ Two items that are explicitly **yours to drive**, by your own ruling on 2026-09-
 
 Worth stating on its own, because it is small and easy to miss.
 
-**`COL_SAVE_PATH` has no home.** It pointed at a folder that no longer exists. It held the
-five small files that define the paper's **model-comparison figure** — one per model variant,
-each just a name and a list of feature columns:
+**~~`COL_SAVE_PATH` has no home.~~ ✅ Resolved.** It is `configs/feature_sets/`, reached as
+`config/outputs.py::FEATURE_SETS_DIR`; the old `COL_SAVE_PATH` name was deleted on 2026-10-08
+once the last call site moved to it (28 of them, in `column_options.py` and four notebooks —
+the alias had been marked *"kept while call sites migrate"* and the migration had never
+happened). The folder holds the five small files that define the paper's **model-comparison
+figure** — one per model variant, each just a name and a list of feature columns:
 
 | file | what it is |
 |---|---|

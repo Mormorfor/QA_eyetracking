@@ -457,12 +457,13 @@ def build_area_metrics(
         mean_dwell_time(df, scr.area_col),
         mean_fixations_count(df, scr.area_col),
         mean_first_fix_duration(df, scr.area_col),
-        skip_rate(df, scr.area_col, write_indicator=scr.write_skip_indicator),
-        dwell_proportion(df, scr.area_col, keep_totals=scr.keep_dwell_totals),
-        mean_pupil_size(df, scr.area_col, include_raw=scr.include_raw_pupil, include_z=True),
-        first_encounter_pupil_size(
-            df, scr.area_col, include_raw=scr.include_raw_pupil, include_z=True
-        ),
+        # Both screens take everything (Diana, 2026-10-08). These were per-screen
+        # switches until the paragraph side was measured at 6 extra columns -- see
+        # `config/screens.py` for what each one costs.
+        skip_rate(df, scr.area_col, write_indicator=True),
+        dwell_proportion(df, scr.area_col, keep_totals=True),
+        mean_pupil_size(df, scr.area_col, include_raw=True, include_z=True),
+        first_encounter_pupil_size(df, scr.area_col, include_raw=True, include_z=True),
     ]
     if visit_counts is not None:
         parts.append(visit_counts)

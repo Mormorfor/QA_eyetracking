@@ -670,7 +670,7 @@ class Dataset:
     raw_dir:        Path
     root:           Path         # data/datasets/<...>/<key>/
     has_paragraph:  bool         # False for KnowQA — replaces the include_paragraph flag
-    pupil_baseline: PupilBaseline | None   # explicit; no silent L1 default
+    # (a pupil_baseline field was sketched here and dropped -- see below)
 
     @property
     def interim(self)  -> Path: return self.root / "interim"
@@ -692,9 +692,18 @@ What this buys, concretely:
 - **`has_paragraph` replaces `include_paragraph`**, which is currently threaded by hand through
   four call layers (`data_csv_generation:1278, 1319, 1408, 1575` → `reading_times:492`) purely
   because KnowQA has no paragraph screen. It becomes a property of the dataset, asked once.
-- **`pupil_baseline` has no default**, which is the structural form of **T3.20**: a dataset
-  either declares its baseline or the pipeline refuses to compute pupil z-scores. No silent
-  fallback to L1's answer screen.
+- ~~**`pupil_baseline` has no default**, the structural form of **T3.20**: a dataset either
+  declares its baseline or the pipeline refuses to compute pupil z-scores.~~
+  **Superseded by the implementation, 2026-10-08.** The field was built, then found to be read
+  by nothing, and removed on Diana's call. T3.20 is still satisfied — better — because **each
+  screen computes its own baseline from its own fixation report**: the answer screen in
+  `ingest/build.py` (`pupil_fixations_path`, defaulting to the report being processed), the
+  paragraph screen inside the single streaming pass in
+  `features/paragraph/spans.py::scan_paragraph_fixations`. There is nothing left for a dataset
+  to declare, and no silent fallback to L1's answer screen is possible because no path is
+  shared between the two screens. *(Wiring the field up would have been actively wrong: for L1
+  it named the* ***answer*** *report, so honouring it would have re-baselined paragraph pupils
+  against the answer screen — the exact bug T3.20 fixed.)*
 - **The stale-constant class of bug disappears**, because paths are derived from one root and
   can be validated in one loop at import or in a test.
 - **Filenames stop being dataset-branded.** `model_ready.csv` under `datasets/knowqa/features/`

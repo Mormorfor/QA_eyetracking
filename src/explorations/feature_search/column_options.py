@@ -14,7 +14,7 @@ from src.modeling.selection import correlation_prune_features, aic_forward_selec
 
 import matplotlib.pyplot as plt
 
-from src.config.outputs import COL_SAVE_PATH as COLUMNS_DIR
+from src.config.outputs import FEATURE_SETS_DIR
 from src.lib.plotting.output import analysis_dir
 from src.lib.plotting.output import save_output
 from src.modeling.feature_sets import (
@@ -22,7 +22,6 @@ from src.modeling.feature_sets import (
     LAST_CONFIRM,
     LAST_SELECT,
 )
-COL_SAVE_PATH = COLUMNS_DIR
 
 
 def save_feature_columns(
@@ -329,7 +328,7 @@ def _generate_prune_then_aic_for_base(
 # Group 1: general (no last, no RT/TFD/TSO base or interactions)
 # --------------------------------------------------------------------------
 def generate_general_set(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -342,7 +341,7 @@ def generate_general_set(
 # Group 2: complete (everything = ALL_FEATURES)
 # --------------------------------------------------------------------------
 def generate_complete_set(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -355,7 +354,7 @@ def generate_complete_set(
 # Group 3: general + each last variant (4 sets)
 # --------------------------------------------------------------------------
 def generate_general_plus_last_sets(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -372,7 +371,7 @@ def generate_general_plus_last_sets(
 # Group 4: general + each RT-family variant (rt / tfd / tso / all three)
 # --------------------------------------------------------------------------
 def generate_general_plus_rt_family_sets(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -389,7 +388,7 @@ def generate_general_plus_rt_family_sets(
 # Group 6: 8 baselines — each last group alone, each RT-family group alone
 # --------------------------------------------------------------------------
 def generate_baseline_sets(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -405,7 +404,7 @@ def generate_baseline_sets(
 #   select_1 alone, plus 4 last-variants, plus 4 RT-family variants (9 sets).
 # --------------------------------------------------------------------------
 def generate_select_1_sets(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -421,7 +420,7 @@ def generate_select_1_sets(
 # Group 8: derived columns + NUM_OF_SELECTS
 # --------------------------------------------------------------------------
 def generate_derived_with_num_selects_set(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -436,7 +435,7 @@ def generate_derived_with_num_selects_set(
 # Group 9: question features only (per-metric '__question' columns)
 # --------------------------------------------------------------------------
 def generate_question_only_set(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -449,7 +448,7 @@ def generate_question_only_set(
 # Group 10: AREA_COLS only (correct/wrong_mean/contrast/distance_*)
 # --------------------------------------------------------------------------
 def generate_area_only_set(
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     verbose: bool = True,
     rerun: bool = True,
@@ -465,7 +464,7 @@ def generate_area_only_set(
 # --------------------------------------------------------------------------
 def generate_feature_selection_sets(
     trial_df: pd.DataFrame,
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     target_col: str = Con.IS_CORRECT_COLUMN,
     corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,
@@ -524,7 +523,7 @@ def generate_feature_selection_sets(
 # --------------------------------------------------------------------------
 def generate_all_feature_column_sets(
     trial_df: pd.DataFrame,
-    folder_path: str = COL_SAVE_PATH,
+    folder_path: str = FEATURE_SETS_DIR,
     *,
     target_col: str = Con.IS_CORRECT_COLUMN,
     corr_thresholds: Sequence[float] = DEFAULT_CORR_THRESHOLDS,

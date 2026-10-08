@@ -543,9 +543,13 @@ non-empty siblings in folders that look populated.
 >
 > **What to do instead, if you need something from the old trees:** they are tracked in git, so
 > read them at `496f8d0^` (`git show '496f8d0^:reports/report_data/<path>'`) rather than
-> hunting the working tree. Three `data_paths` constants still point into them and now resolve
-> to nothing — `COL_SAVE_PATH`, `CROSS_VALIDATION_RUNS_DIR`, `PER_PERSON_LOO_RESULTS_DIR`; see
-> `restructure-map.md` §1.4, where they are now listed with the six older stale constants.
+> hunting the working tree. Three constants used to point into them and resolve to nothing.
+> **All three were rehomed by 2026-10-08** and none is stale now: the feature-set folder became
+> `config/outputs.py::FEATURE_SETS_DIR` -> `configs/feature_sets/` (and its old name
+> `COL_SAVE_PATH` was deleted once the last call site moved), while `CROSS_VALIDATION_RUNS_DIR`
+> and `PER_PERSON_LOO_RESULTS_DIR` now sit under `reports/_cache/`. Those two still resolve to
+> directories that do **not exist yet** — correctly, because they are caches nothing has
+> rewritten since the old tree was deleted.
 >
 > **The one thing to carry forward:** anything recovered from `496f8d0^` is **pre-rebuild** —
 > earlier than T3.6, T3.18, T3.20, T3.21 and T3.10 — so it is a record of what the numbers used

@@ -17,7 +17,6 @@ REPORTS_ROOT = PROJECT_ROOT / "reports"
 # until 2026-10-06, which framed the paper's five feature sets as output of the
 # feature search when they are hand-specified inputs to it.
 FEATURE_SETS_DIR = PROJECT_ROOT / "configs" / "feature_sets"
-COL_SAVE_PATH = FEATURE_SETS_DIR  # old name, kept while call sites migrate
 
 # Caches, not reports: big enough that regenerating is expensive, not
 # interesting enough to read. Both pointed into the deleted report_data/ tree

@@ -56,19 +56,15 @@ class Screen:
     #: The areas that exist, in reporting order. Also the RT/TFD column suffixes.
     regions: tuple[str, ...]
 
-    #: Keep the raw-millimetre pupil means alongside the z-scored ones. The
-    #: answer screen reports both; the paragraph screen reports only z, because
-    #: nothing consumes raw paragraph pupil sizes.
-    include_raw_pupil: bool = True
-
-    #: Leave `area_skipped` on the caller's frame. The answer screen's saved
-    #: IA-level table (`all_participants.csv`) has that column in its schema;
-    #: the paragraph screen produces no IA-level artifact, so it does not.
-    write_skip_indicator: bool = True
-
-    #: Keep `total_area_dwell_time` / `total_dwell_time` beside the proportion.
-    #: Same reason as above -- they are part of `all_participants.csv`'s schema.
-    keep_dwell_totals: bool = True
+    # Three fields lived here until 2026-10-08 -- `include_raw_pupil`,
+    # `write_skip_indicator`, `keep_dwell_totals` -- True for the answer screen and
+    # False for the paragraph one, on the grounds that nothing consumed the extra
+    # columns on the paragraph side. Diana: *"lets just include always, its just a few
+    # columns."* Measured before changing: on the paragraph screen the first two add
+    # 6 metric columns (4 raw-mm pupil means + the 2 dwell totals), and the third adds
+    # none at all -- it writes `area_skipped` back onto the caller's frame, which the
+    # paragraph path discards. With both screens agreeing there was nothing left to
+    # configure, so `build_area_metrics` now asks for all three unconditionally.
 
 
 ANSWERS = Screen(
@@ -76,9 +72,6 @@ ANSWERS = Screen(
     label="answer screen",
     area_col=C.AREA_LABEL_COLUMN,
     regions=("question", "answer_A", "answer_B", "answer_C", "answer_D"),
-    include_raw_pupil=True,
-    write_skip_indicator=True,
-    keep_dwell_totals=True,
 )
 
 PARAGRAPH = Screen(
@@ -86,9 +79,6 @@ PARAGRAPH = Screen(
     label="paragraph screen",
     area_col=C.AUXILIARY_SPAN_TYPE_COLUMN,
     regions=("outside", "distractor", "critical"),
-    include_raw_pupil=False,
-    write_skip_indicator=False,
-    keep_dwell_totals=False,
 )
 
 SCREENS: Mapping[str, Screen] = {s.key: s for s in (ANSWERS, PARAGRAPH)}

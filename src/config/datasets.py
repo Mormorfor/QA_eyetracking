@@ -153,11 +153,16 @@ class Dataset:
     raw_dir: Path
     root: Path
     has_paragraph: bool
-    #: Fixation report the per-participant pupil baseline is computed from.
-    #: Explicit per dataset: defaulting it is what made paragraph-span pupil
-    #: z-scores baseline against L1's answer screen regardless of dataset
-    #: (`todo.md` T3.20).
-    pupil_baseline_fixations: Path
+    # There is deliberately NO pupil-baseline field here. T3.20 asked for one and
+    # the implementation answered it better: each screen computes its own baseline
+    # from its own fixation report -- the answer screen in `ingest/build.py`
+    # (`pupil_fixations_path`, defaulting to the report being processed), the
+    # paragraph screen in `features/paragraph/spans.py::scan_paragraph_fixations`,
+    # in the same streaming pass it already makes. So there is nothing for a
+    # dataset to declare. A `pupil_baseline_fixations: Path` field existed until
+    # 2026-10-08, read by nothing; for L1 it named the *answer* report, so wiring
+    # it up would have re-baselined paragraph pupils against the answer screen --
+    # the exact bug T3.20 fixed.
     #: Base features this dataset does NOT run, name -> why.
     #:
     #: The default is to run every registered base feature, and a dataset
@@ -225,7 +230,6 @@ L1 = Dataset(
     raw_dir=RAW_FULL_DIR,
     root=DATA_DIR / "datasets" / "l1_onestop",
     has_paragraph=True,
-    pupil_baseline_fixations=FIX_ANSWERS_PATH,
 )
 
 KNOWQA = Dataset(
@@ -238,7 +242,6 @@ KNOWQA = Dataset(
     # Only the answer screen is exported, and only a third of trials show a
     # paragraph at all -- `pitfalls.md` section 5.
     has_paragraph=False,
-    pupil_baseline_fixations=KNOW_QA_FIX_ANSWERS_PATH,
     skip_base_features={
         "add_answer_text_columns": (
             "answer_A..D are supplied directly by the Stage 0 column rename, "
@@ -257,7 +260,6 @@ TESTRUN_QA = Dataset(
     # (confirmed 2026-09-05). Renaming it is move 5 in section 8.
     root=DATA_DIR / "datasets" / "pilots" / "testrun_qa",
     has_paragraph=False,
-    pupil_baseline_fixations=NEW_EXP_FIX_ANSWERS_PATH,
     skip_base_features={
         "add_answer_text_columns": (
             "answer_A..D are supplied directly by the Stage 0 column rename, "
@@ -274,7 +276,6 @@ SECOND_TEST = Dataset(
     raw_dir=SECOND_TEST_PATH,
     root=DATA_DIR / "datasets" / "pilots" / "second_test",
     has_paragraph=False,
-    pupil_baseline_fixations=SECOND_TEST_FIX_ANSWERS_PATH,
     skip_base_features={
         "add_answer_text_columns": (
             "answer_A..D are supplied directly by the Stage 0 column rename, "
