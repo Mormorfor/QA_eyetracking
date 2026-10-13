@@ -21,6 +21,25 @@ QUESTION_PREVIEW_COLUMN = "question_preview"
 # features/strategies.py. Absent on L1.
 REGIME_COLUMN = "regime"
 
+# The rest of Study 2's own vocabulary. All absent on L1, which is why the
+# whitelist can declare them unconditionally -- `raw_whitelist` intersects with
+# the report's own header, so naming them is inert for L1 and load-bearing for
+# KnowQA (ingest/registry.py).
+#
+# They were string literals in `ingest/registry.py` until 2026-10-13. That is
+# how `regime` came to be written out longhand three lines from the constant
+# that already defined it.
+REGIME_LIST_COLUMN = "regime_list"
+REGIME_ORDER_COLUMN = "regime_order"
+REGIME_ORDER_POSITION_COLUMN = "regime_order_position"
+#: Per-trial 1-5 self-report, the thing Study 1 lacked and Study 2 exists to add.
+CONFIDENCE_RATING_COLUMN = "confidence_rating"
+CONFIDENCE_RATING_TXT_COLUMN = "confidence_rating_txt"
+#: Which of the three counterbalancing article groups this trial's item came from.
+ARTICLE_GROUP_COLUMN = "article_group"
+#: The full-knowledge regime's paraphrase of the correct answer, shown beforehand.
+REPHRASED_ANSWER_A_COLUMN = "rephrased_answer_a"
+
 SELECTED_ANSWER_POSITION_COLUMN = "selected_answer_position"
 CORRECT_ANSWER_POSITION_COLUMN = "correct_answer_position"
 ANSWERS_ORDER_COLUMN = "answers_order"
@@ -49,6 +68,44 @@ IA_DWELL_TIME = "IA_DWELL_TIME"
 IA_FIXATIONS_COUNT = "IA_FIXATION_COUNT"
 IA_FIRST_FIXATION_DURATION = "IA_FIRST_FIXATION_DURATION"
 IA_LAST_FIXATION_TIME = "IA_LAST_FIXATION_TIME"
+# The other two timestamps the RT/TFD assembly reads. `IA_FIRST_FIXATION_TIME`
+# opens a region's span and `IA_LAST_FIXATION_DURATION` is what closes it --
+# `compute_reading_times` adds it to the last fixation's start so the span covers
+# the whole of that fixation rather than stopping at its onset.
+IA_FIRST_FIXATION_TIME = "IA_FIRST_FIXATION_TIME"
+IA_LAST_FIXATION_DURATION = "IA_LAST_FIXATION_DURATION"
+
+# Where the interest area physically sits on screen. These are what decides which
+# area a word belongs to (T3.18): `add_IA_screen_location` places each word by its
+# rectangle and takes geometry over the stored token count where the two disagree,
+# because the stored text does not always match what was rendered.
+IA_TOP = "IA_TOP"
+IA_LEFT = "IA_LEFT"
+
+#: The report's own A/B/C/D selection.
+#:
+#: **Deliberately not whitelisted, so it is absent from the grain tables.** The
+#: pipeline derives its own `SELECTED_ANSWER_LABEL_COLUMN` from
+#: `answers_order` + `selected_answer_position` rather than trusting this one --
+#: the same raw/derived pair as `is_correct`, and verified identical to it on all
+#: 760,628 L1 rows (2026-10-13). Use the derived column; this constant exists so
+#: the raw name has somewhere to be referred to, not so it can be read.
+SELECTED_ANSWER_COLUMN = "selected_answer"
+
+#: The stimulus text, as the report stores it: one question and four answers.
+#:
+#: **These four are POSITIONAL, not semantic.** `answer_1` is whatever was shown
+#: in screen position 1; `answer_A` is the correct option wherever it sat. They
+#: share the `ANSWER_PREFIX` and mean different things, which is precisely why
+#: `add_answer_text_columns` exists -- it reads these by position and writes the
+#: `answer_A..D` set by label, using `answers_order` to map between them.
+#:
+#: Written out rather than built from `ANSWER_PREFIX`, which is defined further
+#: down this file -- and the duplication is the lesser evil here, since deriving
+#: them would imply they are the same family as `answer_A..D` when the whole
+#: point of the note above is that they are not.
+QUESTION_TEXT_COLUMN = "question"
+ANSWER_TEXT_COLUMNS = ["answer_1", "answer_2", "answer_3", "answer_4"]
 
 INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
@@ -139,7 +196,15 @@ SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 
 SEGMENT_COLUMN = "time_segment"
-SEQUENCE_LENGTH_COLUMN = "sequence_length"
+# How many interest-area rows fall in one (participant, trial, time_segment) --
+# a plain row count, used only by the time-course analysis.
+#
+# Renamed from SEQUENCE_LENGTH_COLUMN / "sequence_length" on 2026-10-13. That name
+# read as the collapsed-sequence length, i.e. the number of area transitions in a
+# trial -- which is `seq_len`, a different quantity built in `features/build.py`.
+# The two are unrelated, and the old name abbreviated to `seq_len` in output paths,
+# so the collision was visible on disk rather than only in the source.
+SEGMENT_IA_ROW_COUNT = "segment_ia_row_count"
 SKIPPED_COLUMN = "skipped"
 
 MEAN_AVG_FIX_PUPIL_SIZE = "mean_avg_fix_pupil_size"

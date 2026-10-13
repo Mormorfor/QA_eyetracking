@@ -5,14 +5,29 @@
       "group": "all participants",
       "metric": "fixation_count"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-all_P__metric-fix_count.png",
     "subdir": "fix_count",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:43"
+    "saved_at": "2026-10-13T17:23:09"
+  },
+  "time_segment_bar__group-all_P__metric-ia_rows": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "all participants",
+      "metric": "segment_ia_row_count"
+    },
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-all_P__metric-ia_rows.png",
+    "subdir": "ia_rows",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-10-13T17:23:09"
   },
   "time_segment_bar__group-all_P__metric-mean_dwell": {
     "plot": "time_segment_bar",
@@ -20,14 +35,14 @@
       "group": "all participants",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-all_P__metric-mean_dwell.png",
     "subdir": "mean_dwell",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:42"
+    "saved_at": "2026-10-13T17:23:08"
   },
   "time_segment_bar__group-all_P__metric-seq_len": {
     "plot": "time_segment_bar",
@@ -50,14 +65,14 @@
       "group": "all participants",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-all_P__metric-skip_rate.png",
     "subdir": "skip_rate",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:44"
+    "saved_at": "2026-10-13T17:23:10"
   },
   "time_segment_bar__group-gatherers__metric-fix_count": {
     "plot": "time_segment_bar",
@@ -65,14 +80,29 @@
       "group": "gatherers",
       "metric": "fixation_count"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-gatherers__metric-fix_count.png",
     "subdir": "fix_count",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:32"
+    "saved_at": "2026-10-13T17:22:49"
+  },
+  "time_segment_bar__group-gatherers__metric-ia_rows": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "gatherers",
+      "metric": "segment_ia_row_count"
+    },
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-gatherers__metric-ia_rows.png",
+    "subdir": "ia_rows",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-10-13T17:22:49"
   },
   "time_segment_bar__group-gatherers__metric-mean_dwell": {
     "plot": "time_segment_bar",
@@ -80,14 +110,14 @@
       "group": "gatherers",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-gatherers__metric-mean_dwell.png",
     "subdir": "mean_dwell",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:31"
+    "saved_at": "2026-10-13T17:22:49"
   },
   "time_segment_bar__group-gatherers__metric-seq_len": {
     "plot": "time_segment_bar",
@@ -110,14 +140,14 @@
       "group": "gatherers",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-gatherers__metric-skip_rate.png",
     "subdir": "skip_rate",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:32"
+    "saved_at": "2026-10-13T17:22:50"
   },
   "time_segment_bar__group-hunters__metric-fix_count": {
     "plot": "time_segment_bar",
@@ -125,14 +155,29 @@
       "group": "hunters",
       "metric": "fixation_count"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-hunters__metric-fix_count.png",
     "subdir": "fix_count",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:25"
+    "saved_at": "2026-10-13T17:22:40"
+  },
+  "time_segment_bar__group-hunters__metric-ia_rows": {
+    "plot": "time_segment_bar",
+    "facets": {
+      "group": "hunters",
+      "metric": "segment_ia_row_count"
+    },
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
+    "figure": "time_segment_bar__group-hunters__metric-ia_rows.png",
+    "subdir": "ia_rows",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-10-13T17:22:39"
   },
   "time_segment_bar__group-hunters__metric-mean_dwell": {
     "plot": "time_segment_bar",
@@ -140,14 +185,14 @@
       "group": "hunters",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-hunters__metric-mean_dwell.png",
     "subdir": "mean_dwell",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:24"
+    "saved_at": "2026-10-13T17:22:39"
   },
   "time_segment_bar__group-hunters__metric-seq_len": {
     "plot": "time_segment_bar",
@@ -170,13 +215,13 @@
       "group": "hunters",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_time_segments._plot_time_segment_bar",
+    "produced_by": "src.analyses.time_course.plots._plot_time_segment_bar",
     "figure": "time_segment_bar__group-hunters__metric-skip_rate.png",
     "subdir": "skip_rate",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:26"
+    "saved_at": "2026-10-13T17:22:40"
   }
 }

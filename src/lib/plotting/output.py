@@ -225,7 +225,10 @@ ABBREVIATIONS: Dict[str, str] = {
     "mean_fixations_count": "mean_fix_count",
     "num_label_visits": "n_lbl_visits",
     "mean_dwell_time": "mean_dwell",
-    "sequence_length": "seq_len",
+    # The time-course IA-row count. Was "sequence_length" -> "seq_len" until
+    # 2026-10-13, which collided in the path with the model-ready `seq_len`
+    # (collapsed-sequence length) -- a different quantity. See columns.py.
+    "segment_ia_row_count": "ia_rows",
     "fixation_count": "fix_count",
     # plot names -- the correctness_by_* family is 29-42 characters
     "correctness_by_trial_mean_dwell_continuous": "corr_by_dwell_cont",

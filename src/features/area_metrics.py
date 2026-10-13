@@ -377,17 +377,36 @@ def resolve_fixation_sequence(
         if ia_id in known_ids:
             resolved.append(ia_id)
         elif pointer < len(nearest_ids):
-            resolved.append(nearest_ids[pointer])
+            nearest = nearest_ids[pointer]
             pointer += 1
+            # `None` -- in no interest area and with no nearest one either, so
+            # there is nothing to resolve it to. Dropped and counted, per the
+            # ruling above. The pointer still advances: the queue is positional.
+            if nearest is None:
+                dropped += 1
+            else:
+                resolved.append(nearest)
         else:
             dropped += 1
     return resolved, dropped
 
 
 def nearest_ia_queue(fix_group: pd.DataFrame) -> list:
-    """The trial's off-area fixations' nearest interest areas, in order."""
+    """The trial's off-area fixations' nearest interest areas, in order.
+
+    `None` marks a fixation the tracker put in no interest area and gave no
+    nearest one either -- the reports write "." there. The entry is **kept**
+    rather than removed, because `resolve_fixation_sequence` consumes this
+    queue positionally: removing one would shift every later off-area fixation
+    in the trial onto its neighbour's nearest area, which is a wrong number
+    rather than a missing one. `resolve_fixation_sequence` drops it and counts
+    it instead, which is the stated ruling for a fixation that cannot be placed.
+    """
     areas = fix_group[C.CURRENT_FIX_INTEREST_AREAS].apply(_parse_interest_area_list)
-    return fix_group.loc[areas.apply(len) == 0, C.NEAREST_IA].astype(int).tolist()
+    ids = pd.to_numeric(
+        fix_group.loc[areas.apply(len) == 0, C.NEAREST_IA], errors="coerce"
+    )
+    return [None if pd.isna(v) else int(v) for v in ids]
 
 
 def drop_leading_question_fixation(labels: list, *others: list) -> tuple[list, ...]:

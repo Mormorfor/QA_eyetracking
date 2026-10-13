@@ -33,20 +33,24 @@ def build_l1(verbose: bool = True) -> None:
     """IA table -> paragraph cache -> model-ready. The three-stage L1 path."""
     import pandas as pd
 
-    from src.features.build import save_model_ready
+    from src.features.build import load_model_input, save_model_ready
     from src.features.paragraph.spans import save_paragraph_features
     from src.ingest.build import main as ingest_main
 
     ds = get_dataset("l1")
 
     print("[1/3] ingest: raw reports -> all_participants.csv (+ hunters/gatherers)")
-    ingest_main(verbose=verbose)
+    # `dataset=ds` is what makes the prep write the three grains alongside
+    # `all_participants.csv` (grain proposal step 4d).
+    ingest_main(dataset=ds, verbose=verbose)
 
     print("[2/3] features: paragraph spans -> the cache the trial table joins")
     save_paragraph_features(verbose=verbose)
 
     print("[3/3] features: trial-level model-ready table")
-    ia = pd.read_csv(ds.all_participants, dtype={"participant_id": str}, low_memory=False)
+    # Reads the three grain tables step 1 wrote, not the 2.9 GB broadcast table:
+    # 4 s against 38 s, same frame (grain proposal step 6).
+    ia = load_model_input(ds, verbose=verbose)
     save_model_ready(ia, output_path=ds.model_ready, dataset="l1", verbose=verbose)
 
 

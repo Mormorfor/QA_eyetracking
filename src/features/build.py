@@ -44,12 +44,12 @@ from src.config.datasets import (
     READY_ALL_FEATURES_PATH,
     dataset as _dataset,
 )
-from src.features.preference import compute_trial_matching
 from src.features.reading_times import (
     ANSWER_REGIONS as RT_ANSWER_REGIONS,
     PARAGRAPH_REGIONS as RT_PARAGRAPH_REGIONS,
 )
 from src.features.sequences import (
+    DERIVED_COLS,
     compute_trial_mean_dwell_per_word,
     has_back_and_forth_xyx,
     has_back_and_forth_xyxy,
@@ -350,57 +350,13 @@ def build_trial_level_area_features(
     return out
 
 
-def build_trial_level_derived_features(
-    df: pd.DataFrame,
-    seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL,
-    dwell_col: str = Con.MEAN_DWELL_TIME,
-    keep_cols: Optional[Sequence[str]] = None,
-    target_col: str = Con.IS_CORRECT_COLUMN,
-) -> pd.DataFrame:
-    keep_cols = _deduplicate_keep_cols(keep_cols)
-
-    required = list(TRIAL_ID_COLS) + keep_cols + [target_col, seq_col, dwell_col]
-    d = df[required].copy()
-
-    d[target_col] = pd.to_numeric(d[target_col], errors="coerce").astype(int)
-
-    d["_seq"] = d[seq_col].apply(ast.literal_eval)
-    d["_seq_len"] = d["_seq"].apply(lambda s: len(s) if isinstance(s, (list, tuple)) else 0)
-    d["_has_xyx"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False)
-    d["_has_xyxy"] = d["_seq"].apply(lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False)
-    d["_longest_alt_answer_run"] = d["_seq"].apply(
-        lambda s: longest_alternating_answer_run(s) if s is not None else 0
-    )
-    d["_trial_mean_dwell"] = compute_trial_mean_dwell_per_word(d, dwell_col=dwell_col)
-
-    agg_dict = {
-        target_col: "first",
-        "_seq_len": "first",
-        "_has_xyx": "first",
-        "_has_xyxy": "first",
-        "_longest_alt_answer_run": "first",
-        "_trial_mean_dwell": "first",
-    }
-    for c in keep_cols:
-        agg_dict[c] = "first"
-
-    out = (
-        d.groupby(list(TRIAL_ID_COLS), as_index=False)
-        .agg(agg_dict)
-        .rename(columns={
-            "_seq_len": "seq_len",
-            "_has_xyx": "has_xyx",
-            "_has_xyxy": "has_xyxy",
-            "_longest_alt_answer_run": "longest_alt_answer_run",
-            "_trial_mean_dwell": "trial_mean_dwell",
-        })
-    )
-
-    out["has_xyx"] = out["has_xyx"].astype(int)
-    out["has_xyxy"] = out["has_xyxy"].astype(int)
-    out["longest_alt_answer_run"] = out["longest_alt_answer_run"].astype(int)
-
-    return out
+# `build_trial_level_derived_features` stood here until 2026-10-13 and is gone
+# (grain proposal step 6). It built the five `DERIVED_COLS` by hand, at
+# interest-area grain, and collapsed them with a `groupby(...).first()` -- 760,628
+# sequence parses on L1 to keep 19,436 results. They are now five registry entries
+# in `features/sequences.py`, verified identical on full L1 including dtypes, and
+# 7.3x faster. `build_trial_level_model_df` carries them off the frame instead of
+# recomputing them.
 
 
 def build_trial_level_rt_tfd_features(
@@ -697,16 +653,15 @@ def build_trial_level_model_df(
     assert_full_coverage(out, area_df, TRIAL_ID_COLS, "area features")
     out = out.merge(area_df, on=list(TRIAL_ID_COLS), how="left")
 
-    derived_df = build_trial_level_derived_features(
-        df=df,
-        seq_col=seq_col,
-        dwell_col=dwell_col,
-        keep_cols=None,
-        target_col=target_col,
-    )
-    drop_cols = [target_col]
-    derived_df = derived_df.drop(
-        columns=[c for c in drop_cols if c in derived_df.columns]
+    # The five DERIVED_COLS are **carried, not computed** (grain proposal step 6).
+    # They became registry entries in step 5, so prep already built them and they
+    # arrive on `df` like any other trial-grain column. Recomputing them here would
+    # merge a second copy beside the first and suffix both.
+    #
+    # Values are unchanged: the registry entries were verified identical to the
+    # block this replaces, on full L1, including dtypes.
+    derived_df = (
+        df.groupby(list(TRIAL_ID_COLS), as_index=False)[list(DERIVED_COLS)].first()
     )
     assert_full_coverage(out, derived_df, TRIAL_ID_COLS, "derived features")
     out = out.merge(derived_df, on=list(TRIAL_ID_COLS), how="left")
@@ -842,6 +797,61 @@ def build_trial_level_model_df(
 # the same name in `RT_correlations`. These match the artifact and the registry
 # property that locates it (`Dataset.model_ready`).
 # ===========================================================================
+
+def load_model_input(dataset, facet: str = None, verbose: bool = True) -> pd.DataFrame:
+    """Read the three grain tables and rejoin them into the frame the builder wants.
+
+    Grain proposal step 6. `build_trial_level_model_df` still takes one wide
+    interest-area frame -- rewriting it to consume three tables is a larger change
+    to the project's most load-bearing function, and not what this step is for.
+    What changes is **where the frame comes from**: three small tables instead of
+    one 2.9 GB broadcast table.
+
+    Measured on L1: 3 s to read the three plus 1 s to rejoin, against 38 s to read
+    `all_participants.csv`. Same frame either way -- the rejoin is verified
+    value-, null- and dtype-identical (acceptance 6).
+
+    `facet` reads one group subset instead of the whole dataset -- `"hunters"` or
+    `"gatherers"` on L1. The subsets are written in the same run as their parent
+    (`ingest/build.py::save_grain_tables`), so they cannot drift from it.
+
+    Fails loudly and says how to fix it when a dataset has not been through a prep
+    run since the split landed. That is a build-order problem, not a reason to
+    quietly fall back to the old table and read something else.
+    """
+    def _path(grain):
+        return (
+            dataset.grain_split(grain, facet) if facet else getattr(dataset, grain)
+        )
+
+    missing = [
+        name
+        for name in ("interest_areas", "areas_answers", "trials")
+        if not _path(name).exists()
+    ]
+    if missing:
+        raise FileNotFoundError(
+            f"{dataset.key}: no grain tables ({', '.join(missing)}). Run "
+            f"`python scripts/build_dataset.py --dataset {dataset.key}` to build "
+            f"them, or pass the interest-area frame directly if you meant the "
+            f"pre-split table."
+        )
+
+    read = dict(dtype={Con.PARTICIPANT_ID: str}, low_memory=False)
+    ia = pd.read_csv(_path("interest_areas"), **read)
+    areas = pd.read_csv(_path("areas_answers"), **read)
+    trials = pd.read_csv(_path("trials"), **read)
+    if verbose:
+        print(
+            f"  grains: interest_areas {ia.shape}, areas_answers {areas.shape}, "
+            f"trials {trials.shape}"
+        )
+
+    area_key = list(TRIAL_ID_COLS) + [Con.AREA_LABEL_COLUMN]
+    out = ia.merge(areas, on=area_key, how="left")
+    out = out.merge(trials, on=list(TRIAL_ID_COLS), how="left")
+    return out
+
 
 def save_model_ready(
     df: pd.DataFrame,

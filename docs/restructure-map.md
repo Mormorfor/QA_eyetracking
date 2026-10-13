@@ -179,6 +179,14 @@ proposal below is: make the newest pattern the rule.
 1. **Layers, and imports only ever point downwards.** `lib` → `config` → `ingest` →
    `features` → `modeling` → `analyses`. Nothing imports `analyses`. `lib` imports nothing
    from the project at all. This is checkable and worth checking in CI.
+
+   > **Amended 2026-10-13 — `ingest/` → `features/` is permitted, and is necessary.** The
+   > registry has to name functions from both layers (see `ingest/registry.py`), so the
+   > orchestration modules import downstream by design; putting the recipe in `features/` would
+   > only invert the direction. **What is enforced instead:** the `ingest/` *primitives*
+   > (`readers`, `geometry`, `clicks`, `base_features`) import no `features/`, and `features/`
+   > imports no `ingest/`. Both verified 2026-10-13. The other standing exception is
+   > `explorations/` → `analyses/correctness_prediction/run.py`, documented in that module.
 2. **A folder per functionality, and it owns everything about that functionality** — the
    computation, the statistics, the figures, the tables. If two analyses need the same thing,
    that thing moves *down* a layer; it is never copied sideways.

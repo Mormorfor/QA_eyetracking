@@ -22,7 +22,7 @@ from typing import NamedTuple
 
 import pandas as pd
 
-from src.config.datasets import ALL_PARTICIPANTS_PROCESSED_PATH, GATHERERS_PROCESSED_PATH, HUNTERS_PROCESSED_PATH, L1_BASED_DATA_DIR, READY_ALL_FEATURES_PATH
+from src.config.datasets import dataset as _dataset
 
 __all__ = [
     "FEATURE_SOURCES",
@@ -36,20 +36,36 @@ __all__ = [
 class FeatureSource(NamedTuple):
     """Where a frame is cached, and what it is built from if the cache is gone."""
 
-    processed: Path  # the big processed CSV
+    processed: "str | None"  # the group facet to load, or None for all
     features: Path  # the cached model-ready CSV
 
 
 def _features_path(name: str) -> Path:
-    return L1_BASED_DATA_DIR / f"L1_model_ready_{name}_features.csv"
+    """Where the cached model-ready table for one group lives.
+
+    **Corrected 2026-10-13.** This returned
+    `L1_model_ready_{name}_features.csv` at the dataset root -- the
+    pre-restructure name, which stage G renamed to `features/model_ready_*.csv`.
+    Nothing noticed because the miss is silent: `load_features` treats an absent
+    cache as "build it", so every call to `load_features("hunters")` was
+    rebuilding the group table from the 1.5 GB `hunters.csv` instead of reading a
+    20 MB cache that was sitting right there under a different name.
+    """
+    ds = _dataset("l1")
+    return ds.model_ready if name == "all" else ds.features / f"model_ready_{name}.csv"
 
 
-# `_features_path("all")` is READY_ALL_FEATURES_PATH; the constant is used
-# directly so the dependency on data_paths stays visible.
+#: What each frame is built from, and where it is cached.
+#:
+#: The sources are the **grain tables**, not the broadcast ones. `load_model_input`
+#: reads `interest_areas` + `areas_answers` + `trials` and rejoins them, which is
+#: the same frame `all_participants.csv` held -- verified equivalent on all 121
+#: shared columns, 0 value / null / dtype differences -- at 4 s instead of 64 s,
+#: and without the 5.8 GB those three files took.
 FEATURE_SOURCES: dict[str, FeatureSource] = {
-    "all": FeatureSource(ALL_PARTICIPANTS_PROCESSED_PATH, READY_ALL_FEATURES_PATH),
-    "hunters": FeatureSource(HUNTERS_PROCESSED_PATH, _features_path("hunters")),
-    "gatherers": FeatureSource(GATHERERS_PROCESSED_PATH, _features_path("gatherers")),
+    "all": FeatureSource(None, _features_path("all")),
+    "hunters": FeatureSource("hunters", _features_path("hunters")),
+    "gatherers": FeatureSource("gatherers", _features_path("gatherers")),
 }
 
 GROUP_NAMES = ["hunters", "gatherers"]
@@ -80,10 +96,13 @@ def load_features(
         # Imported lazily: building is rare and pulls in the modelling stack.
         from src.features.build import save_model_ready
 
+        from src.features.build import load_model_input
+
         if verbose:
-            print(f"building {name} features from {source.processed}")
+            print(f"building {name} features from the grain tables")
         save_model_ready(
-            pd.read_csv(source.processed), output_path=source.features
+            load_model_input(_dataset("l1"), facet=source.processed, verbose=verbose),
+            output_path=source.features,
         )
 
     out = pd.read_csv(source.features)

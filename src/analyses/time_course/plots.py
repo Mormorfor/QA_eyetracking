@@ -288,7 +288,7 @@ def plot_time_segment_mean_dwell(
     )
 
 
-def plot_time_segment_sequence_length(
+def plot_time_segment_ia_row_count(
     df: pd.DataFrame,
     id_col: str = Con.PARTICIPANT_ID,
     trial_index_col: str = Con.TRIAL_ID,
@@ -300,18 +300,24 @@ def plot_time_segment_sequence_length(
     title: Optional[str] = None,
 ):
     """
-    Average sequence length (number of IA rows) by time segment.
+    Average number of interest-area rows per time segment.
+
+    **Not the collapsed-sequence length.** This counts IA rows -- one per word, per
+    area, per trial -- falling in each segment. `seq_len` in the model-ready table is
+    the number of *area transitions* in a trial, a different quantity from a different
+    builder. Named `sequence_length` until 2026-10-13, which abbreviated to `seq_len`
+    in the output path and invited exactly that confusion.
     """
     return _plot_time_segment_bar(
         df=df,
         value_col=None,
-        metric_col_name=Con.SEQUENCE_LENGTH_COLUMN,
+        metric_col_name=Con.SEGMENT_IA_ROW_COUNT,
         metric_label="Average number of rows",
         id_col=id_col,
         trial_index_col=trial_index_col,
         segment_col=segment_col,
         transform=None,
-        subdir="sequence_length",
+        subdir="segment_ia_row_count",
         figsize=figsize,
         h_or_g=h_or_g,
         save=save,
@@ -423,7 +429,7 @@ def run_all_time_segment_plots(
             {
               "df": df_with_segment,
               "mean_dwell": (fig, summary_df),
-              "sequence_length": (fig, summary_df),
+              "segment_ia_row_count": (fig, summary_df),
               "fixation_count": (fig, summary_df),
               "skip_rate": (fig, summary_df),
             }
@@ -457,7 +463,7 @@ def run_all_time_segment_plots(
             to_paper=to_paper,
         )
 
-        sl_fig, sl_summary = plot_time_segment_sequence_length(
+        sl_fig, sl_summary = plot_time_segment_ia_row_count(
             df_seg,
             id_col=group_cols[0],
             trial_index_col=group_cols[1],
@@ -492,7 +498,7 @@ def run_all_time_segment_plots(
         results[group_key] = {
             "df": df_seg,
             "mean_dwell": (md_fig, md_summary),
-            "sequence_length": (sl_fig, sl_summary),
+            "segment_ia_row_count": (sl_fig, sl_summary),
             "fixation_count": (fc_fig, fc_summary),
             "skip_rate": (sr_fig, sr_summary),
         }

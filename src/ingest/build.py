@@ -34,6 +34,10 @@ from src.features.pupil import add_zscored_pupil_columns
 from src.features.sequences import create_fixation_sequence_tags
 from src.ingest.registry import (
     add_base_features,
+    check_grain_split_is_lossless,
+    check_join_keys,
+    raw_whitelist,
+    split_by_grain,
     generate_new_row_features,
     resolve_base_functions,
     resolve_group_functions,
@@ -159,6 +163,73 @@ def _save_splits(
         _save(subset, out_path, label=f"{split_column}={value}", verbose=verbose)
 
 
+def save_grain_tables(
+    result_df: pd.DataFrame,
+    dataset,
+    split_column: str = None,
+    verbose: bool = True,
+) -> dict:
+    """Split the broadcast interest-area frame into its three grains and write them.
+
+    Step 4d of `docs/decisions/2026-10-13-feature-grain-proposal.md`. The split is
+    driven by `registry.column_grain()` -- declarations, not observation -- and is
+    checked before anything is written: keys present at every grain, no column
+    lost. A failure here must stop the run rather than write a table that quietly
+    drops a column.
+
+    `areas_paragraph` is **not** written here. The paragraph screen is a separate
+    pipeline with its own entry point (`features/paragraph/spans.py`), kept separate
+    by T6.1, and this function only ever sees the answer screen.
+
+    Group subsets are written in the **same call** as their parent, which is the
+    point of doing it here rather than leaving it to a second pass: on 2026-10-13
+    `model_ready.csv` was five days newer than its own hunters/gatherers copies,
+    because those were a separate rebuild that nothing forced to happen.
+    """
+    ia, areas, trials = split_by_grain(result_df)
+    check_join_keys(ia, areas, trials)
+    check_grain_split_is_lossless(result_df, ia, areas, trials)
+
+    written = {}
+    for grain, frame in (
+        ("interest_areas", ia),
+        ("areas_answers", areas),
+        ("trials", trials),
+    ):
+        path = getattr(dataset, grain)
+        _save(frame, path, label=grain, verbose=verbose)
+        written[grain] = path
+
+        if split_column and split_column in result_df.columns:
+            key = [C.PARTICIPANT_ID, C.TRIAL_ID]
+            # Rename the facet to a name that cannot collide rather than relying
+            # on merge suffixes: the split column is itself trial-grain, so it is
+            # already present on `trials` and absent from the other two, and a
+            # suffix rule has to be right in both cases. This one does not care.
+            facet_col = "__grain_facet__"
+            facets = (
+                result_df[key + [split_column]]
+                .drop_duplicates(subset=key)
+                .rename(columns={split_column: facet_col})
+            )
+            merged = frame.merge(facets, on=key, how="left")
+            for value, subset in merged.groupby(facet_col):
+                name = {True: "hunters", False: "gatherers"}.get(value, str(value))
+                out = dataset.grain_split(grain, name)
+                _save(
+                    subset[frame.columns], out,
+                    label=f"{grain}__{name}", verbose=verbose,
+                )
+                written[f"{grain}__{name}"] = out
+
+    if verbose:
+        print(
+            f"  grains: interest_areas {ia.shape}, areas_answers {areas.shape}, "
+            f"trials {trials.shape}"
+        )
+    return written
+
+
 def _process(
     df: pd.DataFrame,
     base_funcs,
@@ -231,6 +302,9 @@ def main(
     remove_practice: bool = True,
     base_function_names: list = None,
     group_function_names: list = None,
+    filter_raw_columns: bool = True,
+    dataset=None,
+    write_broadcast_table: bool = False,
     verbose: bool = True,
 ):
     """
@@ -306,7 +380,24 @@ def main(
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
 
-    df_answers = load_raw_answers_data(ia_answers_path)
+    # The read-time column whitelist (stage D section 3.4; proved and switched on
+    # 2026-10-13, step 2 of the grain proposal). Built here rather than in
+    # `readers.py` so that the primitive stays free of the registry -- see
+    # `load_raw_answers_data`.
+    #
+    # `filter_raw_columns=False` reads every column, which is how the proof is
+    # re-run: one pass each way, compared byte for byte. Keep that escape hatch.
+    usecols = None
+    if filter_raw_columns:
+        header = pd.read_csv(ia_answers_path, nrows=0, engine="python").columns
+        usecols = raw_whitelist(header)
+        if verbose:
+            print(
+                f"  reading {len(usecols)} of {len(header)} raw columns "
+                f"(whitelist; pass filter_raw_columns=False for all of them)"
+            )
+
+    df_answers = load_raw_answers_data(ia_answers_path, usecols=usecols)
 
     if remove_repeats:
         df_answers = df_answers[
@@ -386,17 +477,37 @@ def main(
         verbose=verbose,
     )
 
-    _save(processed, output_path, label="all_participants", verbose=verbose)
+    # The pre-split broadcast table: `all_participants.csv` and its group splits.
+    #
+    # **Off by default since 2026-10-13.** Every consumer now reads the grain
+    # tables below, and on L1 these three files were 5.8 GB holding the same data
+    # at ~39x redundancy -- 46% of their columns were constant within a trial.
+    # Leaving this on would recreate that on the next prep run.
+    #
+    # The switch stays rather than the code going, because the frame itself does
+    # not go away: `processed` is what the split is computed from, so persisting
+    # it is a one-flag question rather than a rebuild.
+    if write_broadcast_table:
+        _save(processed, output_path, label="all_participants", verbose=verbose)
 
-    if split_column is not None:
+        if split_column is not None:
+            if verbose:
+                print(f"\nSaving splits by column: {split_column}")
+            _save_splits(
+                processed,
+                split_column=split_column,
+                base_output_path=output_path,
+                split_output_paths=split_output_paths,
+                verbose=verbose,
+            )
+
+    # The three grains (step 4d) -- the only thing written by default now.
+    # `dataset=None` skips them, for a caller that wants the old output alone.
+    if dataset is not None:
         if verbose:
-            print(f"\nSaving splits by column: {split_column}…")
-        _save_splits(
-            processed,
-            split_column=split_column,
-            base_output_path=output_path,
-            split_output_paths=split_output_paths,
-            verbose=verbose,
+            print("\nSplitting into grains…")
+        save_grain_tables(
+            processed, dataset, split_column=split_column, verbose=verbose
         )
 
     if verbose:

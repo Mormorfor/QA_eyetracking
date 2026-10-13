@@ -213,6 +213,52 @@ class Dataset:
         """
         return self.features / "model_ready.csv"
 
+    # -- the three grains (grain proposal section 1 and section 4) -------------
+    #
+    # A file is named for its grain, and its grain is its key. A group subset is
+    # the same grain faceted, so it carries the grain name plus `__<facet>` --
+    # `trials__hunters.csv`, never `hunters.csv`, which said who was in the file
+    # and nothing about its shape.
+
+    @property
+    def interest_areas(self) -> Path:
+        """One row per word, per area, per trial. Was `all_participants.csv`.
+
+        After the split this carries only what genuinely varies word to word --
+        23 columns on L1, against the 121 the broadcast table held.
+        """
+        return self.interim / "interest_areas.csv"
+
+    @property
+    def areas_answers(self) -> Path:
+        """One row per (trial, screen area): the eight per-area metrics."""
+        return self.interim / "areas_answers.csv"
+
+    @property
+    def areas_paragraph(self) -> Path:
+        """One row per (trial, paragraph span).
+
+        Only written when `has_paragraph` -- KnowQA gets three artifacts, not
+        four, because the screen does not exist for it rather than because a flag
+        was left off.
+        """
+        return self.interim / "areas_paragraph.csv"
+
+    @property
+    def trials(self) -> Path:
+        """One row per (participant, trial): sequences, timings, identity."""
+        return self.interim / "trials.csv"
+
+    def grain_split(self, grain: str, facet: str) -> Path:
+        """The `__<facet>` subset of one grain, e.g. `trials__hunters.csv`.
+
+        `facet` is a value of the dataset's split column -- `hunters` /
+        `gatherers` for L1. KnowQA has no split column and so no subsets; see the
+        grain proposal section 8 for why `regime` is not its analogue.
+        """
+        base = getattr(self, grain)
+        return base.with_name(f"{base.stem}__{facet}{base.suffix}")
+
     @property
     def participant_pupils(self) -> Path:
         return self.aux / "participant_pupils.csv"
@@ -437,3 +483,74 @@ HUNTING_IS_CORRECT_ITEMS_DIR = HUNTING_IS_CORRECT_FOLDS_DIR / "items"
 HUNTING_IS_CORRECT_SUBJECTS_DIR = HUNTING_IS_CORRECT_FOLDS_DIR / "subjects"
 
 FOLD_TRIAL_IDS_FILENAME_TEMPLATE = "fold_{fold_idx}_trial_ids_by_regime.csv"
+
+
+# ---------------------------------------------------------------------------
+# Validating the registry against the disk
+#
+# `restructure-map.md` section 7 promised this and it was never written: *"the
+# stale-constant class of bug disappears, because paths are derived from one root
+# and can be validated in one loop at import or in a test."*
+#
+# What that cost, 2026-10-13: KnowQA's folder was briefly nested inside L1's, so
+# every path property on its record returned a `Path` that did not exist. Nothing
+# noticed. The failure finally surfaced as a `FileNotFoundError` from inside
+# pandas, naming a path nobody had typed, several layers from the cause.
+#
+# Deliberately NOT run at import: a dataset that has not been built yet is a
+# normal state, not an error, and raising on import would make the package
+# unimportable on a clean checkout -- the opposite of what the public release
+# needs. It is a check you call.
+# ---------------------------------------------------------------------------
+
+
+def check_dataset_paths(keys=None, built_only: bool = True) -> dict:
+    """Report, per dataset, which declared artifacts are missing.
+
+    `built_only=True` skips datasets whose root does not exist at all -- not yet
+    built is not the same as misplaced, and only the second is a fault.
+
+    Returns `{dataset_key: [missing artifact names]}`; empty means everything a
+    built dataset declares is where the record says it is.
+    """
+    # `all_participants` is deliberately **not** in this list. It was the
+    # pre-split broadcast table and was retired on 2026-10-13; `ingest/build.py`
+    # only writes it when asked (`write_broadcast_table=True`), so its absence is
+    # the normal state rather than a fault. The three grains replace it, and they
+    # are what a built dataset must have.
+    artifacts = (
+        "interim",
+        "features",
+        "aux",
+        "interest_areas",
+        "areas_answers",
+        "trials",
+        "model_ready",
+    )
+    out = {}
+    for key in keys or DATASETS:
+        ds = DATASETS[key]
+        if built_only and not ds.root.exists():
+            continue
+        missing = [name for name in artifacts if not getattr(ds, name).exists()]
+        if missing:
+            out[key] = missing
+    return out
+
+
+def assert_dataset_paths(keys=None, built_only: bool = True) -> None:
+    """`check_dataset_paths`, but raise -- naming the dataset and the paths.
+
+    The point is to fail here, where the record and the disk disagree, rather
+    than wherever the first read happens to be.
+    """
+    bad = check_dataset_paths(keys, built_only=built_only)
+    if bad:
+        lines = [
+            f"  {key}: {', '.join(names)}  (root: {DATASETS[key].root})"
+            for key, names in bad.items()
+        ]
+        raise FileNotFoundError(
+            "dataset records disagree with the disk -- a built dataset declares "
+            "artifacts that are not there:\n" + "\n".join(lines)
+        )

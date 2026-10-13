@@ -10,6 +10,25 @@ from pathlib import Path
 import pandas as pd
 
 from src.config import columns as C
+# ⚠️ **The two defaults below name files that no longer exist.**
+#
+# `hunters.csv` / `gatherers.csv` were retired on 2026-10-13, once every live
+# consumer moved to the grain tables (`interest_areas` + `areas_answers` +
+# `trials`). The constants still resolve to paths; the paths are simply empty.
+#
+# This module is parked -- it feeds `mixed_text_answer_effects`, which does not
+# import at all (T2.6) -- so it is recorded rather than rewired, per
+# `conventions.md`: *keep, don't delete*. Nothing here was removed.
+#
+# **The replacement, when this strand is picked up again**, is one line per group:
+#
+#     from src.config.datasets import dataset as get_dataset
+#     from src.features.build import load_model_input
+#     hunters = load_model_input(get_dataset("l1"), facet="hunters")
+#
+# which returns the same interest-area frame these paths used to hold, minus the
+# 118 raw columns nothing read.
+
 from src.config.datasets import GATHERERS_PROCESSED_PATH, HUNTERS_PROCESSED_PATH, IA_PARAGRAPH_PATH, GATH_PARAGRAPH_AND_ANSWERS, HUNT_PARAGRAPH_AND_ANSWERS
 from src.ingest.readers import load_raw_paragraphs_data
 from src.features.scope import split_hunters_and_gatherers

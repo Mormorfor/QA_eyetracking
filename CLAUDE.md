@@ -111,8 +111,23 @@ archive/        superseded work, kept deliberately
 **Two rules the layout exists to enforce:**
 
 1. **Imports only point downwards** — `lib` → `config` → `ingest` → `features` → `modeling` →
-   `analyses`. Nothing imports `analyses`, and `lib` imports nothing from the project. There is
-   one documented exception, noted where it lives (`analyses/correctness_prediction/run.py`).
+   `analyses`. Nothing imports `analyses`, and `lib` imports nothing from the project.
+
+   **Two standing exceptions, both deliberate and both load-bearing:**
+
+   - **`ingest/` may import `features/`.** This is not drift — it is how the pipeline is built.
+     `ingest/build.py` is the composition root and `ingest/registry.py` is the recipe, and
+     between them they have to name the row-level builders beside them *and* the group features
+     from `features/`. Moving the registry into `features/` would invert the import rather than
+     remove it (`registry.py`'s docstring makes the same argument). **The narrower rule is the
+     one that actually holds, and it is the one to check:** only the three *orchestration*
+     modules reach down — `build.py`, `registry.py`, `knowqa.py` — while the five primitives
+     (`readers`, `geometry`, `clicks`, `base_features`, `__init__`) do not, and **no `features/`
+     module imports `ingest/` at all.** Verified 2026-10-13.
+   - **`explorations/` imports `analyses/correctness_prediction/run.py`** — two parked modules
+     want its *run* half and get the *plot* half with it. Noted where it lives; the fix is to
+     split run from plot, which is a signature change on the paper's main run path and so was
+     flagged rather than done.
 2. **`analyses/` is paper code, `explorations/` is not**, and the path says which.
 
 **Entry points.** `python scripts/run_analysis.py --list` says what can be run without Jupyter.

@@ -617,6 +617,24 @@ def build_trial_level_pattern_features(
 ) -> pd.DataFrame:
     """Per-trial pattern-breaking features for the model.
 
+    > **This is deliberately NOT a `FUNCTION_REGISTRY` entry, and must not become
+    > one.** Step 5 of the grain proposal moved the hand-written feature blocks
+    > into the registry; this family was examined and left out (Diana, 2026-10-13:
+    > *"lets keep it to its own analysis folder for now"*).
+    >
+    > **The reason is T3.21.** `scope_df` / `scope_by` are what let a caller say
+    > which trials estimate the participant-level aggregates, and
+    > `cross_validation.py` uses that to rebuild them per regime — which is how the
+    > `within_group` default, chosen on train/test leakage grounds, is actually
+    > achieved. A registry entry runs once during prep, over the whole dataset.
+    > That is the `global` scope: **the leaking one.** Registering this would
+    > silently undo a decision made specifically to avoid a leak, and nothing
+    > would fail while it did.
+    >
+    > The rule that generalises: **anything accumulating over a participant's
+    > trials stays where its scope can still be chosen.** A registry entry has one
+    > scope, fixed at prep time, and for this family that is the wrong one.
+
     One row per (PARTICIPANT_ID, TRIAL_ID) with, for each of the two variants
     (question tokens kept / dropped before forming the starting strategy):
 

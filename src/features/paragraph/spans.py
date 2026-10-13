@@ -154,7 +154,10 @@ def scan_paragraph_fixations(
        uses it to place those fixations rather than drop them, which is what the
        answer screen has always done and the paragraph screen never did.
 
-    Returns (pupil_stats, {(participant_id, TRIAL_INDEX): [nearest ids...]}).
+    Returns (pupil_stats, {(participant_id, TRIAL_INDEX): [nearest ids...]}),
+    where a `None` in the list marks a fixation with no nearest area recorded --
+    kept in place rather than removed, because the queue is positional. See
+    `area_metrics.nearest_ia_queue`.
     """
     usecols = [
         C.PARTICIPANT_ID,
@@ -194,8 +197,18 @@ def scan_paragraph_fixations(
             for (pid, tid), g2 in off.groupby(
                 [C.PARTICIPANT_ID, C.TRIAL_ID], sort=False
             ):
-                ids = pd.to_numeric(g2[C.NEAREST_IA], errors="coerce").dropna()
-                nearest.setdefault(_key(pid, tid), []).extend(ids.astype(int).tolist())
+                # The shared builder, so both screens spell this one way. It was
+                # an inline `to_numeric(...).dropna()` here, which REMOVED the
+                # entry for a fixation with no nearest area -- and this queue is
+                # consumed positionally, so removing one shifts every later
+                # off-area fixation in the trial onto its neighbour's nearest
+                # area. `nearest_ia_queue` keeps the slot as None and
+                # `resolve_fixation_sequence` drops and counts it instead.
+                # Dormant on the current data: the paragraph report has no "."
+                # in this column at all (checked 2026-10-13, 2.4M fixations).
+                nearest.setdefault(_key(pid, tid), []).extend(
+                    am.nearest_ia_queue(g2)
+                )
 
     if not acc:
         raise ValueError(

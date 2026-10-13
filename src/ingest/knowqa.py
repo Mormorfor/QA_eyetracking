@@ -976,8 +976,16 @@ def run_pipeline(
 
     cleaned_dir = Path(cleaned_dir)
     out_dir = Path(out_dir)
-    aux_dir = out_dir / "Auxiliary"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Paths come from the dataset record, not from `out_dir` directly. Stage G of
+    # the restructure moved every dataset's outputs under `interim/` and
+    # `interim/aux/`, and this module was never updated -- it kept writing
+    # `<root>/all_participants.csv` and `<root>/Auxiliary/`, the pre-restructure
+    # layout. Nobody noticed because nobody re-ran it: the files under `interim/`
+    # had been *moved* there, so both the record and the disk looked right.
+    # Rebuilding KnowQA on 2026-10-13 wrote a second, duplicate set at the old
+    # paths and that is how it surfaced.
+    aux_dir = ds.aux
+    ds.interim.mkdir(parents=True, exist_ok=True)
     aux_dir.mkdir(parents=True, exist_ok=True)
 
     ia_path = cleaned_dir / IA_REPORT_NAME
@@ -988,7 +996,7 @@ def run_pipeline(
                 f"{label} not found at {path} -- run the clean step first."
             )
 
-    output_path = out_dir / "all_participants.csv"
+    output_path = ds.all_participants
 
     # Which base features to skip is a property of the dataset, so ask the
     # dataset rather than a module constant -- `out_dir` identifies it. The names
@@ -1014,10 +1022,15 @@ def run_pipeline(
     base_function_names = [
         name
         for name, entry in registry_mod.FUNCTION_REGISTRY.items()
-        if entry["kind"] == "base" and name not in excluded
+        if entry["kind"] == "row" and name not in excluded
     ]
 
     ingest_build.main(
+        # Writes the three grain tables alongside `all_participants.csv`
+        # (grain proposal step 4d). `dataset_for_root` resolved it above, so
+        # Study 2 and the pilots get them on the same terms as L1 -- minus the
+        # group splits, since none of them has a `question_preview` column.
+        dataset=ds,
         ia_answers_path=ia_path,
         output_path=output_path,
         # The single canonical fixations report: feeds both the pupil stats and
@@ -1164,7 +1177,8 @@ def prepare_know_qa(
 
     raw_dir, out_dir = runs[run]
     cleaned_dir = raw_dir / CSV_SUBDIR / CLEANED_SUBDIR
-    processed_path = out_dir / "all_participants.csv"
+    # Same reason as in `run_pipeline`: ask the record, not `out_dir`.
+    processed_path = dataset_for_root(out_dir).all_participants
 
     if verbose:
         print(f"run:   {run}")

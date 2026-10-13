@@ -8,7 +8,7 @@
 | **5** — `include_*` → `Dataset` | ✅ done 2026-10-07. The last flag is gone; `dataset=` replaces it, and the paragraph warning became a raise |
 | **4** — the produced-column map | ❌ **audited 2026-10-07: do not build**, and the deletion pass that replaced it deleted **nothing** — the audit's own "dead" counts were wrong. What landed: the `LAST_*` vocabulary moved to its producer, killing the `common/` → `answer_correctness/` upward import |
 | **3** — the trial-level registry kind | ✅ done 2026-10-07, **by deleting the flags instead.** 8 booleans → 1; `kind: "trial"` not added, and should not be. Numbers unchanged |
-| **2c** — the collapsed-area-sequence step (§3.9) | ✅ done 2026-10-07. The answer screen now uses the primitives the paragraph screen already used. Numbers unchanged |
+| **2c** — the collapsed-area-sequence step (§3.9) | ✅ done 2026-10-07. The answer screen now uses the primitives the paragraph screen already used. Numbers unchanged. **One deviation, recorded 2026-10-13:** the unified function takes `area_cols` + a `drop_leading_question` bool per call site rather than a `Screen`, so the two fields §3.9 specified were never added to that record. Substance complete; interface open by decision — see §3.9 |
 | **2** — `features/build.py` | ✅ done 2026-10-07. 13 functions + 5 column vocabularies moved; `common/feature_builders.py` deleted. Numbers unchanged |
 | **2b** — the `Screen` record (§3.8) | ✅ done 2026-10-06. Four duplicated orchestration pieces became one each. Numbers unchanged |
 | **6** — one fixation-to-area rule, RT off the clicks table | ✅ done, **out of order, on Diana's instruction** (*"I don't care that it changes numbers, I want this whole mess unified"*). Two bugs found; see §3.6. Logged in `findings.md` |
@@ -691,7 +691,23 @@ off-area fixations but no queue entry**, printing a warning that names the likel
 differing, which covers all four sequence columns and both visit-count columns. 97 of 98 modules
 import.
 
-### 3.9 The fifth duplicated piece: building the collapsed area sequence — ⚠️ **open, scoped**
+### 3.9 The fifth duplicated piece: building the collapsed area sequence — ✅ **done 2026-10-07, with one deviation**
+
+> **Closed 2026-10-13.** This heading read ⚠️ *open, scoped* until then, which no longer matched
+> the code: step 2c landed on 2026-10-07. **The deduplication is complete** — one
+> `features/sequences.py::build_area_sequences` serves both screens, both call the same
+> `area_metrics` primitives, `span_visit_counts` is a thin caller, and the numbers did not move.
+>
+> **The deviation is the interface, not the substance.** The shape proposed below routes the
+> step through `Screen`; what landed passes `area_cols` and a plain `drop_leading_question` bool
+> per call site, and **neither field was added to the record.** The two screen properties exist
+> either way — the question is only where they are held.
+>
+> **Deliberately left open** (Diana, 2026-10-13): whether centralizing them on `Screen` is an
+> improvement is to be decided by reviewing the call sites, not by conforming to this document.
+> The working implementation and its numbers stay as they are until then. The two sentences
+> below that assert the `Screen` change are struck for that reason — they record what was
+> proposed, not what exists.
 
 Step 2b unified four of **five** duplicated orchestration pieces. The fifth is the one that turns
 a trial's raw fixation sequence into "which areas, in order, without repeats" — and from that,
@@ -724,7 +740,8 @@ already shared — `am.parse_ia_sequence`, `resolve_fixation_sequence`, `collaps
 2. **The leading-question drop.** The answer screen discards an opening fixation on the question
    when the next one is not; the paragraph screen has no question. **This is what the
    `drop_leading_question` field was for** — removed from `Screen` on 2026-10-06 because nothing
-   read it yet, and it comes back with this step.
+   read it yet, and ~~it comes back with this step~~ — *it did not: the landed version takes it
+   as a per-call argument. See the note under the heading (2026-10-13).*
 3. **Where the nearest-IA queue comes from** — inline vs a separate streaming pass.
 4. **Whether the intermediates are persisted.** The answer screen writes `fix_by_label`,
    `fix_by_loc`, `simpl_fix_by_label`, `simpl_fix_by_loc` onto `all_participants.csv`; the
@@ -736,11 +753,17 @@ strategies, by the XYX / XYXY detectors and by `model_data`. Touching how they a
 changing `all_participants.csv`'s schema or their values, which is a different class of risk from
 the four self-contained pieces 2b dealt with.
 
-**Shape of the fix:** one `build_area_sequence(df, screen, nearest_by_trial, ...)` producing the
-collapsed sequence plus visit counts; `Screen` regains `drop_leading_question` and gains
-`sequence_vocabularies` (`("label", "loc")` vs `("span",)`); the three registry entries become
-thin, and `span_visit_counts` becomes a call. The queue stays per screen — that is a real
-difference in how the data has to be read, not a flag.
+**Shape of the fix** *(as proposed — the landed version differs on the first clause only; see the
+note under the heading)*: one ~~`build_area_sequence(df, screen, nearest_by_trial, ...)`~~
+producing the collapsed sequence plus visit counts; ~~`Screen` regains `drop_leading_question`
+and gains `sequence_vocabularies` (`("label", "loc")` vs `("span",)`)~~; the three registry
+entries become thin, and `span_visit_counts` becomes a call. The queue stays per screen — that is
+a real difference in how the data has to be read, not a flag.
+
+*What landed:* `build_area_sequences(df, area_cols, *, fixations, nearest_by_trial,
+drop_leading_question, verbose)` — same composition, same primitives, same numbers; the two
+screen properties are passed per call site rather than held on `Screen`. The registry entries and
+`span_visit_counts` did become thin as proposed.
 
 **Acceptance:** the four sequence columns and `num_label_visits` / `num_loc_visits` bit-identical
 on KnowQA's full pipeline, and `L1_paragraph_span_features.csv` bit-identical. Both are checks

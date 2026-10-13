@@ -192,9 +192,23 @@ def build_area_sequences(
         # filtered the whole fixation frame inside the per-trial loop -- 19,436
         # boolean scans of a 718k-row frame on L1, which is what the registry
         # comment meant by "slow for now".
+        #
+        # Restricted to the trials in `df` first. The fixation report also holds
+        # trials that carry no interest-area data at all and were therefore
+        # excluded upstream, so they are absent from `df` -- on L1, 2 of them,
+        # every fixation off-area and without even a nearest area. Their queues
+        # are never looked up, so building them is wasted work; it is also how
+        # they reached `nearest_ia_queue` and crashed the build. Scoping here
+        # keeps the population the same as the per-trial loop's was.
+        wanted = pd.MultiIndex.from_frame(
+            df[[Con.PARTICIPANT_ID, Con.TRIAL_ID]].astype(str).drop_duplicates()
+        )
+        in_scope = pd.MultiIndex.from_frame(
+            fixations[[Con.PARTICIPANT_ID, Con.TRIAL_ID]].astype(str)
+        ).isin(wanted)
         nearest_by_trial = {
             (str(pid), str(tid)): am.nearest_ia_queue(g)
-            for (tid, pid), g in fixations.groupby(keys, sort=False)
+            for (tid, pid), g in fixations[in_scope].groupby(keys, sort=False)
         }
 
     rows, dropped, unplaced_trials, no_queue = [], 0, 0, 0
@@ -390,3 +404,131 @@ def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return out
+
+
+# ---------------------------------------------------------------------------
+# The five sequence statistics, as registry entries
+#
+# Step 5 of `docs/decisions/2026-10-13-feature-grain-proposal.md`. These are the
+# `DERIVED_COLS` -- five columns that were built by a hand-written block inside
+# `features/build.py::build_trial_level_derived_features` rather than declared,
+# for no reason beyond `FUNCTION_REGISTRY` having stopped being the obvious place
+# by the time they were written (stage D proposal, "'Derived' is a date, not a
+# category"). They are sequence statistics, and they sit in the same module as
+# `create_simplified_fixation_tags`, which has always been a registry entry.
+#
+# **Five entries, not one** (Diana, 2026-10-13): each is its own quantity and
+# declares its own `needs`.
+#
+# **This is also cheaper than the block it replaces.** That block parsed the
+# sequence once per interest-area row -- 760,628 parses on L1 -- and then threw
+# away 38 of every 39 with a `groupby(...).first()`. Collapsing first and parsing
+# at trial grain is 19,436 parses per statistic, 97,180 for all five: about 7.8x
+# fewer. The values are identical because the sequence column is trial-grain.
+# ---------------------------------------------------------------------------
+
+
+#: The five sequence statistics, in the order they are reported.
+#:
+#: Canonical here, beside the functions that build them. `modeling/feature_sets.py`
+#: imports this rather than keeping a second copy -- one name per concept, and a
+#: feature set cannot drift from what the pipeline actually produces.
+DERIVED_COLS = [
+    "seq_len",
+    "has_xyx",
+    "has_xyxy",
+    "longest_alt_answer_run",
+    "trial_mean_dwell",
+]
+
+
+def _trial_sequences(df: pd.DataFrame, seq_col: str) -> pd.DataFrame:
+    """One parsed sequence per trial.
+
+    Collapse first, parse second. `seq_col` is trial-grain -- declared so, and
+    checked against the data by `registry.check_declared_grains` -- so `.first()`
+    loses nothing.
+    """
+    out = (
+        df.groupby(list(Con.TRIAL_ID_COLS), as_index=False)[seq_col]
+        .first()
+    )
+    # `parse_seq`, not `ast.literal_eval` -- the column is a **string** when it has
+    # been through a CSV round trip and an actual **tuple** when it has not. The
+    # block this replaced only ever ran at model-ready time, reading the string
+    # form, so a bare `literal_eval` was enough there. These run during prep, where
+    # the sequence is still the in-memory tuple `create_simplified_fixation_tags`
+    # produced, and `literal_eval` raises on it. Found by rebuilding KnowQA,
+    # 2026-10-13.
+    out["_seq"] = out[seq_col].apply(parse_seq)
+    return out
+
+
+def create_seq_len(
+    df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
+) -> pd.DataFrame:
+    """Number of area transitions in the trial's collapsed sequence."""
+    out = _trial_sequences(df, seq_col)
+    out["seq_len"] = out["_seq"].apply(
+        lambda s: len(s) if isinstance(s, (list, tuple)) else 0
+    )
+    return out[list(Con.TRIAL_ID_COLS) + ["seq_len"]]
+
+
+def create_has_xyx(
+    df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
+) -> pd.DataFrame:
+    """Does the trial end in an x-y-x return? Only the last three tokens count."""
+    out = _trial_sequences(df, seq_col)
+    out["has_xyx"] = out["_seq"].apply(
+        lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False
+    ).astype(int)
+    return out[list(Con.TRIAL_ID_COLS) + ["has_xyx"]]
+
+
+def create_has_xyxy(
+    df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
+) -> pd.DataFrame:
+    """The doubled version of `has_xyx` -- the last four tokens."""
+    out = _trial_sequences(df, seq_col)
+    out["has_xyxy"] = out["_seq"].apply(
+        lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False
+    ).astype(int)
+    return out[list(Con.TRIAL_ID_COLS) + ["has_xyxy"]]
+
+
+def create_longest_alt_answer_run(
+    df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
+) -> pd.DataFrame:
+    """Longest strictly-alternating run between two answers; the graded XYXY."""
+    out = _trial_sequences(df, seq_col)
+    out["longest_alt_answer_run"] = out["_seq"].apply(
+        lambda s: longest_alternating_answer_run(s) if s is not None else 0
+    ).astype(int)
+    return out[list(Con.TRIAL_ID_COLS) + ["longest_alt_answer_run"]]
+
+
+def create_trial_mean_dwell(
+    df: pd.DataFrame, dwell_col: str = Con.MEAN_DWELL_TIME
+) -> pd.DataFrame:
+    """Mean dwell per word on the trial.
+
+    **Two things here are quirks of the existing definition, preserved exactly.**
+
+    1. `dwell_col` is `mean_dwell_time` -- the *area-level* metric -- not
+       `IA_DWELL_TIME`. `compute_trial_mean_dwell_per_word` defaults to the raw
+       per-word column, but the caller this replaces passed the area metric, and
+       the saved numbers are that.
+    2. The sum and count run over **interest-area rows**, where the area metric is
+       broadcast, so each area is weighted by its word count. Computing it from
+       `areas_answers` instead would weight the five areas equally and give a
+       different number.
+
+    So this one genuinely needs the interest-area frame; it cannot move to a
+    coarser input without changing what it measures.
+    """
+    g = df.groupby(list(Con.TRIAL_ID_COLS), as_index=False)[dwell_col].agg(
+        _sum="sum", _n="count"
+    )
+    g["trial_mean_dwell"] = g["_sum"] / g["_n"]
+    return g[list(Con.TRIAL_ID_COLS) + ["trial_mean_dwell"]]

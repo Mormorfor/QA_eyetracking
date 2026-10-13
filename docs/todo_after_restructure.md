@@ -54,7 +54,7 @@ relevant files, and in several cases doing it earlier would mean doing it twice.
 
 ## 2. Waiting for your manual check
 
-Two items that are explicitly **yours to drive**, by your own ruling on 2026-09-27:
+Four items that are explicitly **yours to drive**, by your own ruling on 2026-09-27:
 *"everything will be re-run as I check."*
 
 - **T4.0 — rebuild `findings.md` from the saved numbers.** The mechanism is done: every
@@ -65,6 +65,42 @@ Two items that are explicitly **yours to drive**, by your own ruling on 2026-09-
   refill.** The 329 zero-byte PNGs went with the old output trees. The figures that matter are
   simply *absent* and need generating, not overwriting. The blocker that made this impossible
   (**T2.7**, the modelling library failure) was found and fixed, so it will now actually run.
+- **Should `Screen` carry the two sequence properties?** *(added 2026-10-13, during the
+  walkthrough.)* Stage D step 2c unified the collapsed-area-sequence step across the two
+  screens — one `features/sequences.py::build_area_sequences`, shared primitives,
+  `span_visit_counts` a thin caller, **numbers unchanged**. That part is finished. What did not
+  land is the *interface* §3.9 specified: the function takes `area_cols` and a plain
+  `drop_leading_question` bool per call site, and neither field was added to the `Screen`
+  record. The properties exist either way — only their location is in question.
+
+  **Your ruling, 2026-10-13:** leave it open until the call sites have been read, and decide
+  then whether centralizing them on `Screen` would actually improve consistency. Explicitly
+  **not** a conformance job — the working implementation and its numbers stay as they are, and
+  matching the proposal is not by itself a reason to change them. The trigger is reaching
+  `features/sequences.py` and `features/paragraph/spans.py` in the walkthrough.
+
+  Recorded in the code where someone would hit it: `config/screens.py`'s docstring and §3.9 of
+  `docs/decisions/2026-10-06-stage-d-proposal.md`.
+- **A participant grain, once the three-grain split has settled.** *(added 2026-10-13.)* The
+  feature-grain proposal (`docs/decisions/2026-10-13-feature-grain-proposal.md`) commits to
+  **three** grains — interest-area, area, trial — and deliberately stops there. But several
+  quantities are genuinely *per participant* and currently have no home of their own:
+
+  | | where it lives today |
+  |---|---|
+  | pupil baseline (mean, SD) | `interim/aux/participant_pupils.csv` — its own file, treated as an input rather than a feature |
+  | `dominant_starting_strategy`, `dominance_score`, `n_strategy_trials_*` | computed per participant, **stored per trial**, broadcast (T3.21) |
+  | per-person accuracy, coefficients, feature means | `analyses/correctness_prediction/person_variance/`, computed on demand, cached only as a pickle |
+
+  Three mechanisms for one grain, which is the same shape of problem the three-grain split is
+  fixing one level down. A fourth artifact — one row per participant — would unify them, and is
+  the obvious next thing to propose.
+
+  **Deferred on purpose** (Diana, 2026-10-13): doing it in the same pass would mean two unsettled
+  designs moving at once. **The trigger is the three-grain split landing and holding.** Note the
+  storage decision for the strategy family is already settled and is *not* reopened by this —
+  T3.21 put those values per trial with `n_strategy_trials_*` alongside so the scope stays
+  visible, and that stays true whether or not a participant artifact exists.
 
 ---
 

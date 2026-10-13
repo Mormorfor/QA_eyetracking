@@ -10,9 +10,12 @@ import pandas as pd
 import sequence_visualisations as SV
 
 # 1) Load processed hunters / gatherers
-from src.config.datasets import HUNTERS_PROCESSED_PATH, GATHERERS_PROCESSED_PATH
-df_h = pd.read_csv(HUNTERS_PROCESSED_PATH)
-df_g = pd.read_csv(GATHERERS_PROCESSED_PATH)
+#    (hunters.csv / gatherers.csv were retired 2026-10-13 -- this is the
+#     replacement, and it returns the same frame)
+from src.config.datasets import dataset as get_dataset
+from src.features.build import load_model_input
+df_h = load_model_input(get_dataset("l1"), facet="hunters")
+df_g = load_model_input(get_dataset("l1"), facet="gatherers")
 
 # 2) Build one-row-per-trial table with sequences
 data_rows_h = SV.build_sequence_rows(

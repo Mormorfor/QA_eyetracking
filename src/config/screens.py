@@ -16,9 +16,27 @@ with a few different flags?"*).
 same rule `Dataset.skip_base_features` follows.
 
 **A field nothing reads is a lie about the design.** `drop_leading_question` was on this record
-briefly on 2026-10-06 and removed the same day: nothing consumed it, because the step that would
-(`create_fixation_sequence_tags`, which builds the collapsed area sequence) has not been unified
-across the screens yet. It goes back on the day that step does.
+briefly on 2026-10-06 and removed the same day, because nothing consumed it yet.
+
+> **Status, 2026-10-13 — the unification is done; this record was not part of how it landed.**
+> An earlier version of this docstring said the field "goes back on the day that step does".
+> The step is done -- stage D step 2c, 2026-10-07 -- and the field did **not** come back, so
+> that sentence was describing a plan rather than the code.
+>
+> **What is true:** the collapsed-area-sequence step *is* unified. There is one
+> `features/sequences.py::build_area_sequences` serving both screens, both call the same
+> `area_metrics` primitives, `paragraph/spans.py::span_visit_counts` is a thin caller, and the
+> numbers did not move.
+>
+> **What differs from the agreed shape:** §3.9 of the stage-D proposal specified that the
+> unified function would take a `Screen`, and that this record would regain
+> `drop_leading_question` and gain `sequence_vocabularies` (`("label", "loc")` vs `("span",)`).
+> It takes `area_cols` and a plain `drop_leading_question` bool instead, set per call site. So
+> the two properties exist -- they are passed as arguments rather than held here.
+>
+> **Left open on purpose** (Diana, 2026-10-13): whether centralizing them on `Screen` would
+> actually improve consistency is a question to answer by reading the call sites, not by
+> matching the proposal. **Do not change the interface or the numbers to close this gap.**
 
 **What is NOT here, deliberately.** The two screens are still *generated
 separately into separate artifacts*, joined on `(participant_id, TRIAL_INDEX)`

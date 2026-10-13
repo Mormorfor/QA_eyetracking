@@ -71,13 +71,10 @@ METRIC_COLUMNS: List[str] = [
 # Derived trial-level features
 # ---------------------------------------------------------------------------
 
-DERIVED_COLS: List[str] = [
-    "seq_len",
-    "has_xyx",
-    "has_xyxy",
-    "longest_alt_answer_run",
-    "trial_mean_dwell",
-]
+# Imported, not redefined: the canonical list lives beside the builders in
+# `features/sequences.py`, so a feature set cannot name a column the pipeline
+# stopped producing (grain proposal step 6).
+from src.features.sequences import DERIVED_COLS  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -376,13 +373,22 @@ def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
 def get_derived_feature_cols(df: pd.DataFrame) -> List[str]:
     """
     Return derived trial-level feature columns that are present in df.
+
+    **Preference matching is deliberately not here** (Diana, 2026-10-13: *"I don't
+    want pref matching to ever become features"*). A line collecting
+    `pref_matching__*` columns stood here until then and had **never returned
+    anything** -- nothing in the pipeline produces that prefix, and
+    `model_ready.csv` has no such column among its 219. It read as a feature family
+    that happened to be empty, which is the same shape as T2.4, where
+    `get_last_visited_feature_cols` silently returned `[]` for a documented block
+    and quietly removed it from every default feature set.
+
+    Preference matching is live, but as an **analysis**: `analyses/correctness_associations/plots.py`
+    calls `features/preference.py::compute_trial_matching` directly, once per metric
+    and direction it wants. It is a parameterised family rather than one feature,
+    which is the other reason it does not belong in a feature-set list.
     """
-    cols: List[str] = []
-
-    cols.extend([c for c in DERIVED_COLS if c in df.columns])
-    cols.extend(sorted(c for c in df.columns if c.startswith("pref_matching__")))
-
-    return cols
+    return [c for c in DERIVED_COLS if c in df.columns]
 
 
 def get_pattern_feature_cols(df: pd.DataFrame) -> List[str]:

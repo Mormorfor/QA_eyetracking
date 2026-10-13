@@ -73,24 +73,35 @@ def _run(name: str, save: bool, verbose: bool) -> None:
 
     from src.config.datasets import dataset as get_dataset
 
-    ds = get_dataset("l1")
-    ia_path = ds.all_participants
-    if not ia_path.exists():
-        raise SystemExit(f"{ia_path} not found -- run scripts/build_dataset.py --dataset l1 first.")
+    from src.features.build import load_model_input
 
+    ds = get_dataset("l1")
+
+    # Reads the three grain tables and rejoins them, rather than the 2.9 GB
+    # broadcast table: 4 s against 64 s, and the frames are **verified equivalent**
+    # on every column the analyses can see -- 121 shared columns, 0 value, 0 null
+    # and 0 dtype differences (2026-10-13). The 118 columns the read-time whitelist
+    # drops are raw passthrough that nothing under `analyses/` reads.
     if verbose:
-        print(f"loading {ia_path.name}")
-    all_participants = pd.read_csv(ia_path, dtype={"participant_id": str}, low_memory=False)
+        print("loading the grain tables")
+    all_participants = load_model_input(ds, verbose=verbose)
 
     for mod_name, fn_name in RUNNERS[name]:
         fn = getattr(importlib.import_module(mod_name), fn_name)
         if verbose:
             print(f"  {fn_name}")
         if fn_name == "run_all_area_mixed_models":
-            # the one runner that wants the two group frames rather than the pooled one
-            hunters = pd.read_csv(ds.root / "hunters.csv", dtype={"participant_id": str}, low_memory=False)
-            gatherers = pd.read_csv(ds.root / "gatherers.csv", dtype={"participant_id": str}, low_memory=False)
-            fn(hunters, gatherers, save=save)
+            # The one runner that wants the two group frames rather than the pooled
+            # one. It read `ds.root / "hunters.csv"` until 2026-10-13 -- a path that
+            # has not existed since stage G moved those files under `interim/`, so
+            # this branch raised FileNotFoundError. The group subsets of each grain
+            # are written in the same run as their parent, so they cannot be stale
+            # relative to it the way the old pair could.
+            fn(
+                load_model_input(ds, facet="hunters", verbose=False),
+                load_model_input(ds, facet="gatherers", verbose=False),
+                save=save,
+            )
         else:
             fn(all_participants, save=save)
 
