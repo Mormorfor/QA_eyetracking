@@ -1,24 +1,24 @@
-"""Build one dataset, raw reports -> model-ready trial table.
+"""Build one dataset, from the raw reports to the model table.
 
     python scripts/build_dataset.py --dataset l1
     python scripts/build_dataset.py --dataset l1 --no-splits
     python scripts/build_dataset.py --dataset knowqa
 
-`--splits` (on by default, L1 only) writes the hunters/gatherers subsets next to the
-pooled tables, at both stages that can carry them -- the three grain tables and the
-model-ready table. Until 2026-10-15 they were never written here at all.
+Study 1 runs three steps, in this order:
 
-This is where the build order stops being documentation and becomes code (`todo.md` T5.6).
-`docs/data-pipeline.md` section 6 describes it; until now the only thing enforcing it was a
-`FileNotFoundError` telling you to build the paragraph cache first.
+  1. the answer screen: raw reports -> the three tables (`ingest/build.py`)
+  2. the paragraph screen: -> `features/paragraph_spans.csv`
+  3. the model table: -> `features/model_ready.csv`
 
-**The order, and why it is this order.** The paragraph cache has to exist before the
-model-ready table is assembled, because `build_trial_level_model_df` joins paragraph dwell
-proportions in. Both studies share the trial-table step; they differ only in how the raw
-reports become an IA table, which is why L1 goes through `ingest.build` and KnowQA through
-`ingest.knowqa` (composite trial ids, per-session cleaning, its own identity scheme).
+Step 3 needs the other two, because it joins the paragraph features in. Study 2 goes through
+`ingest/knowqa.py` instead, because its raw reports need converting and cleaning first, and it
+has no paragraph screen. `docs/data-pipeline.md` describes both.
 
-Nothing here is new logic -- every step is a call to a function that already existed.
+`--splits` (on by default, Study 1 only) also writes the hunters' and gatherers' subsets, of the
+three tables and of the model table.
+
+This file only calls functions defined elsewhere, in order. The two pilots are not built here
+(see `main`).
 """
 
 from __future__ import annotations
@@ -34,22 +34,17 @@ if str(REPO_ROOT) not in sys.path:
 from src.config.datasets import DATASETS, dataset as get_dataset  # noqa: E402
 
 
-#: L1's split column and the facet names it produces. `question_preview` is a
-#: BETWEEN-participant manipulation, so each participant's whole trial set lands in
-#: one facet and participant-level features come out the same either way
-#: (`docs/pitfalls.md` section 3). That is why no scope argument is needed below.
+#: Study 1's two groups. Each participant is in one group only, so the per-participant
+#: features come out the same whether built per group or on everyone
+#: (`docs/pitfalls.md` section 3). That is why no scope setting is needed below.
 L1_FACETS = ("hunters", "gatherers")
 
 
 def build_l1(verbose: bool = True, splits: bool = True) -> None:
-    """IA table -> paragraph cache -> model-ready. The three-stage L1 path.
+    """Study 1: answer screen -> paragraph screen -> model table.
 
-    `splits` decides whether the hunters/gatherers subsets are written alongside
-    the pooled tables, at BOTH stages that can carry them: the three grain tables
-    in step 1 and the model-ready table in step 3. It used not to be a choice --
-    the splits were simply never built here, because `split_column` was not passed,
-    which is how `model_ready_{hunters,gatherers}.csv` came to be six days older
-    than `model_ready.csv` on 2026-10-13.
+    `splits` says whether the hunters' and gatherers' subsets are written too:
+    of the three tables (step 1) and of the model table (step 3).
     """
     from src.config import columns as C
     from src.features.build import load_model_input, save_model_ready
@@ -61,10 +56,9 @@ def build_l1(verbose: bool = True, splits: bool = True) -> None:
 
     print(f"[1/3] ingest: raw reports -> 3 grain tables"
           f"{' + ' + '/'.join(facets) if facets else ' (no splits)'}")
-    # `dataset=ds` is what makes the prep write the three grains (grain proposal
-    # step 4d); `split_column` is what makes it write their facet subsets too.
-    # The facet write is NOT gated on `write_broadcast_table`, so asking for splits
-    # does not drag the 5.8 GB broadcast table back.
+    # `dataset=ds` makes it save the three tables, and `split_column` makes it
+    # save each group's subsets of them too. Asking for the subsets does not
+    # also write the single wide table (5.8 GB on Study 1).
     ingest_main(
         dataset=ds,
         split_column=C.QUESTION_PREVIEW_COLUMN if splits else None,
@@ -75,8 +69,7 @@ def build_l1(verbose: bool = True, splits: bool = True) -> None:
     save_paragraph_features(verbose=verbose)
 
     print("[3/3] features: trial-level model-ready table")
-    # Reads the three grain tables step 1 wrote, not the 2.9 GB broadcast table:
-    # 4 s against 38 s, same frame (grain proposal step 6).
+    # Reads the three tables step 1 wrote, joined back into one wide table.
     save_model_ready(
         load_model_input(ds, verbose=verbose),
         output_path=ds.model_ready,
@@ -95,16 +88,15 @@ def build_l1(verbose: bool = True, splits: bool = True) -> None:
 
 
 def build_knowqa(verbose: bool = True, splits: bool = True) -> None:
-    """Study 2's own path: convert -> clean -> pipeline -> features, in one call.
+    """Study 2: convert -> clean -> answer screen -> model table, in one call
+    (`ingest/knowqa.py`). Study 2 has no paragraph screen, so there is no
+    paragraph step.
 
-    `has_paragraph=False`, so there is no paragraph step to run -- that is a property of the
-    dataset now rather than a flag a caller has to remember (stage D step 5).
-
-    `splits` is accepted for a uniform signature and has no effect: KnowQA has no
-    `question_preview` column to split on, and its three knowledge regimes are not
-    the analogue -- they are WITHIN-participant, so slicing by them would split a
-    participant's trials (`docs/pitfalls.md` section 3). Said out loud in `main()`
-    rather than ignored silently.
+    `splits` has no effect; it is accepted so both builders take the same
+    arguments. Study 2 has no groups of people to split by: every participant
+    does all three knowledge regimes, so splitting by regime would split each
+    person's trials (`docs/pitfalls.md` section 3). `main()` prints a note
+    saying so.
     """
     from src.ingest.knowqa import prepare_know_qa
 
@@ -130,13 +122,12 @@ def main(argv: list[str] | None = None) -> int:
     ds = get_dataset(args.dataset)
     if args.dataset not in BUILDERS:
         # The two pilots are built by notebooks/builders/data_prep_new_exp.ipynb, which
-        # carries the older identity scheme they were collected under. Driving them from
-        # here would rebuild them under KnowQA's scheme instead -- a different dataset with
-        # the same filename. Refuse rather than guess (`todo.md` T5.8, T5.10).
+        # uses the identity scheme they were collected under. Building them here would
+        # use Study 2's scheme instead and give a different dataset under the same file
+        # names, so this refuses.
         raise SystemExit(
             f"{ds.key} is a {ds.kind}; it is built by "
-            f"notebooks/builders/data_prep_new_exp.ipynb, not by this script. "
-            f"See docs/decisions/2026-10-07-stage-f-proposal.md."
+            f"notebooks/builders/data_prep_new_exp.ipynb, not by this script."
         )
 
     if args.splits and args.dataset != "l1":

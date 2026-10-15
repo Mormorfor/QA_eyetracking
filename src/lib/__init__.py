@@ -1,5 +1,6 @@
-"""Generic helpers. Imports nothing from the rest of the project.
+"""General-purpose helpers: statistics, plot annotation, and saving outputs.
 
-The test for whether something belongs here: if it mentions an eye-tracking
-column name, it is not lib. (restructure-map.md section 4.)
+Nothing here knows about eye tracking, and nothing here imports the rest of the
+project. A simple test for whether something belongs here: if it mentions one
+of the project's column names, it does not.
 """

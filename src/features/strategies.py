@@ -1,3 +1,29 @@
+"""The opening scan ("starting strategy"): the order in which a participant
+first visits the four answers.
+
+A trial's starting strategy is the first four entries of its merged location
+sequence, e.g. (top, right, bottom, left). Usually visits to the question are
+removed first, so it is the order of the answers alone; the model features come
+in both versions, with the question kept (`_with_q`) and removed (`_no_q`). A
+scan that reached fewer than four answers stays shorter -- it is not padded.
+
+From the per-trial strategies:
+
+- each participant's **dominant strategy** is their most common one, and their
+  **dominance score** is the share of their trials that use it;
+- a participant **has a dominant strategy** if that share is at least 0.5;
+- **prefix completion** repairs short scans: a scan that reached only two
+  answers is completed the way most full scans with that start continue. The
+  paper's descriptive figures report both raw and completed scans; the model
+  features use raw scans only.
+
+Everything here only computes; the figures are in `analyses/scan_strategies/`.
+
+**Which trials a dominant strategy is worked out from matters.** It summarises
+a person over the trials it is given, so the answer depends on that choice.
+See `scope_df` and `scope_by` on `build_trial_level_pattern_features`.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -15,19 +41,18 @@ SeqKind = Literal["location", "label"]
 
 DEFAULT_WINDOW_LEN = 4
 
-# A participant "has a dominant strategy" when their modal opening scan covers
-# AT LEAST this share of their trials. The paper's wording is "at least in half
-# of the trials", so the comparison is `>=`, not `>` -- see has_dominant_strategy.
+# A participant "has a dominant strategy" when their most common opening scan
+# covers AT LEAST this share of their trials. The paper says "at least in half
+# of the trials", so the test is `>=`, not `>` -- see has_dominant_strategy.
 DEFAULT_DOMINANCE_THRESHOLD = 0.5
 
 
 def _parse_seq(x) -> tuple:
-    """Normalise a stored simplified-fixation sequence into a tuple.
+    """Read a stored merged sequence into a tuple.
 
-    The sequence columns hold tuples in-memory (as produced by the
-    data_csv_generation pipeline) but come back as serialized strings once the
-    frame has been round-tripped through a CSV. Anything unparseable / missing
-    becomes an empty tuple.
+    The sequence is a tuple during a pipeline run, and text once it has been
+    saved and read back; both are handled. Anything that cannot be read --
+    missing, or malformed text -- becomes an empty tuple.
     """
     if isinstance(x, tuple):
         return x
@@ -45,12 +70,12 @@ def _parse_seq(x) -> tuple:
 def _starting_window(
     seq, window_len: int = DEFAULT_WINDOW_LEN, drop_question: bool = False
 ) -> tuple:
-    """First ``window_len`` tokens of a simplified sequence.
+    """The first ``window_len`` entries of a merged sequence.
 
-    ``drop_question`` removes ``"question"`` tokens *before* taking the window.
-    The data generator only trims the single leading question fixation (see
-    ``data_csv_generation``), so residual question tokens can survive; dropping
-    them here keeps the strategy to pure answer-area scanning order.
+    ``drop_question`` removes the question's entries *before* taking them, so
+    the result is the order of the answers alone. (Earlier steps only remove a
+    single opening fixation on the question; later question visits are still
+    in the sequence.) No padding: a shorter sequence gives a shorter tuple.
     """
     tokens = list(_parse_seq(seq))
     if drop_question:
@@ -63,17 +88,14 @@ def levenshtein_sequence_distance(
     seq_b: Sequence,
     normalize: bool = False,
 ) -> float:
-    """Token-level Levenshtein (edit) distance between two sequences.
+    """How many single-step edits turn one sequence into the other.
 
-    The minimum number of single-token insertions, deletions, or substitutions
-    to turn ``seq_a`` into ``seq_b``. Operates on whole tokens, not characters,
-    so each location/label (e.g. ``"answer_0(top)"``) is one edit unit.
+    An edit is inserting, deleting or swapping one whole entry (e.g. one
+    "answer_0(top)"), not one character. 0 means the two are identical. This is
+    the graded version of "breaks pattern".
 
-    A graded generalisation of the binary "breaks pattern" flag: 0 when the two
-    sequences are identical, larger the more they differ.
-
-    If ``normalize``, the distance is divided by ``max(len(seq_a), len(seq_b))``
-    (0 when both are empty), giving a value in [0, 1].
+    With ``normalize`` the count is divided by the longer sequence's length,
+    giving a value from 0 to 1 (0 when both are empty).
     """
     a = list(seq_a) if seq_a is not None else []
     b = list(seq_b) if seq_b is not None else []
@@ -111,23 +133,14 @@ def build_starting_strategies(
     out_col: str = C.STARTING_STRATEGY_COL,
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """Per-trial starting strategy from the simplified fixation sequence.
+    """Each trial's starting strategy, one row per trial.
 
-    One row per (PARTICIPANT_ID, TRIAL_ID). The starting strategy is the first
-    ``window_len`` entries of ``simpl_fix_by_loc`` (or ``simpl_fix_by_label``
-    when ``kind="label"``), stored as a tuple in ``out_col``.
+    The first ``window_len`` entries of ``simpl_fix_by_loc`` (or of
+    ``simpl_fix_by_label`` with ``kind="label"``), as a tuple in ``out_col``.
 
-    ``keep_cols`` carries extra trial-level columns through to the output --
-    used to bring a grouping column (``regime``, ``session_id``) alongside the
-    strategy so a narrower scope can be taken later. They must be constant
-    within a trial; a column that varies would make the per-trial dedup below
-    pick an arbitrary value, so that is asserted rather than assumed.
-
-    Required columns:
-      C.PARTICIPANT_ID
-      C.TRIAL_ID
-      the relevant simplified-sequence column (see ``kind``)
-      anything named in ``keep_cols``
+    ``keep_cols`` carries other columns along, e.g. ``regime`` or
+    ``session_id``, so the strategies can later be grouped by them. They must
+    have one value per trial; the run stops if one does not.
     """
     if kind == "location":
         seq_col = C.SIMPLIFIED_FIX_SEQ_BY_LOCATION
@@ -145,9 +158,8 @@ def build_starting_strategies(
     out = df[required].drop_duplicates(subset=[C.PARTICIPANT_ID, C.TRIAL_ID]).copy()
 
     if keep_cols:
-        # The dedup above keeps the first row per trial. If a keep_col varied
-        # within a trial that would silently pick one of several values, and the
-        # scope this column defines would then be wrong for some trials.
+        # Only the first row of each trial is kept above. If a keep_col had
+        # several values in one trial, one would be picked arbitrarily.
         n_trials = len(df.drop_duplicates(subset=[C.PARTICIPANT_ID, C.TRIAL_ID]))
         n_distinct = len(df[[C.PARTICIPANT_ID, C.TRIAL_ID] + keep_cols].drop_duplicates())
         assert n_distinct == n_trials, (
@@ -172,27 +184,13 @@ def compute_dominant_starting_strategy(
     drop_question: bool = True,
     id_col: str = C.PARTICIPANT_ID,
 ) -> pd.DataFrame:
-    """Participant-level dominant starting strategy and its dominance score.
+    """Each participant's dominant strategy and dominance score, from a
+    word- or trial-level frame.
 
-    For each participant, this:
-      1. computes the per-trial starting strategy (first ``window_len`` tokens
-         of ``simpl_fix_by_loc``, see :func:`build_starting_strategies`),
-      2. finds ``dominant_starting_strategy`` -- the most common such strategy
-         across that participant's trials,
-      3. computes ``dominance_score`` -- the proportion of trials (in [0, 1])
-         on which the dominant strategy is used.
-
-    Ties for the most common strategy are broken deterministically (highest
-    count, then lexicographic order of the strategy tuple).
-
-    Returns one row per participant with columns:
-      [id_col, C.DOMINANT_STARTING_STRATEGY, C.DOMINANCE_SCORE,
-       C.N_STRATEGY_TRIALS]
-
-    Required columns:
-      id_col
-      C.TRIAL_ID
-      the relevant simplified-sequence column (see ``kind``)
+    Builds the per-trial strategies (`build_starting_strategies`), then picks
+    each participant's most common one (`dominant_strategy_by_participant`).
+    Returns one row per participant: the dominant strategy, its share of their
+    trials, and the number of trials.
     """
     per_trial = build_starting_strategies(
         df.rename(columns={id_col: C.PARTICIPANT_ID})
@@ -214,33 +212,22 @@ def dominant_strategy_by_participant(
     strat_col: str = C.STARTING_STRATEGY_COL,
     by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """Collapse a per-trial starting-strategy frame to one row per participant.
+    """Each participant's most common strategy, and the share of trials using it.
 
-    Picks the most common strategy per participant (ties broken deterministically
-    by highest count, then lexicographic order of the strategy tuple) and its
-    dominance score (proportion of trials using it).
+    `per_trial` has one row per trial with a strategy in `strat_col`. Returns
+    one row per participant: `dominant_starting_strategy`, `dominance_score`
+    (its share of their trials) and `n_strategy_trials` (how many trials that
+    share is out of).
 
-    This is the single implementation of "who is this participant's dominant
-    strategy, and what share of their trials does it cover". The descriptive
-    figures in ``viz/visualisations_strategies.py`` and
-    ``viz/visualisations_dominant_eye.py`` call it too, rather than
-    reimplementing the modal pick -- four near-copies of it, with three
-    different tie-breaks, were merged into this one on 2026-09-20.
+    A tie for most common goes to the strategy that sorts first.
 
-    SCOPE, two axes (``todo.md`` T3.21):
+    The result describes only the trials in `per_trial` -- choosing those is
+    the caller's job. `by` splits each participant further, e.g. `by=["regime"]`
+    gives one dominant strategy per participant and regime. By default all of a
+    participant's trials are pooled, across regimes and sessions.
 
-    * *Which trials* -- the dominance score is computed over whatever is in
-      ``per_trial``. That is the caller's choice and cannot be made here; see
-      ``scope_df`` on :func:`build_trial_level_pattern_features`.
-    * *How they are partitioned* -- ``by`` adds grouping columns beneath
-      ``id_col``, so ``by=["regime"]`` gives one dominant strategy per
-      (participant, regime) instead of one per participant. Default ``None``
-      pools everything the participant has in ``per_trial``, across knowledge
-      regimes and across sessions alike (Diana, 2026-09-25).
-
-    ``C.N_STRATEGY_TRIALS`` is returned alongside, and is what makes a narrowed
-    scope visible: the score is a proportion, so it looks the same whether it
-    came from 145 trials or 46.
+    Every figure and feature in the project gets its dominant strategy from this
+    one function.
     """
     by = list(by or [])
     group_cols = [id_col] + by
@@ -254,7 +241,7 @@ def dominant_strategy_by_participant(
         counts = Counter(g[strat_col])
         n_trials = int(sum(counts.values()))
 
-        # deterministic: most frequent first, ties broken lexicographically
+        # most frequent first; a tie goes to the strategy that sorts first
         dominant, top_count = min(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
         rows.append(
@@ -281,31 +268,22 @@ def has_dominant_strategy(
     dominance_score,
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
 ):
-    """Does this dominance score count as "having a dominant strategy"?
+    """Whether a dominance score counts as "having a dominant strategy".
 
-    ``>=``, not ``>``. The paper states the criterion as "at least in half of
-    the trials", and on the L1 data the difference is not cosmetic: 5 hunters
-    and 4 gatherers have a dominance score of exactly 0.50, which is 2.8 and
-    2.2 percentage points of their groups.
+    Uses ``>=``, not ``>``, because the paper says "at least in half of the
+    trials". The difference matters: on Study 1, 5 hunters and 4 gatherers have
+    a score of exactly 0.50 -- 2.8 and 2.2 percentage points of their groups.
 
-    Accepts a scalar or a Series; returns the same shape. Every threshold
-    comparison in the project goes through here, so the operator is written
-    down once (this was `todo.md` T1.1 -- three call sites previously
-    disagreed, and the same data was reported as both 46.1% and 48.9%).
+    Takes a single score or a Series. Every threshold test in the project goes
+    through here.
     """
     return dominance_score >= threshold
 
 
 # ---------------------------------------------------------------------------
-# Descriptive dominance quantities
+# Numbers for the paper's description of the opening scan
 #
-# Everything below is computation only -- no plotting. It backs the paper's
-# First-scan behavior subsection (findings.md 1.1-1.6). It lives here rather
-# than in viz/ because a number that is computed inside a plotting function is
-# a number that only exists as pixels: the plot returns a frame, the notebook
-# drops it, and nothing reaches reports/report_data/. Moved out of
-# viz/visualisations_strategies.py and viz/visualisations_dominant_eye.py on
-# 2026-09-20; behaviour deliberately unchanged in the move.
+# Computation only; the figures that show these are in analyses/scan_strategies/.
 # ---------------------------------------------------------------------------
 
 
@@ -313,18 +291,18 @@ def build_prefix_completion_map(
     series: pd.Series,
     full_len: int = DEFAULT_WINDOW_LEN,
 ) -> dict:
-    """Learn how interrupted scans tend to be completed.
+    """Learn how short scans are usually completed: the "interrupted-scan
+    completion" the paper describes.
 
-    From the strategies observed at full length, map each proper prefix to the
-    full sequence that most often extends it. This is the "interrupted-scan
-    completion" the paper describes, used to repair scan passes shorter than
-    ``full_len``.
+    Looks only at the full-length (``full_len``) strategies in ``series``. For
+    every start of one -- its first 1, 2, ... entries -- records which full
+    strategy most often begins that way. A tie goes to the strategy that sorts
+    last.
 
-    SCOPE: the map is learned population-wide over whatever ``series`` is given,
-    so hunters and gatherers currently learn different maps. That is row 5 of
-    `todo.md` T3.21 and is left as-is until that item is taken up.
+    Learned from whatever ``series`` is given. The scan-strategy analysis passes
+    the whole dataset, so hunters and gatherers share one map.
 
-    Returns ``{prefix_tuple: full_tuple}``.
+    Returns ``{start: full strategy}``.
     """
     full_counts = series[series.map(len).eq(full_len)].value_counts()
     by_prefix = defaultdict(Counter)
@@ -345,15 +323,15 @@ def add_completed_strategy_column(
     col_suffix: str = "_completed",
     prefix2full: Optional[dict] = None,
 ):
-    """Fill strategies shorter than ``full_len`` using a prefix-completion map.
+    """Complete the strategies shorter than ``full_len`` using a completion map.
 
     Adds two columns:
-      ``<strat_col><col_suffix>``   -- the completed sequence
-      ``<strat_col>_was_completed`` -- whether completion was attempted, i.e.
-                                       the original was shorter than full_len
+      ``<strat_col><col_suffix>``   the completed strategy (a short one with no
+                                    entry in the map stays as it is)
+      ``<strat_col>_was_completed`` True if the original was shorter than
+                                    ``full_len``
 
-    If ``prefix2full`` is None the map is learned from ``df[strat_col]`` itself
-    -- see the scope note on :func:`build_prefix_completion_map`.
+    If ``prefix2full`` is not given, the map is learned from this frame alone.
 
     Returns ``(df, prefix2full)``.
     """
@@ -380,17 +358,13 @@ def dominance_gap_by_participant(
     id_col: str = C.PARTICIPANT_ID,
     strat_col: str = C.STARTING_STRATEGY_COL,
 ) -> pd.DataFrame:
-    """How far clear of the runner-up is each participant's dominant strategy?
+    """How far ahead of the runner-up each participant's dominant strategy is.
 
-    ``p1`` is the dominant strategy's share (the same quantity as
-    ``dominance_score``), ``p2`` the second-most-common strategy's share, and
-    ``gap = p1 - p2``. A participant using only one strategy has ``p2 = 0``.
+    ``p1`` is the dominant strategy's share (the same as ``dominance_score``),
+    ``p2`` the second most common one's, and ``gap = p1 - p2``. Someone who used
+    only one strategy has ``p2 = 0``.
 
-    This is the one dominance quantity that genuinely needs the full
-    strategy-by-participant matrix rather than just the modal pick.
-
-    Returns one row per participant, indexed by ``id_col``, columns
-    ``[p1, p2, gap]``.
+    Returns one row per participant (indexed by ``id_col``).
     """
     counts = per_trial.groupby([id_col, strat_col]).size().unstack(fill_value=0)
     props = counts.div(counts.sum(axis=1), axis=0)
@@ -411,11 +385,11 @@ def strategy_variety_by_participant(
     id_col: str = C.PARTICIPANT_ID,
     strat_col: str = C.STARTING_STRATEGY_COL,
 ) -> pd.Series:
-    """How many distinct opening scans does each participant produce?
+    """How many different opening scans each participant used.
 
-    The counterweight to the dominance score: "dominant" means MODAL, not
-    consistent. A participant whose dominant strategy covers half their trials
-    still produced a range of others across the rest.
+    The counterweight to the dominance score: "dominant" means most common, not
+    consistent. Someone whose dominant strategy covers half their trials still
+    used other openings on the rest.
     """
     return per_trial.groupby(id_col)[strat_col].nunique()
 
@@ -426,10 +400,10 @@ def dominant_strategy_counts(
     strat_col: str = C.STARTING_STRATEGY_COL,
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
 ) -> pd.Series:
-    """Which strategies dominate, and for how many participants?
+    """Which strategies are dominant, and for how many participants each.
 
-    Restricted to participants who have a dominant strategy at ``threshold``
-    (see :func:`has_dominant_strategy`). Descending by count.
+    Counts only participants who have a dominant strategy at ``threshold``
+    (see :func:`has_dominant_strategy`). Largest count first.
     """
     dominant = dominant_strategy_by_participant(
         per_trial, id_col=id_col, strat_col=strat_col
@@ -450,19 +424,19 @@ def summarize_completion_effect(
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
     full_len: int = DEFAULT_WINDOW_LEN,
 ):
-    """What does interrupted-scan completion change?
+    """How much completing short scans changes the result.
 
-    Compares each participant's dominance before and after completion, and
-    reports how many participants' dominant label the repair actually flipped.
-    The point is robustness: if completion barely moves the result, the
-    first-scan finding is not an artifact of how short scans were handled.
+    Compares each participant's dominance score and dominant strategy before
+    and after completion. If completion barely changes anything, the opening-
+    scan finding does not depend on how short scans were handled.
 
     Returns ``(summary, both)``:
-      ``summary`` -- dict of aggregates (means, the two prevalence figures at
-                     ``threshold``, and how much changed)
-      ``both``    -- one row per participant: raw/comp scores, delta, the two
-                     dominant labels, whether the label changed, and per-trial
-                     sequence-change counts
+      ``summary`` a dict: average scores, the share of participants with a
+                  dominant strategy before and after, and how many
+                  participants' dominant strategy changed
+      ``both``    one row per participant: both scores, the difference, both
+                  dominant strategies, whether it changed, and how many of
+                  their trials' strategies changed
     """
     if comp_col is None:
         comp_col = f"{raw_col}_completed"
@@ -558,10 +532,10 @@ def attach_dominant_eye(
     id_col: str = C.PARTICIPANT_ID,
     eye_col: str = C.DOMINANT_EYE_COLUMN,
 ) -> pd.DataFrame:
-    """Attach each participant's tracked eye to a per-participant frame.
+    """Add each participant's recorded eye (left/right) to a per-participant frame.
 
-    The eye is a property of the recording, constant within a participant, so
-    it is joined on rather than being part of any grouping key.
+    The first non-missing value per participant is used; the eye does not
+    change within a participant.
     """
     if eye_col not in df.columns:
         raise KeyError(f"Column '{eye_col}' not found in df.")
@@ -584,14 +558,12 @@ def dominant_strategy_by_eye_crosstab(
     strat_col: str = C.DOMINANT_STARTING_STRATEGY,
     min_count: int = 1,
 ) -> pd.DataFrame:
-    """Dominant strategy against tracked eye, as a crosstab.
+    """A count table: dominant strategy against recorded eye.
 
-    Strategies used by fewer than ``min_count`` participants are pooled into
-    ``"OTHER"``. Strategies are rendered as ``a -> b -> c`` strings, which is
-    what the figures label them with.
+    Strategies held by fewer than ``min_count`` participants are grouped as
+    "OTHER". Strategies are written as "a → b → c", as in the figures.
 
-    Descriptive only -- no significance test is run on this anywhere, and the
-    association is not currently claimed in the paper (`findings.md` 1.6).
+    Description only: no significance test is run on this table.
     """
     df = dominant_with_eye.copy()
     df["strategy_str"] = df[strat_col].apply(
@@ -615,79 +587,47 @@ def build_trial_level_pattern_features(
     scope_df: Optional[pd.DataFrame] = None,
     scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """Per-trial pattern-breaking features for the model.
+    """The opening-scan features the model uses, one row per trial.
 
-    > **This is deliberately NOT a `FUNCTION_REGISTRY` entry, and must not become
-    > one.** Step 5 of the grain proposal moved the hand-written feature blocks
-    > into the registry; this family was examined and left out (Diana, 2026-10-13:
-    > *"lets keep it to its own analysis folder for now"*).
-    >
-    > **The reason is T3.21.** `scope_df` / `scope_by` are what let a caller say
-    > which trials estimate the participant-level aggregates, and
-    > `cross_validation.py` uses that to rebuild them per regime — which is how the
-    > `within_group` default, chosen on train/test leakage grounds, is actually
-    > achieved. A registry entry runs once during prep, over the whole dataset.
-    > That is the `global` scope: **the leaking one.** Registering this would
-    > silently undo a decision made specifically to avoid a leak, and nothing
-    > would fail while it did.
-    >
-    > The rule that generalises: **anything accumulating over a participant's
-    > trials stays where its scope can still be chosen.** A registry entry has one
-    > scope, fixed at prep time, and for this family that is the wrong one.
+    For each of two versions -- question visits kept (`_with_q`) or removed
+    (`_no_q`) before taking the strategy:
 
-    One row per (PARTICIPANT_ID, TRIAL_ID) with, for each of the two variants
-    (question tokens kept / dropped before forming the starting strategy):
+      breaks_pattern       1 if this trial's strategy differs from the
+                           participant's dominant one, else 0
+      dominance_score      the participant's dominance score, on every trial
+      breaks_x_dominance   breaks_pattern x dominance_score (if add_interaction)
+      strategy_distance    edits between this trial's strategy and the dominant
+                           one; 0 when they match (if add_distance)
+      n_strategy_trials    how many trials the dominant strategy was worked
+                           out from
 
-      - ``breaks_pattern_{with,no}_q`` -- 1 if this trial's starting strategy
-        differs from the participant's dominant starting strategy, else 0.
-      - ``dominance_score_{with,no}_q`` -- the participant's dominance score
-        (proportion of trials on the dominant strategy), broadcast to each trial.
+    **Which trials the dominant strategy is worked out from.** Two settings:
 
-    When ``add_interaction`` (default), also adds
-    ``breaks_x_dominance_{with,no}_q`` = ``breaks_pattern`` * ``dominance_score``
-    per variant -- the dominance score on pattern-breaking trials, 0 otherwise.
+    ``scope_df`` -- which trials. By default, `df` itself and nothing else.
+      This matters for the model. A score worked out over all of a person's
+      trials includes the held-out ones, so the model would see a summary of
+      its own test data. `modeling/crossval.py` avoids that by rebuilding these
+      features inside each fold -- but only when it is not handed a ready-made
+      table (`trial_df`); with one, the scores do include held-out trials. For
+      a descriptive figure, where nothing is held out, pass the participant's
+      full set of trials instead.
 
-    When ``add_distance`` (default), also adds ``strategy_distance_{with,no}_q``
-    -- the token-level Levenshtein distance between the trial's starting strategy
-    and the participant's dominant one (a graded ``breaks_pattern``; 0 when they
-    match).
+    ``scope_by`` -- how to split each participant's trials. By default not at
+      all: one dominant strategy per participant, pooling Study 2's regimes and
+      sessions. ``["regime"]`` gives one per participant and regime -- the only
+      way to ask whether someone's scan changes between knowledge regimes. The
+      columns must have one value per trial.
 
-    ``n_strategy_trials_{with,no}_q`` is always returned: it is the denominator
-    the dominance score was computed from, and the only thing in the output that
-    reveals how wide the scope was.
+    Study 1's hunters/gatherers split needs neither: each participant is in one
+    group only, so their trials are never split by it.
 
-    SCOPE -- two independent axes (``todo.md`` T3.21). The hazard this replaces
-    is a per-participant quantity computed from "whatever rows the function was
-    given" and then read as though it described the participant.
+    `n_strategy_trials` is kept on every row because it is the only sign of how
+    many trials a score came from: 0.5 out of 12 trials is far less certain than
+    0.5 out of 50.
 
-    ``scope_df`` -- WHICH TRIALS estimate the dominant strategy.
-      ``None`` (default): ``df`` itself. Under cross-validation that means the
-      aggregate never sees a trial outside the frame being featurised, which is
-      the leakage guarantee -- a globally-estimated dominance score is a summary
-      of all of a participant's trials including the held-out ones, and
-      attaching it to a training row shows the model a function of the test set.
-      Pass a wider frame to estimate over it instead (e.g. the participant's
-      full trial set for a descriptive figure, where there is no split and the
-      honest number is the global one).
-
-    ``scope_by`` -- HOW that population is PARTITIONED beneath the participant.
-      ``None`` (default): one dominant strategy per participant, pooling across
-      knowledge regimes and across sessions. ``["regime"]`` gives one per
-      (participant, regime), which is the only version that can answer "does
-      this person's scanning strategy shift between knowledge regimes" -- the
-      pooled one cannot, and will look like a null result. The columns named
-      here must exist in ``df`` (and in ``scope_df`` when given) and be constant
-      within a trial.
-
-      L1's hunters/gatherers split needs neither axis: ``question_preview`` is
-      between-participant, so a participant's whole trial set is in one group
-      already (``pitfalls.md`` 3).
-
-    Required columns:
-      C.PARTICIPANT_ID
-      C.TRIAL_ID
-      the relevant simplified-sequence column (see ``kind``)
-      anything named in ``scope_by``
+    This is deliberately not a registry entry (ingest/registry.py). Registry
+    entries run once, over the whole dataset, so a dominance score built there
+    would always include the held-out trials.
     """
     scope_by = list(scope_by or [])
 
@@ -710,9 +650,8 @@ def build_trial_level_pattern_features(
             keep_cols=scope_by,
         )
 
-        # The aggregate is estimated over scope_df when given, over the frame
-        # being featurised otherwise. Both go through the same per-trial builder
-        # so the strategy definition cannot drift between them.
+        # The dominant strategy comes from scope_df if given, else from df. Both
+        # go through the same function, so a strategy means the same thing.
         if scope_df is None:
             scope_per_trial = per_trial
         else:
@@ -730,10 +669,9 @@ def build_trial_level_pattern_features(
         )
 
         merged = per_trial.merge(dominant, on=join_keys, how="left")
-        # A trial whose (participant, scope_by) key is absent from the estimating
-        # frame would get a NaN dominant strategy, which compares unequal to
-        # everything and silently scores as breaks_pattern=1. That is a plausible
-        # wrong number rather than a crash, so it is asserted.
+        # A trial whose participant is missing from scope_df would get no
+        # dominant strategy, and would then quietly count as breaking the
+        # pattern. So the run stops instead.
         unmatched = int(merged[C.DOMINANT_STARTING_STRATEGY].isna().sum())
         assert unmatched == 0, (
             f"{unmatched} of {len(merged)} trials have no dominant strategy: their "

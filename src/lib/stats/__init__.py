@@ -1,1 +1,1 @@
-"""Statistical primitives."""
+"""Small statistical helpers."""

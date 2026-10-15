@@ -1,13 +1,16 @@
-"""Where every dataset lives on disk.
+"""Where every dataset's files are on disk.
 
-Locations only -- no logic, no output destinations. Report destinations are in
-`config/outputs.py`, because mixing the two is what let `reports/` paths get
-hardcoded at call sites (`todo.md` T5.3).
+There are four datasets, each described once by a `Dataset` record further
+down: Study 1 (OneStop L1), Study 2 (KnowQA), and two Study 2 pilots. Every
+per-dataset path is built from its record, so moving a dataset means changing
+one `root=` line.
 
-This module used to insert PROJECT_ROOT into `sys.path` as an import side
-effect. It no longer does: the repo root is put on the path by `.env` (or the
-`sys.path` cell at the top of a driver notebook), and a module of path constants
-should not be able to reconfigure where Python looks for everything else.
+This file holds input and data locations only. Where results are written is in
+`config/outputs.py`.
+
+The raw reports at the top are fixed paths into `data_raw/`. `data_raw/full`
+and `data_raw/tsv` are links to the OneStop corpus, which is stored outside the
+repo because it is not ours to redistribute.
 """
 
 from dataclasses import dataclass, field
@@ -19,7 +22,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 # ---------------------------------------------------------------------------
-# Raw Data — full CSV reports (data_raw/full)
+# Study 1 raw reports, CSV (data_raw/full)
+#
+# The eye tracker exports two kinds of report per screen: an interest-area
+# report (one row per word) and a fixation report (one row per fixation).
+# Only the Answers, Paragraph and QA screens are read by the code.
 # ---------------------------------------------------------------------------
 
 RAW_FULL_DIR = PROJECT_ROOT / "data_raw" / "full"
@@ -41,7 +48,10 @@ FIX_QUESTION_PREVIEW_PATH = RAW_FULL_DIR / "fixations_Question_Preview.csv"
 FIX_QUESTIONS_PATH = RAW_FULL_DIR / "fixations_Questions.csv"
 
 # ---------------------------------------------------------------------------
-# Raw Data — TSV reports (data_raw/tsv)
+# Study 1 raw reports, TSV (data_raw/tsv)
+#
+# The same reports in another export format. Only `fixations_A.tsv` is read:
+# it carries the message log that the button-press reconstruction needs.
 # ---------------------------------------------------------------------------
 
 RAW_TSV_DIR = PROJECT_ROOT / "data_raw" / "tsv"
@@ -68,12 +78,14 @@ FIX_T_TSV_PATH = FIX_TSV_DIR / "fixations_T.tsv"
 TEST_RUN_PATH = PROJECT_ROOT / "data_raw" / "testrun_QA"
 
 # ---------------------------------------------------------------------------
-# New experiment (testrun_QA) — converted/cleaned raw inputs
+# Study 2, first pilot (data_raw/testrun_QA)
+#
+# The tracker's .xls exports are first converted to CSV (csvs/), then cleaned
+# into the column names the pipeline expects (csvs/cleaned/). For both pilots
+# that is done by notebooks/builders/data_prep_new_exp.ipynb.
 # ---------------------------------------------------------------------------
 
-# CSVs converted from the .xls reports (via data_prep_new_exp.ipynb).
 NEW_EXP_CSV_DIR = TEST_RUN_PATH / "csvs"
-# Column-standardized CSVs the pipeline reads (renamed cols, letter answers_order).
 NEW_EXP_CLEANED_DIR = NEW_EXP_CSV_DIR / "cleaned"
 
 NEW_EXP_IA_ANSWERS_PATH = NEW_EXP_CLEANED_DIR / "IA_answers.csv"
@@ -81,13 +93,12 @@ NEW_EXP_FIX_ANSWERS_PATH = NEW_EXP_CLEANED_DIR / "fixations_answers.csv"
 NEW_EXP_MESSAGES_PATH = NEW_EXP_CSV_DIR / "messages_answers.csv"
 
 # ---------------------------------------------------------------------------
-# New experiment, second run (second_test) — raw .tsv reports
+# Study 2, second pilot (data_raw/second_test)
+#
+# Same reports as the first pilot, exported as UTF-8 .tsv files named
+# A_IA.tsv / A_fixations.tsv, and with no messages report.
 # ---------------------------------------------------------------------------
 
-# Same report layout as testrun_QA, but exported as UTF-8 .tsv instead of
-# UTF-16 .xls, under report-prefixed names (A_IA.tsv / A_fixations.tsv), and
-# with no messages report. data_prep_new_exp.ipynb converts them to the same
-# csvs/ + csvs/cleaned/ layout as the testrun_QA data.
 SECOND_TEST_PATH = PROJECT_ROOT / "data_raw" / "second_test"
 
 SECOND_TEST_CSV_DIR = SECOND_TEST_PATH / "csvs"
@@ -97,13 +108,12 @@ SECOND_TEST_IA_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "IA_answers.csv"
 SECOND_TEST_FIX_ANSWERS_PATH = SECOND_TEST_CLEANED_DIR / "fixations_answers.csv"
 
 # ---------------------------------------------------------------------------
-# KnowQA — first real data collection (data_raw/KnowQA)
+# Study 2, the real collection (data_raw/KnowQA)
+#
+# Exported like the first pilot (UTF-16 .xls), with no messages report.
+# Converted and cleaned by src/ingest/knowqa.py.
 # ---------------------------------------------------------------------------
 
-# The first non-test run of the experiment. Same report columns as the two test
-# runs, exported like testrun_QA (UTF-16 .xls, tab separated) under canonical
-# names (IA_Answers.xls / fixations_Answers.xls) and with no messages report.
-# data_prep_new_exp.ipynb converts them to the same csvs/ + csvs/cleaned/ layout.
 KNOW_QA_PATH = PROJECT_ROOT / "data_raw" / "KnowQA"
 
 KNOW_QA_CSV_DIR = KNOW_QA_PATH / "csvs"
@@ -113,37 +123,34 @@ KNOW_QA_IA_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "IA_answers.csv"
 KNOW_QA_FIX_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "fixations_answers.csv"
 
 # ---------------------------------------------------------------------------
-# Processed Data (data/)
+# Processed data (data/)
 # ---------------------------------------------------------------------------
 
 DATA_DIR = PROJECT_ROOT / "data"
 
 # ---------------------------------------------------------------------------
-# The dataset registry
+# The dataset records
 #
-# One record per dataset, and every per-dataset path derived from it. Before
-# this, the same five concepts appeared four times under four prefixes -- none
-# for L1, `NEW_EXP_`, `SECOND_TEST_`, `KNOW_QA_` -- so adding a study meant
-# writing a dozen constants and threading them through call sites, and a
-# hand-maintained constant could go stale without anything noticing.
-#
-# **Adding a dataset is now one Dataset(...) entry.**
-#
-# **The layout is now the target in `restructure-map.md` section 8** (stage G,
-# 2026-10-07). The moves happened, and they cost exactly what this record promised:
-# four `root=` lines and three properties, instead of ninety constants. 132 files
-# and 10.7 GB moved with the file count and byte total verified identical before
-# and after.
+# One `Dataset` per dataset. Every processed-data path for a dataset is worked
+# out from its `root`, so to add a dataset you add one record, and to move one
+# you change its `root`.
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class Dataset:
-    """Where one dataset lives, and what shape it is.
+    """Where one dataset lives and how it differs from the others.
 
-    `kind` separates the two real collections from the two pilots, so code that
-    loops over datasets can say which it means rather than treating all four
-    alike -- the distinction a folder name alone cannot carry.
+    key            short name used in code, e.g. "l1"
+    label          readable name for printed output
+    kind           "study" for the two real collections, "pilot" for the pilots,
+                   so code that loops over datasets can choose which it means
+    study          1 or 2
+    raw_dir        the raw reports
+    root           where its processed tables go
+    has_paragraph  whether its trials include a paragraph-reading screen
+    skip_base_features
+                   per-word features this dataset does not compute, and why
     """
 
     key: str
@@ -153,129 +160,105 @@ class Dataset:
     raw_dir: Path
     root: Path
     has_paragraph: bool
-    # There is deliberately NO pupil-baseline field here. T3.20 asked for one and
-    # the implementation answered it better: each screen computes its own baseline
-    # from its own fixation report -- the answer screen in `ingest/build.py`
-    # (`pupil_fixations_path`, defaulting to the report being processed), the
-    # paragraph screen in `features/paragraph/spans.py::scan_paragraph_fixations`,
-    # in the same streaming pass it already makes. So there is nothing for a
-    # dataset to declare. A `pupil_baseline_fixations: Path` field existed until
-    # 2026-10-08, read by nothing; for L1 it named the *answer* report, so wiring
-    # it up would have re-baselined paragraph pupils against the answer screen --
-    # the exact bug T3.20 fixed.
-    #: Base features this dataset does NOT run, name -> why.
+    #: Per-word features this dataset does NOT compute: name -> reason.
     #:
-    #: The default is to run every registered base feature, and a dataset
-    #: declares only its *difference* from that. Declaring the whole list instead
-    #: would mean editing all four entries every time a feature is added to
-    #: FUNCTION_REGISTRY -- the per-dataset repetition this record exists to
-    #: remove.
+    #: Every registered per-word feature runs by default, so a dataset only
+    #: lists its exceptions. Listing everything instead would mean editing all
+    #: four records whenever a feature is added.
     #:
-    #: Names, not functions, because `config/` must not import `features/`. They
-    #: are checked against the registry where they are used, so a typo fails
-    #: loudly at run time rather than silently skipping nothing.
-    #:
-    #: Note what does NOT belong here: `add_zscored_pupil_columns` is skipped by
-    #: KnowQA only when `pupil_norm_unit="session"`, which is a property of how
-    #: you chose to run, not of the dataset. That one stays conditional in the
-    #: runner.
+    #: These are names rather than functions because `config/` must not import
+    #: `features/`. They are checked against the registry when the pipeline
+    #: runs, so a misspelt name stops the run instead of silently skipping
+    #: nothing.
     skip_base_features: Mapping[str, str] = field(default_factory=dict)
 
-    # -- processed outputs, all derived ------------------------------------
+    # -- processed outputs, all derived from `root` --------------------------
     @property
     def interim(self) -> Path:
-        """Everything between the raw reports and the model-ready table."""
+        """Tables between the raw reports and the final model table."""
         return self.root / "interim"
 
     @property
     def features(self) -> Path:
-        """Built feature tables -- what modelling and the analyses read."""
+        """Finished feature tables -- what the models and analyses read."""
         return self.root / "features"
 
     @property
     def aux(self) -> Path:
-        """Intermediates: button clicks, pupil stats, RT/TFD, last-area labels."""
+        """Side products of a pipeline run, rebuilt every time it runs.
+
+        Button presses, pupil baselines, reading times, last-looked-at labels.
+        """
         return self.interim / "aux"
 
     @property
     def all_participants(self) -> Path:
-        """IA-level table -- one row per word, per area, per trial."""
+        """One wide table: one row per word, with every area and trial value
+        copied onto each word.
+
+        Only written when `ingest/build.py::main` is called with
+        `write_broadcast_table=True`. Normally the pipeline writes the three
+        separate tables below instead.
+        """
         return self.interim / "all_participants.csv"
 
     @property
     def model_ready(self) -> Path:
-        """Trial-level table the models consume.
-
-        Was `L1_model_ready_all_features.csv` in every dataset, so three of the
-        four claimed to be L1 data -- `restructure-map.md` section 8 calls that the
-        move that mattered most, a correctness hazard rather than tidiness. The
-        file now says what it is and the folder says whose it is.
-        """
+        """The final table: one row per trial, with every feature a model can use."""
         return self.features / "model_ready.csv"
 
-    # -- the three grains (grain proposal section 1 and section 4) -------------
+    # -- the three tables, one per level of detail ------------------------
     #
-    # A file is named for its grain, and its grain is its key. A group subset is
-    # the same grain faceted, so it carries the grain name plus `__<facet>` --
-    # `trials__hunters.csv`, never `hunters.csv`, which said who was in the file
-    # and nothing about its shape.
+    # The pipeline writes its results at three levels: one row per word, one
+    # row per screen area, one row per trial. Each file is named after its
+    # level. A group's subset adds `__<group>` to the name, e.g.
+    # `trials__hunters.csv`.
 
     @property
     def interest_areas(self) -> Path:
-        """One row per word, per area, per trial. Was `all_participants.csv`.
-
-        After the split this carries only what genuinely varies word to word --
-        23 columns on L1, against the 121 the broadcast table held.
-        """
+        """One row per word, per trial. Holds only what changes from word to word."""
         return self.interim / "interest_areas.csv"
 
     @property
     def areas_answers(self) -> Path:
-        """One row per (trial, screen area): the eight per-area metrics."""
+        """One row per trial per answer-screen area: the per-area measurements."""
         return self.interim / "areas_answers.csv"
 
     @property
     def areas_paragraph(self) -> Path:
-        """One row per (trial, paragraph span).
+        """One row per trial per paragraph part (critical, distractor, outside).
 
-        Only written when `has_paragraph` -- KnowQA gets three artifacts, not
-        four, because the screen does not exist for it rather than because a flag
-        was left off.
+        Declared here, but no code writes this file: the paragraph screen's
+        results are saved one row per trial, in `features/paragraph_spans.csv`
+        (`PARAGRAPH_SPAN_FEATURES_PATH` below).
         """
         return self.interim / "areas_paragraph.csv"
 
     @property
     def trials(self) -> Path:
-        """One row per (participant, trial): sequences, timings, identity."""
+        """One row per trial: fixation sequences, timings, identity."""
         return self.interim / "trials.csv"
 
     def model_ready_split(self, facet: str) -> Path:
-        """The `<facet>` subset of the model-ready trial table.
-
-        Note the separator: `model_ready_hunters.csv`, single underscore, where the
-        grain tables use a double one (`trials__hunters.csv`). That is the naming
-        already on disk and this helper matches it rather than renaming data files
-        in passing; the inconsistency is worth tidying in its own pass.
-        """
+        """The model-ready table for one group, e.g. `model_ready_hunters.csv`."""
         base = self.model_ready
         return base.with_name(f"{base.stem}_{facet}{base.suffix}")
 
     def grain_split(self, grain: str, facet: str) -> Path:
-        """The `__<facet>` subset of one grain, e.g. `trials__hunters.csv`.
+        """One group's subset of a table, e.g. `trials__hunters.csv`.
 
-        `facet` is a value of the dataset's split column -- `hunters` /
-        `gatherers` for L1. KnowQA has no split column and so no subsets; see the
-        grain proposal section 8 for why `regime` is not its analogue.
+        The groups come from the dataset's split column: hunters and gatherers
+        for Study 1. Study 2 has no such split. Its regimes are not groups of
+        people -- every participant does all three -- so splitting by regime
+        would cut each person's trials into thirds rather than separate people.
         """
         base = getattr(self, grain)
         return base.with_name(f"{base.stem}__{facet}{base.suffix}")
 
-    # The pupil baseline is per SCREEN as well as per dataset: the answer screen
-    # and the paragraph screen differ in luminance and in task, so a person's
-    # typical pupil size is not the same quantity on each. Both are computed per
-    # participant over THIS dataset's fixations for THAT screen (docs/todo.md
-    # T3.20); the filenames say which screen so the two can never be mistaken for
-    # one another, as they were under the old shared `participant_pupils.csv`.
+    # Each person's typical pupil size, worked out separately for the answer
+    # screen and the paragraph screen. The two screens differ in brightness and
+    # in task, so the same person's baseline differs between them. Each is
+    # computed per participant from this dataset's own fixations on that screen.
     @property
     def pupil_baseline_answers(self) -> Path:
         return self.aux / "pupil_baseline__answers.csv"
@@ -286,6 +269,7 @@ class Dataset:
 
     @property
     def button_clicks(self) -> Path:
+        """When each answer was selected and confirmed, per trial."""
         return self.aux / "button_clicks_data.csv"
 
 
@@ -306,13 +290,13 @@ KNOWQA = Dataset(
     study=2,
     raw_dir=KNOW_QA_PATH,
     root=DATA_DIR / "datasets" / "knowqa",
-    # Only the answer screen is exported, and only a third of trials show a
-    # paragraph at all -- `pitfalls.md` section 5.
+    # Only the answer screen was exported for Study 2, and only a third of its
+    # trials show a paragraph at all.
     has_paragraph=False,
     skip_base_features={
         "add_answer_text_columns": (
-            "answer_A..D are supplied directly by the Stage 0 column rename, "
-            "so there is nothing to recompute from the stimulus text."
+            "The cleaned reports already hold the answer text by letter "
+            "(answer_A..answer_D), so there is nothing to rebuild."
         )
     },
 )
@@ -323,14 +307,12 @@ TESTRUN_QA = Dataset(
     kind="pilot",
     study=2,
     raw_dir=TEST_RUN_PATH,
-    # The folder is named new_exp_try_runs; it is the testrun_QA data
-    # (confirmed 2026-09-05). Renaming it is move 5 in section 8.
     root=DATA_DIR / "datasets" / "pilots" / "testrun_qa",
     has_paragraph=False,
     skip_base_features={
         "add_answer_text_columns": (
-            "answer_A..D are supplied directly by the Stage 0 column rename, "
-            "so there is nothing to recompute from the stimulus text."
+            "The cleaned reports already hold the answer text by letter "
+            "(answer_A..answer_D), so there is nothing to rebuild."
         )
     },
 )
@@ -345,8 +327,8 @@ SECOND_TEST = Dataset(
     has_paragraph=False,
     skip_base_features={
         "add_answer_text_columns": (
-            "answer_A..D are supplied directly by the Stage 0 column rename, "
-            "so there is nothing to recompute from the stimulus text."
+            "The cleaned reports already hold the answer text by letter "
+            "(answer_A..answer_D), so there is nothing to rebuild."
         )
     },
 )
@@ -365,11 +347,10 @@ def dataset(key: str) -> Dataset:
 
 
 def dataset_for_root(root) -> Dataset:
-    """The dataset whose processed outputs live at `root`.
+    """The dataset whose processed files live at `root`.
 
-    Lets a pipeline step that was handed an output directory recover which
-    dataset it is working on, and so read that dataset's configuration instead
-    of having it passed down or hardcoded.
+    Lets code that was handed an output folder find out which dataset it is
+    working on, and read that dataset's settings.
     """
     from pathlib import Path as _Path
 
@@ -384,23 +365,26 @@ def dataset_for_root(root) -> Dataset:
 
 
 def studies() -> List[Dataset]:
-    """The two real collections -- the default for anything that loops."""
+    """The two real collections. The default for anything that loops."""
     return [d for d in DATASETS.values() if d.kind == "study"]
 
 
 def pilots() -> List[Dataset]:
-    """The two pilots. Runnable, but you have to ask for them."""
+    """The two pilots. They run like any other dataset, but you have to ask."""
     return [d for d in DATASETS.values() if d.kind == "pilot"]
 
 
-# Final IA-level data produced by the data_csv_generation pipeline.
-# The flat names below are DERIVED from the registry above -- one source of
-# truth, so a dataset move changes the Dataset entry and nothing else. The
-# names are kept because ~27 modules import them; migrating those call sites
-# to `dataset("l1").model_ready` is left for the stage that moves the files.
+# ---------------------------------------------------------------------------
+# Fixed paths, for code that names a file directly
+#
+# All built from the dataset records above, so they move with them.
+#
+# `hunters.csv`, `gatherers.csv` and `all_participants.csv` are only written on
+# request (see `Dataset.all_participants`), so on a normal build these three
+# paths point at files that do not exist.
+# ---------------------------------------------------------------------------
+
 L1_BASED_DATA_DIR = L1.root
-# Intermediate artifacts generated on the way by that pipeline (participant
-# pupil stats, button clicks, RT/TFD, last-area labels, ...).
 AUXILIARY_DATA_DIR = L1.aux
 
 HUNTERS_PROCESSED_PATH = L1.interim / "hunters.csv"
@@ -424,30 +408,26 @@ RT_AND_TFD_PATH = AUXILIARY_DATA_DIR / "RT_and_TFD.csv"
 
 READY_ALL_FEATURES_PATH = L1.model_ready
 
-# Paragraph-span (critical / distractor / outside) area features, mirroring the
-# per-answer area features but computed over the paragraph-reading screen.
-# Used as predictors for the answer reading-time regression (answer_RTs).
+# Per-trial measurements over the three parts of the paragraph (critical,
+# distractor, outside): the paragraph-screen version of the per-answer
+# measurements.
 PARAGRAPH_SPAN_FEATURES_PATH = L1.features / "paragraph_spans.csv"
 
-# Trial-level answer/question text sizes (word and character counts per answer
-# label). Stimulus properties, not eye-tracking measures; used as predictors for
-# the answer reading-time regression alongside the paragraph features.
+# Per-trial word and character counts of the question and each answer.
+# Properties of the text, not eye-movement measures.
 ANSWER_TEXT_FEATURES_PATH = L1.features / "answer_text.csv"
 
-# Trial-level paragraph reading features produced by the lab's external feature
-# extraction code (src/vendor/eyebench/paragraph_trial_features.py): aggregated IA and
-# fixation measures, gaze entropy, and per-word-category scanpath features, one
-# row per (participant, trial). The folder also holds the two feature-key CSVs
-# that map each feature name to the model family it came from.
-# Named for the source pipeline, to keep these apart from our own paragraph-span
-# features above.
+# Per-trial paragraph-reading features made by the lab's EyeBench code
+# (src/vendor/eyebench/), one row per trial. The folder also holds two key files
+# that say which model family each feature comes from. Kept in their own folder
+# so they are never confused with our own paragraph measurements above.
 PARAGRAPH_TRIAL_FEATURES_DIR = L1.features / "eyebench"
 PARAGRAPH_TRIAL_FEATURES_PATH = (
     PARAGRAPH_TRIAL_FEATURES_DIR / "L1_paragraph_trial_level_features.csv"
 )
 
 # ---------------------------------------------------------------------------
-# New experiment (testrun_QA) — processed outputs (data/new_exp_try_runs)
+# Study 2, first pilot -- processed (data/datasets/pilots/testrun_qa)
 # ---------------------------------------------------------------------------
 
 NEW_EXP_OUT_DIR = TESTRUN_QA.root
@@ -456,7 +436,7 @@ NEW_EXP_AUX_DIR = TESTRUN_QA.aux
 NEW_EXP_FEATURES_PATH = TESTRUN_QA.model_ready
 
 # ---------------------------------------------------------------------------
-# New experiment, second run (second_test) — processed outputs
+# Study 2, second pilot -- processed (data/datasets/pilots/second_test)
 # ---------------------------------------------------------------------------
 
 SECOND_TEST_OUT_DIR = SECOND_TEST.root
@@ -465,7 +445,7 @@ SECOND_TEST_AUX_DIR = SECOND_TEST.aux
 SECOND_TEST_FEATURES_PATH = SECOND_TEST.model_ready
 
 # ---------------------------------------------------------------------------
-# KnowQA — processed outputs (data/KnowQA_runs)
+# Study 2, the real collection -- processed (data/datasets/knowqa)
 # ---------------------------------------------------------------------------
 
 KNOW_QA_OUT_DIR = KNOWQA.root
@@ -474,7 +454,7 @@ KNOW_QA_AUX_DIR = KNOWQA.aux
 KNOW_QA_FEATURES_PATH = KNOWQA.model_ready
 
 # ---------------------------------------------------------------------------
-# Experiment data (data/Experiment)
+# Study 2 stimulus materials (data/stimuli)
 # ---------------------------------------------------------------------------
 
 EXPERIMENT_DIR = DATA_DIR / "stimuli"
@@ -488,7 +468,9 @@ TEXTS_MANUAL_REPHRASINGS_PATH = EXPERIMENT_DIR / "texts_manual_rephrasings.csv"
 TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 
 # ---------------------------------------------------------------------------
-# Cross-validation folds (data/cv_folds/*Folds)
+# Cross-validation folds (data/cv_folds)
+#
+# Precomputed splits of the trials into training and test sets.
 # ---------------------------------------------------------------------------
 
 CV_FOLDS_DIR = DATA_DIR / "cv_folds"
@@ -508,38 +490,29 @@ FOLD_TRIAL_IDS_FILENAME_TEMPLATE = "fold_{fold_idx}_trial_ids_by_regime.csv"
 
 
 # ---------------------------------------------------------------------------
-# Validating the registry against the disk
+# Checking the records against the disk
 #
-# `restructure-map.md` section 7 promised this and it was never written: *"the
-# stale-constant class of bug disappears, because paths are derived from one root
-# and can be validated in one loop at import or in a test."*
+# If a record points at the wrong place, every path built from it is wrong too,
+# and the first sign is usually a "file not found" from deep inside pandas.
+# These two functions check up front instead.
 #
-# What that cost, 2026-10-13: KnowQA's folder was briefly nested inside L1's, so
-# every path property on its record returned a `Path` that did not exist. Nothing
-# noticed. The failure finally surfaced as a `FileNotFoundError` from inside
-# pandas, naming a path nobody had typed, several layers from the cause.
-#
-# Deliberately NOT run at import: a dataset that has not been built yet is a
-# normal state, not an error, and raising on import would make the package
-# unimportable on a clean checkout -- the opposite of what the public release
-# needs. It is a check you call.
+# They are not run automatically on import. A dataset that has not been built
+# yet is a normal state, and failing on import would make the package unusable
+# on a fresh copy of the repo.
 # ---------------------------------------------------------------------------
 
 
 def check_dataset_paths(keys=None, built_only: bool = True) -> dict:
-    """Report, per dataset, which declared artifacts are missing.
+    """List, per dataset, the expected files that are missing.
 
-    `built_only=True` skips datasets whose root does not exist at all -- not yet
-    built is not the same as misplaced, and only the second is a fault.
+    `built_only=True` skips datasets whose folder does not exist at all: not
+    built yet is fine, built in the wrong place is not.
 
-    Returns `{dataset_key: [missing artifact names]}`; empty means everything a
-    built dataset declares is where the record says it is.
+    Returns `{dataset_key: [missing names]}`. An empty result means every built
+    dataset has all its files where its record says.
     """
-    # `all_participants` is deliberately **not** in this list. It was the
-    # pre-split broadcast table and was retired on 2026-10-13; `ingest/build.py`
-    # only writes it when asked (`write_broadcast_table=True`), so its absence is
-    # the normal state rather than a fault. The three grains replace it, and they
-    # are what a built dataset must have.
+    # `all_participants` is left out on purpose: it is only written on request
+    # (see `Dataset.all_participants`), so its absence is normal.
     artifacts = (
         "interim",
         "features",
@@ -561,11 +534,7 @@ def check_dataset_paths(keys=None, built_only: bool = True) -> dict:
 
 
 def assert_dataset_paths(keys=None, built_only: bool = True) -> None:
-    """`check_dataset_paths`, but raise -- naming the dataset and the paths.
-
-    The point is to fail here, where the record and the disk disagree, rather
-    than wherever the first read happens to be.
-    """
+    """Like `check_dataset_paths`, but stop with an error naming what is missing."""
     bad = check_dataset_paths(keys, built_only=built_only)
     if bad:
         lines = [

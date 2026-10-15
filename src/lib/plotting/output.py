@@ -1,31 +1,21 @@
-"""The single write path for every figure and every number this project produces.
+"""The one function that saves figures and their numbers.
 
-Everything under ``reports/`` is written by :func:`save_output`, and nothing else
-writes there. That is the whole point of the module: whether a result survives a
-run must not depend on which analysis produced it.
+Everything under ``reports/`` is written by :func:`save_output`, and nothing
+else writes there. Three rules:
 
-Three ideas hold it together.
+1. **Describe the plot; don't build a path.** A caller says which analysis the
+   figure belongs to, what it is, and which settings ("facets") tell it apart
+   from its siblings. The folder and the filename are worked out from that, so
+   every file is named the same way.
 
-**1. Callers describe the plot; they do not build a path.** A caller says which
-analysis it belongs to, what the figure is, and which facets distinguish this
-instance from its siblings. The directory and the filename are derived from that.
-Hand-written paths are what let the old tree drift into four separator
-conventions, two spellings of ``all_participants``, and names like
-``dendrogram.png`` that mean nothing without their folder.
+2. **The numbers are saved with the figure.** ``tables`` is required. A figure
+   that genuinely has no numbers behind it (an illustration, a scanpath example)
+   passes ``tables={}``, so "this has no numbers" is always a stated choice.
 
-**2. The numbers travel with the figure.** ``tables`` is required. A figure whose
-numbers are not saved is the failure mode that made ``docs/findings.md``
-necessary — results recoverable only by reading a PNG. A genuinely data-less
-figure (an illustration, a scanpath example) passes ``tables={}``, which is
-greppable: "this has no numbers" becomes a stated choice rather than an omission.
-
-**3. The layout mirrors the code.** ``reports/<analysis>/figures/`` and
-``reports/<analysis>/tables/`` — so "which code made this figure?" is answerable
-from the path alone, and a figure with no ``tables/`` sibling is visible at a
-glance rather than requiring a comparison of two parallel trees.
-
-See ``docs/restructure-map.md`` §9 for the layout decision and ``docs/todo.md``
-T1.3 / T4.0 for the requirement this implements.
+3. **The folders follow the code.** Output goes to
+   ``reports/<analysis>/figures/`` and ``reports/<analysis>/tables/``, so the
+   path alone says which analysis made a file, and a figure without its tables
+   is easy to spot.
 """
 
 from __future__ import annotations
@@ -43,10 +33,10 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Union
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# src/lib/plotting/output.py -> parents[3] is the repo root. This is a depth
-# count, so it changes whenever the file moves: it was parents[2] at
-# src/viz/plot_output.py until stage D step 7. Getting it wrong does not raise --
-# every output quietly lands one directory up -- so it is asserted below.
+# src/lib/plotting/output.py -> parents[3] is the repo root. The number is a
+# count of folders from this file, so it must change if the file moves. A wrong
+# count would not raise by itself -- every output would quietly land in the wrong
+# folder -- so the assert below checks it.
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 assert (PROJECT_ROOT / "src" / "lib" / "plotting").is_dir(), (
     f"PROJECT_ROOT resolved to {PROJECT_ROOT}, which does not look like the repo "
@@ -59,46 +49,37 @@ REPORTS_ROOT = PROJECT_ROOT / "reports"
 
 
 # ---------------------------------------------------------------------------
-# Overleaf mirroring
+# Copying figures into the paper
 #
-# save_output can mirror into the Overleaf-synced papers/ repo. It is OFF, by
-# instruction (2026-09-20): nothing goes to Overleaf during the restructure,
-# because regenerating figures would otherwise change what the paper compiles
-# while the numbers behind them are still moving.
+# save_output can also copy each figure and table into the Overleaf-synced
+# papers/ repo. This is switched OFF, so that regenerating a figure does not
+# change what the paper compiles until you decide to sync.
 #
-# Asking to mirror while mirroring is disabled RAISES rather than quietly doing
-# nothing — a caller that believes it published to the paper and did not is
-# exactly the silent-wrong-outcome this module exists to prevent.
+# Asking for a copy while it is switched off RAISES an error rather than quietly
+# doing nothing: code that thinks it updated the paper, and didn't, is the
+# outcome to avoid.
 # ---------------------------------------------------------------------------
 
 PAPER_MIRROR_ENABLED = False
 PAPER_ROOT = PROJECT_ROOT / "papers" / "correctness_prediction"
 
-# Everything mirrored lands under ONE folder inside the Overleaf repo, laid out
-# exactly like the local reports/ tree:
+# Copies land in one folder inside the Overleaf repo, laid out exactly like the
+# local reports/ folder:
 #
 #     papers/correctness_prediction/reports/<analysis>/figures/...
 #                                          /<analysis>/tables/...
 #
-# The old arrangement put `figures/` and `report_data/` at the paper's top level,
-# which flooded the repo root and split one analysis across two trees. One root
-# also means the mirror path is the local path with a different prefix, so
-# "which local file is this?" is answerable by swapping the root.
-#
-# The existing papers/correctness_prediction/{figures,report_data}/ folders are
-# left exactly as they are -- papers/ is Diana's and Overleaf-synced.
+# So a copy's path is its local path with a different start, and finding the
+# local file behind a paper figure means swapping that start.
 PAPER_REPORTS_DIRNAME = "reports"
 
 
 # ---------------------------------------------------------------------------
-# The analysis registry
+# The list of analyses
 #
-# An analysis name is a folder under reports/. It is validated rather than taken
-# on trust: a typo would otherwise mint a new top-level folder and hide the
-# figure somewhere nobody looks, which reads as "saved" but is not findable.
-#
-# Names track the target package layout in docs/restructure-map.md §3, so that
-# reports/<name>/ and the analyses/<name>/ package that writes it stay in step.
+# Each analysis name is a folder under reports/, matching the analyses/<name>/
+# code that writes it. Names are checked against this list: a typo would
+# otherwise create a new folder and hide the figure where nobody looks.
 # ---------------------------------------------------------------------------
 
 ANALYSES: Dict[str, str] = {
@@ -109,16 +90,16 @@ ANALYSES: Dict[str, str] = {
     "time_course": "Before / during / after the decision",
     "correctness_associations": "Correctness against scan effort, dwell, RT, preference matching",
     "correctness_prediction": "The headline answer-correctness model",
-    "correctness_prediction/person_variance": "Per-participant LOO coefficients and accuracy",
+    "correctness_prediction/person_variance": "Models fitted per participant: coefficients and accuracy",
     "correctness_prediction/knowledge_regimes": "Study 2 regimes, confidence, transfer",
     "answer_rt_comparison": "Correct vs distractor reading-time asymmetry",
-    "text_qa_relationship": "Paragraph spans against answer/question dwell (RT_correlations)",
-    # --- parked / future directions --------------------------------------
-    "explorations/answer_reading_times": "Answer reading-time regression (answer_RTs)",
-    "explorations/answer_location": "Answer-position prediction (answer_loc)",
+    "text_qa_relationship": "Time on each paragraph part against time on each answer and the question",
+    # --- explorations: kept, but not used in the paper --------------------
+    "explorations/answer_reading_times": "Predicting reading time on each answer",
+    "explorations/answer_location": "Predicting which screen position was chosen",
     "explorations/participant_clustering": "Participant clustering and similarity",
     "explorations/feature_search": "Feature selection and column-set generation",
-    "explorations/text_answer_effects": "Superseded mixed text->answer models",
+    "explorations/text_answer_effects": "Mixed-effects models of paragraph parts against answer dwell",
     "explorations/unlikely_analysis": "Trials whose prediction disagrees with the outcome",
     "explorations/text_alignment": "KnowQA stored-text / interest-area alignment investigation",
 }
@@ -129,8 +110,8 @@ def analysis_dir(analysis: str) -> Path:
     if analysis not in ANALYSES:
         known = "\n  ".join(sorted(ANALYSES))
         raise KeyError(
-            f"Unknown analysis {analysis!r}. Add it to plot_output.ANALYSES if it is "
-            f"genuinely new — do not invent a folder at the call site.\nKnown:\n  {known}"
+            f"Unknown analysis {analysis!r}. If it is genuinely new, add it to "
+            f"ANALYSES in src/lib/plotting/output.py.\nKnown:\n  {known}"
         )
     return REPORTS_ROOT / analysis
 
@@ -138,14 +119,15 @@ def analysis_dir(analysis: str) -> Path:
 # ---------------------------------------------------------------------------
 # Defaults
 #
-# One object so a notebook can set its policy once ("save everything as pdf this
-# session") instead of threading the same arguments through every call, while any
-# single call can still override any field.
+# A notebook can set these once ("save everything as pdf") instead of passing
+# the same arguments to every call. Any single call can still override them.
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class OutputDefaults:
+    """Session-wide defaults for `save_output`. Nothing is saved unless asked."""
+
     save: bool = False
     to_paper: bool = False
     ext: str = "png"
@@ -169,17 +151,19 @@ def set_output_defaults(**kwargs: Any) -> OutputDefaults:
 
 
 def _pick(value: Any, default_field: str) -> Any:
+    """The call's own value if it gave one, otherwise the session default."""
     return getattr(DEFAULTS, default_field) if value is None else value
 
 
 # ---------------------------------------------------------------------------
-# Naming
+# File names
 #
 # <plot>__<facet>-<value>__<facet>-<value>.<ext>
 #
-# Key-value rather than positional so the name is readable on its own and
-# `ls *group-hunters*` works. Facet order is the caller's keyword order, so a
-# given plot function always produces the same shape of name.
+# Each setting is written as name-value, so a file name reads on its own and
+# `ls *group-hunters*` finds every hunters figure. Settings appear in the order
+# the caller passed them, so one plot function always produces the same shape
+# of name.
 # ---------------------------------------------------------------------------
 
 _SLUG_STRIP = re.compile(r"[^0-9A-Za-z._+-]+")
@@ -188,22 +172,17 @@ _SLUG_STRIP = re.compile(r"[^0-9A-Za-z._+-]+")
 # ---------------------------------------------------------------------------
 # Abbreviations
 #
-# Names are read by a person, so they stay words rather than codes -- but the
-# project's column vocabulary is long (`first_encounter_avg_pupil_size_z` is 32
-# characters) and it lands in the filename *and* in the folder above it. Left
-# alone, the longest path under reports/ reaches 259 of Windows' 260-character
-# limit, so the repo only checks out on Windows from a root of <= 60 characters.
+# Column names are long (`first_encounter_avg_pupil_size_z` is 32 characters),
+# and they appear in both the file name and the folder above it. Without
+# shortening, some paths under reports/ would pass Windows' 260-character limit
+# when the repo is cloned into a deep folder.
 #
-# This is the one place abbreviations are defined. Add a row rather than
-# shortening a name at a call site, or the same concept ends up with two
-# spellings -- which is exactly what `ANALYSES` exists to prevent for folders.
+# This table is the only place abbreviations are defined. To shorten a name, add
+# a row here rather than passing a short string at the call site -- otherwise
+# one concept ends up with two spellings.
 #
-# Applied to every path component: facet values, plot names, table names and the
-# `subdir`. That is what makes it sufficient -- a subdir is always either a plot
-# name or a facet value, so one table covers all three.
-#
-# `manifest.json` keeps the FULL, unabbreviated facets, so nothing is lost: the
-# manifest is the index, the filename is the human-readable label.
+# It applies to every part of a path: setting values, plot names, table names
+# and `subdir`. `manifest.json` keeps the full names, so nothing is lost.
 # ---------------------------------------------------------------------------
 
 ABBREVIATIONS: Dict[str, str] = {
@@ -225,9 +204,6 @@ ABBREVIATIONS: Dict[str, str] = {
     "mean_fixations_count": "mean_fix_count",
     "num_label_visits": "n_lbl_visits",
     "mean_dwell_time": "mean_dwell",
-    # The time-course IA-row count. Was "sequence_length" -> "seq_len" until
-    # 2026-10-13, which collided in the path with the model-ready `seq_len`
-    # (collapsed-sequence length) -- a different quantity. See columns.py.
     "segment_ia_row_count": "ia_rows",
     "fixation_count": "fix_count",
     # plot names -- the correctness_by_* family is 29-42 characters
@@ -253,7 +229,8 @@ ABBREVIATIONS: Dict[str, str] = {
     "normalized": "norm",
 }
 
-# Two concepts abbreviating to one string would silently merge two real results.
+# Safety checks on the table, run on import. If two names shortened to the same
+# string, two different results would be saved into one file.
 _collisions = {
     short: [long for long in ABBREVIATIONS if ABBREVIATIONS[long] == short]
     for short in set(ABBREVIATIONS.values())
@@ -261,19 +238,16 @@ _collisions = {
 _clashes = {s: L for s, L in _collisions.items() if len(L) > 1}
 if _clashes:
     raise ValueError(f"ABBREVIATIONS is not injective: {_clashes}")
-# An abbreviation that is itself a key would apply twice and be unstable.
+# An abbreviation that is itself a key would be shortened again.
 _chained = set(ABBREVIATIONS.values()) & set(ABBREVIATIONS)
 if _chained:
     raise ValueError(f"ABBREVIATIONS maps onto its own keys (would chain): {_chained}")
 
-# Lookup is case-insensitive, because the same concept is spelled several ways at
-# the call sites -- the all-participants group arrives as "all participants",
-# "All participants" and "all_participants" from three different plot families.
-# (That inconsistency is worth fixing upstream; normalising here stops it
-# splitting one group across two filenames in the meantime.) `slug` itself stays
-# case-preserving, so `answer_A` and `answer_a` are still distinct -- only the
-# table lookup folds case, which is safe exactly while no two keys differ only by
-# case.
+# The lookup ignores upper/lower case, because different plot code spells the
+# same group differently ("all participants", "All participants",
+# "all_participants") and all three should get one file name. Names themselves
+# keep their case -- `answer_A` and `answer_a` are different columns -- so this
+# is only safe while no two keys differ by case alone, which is checked here.
 _ci = [k.lower() for k in ABBREVIATIONS]
 _dupe_ci = {k for k in _ci if _ci.count(k) > 1}
 if _dupe_ci:
@@ -283,15 +257,14 @@ del _collisions, _clashes, _chained, _ci, _dupe_ci
 
 
 def slug(value: Any, *, abbreviate: bool = False) -> str:
-    """Normalise one name component. Spaces and separators collapse to ``_``.
+    """Turn one part of a name into something safe for a file name.
 
-    Case is preserved: ``answer_A`` and ``answer_a`` are different columns in this
-    project, so lowercasing names would merge two real things.
+    Spaces and odd characters become ``_``. Upper/lower case is kept, because
+    ``answer_A`` and ``answer_a`` are different columns. ``True``/``False``
+    become ``yes``/``no``.
 
-    ``abbreviate=True`` additionally maps the whole component through
-    :data:`ABBREVIATIONS`. It is applied *after* normalisation, so the three
-    spellings of the all-participants group (``all participants``,
-    ``All participants``, ``all_participants``) all reach the table as one key.
+    With ``abbreviate=True`` the result is also shortened through
+    :data:`ABBREVIATIONS`.
     """
     if isinstance(value, bool):
         return "yes" if value else "no"
@@ -303,10 +276,11 @@ def slug(value: Any, *, abbreviate: bool = False) -> str:
 
 
 def build_stem(plot: str, facets: Mapping[str, Any]) -> str:
-    """Build the shared filename stem for a figure and its tables.
+    """The file name, without extension, shared by a figure and its tables.
 
-    Facet *keys* are never abbreviated -- they are the short half already, and
-    they are what makes the name readable (`group-hunters`, not `g-hunters`).
+    Setting values are shortened; setting names are not, because they are
+    already short and they are what makes the name readable (`group-hunters`,
+    not `g-hunters`). Settings whose value is None are left out.
     """
     parts = [slug(plot, abbreviate=True)]
     for key, value in facets.items():
@@ -317,24 +291,24 @@ def build_stem(plot: str, facets: Mapping[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Collecting a sweep into one table
+# Pooling many small tables into one
 #
-# Some analyses are parameter sweeps: `attention_allocation` is 3 plot families
-# over group x metric x selected x questions, which used to write 600 separate
-# CSVs averaging 506 bytes -- each a 4x4 matrix. That satisfies "persist the
-# numbers" only in the letter. One long table per family, with the facets as
-# columns, is the same numbers in a form you can actually group and filter, and
-# it is what lets `findings.md` be regenerated by a groupby rather than by
-# globbing several hundred files.
+# Some analyses draw hundreds of near-identical figures, one for each
+# combination of settings -- `attention_allocation` loops over group x metric x
+# chosen answer x with/without the question. Saving each figure's numbers
+# separately would give hundreds of tiny CSV files. Inside `collect_tables`,
+# those numbers are instead gathered into one long table per plot type, with
+# the settings as extra columns, so they can be filtered and compared in one
+# place.
 #
-# The figures are still written one per file -- only the tables are pooled.
+# The figures are still saved one per file. Only the tables are pooled.
 # ---------------------------------------------------------------------------
 
 _TABLE_SINK: Optional["TableCollector"] = None
 
 
 class TableCollector:
-    """Accumulates the tables of one sweep; see :func:`collect_tables`."""
+    """Gathers the tables of one loop of figures; see :func:`collect_tables`."""
 
     def __init__(self, analysis: str, plots: Optional[Sequence[str]] = None):
         self.analysis = analysis
@@ -342,18 +316,25 @@ class TableCollector:
         self.rows: Dict[str, list] = {}
 
     def claims(self, analysis: str, plot: str) -> bool:
+        """Whether a save for this analysis and plot belongs in this collection."""
         return analysis == self.analysis and (self.plots is None or plot in self.plots)
 
     def add(self, plot: str, facets: Mapping[str, Any], tables: Mapping[str, Any]) -> None:
+        """Add one figure's tables, tagging every row with that figure's settings.
+
+        Only DataFrames are pooled. A table given as a dict, list or Series is
+        skipped here, and while a collection is active `save_output` does not
+        write it anywhere else either -- so it is not saved at all.
+        """
         for name, obj in tables.items():
             if not isinstance(obj, pd.DataFrame):
-                continue          # json payloads keep their own file
+                continue          # not saved: see the docstring
             self.rows.setdefault(f"{plot}__{name}", []).append(
                 obj.assign(**{k: v for k, v in facets.items() if v is not None})
             )
 
     def flush(self, save: bool = True) -> Dict[str, Any]:
-        """Write one long table per (plot, table-name) pair."""
+        """Write one long table per plot type and table name."""
         written = {}
         for key, frames in self.rows.items():
             plot, _, name = key.partition("__")
@@ -364,18 +345,19 @@ class TableCollector:
                 plot=plot,
                 tables={name: long_df},
                 save=save,
-                manifest=False,   # not a figure; the long table is its own record
-            )                     # no facets: this IS the family's table
+                manifest=False,   # not a figure, so no manifest entry
+            )                     # no settings: this is the whole plot type's table
         return written
 
 
 @contextmanager
 def collect_tables(analysis: str, plots: Optional[Sequence[str]] = None):
-    """Pool every table written inside the block into one long table per family.
+    """Inside this block, pool every saved table into one long table per plot type.
 
-    ``plots`` limits the collection to named plot families; omit it to take
-    everything written under ``analysis``. Nesting is not supported -- one sweep
-    at a time is the only thing this is for.
+    Used as ``with collect_tables("attention_allocation", plots=[...]):`` around
+    a loop that saves many figures. ``plots`` limits the pooling to the named plot
+    types; leave it out to pool everything saved under ``analysis``. Blocks
+    cannot be nested.
     """
     global _TABLE_SINK
     if _TABLE_SINK is not None:
@@ -389,11 +371,10 @@ def collect_tables(analysis: str, plots: Optional[Sequence[str]] = None):
 
 
 def abbreviate_subdir(subdir: Union[str, Path, None]) -> Path:
-    """Apply :data:`ABBREVIATIONS` to each component of a ``subdir``.
+    """Shorten each folder name in a ``subdir`` through :data:`ABBREVIATIONS`.
 
-    A subdir is always either a plot name or a facet value, so it draws on the
-    same vocabulary as the stem and must shorten with it -- otherwise the long
-    name is removed from the filename and left in the folder above it.
+    A subdir is named after a plot or a setting, so it is shortened the same way
+    as the file name -- otherwise the long name would just move up a folder.
     """
     if not subdir:
         return Path()
@@ -407,7 +388,10 @@ def abbreviate_subdir(subdir: Union[str, Path, None]) -> Path:
 
 @dataclass
 class SavedOutput:
-    """What a :func:`save_output` call actually wrote."""
+    """What a :func:`save_output` call wrote.
+
+    Counts as False when nothing was written, so ``if result:`` works.
+    """
 
     stem: str = ""
     analysis: str = ""
@@ -420,6 +404,7 @@ class SavedOutput:
 
     @property
     def paths(self) -> list:
+        """Every file written: figure, tables, and any copies in the paper."""
         out = [self.figure] if self.figure else []
         return out + list(self.tables.values()) + list(self.paper.values())
 
@@ -449,7 +434,7 @@ def _write_table(obj: Any, out_dir: Path, name: str) -> Path:
 
 
 def _json_default(obj: Any) -> Any:
-    """Make numpy scalars and arrays JSON-writable rather than failing late."""
+    """Let numpy numbers and arrays be written to JSON."""
     if hasattr(obj, "tolist"):
         return obj.tolist()
     if hasattr(obj, "item"):
@@ -458,10 +443,9 @@ def _json_default(obj: Any) -> Any:
 
 
 def _caller() -> str:
-    """Identify the plotting function that asked for the save.
+    """The name of the function that asked for the save.
 
-    Recorded in the manifest so a figure can be traced back to the code that made
-    it without grepping for its filename.
+    Recorded in the manifest, so a figure can be traced to the code that made it.
     """
     for frame in inspect.stack()[1:]:
         module = frame.frame.f_globals.get("__name__", "")
@@ -471,7 +455,11 @@ def _caller() -> str:
 
 
 def _update_manifest(analysis: str, stem: str, entry: Dict[str, Any]) -> None:
-    """Record what this figure is, keyed by stem, in reports/<analysis>/manifest.json."""
+    """Record what this figure is in reports/<analysis>/manifest.json.
+
+    The manifest is an index of every figure in the analysis: its settings in
+    full, the function that made it, its tables, and when it was saved.
+    """
     path = analysis_dir(analysis) / "manifest.json"
     manifest: Dict[str, Any] = {}
     if path.exists():
@@ -501,52 +489,49 @@ def save_output(
     subdir: Optional[str] = None,
     **facets: Any,
 ) -> SavedOutput:
-    """Save one figure and its numbers.
+    """Save one figure and the numbers behind it.
 
-    Writes ``reports/<analysis>/figures/<stem>.<ext>`` and, for each entry in
-    ``tables``, ``reports/<analysis>/tables/<stem>__<key>.{csv,json}`` — where
-    ``stem`` is ``<plot>__<facet>-<value>...`` built from ``plot`` and ``facets``.
+    Writes ``reports/<analysis>/figures/<name>.<ext>`` and, for each entry in
+    ``tables``, ``reports/<analysis>/tables/<name>__<table>.{csv,json}``. The
+    ``<name>`` is built from ``plot`` and the settings: ``<plot>__<key>-<value>...``.
 
     Parameters
     ----------
     fig
         The figure. ``None`` saves tables only.
     analysis
-        Which analysis owns this output; must be a key of :data:`ANALYSES`.
+        Which analysis this belongs to; must be a key of :data:`ANALYSES`.
     plot
         What the figure is, e.g. ``"correctness_by_seq_len"``.
     tables
         Required. ``{name: DataFrame | Series | dict | list}``. Pass ``{}`` to
-        declare that this figure genuinely has no numbers behind it.
+        say that this figure genuinely has no numbers behind it.
     save
         Whether to write anything at all. Defaults to :data:`DEFAULTS`.
     to_paper
-        Mirror into the Overleaf-synced paper repo, at
-        ``papers/correctness_prediction/reports/<analysis>/{figures,tables}/`` —
-        the same relative layout as ``reports/``, under one root so the paper
-        repo does not gain a tree per output kind. Off by default and currently
-        gated by :data:`PAPER_MIRROR_ENABLED`.
+        Also copy into the Overleaf paper repo, at
+        ``papers/correctness_prediction/reports/<analysis>/{figures,tables}/``.
+        Only allowed while :data:`PAPER_MIRROR_ENABLED` is True.
     path
-        Escape hatch: an explicit output path for the figure, bypassing the
-        derived location. Tables still follow ``analysis``.
+        Save the figure here instead of the usual place. Tables still go to the
+        usual place.
     source
-        Optional note on where the data came from (a dataset path, a run name),
-        recorded in the manifest.
+        Optional note on where the data came from (a dataset, a run name), kept
+        in the manifest.
     subdir
-        Optional folder under ``figures/`` and ``tables/``, purely so a large
-        analysis stays browsable. The filename still carries every facet, so a
-        file moved out of its subfolder loses nothing — the redundancy is
-        deliberate.
+        Optional subfolder under ``figures/`` and ``tables/``, to keep a large
+        analysis browsable. The file name still carries every setting, so a file
+        moved out of its subfolder loses nothing.
     **facets
-        Name/value pairs distinguishing this figure from its siblings, e.g.
-        ``group="hunters", threshold=4``. They become the filename tags in the
+        The settings that tell this figure apart from its siblings, e.g.
+        ``group="hunters", threshold=4``. They become the file name, in the
         order given.
 
     Returns
     -------
     SavedOutput
-        Falsy when ``save`` is off, so ``if result:`` tells you whether anything
-        was written.
+        What was written. Counts as False when ``save`` is off, so
+        ``if result:`` says whether anything was saved.
     """
     if tables is None:
         raise TypeError(
@@ -570,8 +555,8 @@ def save_output(
     if to_paper and not PAPER_MIRROR_ENABLED:
         raise RuntimeError(
             f"{analysis}/{stem}: to_paper=True but paper mirroring is disabled. "
-            "Set plot_output.PAPER_MIRROR_ENABLED = True to sync figures into the "
-            "Overleaf repo — deliberately off during the restructure."
+            "Set PAPER_MIRROR_ENABLED = True in src/lib/plotting/output.py to "
+            "copy figures into the Overleaf repo."
         )
 
     base = analysis_dir(analysis)
@@ -588,10 +573,8 @@ def save_output(
         result.figure = fig_path
 
     if _TABLE_SINK is not None and _TABLE_SINK.claims(analysis, plot):
-        # A sweep is collecting: the numbers go into one long table at the end
-        # instead of one small file per figure. The figure is still written
-        # normally, and `tables=` was still required and passed -- the contract
-        # is unchanged, only the destination is.
+        # Inside collect_tables: the numbers go into the pooled table instead of
+        # their own file. The figure is still saved as usual.
         _TABLE_SINK.add(plot, facets, tables)
     else:
         for name, obj in tables.items():
@@ -621,11 +604,8 @@ def save_output(
                 "facets": {k: v for k, v in facets.items() if v is not None},
                 "produced_by": _caller(),
                 "figure": result.figure.name if result.figure else None,
-                # The abbreviated form, because this has to locate the file:
-                # `figures/<subdir>/<figure>` is how a reader resolves an entry,
-                # and the directory on disk is abbreviated like everything else.
-                # The unabbreviated value is not lost -- it is the facet it came
-                # from, recorded in full in `facets` above.
+                # The shortened folder name, because this is used to find the
+                # file on disk. The full name is still in `facets` above.
                 "subdir": str(leaf) if str(leaf) != "." else None,
                 "tables": sorted(tables),
                 "source": source,

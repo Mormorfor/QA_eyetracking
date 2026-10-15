@@ -1,444 +1,261 @@
 # Data pipeline
 
-How raw eye-tracker reports become the trial-level table the models consume.
-Drafted from `src/data_paths.py`, `src/data_prep/`, `src/derived/`, and
-`src/predictive_modeling/*/model_data.py`.
-
-**Status: reviewed with Diana 2026-09-05.** The four datasets, the KnowQA differences and
-the symlink question are settled; see the resolved list at the end. Remaining `?` marks are
-my inference, not established fact.
+How the eye tracker's raw reports become the table the models read: one row per trial, one
+column per feature.
 
 ---
 
 ## 1. The four datasets
 
-The same pipeline runs over four datasets. They differ in their raw report format and
-their identity scheme, not in their feature definitions.
+| Key | What it is | Raw reports | Output folder | Built by |
+|---|---|---|---|---|
+| `l1` | Study 1: OneStop, native English speakers. 360 participants, 19,436 trials | `data_raw/full/` (CSV) and `data_raw/tsv/` (TSV) | `data/datasets/l1_onestop/` | `scripts/build_dataset.py --dataset l1` |
+| `knowqa` | Study 2 | `data_raw/KnowQA/` (UTF-16 `.xls`) | `data/datasets/knowqa/` | `scripts/build_dataset.py --dataset knowqa` |
+| `testrun_qa` | Study 2, first pilot | `data_raw/testrun_QA/` (UTF-16 `.xls`, plus a messages report) | `data/datasets/pilots/testrun_qa/` | `notebooks/builders/data_prep_new_exp.ipynb` |
+| `second_test` | Study 2, second pilot | `data_raw/second_test/` (UTF-8 `.tsv`) | `data/datasets/pilots/second_test/` | the same notebook |
 
-| Dataset | Raw location | Processed output | What it is |
-|---|---|---|---|
-| **L1 / OneStop** | `data_raw/full/` (CSV), `data_raw/tsv/` (TSV) | `data/L1_based_data/` | Study 1. 360 participants. The paper's main dataset. |
-| **testrun_QA** | `data_raw/testrun_QA/` | `data/new_exp_try_runs/` | Study 2, first pilot. UTF-16 `.xls`, has a messages report. |
-| **second_test** | `data_raw/second_test/` | `data/second_test_runs/` | Study 2, second pilot. UTF-8 `.tsv`, report-prefixed names, no messages report. |
-| **KnowQA** | `data_raw/KnowQA/` | `data/KnowQA_runs/` | Study 2, first real collection. UTF-16 `.xls` under canonical names, no messages report. |
+Each dataset is described once, by a `Dataset` record in `src/config/datasets.py`, and every
+output path is built from that record.
 
-Each raw dataset has two report families:
+The eye tracker writes two kinds of report:
 
-- **IA reports** — one row per interest area (word). Aggregated measures per word.
-- **Fixation reports** — one row per fixation. Needed for pupil stats, sequences, and click/timestamp reconstruction.
+- an **interest-area report**: one row per word on the screen, with totals for that word
+  (looking time, number of fixations, ...);
+- a **fixation report**: one row per fixation, in time order. Needed for the order of looks,
+  pupil size, the button presses and the visit-based reading time.
 
-**Which screens exist differs by study.**
+**Screens.** Study 1 has reports for every screen of a trial; the features use two of them, the
+paragraph screen and the answer screen. Study 2 has the answer screen only. It is the same
+screen in both studies, which is why the same code handles both.
 
-- **L1 / OneStop** exports both families per screen type: `Answers`, `Paragraph`, `QA`,
-  `Questions`, `Question_Preview`, `Title`, `Feedback`.
-- **KnowQA** has a different, **regime-dependent** screen sequence — what a participant sees
-  before the answer screen depends on whether they got full, partial or no knowledge. The
-  project currently has access to **the Answers screen only**, which is the one screen that is
-  identical across regimes *and* identical to L1's. That is why the pipeline works unchanged
-  across both studies.
+**The OneStop data is not in the repo.** `data_raw/full` and the two folders inside
+`data_raw/tsv` are links to a copy stored elsewhere, because the corpus is not ours to
+redistribute. Anyone running the code needs their own OneStop download in those places.
 
-Other KnowQA screens can be exported and added later if a question needs them; nothing in the
-current code depends on them.
-
-**`data_raw/full` and both `data_raw/tsv` subfolders are symlinks** to the OneStop data held
-outside the repo. Deliberate — the corpus is not ours to redistribute. **The public release
-will ship instructions telling users where to place their own OneStop download** rather than
-the data or the links (`todo.md` T5.7).
-
-Practical consequence while working: anything reached through those links is invisible to a
-session that only has the repo folder connected. Processed outputs under `data/` are reachable;
-raw reports are not.
+**`L1` means native language**, not "level 1" or "study 1": Study 1 uses the
+native-English-speaker part of OneStop.
 
 ---
 
-## 2. Stage 0 — raw report conversion and cleaning (Study 2 only)
-
-L1 arrives already in the schema the pipeline expects. Study 2 datasets do not, so they
-get a conversion step first.
-
-**Canonical module: `src/data_prep/know_qa_dataprep.py`.**
+## 2. Building a dataset
 
 ```
-prepare_know_qa()   # or: python -m src.data_prep.know_qa_dataprep
-  ├── convert_raw_reports()    .xls (UTF-16) / .tsv (UTF-8-BOM) → canonical CSVs
-  ├── clean_reports()          column renames, letter answers_order, identity columns,
-  │                            (pupil z-scoring only when pupil_norm_unit="session")
-  ├── run_pipeline()           → calls data_csv_generation.main()   [Stage 1]
-  └── build_features()         → trial-level feature table          [Stage 2]
+python scripts/build_dataset.py --dataset l1
+python scripts/build_dataset.py --dataset knowqa
 ```
 
-Writes to `data_raw/<run>/csvs/` and `data_raw/<run>/csvs/cleaned/`.
+**Study 1** runs three steps:
 
-What this stage adds beyond format conversion:
-
-- **`add_identity_columns`** — splits the `4XXX_YZ` recording label into `participant_id`,
-  `session_id`, `article_batch`, `list_number`, `trial_number`, and builds the composite
-  string `TRIAL_INDEX`. See glossary §2 for why.
-- **`add_item_id_columns`** — derives `same_critical_span` from `text_id_with_q`, *never*
-  from `onestopqa_question_id` (they disagree on ~40% of trials).
-- **`check_trial_index_gaps`** — trial-counter gaps must equal the number of recalibrations.
-- **`check_text_alignment`** — reconstructs on-screen text from `IA_LABEL` and reports trials
-  where the stored stimulus text and the interest areas disagree. ✅ **The defect is real**
-  (`todo.md` T3.18, resolved 2026-09-07): the stored question sometimes carries a token the
-  display never rendered. It no longer affects area labels, because `add_IA_screen_location`
-  places words by their on-screen rectangle rather than by counting stored tokens. So this
-  check is now a detector of **stimulus-text** defects to fix upstream, not a guard on the
-  measurements. It has never excluded a trial.
-
-> ⚠️ **`experiment_builder/data_prep_new_exp.ipynb` is a near-verbatim earlier copy of
-> this module** and writes the *same* `csvs/cleaned/` files and the *same*
-> `KnowQA_runs/L1_model_ready_all_features.csv`, but with the older identity scheme
-> (session label as `participant_id`, integer `TRIAL_INDEX`) and **without** the two
-> integrity checks or the session-level pupil normalization. Running it with
-> `RUN_NAME = "KnowQA"` overwrites the module's output. The notebook says so itself in a
-> markdown cell. Prefer the module; the pilots' outputs were built by the notebook.
-
----
-
-## 3. Stage 1 — IA-level feature generation
-
-**Entry point: `src/data_prep/data_csv_generation.py::main()`** (also runnable as a script).
-
-Input: an IA report + a fixation report.
-Output: `all_participants.csv` — **IA-level** (see glossary §1) — plus auxiliary tables.
-
-```
-main()
- ├─ 1. button clicks           → Auxiliary/button_clicks_data.csv
- │      (only if add_last or add_rts; ALWAYS rebuilt from raw)
- ├─ 2. load IA report, filter  repeated_reading_trial == False, practice_trial == False
- ├─ 3. resolve function lists  from FUNCTION_REGISTRY
- ├─ 4. load fixation report ONCE, share it downstream
- ├─ 5. answer-screen pupil baseline → Auxiliary/pupil_baseline__answers.csv
- ├─ 6. _process()
- │      ├─ add_base_features()            9 functions, in registry order
- │      ├─ generate_new_row_features()    11 group functions, each left-merged back
- │      ├─ _attach_last_label_features()  → Auxiliary/all_participants_last.csv
- │      └─ _attach_rt_and_tfd_features()  → Auxiliary/RT_and_TFD.csv
- └─ 7. _save() + optional _save_splits(split_column=question_preview)
-                                          → hunters.csv / gatherers.csv
-```
-
-**Base features** (order matters — see the gotcha below): `add_text_id`,
-`add_text_id_with_q`, `add_is_correct`, `add_answer_text_columns`,
-`add_IA_screen_location`, `add_IA_answer_label`, `add_selected_answer_label`,
-`add_zscored_pupil_columns`, `add_total_answering_RT_normalized`.
-
-**Group features:** `create_mean_area_dwell_time`, `create_mean_area_fix_count`,
-`create_mean_first_fix_duration`, `create_skip_rate`, `create_dwell_proportions`,
-`create_mean_pupil_size_metrics`, `create_first_encounter_pupil_size`,
-`create_last_area_and_location_visited`, `create_fixation_sequence_tags`,
-`create_simplified_fixation_tags`, `create_simplified_visit_counts`.
-
-Adding a feature means registering it in `FUNCTION_REGISTRY` with its `join_columns`.
-
-### Auxiliary outputs
-
-| File | Grain | Contents |
+| Step | Code | Writes |
 |---|---|---|
-| `Auxiliary/button_clicks_data.csv` | trial | selection/confirm timestamps, `(ts, IA_id)` fixation pairs, last fixations before select/confirm, press counts |
-| `Auxiliary/pupil_baseline__answers.csv` | participant | **answer-screen** pupil mean and SD in mm. The paragraph screen has its own, `pupil_baseline__paragraph.csv` |
-| `Auxiliary/all_participants_last.csv` | trial | last IA and area label before last select / before confirm |
-| `Auxiliary/RT_and_TFD.csv` | trial | `RT_pure_*`, `RT_normalized_*`, `TFD_*`, `TimeSinceOffset_*` per region |
+| 1. Answer screen (§4) | `ingest/build.py::main` | `interim/interest_areas.csv`, `interim/areas_answers.csv`, `interim/trials.csv`, and side files in `interim/aux/` |
+| 2. Paragraph screen (§5) | `features/paragraph/spans.py::save_paragraph_features` | `features/paragraph_spans.csv` |
+| 3. Model table (§6) | `features/build.py::save_model_ready` | `features/model_ready.csv` |
 
-### How the KnowQA path differs at this stage
+Steps 1 and 2 do not depend on each other. Step 3 needs both.
 
-| | L1 | KnowQA |
-|---|---|---|
-| pupil z-scoring | `add_zscored_pupil_columns` runs here, z-scoring per `participant_id` against this run's own answer fixations | **the same, since T3.20 (2026-09-23)** — `pupil_norm_unit` now defaults to `"participant"`, so the base function runs normally and `main()` writes KnowQA's `interim/aux/pupil_baseline__answers.csv` from KnowQA's own fixations, grouped by `participant_id` so a person's baseline pools their three sittings. The old `"session"` unit is still selectable, and under it Stage 0 does the z-scoring and this base function is excluded from the registry list instead |
-| `add_answer_text_columns` | runs | excluded |
-| repeated-reading filter | on | off (no such column) |
-| paragraph RT/TFD | supported | **not applicable — KnowQA has no paragraph data.** Only the answers screen is exported (`data_paths.py` defines no paragraph path for any Study 2 run), and only a third of KnowQA trials show a paragraph at all. `run_pipeline:884` refuses `include_paragraph=True`; its error cites a secondary technical blocker (`load_paragraph_fixations` coerces `TRIAL_INDEX` to int64, which the composite ids would fail), but the real reason is simply that there is nothing to read |
-| button clicks source | legacy CSV + separate UTF-16 TSV, cumulative `ALL_ANSWERS` | single fixations CSV, non-cumulative |
+By default it also writes the hunters' and gatherers' subsets of each table
+(`trials__hunters.csv`, ..., `model_ready_hunters.csv`, `model_ready_gatherers.csv`).
+`--no-splits` leaves them out.
 
----
+**Study 2** runs `ingest/knowqa.py::prepare_know_qa`: two preparation steps (§3), then the same
+answer-screen pipeline as Study 1, then the model table. There is no paragraph step.
 
-## 4. Stage 2 — trial-level model table
-
-**Entry point: `src/predictive_modeling/answer_correctness/model_data.py::save_all_features()`**
-→ `L1_model_ready_all_features.csv` (one row per trial).
-
-`build_trial_level_model_df()` starts from the IA-level frame and left-merges eight blocks:
-
-1. per-area metric pivot `<metric>__<area>` plus the correct/wrong contrasts (glossary §7)
-2. sequence-derived: `seq_len`, `has_xyx`, `has_xyxy`, `longest_alt_answer_run`, `trial_mean_dwell`
-3. pattern-breaking / dominance (participant-level)
-4. paragraph-span dwell proportions — **read from a cache written by `answer_RTs`**
-5. last-label-before-confirm one-hots
-6. last-label-before-select one-hots
-7. RT / TFD / TimeSinceOffset per region, plus contrasts
-8. `ANSWER_PRESS_NUMBER` and `total_answering_RT`
-
-`load_all_features()` reads it back with `participant_id` pinned to `str` — necessary
-because KnowQA ids are all digits and would otherwise be inferred as int, breaking merges.
-
-> Every merge is `how="left"`, so a trial missing from any block would silently gain NaN
-> columns, which the model then fills with `0.0`. **A trial should never be missing from
-> one block and present in another** — they all derive from the same trial set.
->
-> ✅ **Asserted since 2026-09-27 (`todo.md` T3.17).** `checks.assert_full_coverage` runs
-> before eight of the nine merges and raises, naming the block and the trials, if the right
-> side misses a key or repeats one. **The paragraph merge is exempt by design** — it is the
-> one block not built from the same frame, so a dataset with no paragraph screen legitimately
-> matches nothing. The invariant held on all four datasets when the guard went in, so no
-> number moved.
+**The pilots** are built by the notebook, not by the script — but see §9 item 3.
 
 ---
 
-## 5. Stage 3 — side caches
+## 3. Study 2's preparation — `ingest/knowqa.py`
 
-Two feature families live outside the main pipeline and are cached to disk.
-
-### Paragraph-span features — `answer_RTs/features.py::save_paragraph_features()`
-→ `L1_paragraph_span_features.csv`. Per-area metrics computed over the *paragraph* screen,
-split by `critical` / `distractor` / `outside` span. Mirrors the answer-screen metric
-definitions.
-
-### EyeBench paragraph-trial features — `derived/external/EyeBench/runner.py`
-→ `EyeBenchExtracted/L1_paragraph_trial_level_features.csv` plus two feature-key CSVs
-mapping each feature to its source model family.
-
-The extraction code is vendored in `src/external/EyeBench/`:
-
-- `utils - paragraph feature extraction.py` — received from the lab's EyeBench/OneStop
-  project, kept as-is so a newer copy can replace it wholesale. **Not importable by name**
-  (spaces and a dash), so it is loaded by path via `importlib`, after `configs/` is aliased
-  into `sys.modules` as `src.configs`.
-- `paragraph_trial_features.py` — the adapter that reproduces the source project's
-  preprocessing over our raw reports.
-- `configs/` — the constants the vendored file imports.
-
-`src/derived/external/EyeBench/runner.py` holds **only** the orchestration (pick
-participants, cache-or-rebuild, read the key files). The split is deliberate: vendored code
-stays replaceable, our glue lives elsewhere.
-
-> ⚠️ Two entry points write the same cache with **different feature definitions**:
-> `runner.py` defaults `fix_ptb_pos_double_mapping=True`, while
-> `paragraph_trial_features.py`'s `__main__` defaults it to `False` (reproducing an
-> upstream bug where every `ptb_pos_*` feature comes out 0). The cache file cannot tell
-> you which one produced it.
-
----
-
-## 6. Build order
-
-**Restructured 2026-09-23 (`todo.md` T6.1).** The answer and paragraph screens are now two
-independent preprocessing pipelines that meet only at feature-construction time:
+Study 1's reports already have the column names the pipeline expects. Study 2's do not, so they
+are prepared first:
 
 ```
-Stage 0  know_qa_dataprep (Study 2 only)
-            ↓
-Stage 1  data_csv_generation.main()          ANSWER screen only
-            → all_participants.csv + Auxiliary/*
-            ↓
-Stage 1p derived/paragraph_prep.py           PARAGRAPH screen only   ── independent of Stage 1
-            → L1_paragraph_span_features.csv
-            ↓
-Stage 2  answer_correctness/model_data.py::save_all_features()
-            → L1_model_ready_all_features.csv   ← joins 1 and 1p on (participant_id, TRIAL_INDEX)
-            ↓
-Stage 3  answer_RTs/model_data.py               ← reads Stage 2's cache
-            (targets and span RT predictors)
+convert    raw .xls / .tsv reports -> CSVs        data_raw/KnowQA/csvs/
+clean      rename columns, build the ids          data_raw/KnowQA/csvs/cleaned/
+pipeline   ingest/build.py::main                  -> the three tables
+features   the three tables, as for Study 1       -> features/model_ready.csv
 ```
 
-**Stages 1 and 1p do not depend on each other** and can run in either order, or separately.
-That is the point of the change. Before it, Stage 1 opened the paragraph IA and fixation
-reports in the middle of preparing the answer screen, to build the per-span
-`RT_*` / `TFD_*` / `TimeSinceOffset_*` columns, and merged them into the answer table with
-`how="inner"` — so a trial with answer data but no paragraph data disappeared silently, and
-"prepare the QA data" required multi-GB paragraph reports it had no other use for. The
-`include_paragraph` flag that was threaded through four call layers to keep KnowQA working is
-gone with it; KnowQA simply does not run Stage 1p.
+One step at a time: `python -m src.ingest.knowqa --steps clean`.
 
-Those columns still reach the model, with the same names and values — they now arrive through
-the paragraph join in `model_data.PARAGRAPH_MODEL_COLS` rather than through `RT_and_TFD.csv`.
+Cleaning does more than rename:
 
-`model_data.py` raises a `FileNotFoundError` telling you to run Stage 1p first, which is the
-only place this order is enforced. ⚠️ **One soft spot to know:** a paragraph column named in
-`PARAGRAPH_MODEL_COLS` but absent from the cache is skipped rather than raising, so a **stale
-paragraph cache yields a trial frame quietly missing its paragraph RT columns**. Rebuild 1p
-after any change to the paragraph pipeline.
+- **Identity.** A recording is named like `4000_21`: person `4000`, batch `2`, list `1`. One
+  person can come back for several sessions, so the name is split into `participant_id`,
+  `session_id`, `article_batch`, `list_number` and `trial_number`, and `TRIAL_INDEX` becomes a
+  text code like `b2l01t005` (batch, list, trial). That way a trial is still identified by
+  `(participant_id, TRIAL_INDEX)`, as everywhere else. Details in `glossary.md` §2.
+- **`same_critical_span`** is taken from `text_id_with_q`, never from `onestopqa_question_id`.
+  The two number the questions in different orders and disagree on about a third of trials.
+- **Two checks.** `check_trial_index_gaps`: a session should have exactly as many gaps in its
+  trial numbers as it had recalibrations; more gaps means lost trials, and is printed as a
+  warning. `check_text_alignment`: lists trials whose stored question and answer text does not
+  match the words on screen. This does happen (the presentation software sometimes splits a
+  quote off a word), but it does not change which area a word is in, because words are placed
+  by their position on screen.
 
-Other builders that must run before certain analyses:
+---
 
-| Builder | Produces | Needed by |
+## 4. The answer screen — `ingest/build.py::main`
+
+In order, it:
+
+1. rebuilds when each answer was selected and confirmed, from the tracker's message log
+   (`ingest/clicks.py`);
+2. reads the interest-area report and drops repeated-reading and practice trials;
+3. works out each participant's pupil baseline (§8);
+4. runs the features listed in `ingest/registry.py`: first the per-word ones, then the per-area
+   and per-trial ones;
+5. adds the three reading-time measures (§7) and the area looked at before each button press;
+6. splits the columns into the three tables and saves them.
+
+Every side file is rebuilt on every run; nothing is reused from an earlier one.
+
+**The registry** (`ingest/registry.py`) is the list of features. Each entry names the function,
+the columns it reads, and whether it works per word, per area or per trial. A second list,
+`_PRODUCES`, says which columns each feature adds and at which level, and that decides which of
+the three tables each column goes into. To add a feature, add an entry and its `_PRODUCES` line.
+
+**Side files**, in `interim/aux/`:
+
+| File | One row per | Holds |
 |---|---|---|
-| `notebooks/tests and data builders/create_merge_folds_csv.ipynb` | `data/CV folds/*Folds/fold_*_trial_ids_by_regime.csv` | all cross-validation |
-| `notebooks/tests and data builders/clicks_selections_confirms.ipynb` | button clicks / last-area labels | last-fixation features |
-| `notebooks/tests and data builders/reading_times.ipynb` | RT/TFD regions | RT features |
-| `experiment_builder/lists_builder.ipynb` | `data/Experiment/new_batched_lists/` | running Study 2 (hand-off to the presentation software) |
+| `button_clicks_data.csv` | trial | the time of every selection press and of the confirming press; the trial's fixations as (time, word) pairs; the last fixation before each press; the number of presses |
+| `pupil_baseline__answers.csv` | participant | average and SD of pupil size (mm) on the answer screen |
+| `all_participants_last.csv` | trial | the area looked at before the last selection press, and before the confirming press |
+| `RT_and_TFD.csv` | trial | the three reading-time measures for each area |
 
----
+**Where Study 2 differs at this step:**
 
-## 7. Derived feature modules
-
-`src/derived/` holds the feature definitions that Stage 2 assembles.
-
-| Module | Computes | Invoked by |
+| | Study 1 | Study 2 |
 |---|---|---|
-| `pupil_norm.py` | area→mm conversion, per-participant pupil stats, z-scoring | `data_csv_generation`, `know_qa_dataprep`, `answer_RTs/features` |
-| `reading_times.py` | four RT definitions + TFD; assembles `RT_and_TFD.csv` | `data_csv_generation._attach_rt_and_tfd_features` |
-| `select_confirm_last.py` | last IA / area label before select and before confirm | `data_csv_generation._attach_last_label_features` |
-| `correctness_measures.py` | accuracy-by-group summaries + Wilson CIs; XYX/XYXY detection; trial mean dwell | `viz/visualisations_correctness_measures`, `model_data` |
-| `pattern_breaking.py` | starting strategies, dominance, breaks-pattern, Levenshtein distance | `model_data`. **Paper-critical as of draft2** — backs the First-scan behavior Results subsection. Two gaps vs. the paper: no clockwise/counter-clockwise classifier, and no interrupted-scan completion. See glossary §8. |
-| `preference_matching.py` | whether the selected answer is the gaze-"preferred" one | `model_data`, `viz/visualisations_preference_correctness` |
+| answer text by letter (`add_answer_text_columns`) | built here | skipped: the cleaned reports already have `answer_A`..`answer_D` |
+| repeated-reading trials | dropped | there are none |
+| button presses | from a separate TSV export of the fixation report, which holds the message log | from the fixation report itself, which holds the messages |
 
-### 7.1 Pupil baselines — which fixations each dataset normalizes against
+---
 
-A pupil z-score is `(pupil − mean) / sd`, where mean and sd come from a **baseline set of
-fixations**. Which fixations, and grouped by what, is a scientific choice; T3.20 made it an
-explicit one. Two rules now hold everywhere:
+## 5. The paragraph screen (Study 1 only) — `features/paragraph/spans.py`
 
-- **The baseline unit is the person.** One baseline per `participant_id`, for every dataset —
-  including KnowQA, where a person's several recording sessions and all three knowledge
-  regimes pool into one baseline (Diana, 2026-09-23). So "this participant's typical pupil
-  size" means the same thing project-wide.
-- **Each screen is its own baseline, and each dataset its own file.** There is no default
-  source: `get_participant_pupil_stats` raises rather than silently reaching for L1's.
+Each paragraph is split into three parts: **critical** (holds the answer), **distractor**
+(supports a wrong answer) and **outside** (the rest). Each part gets the same measurements as an
+answer-screen area, from the same code, saved one row per trial in
+`features/paragraph_spans.csv`.
 
-| Dataset | Screen the baseline is computed over | Written to |
+The paragraph fixation report is several GB, so it is read once, in chunks. The paragraph pupil
+baseline is built up in the same pass and saved to `interim/aux/pupil_baseline__paragraph.csv`.
+
+---
+
+## 6. The model table — `features/build.py`
+
+`load_model_input` joins the three tables back into one wide table, one row per word.
+`build_trial_level_model_df` turns that into one row per trial, from these blocks:
+
+1. the per-area measurements, one column per measurement and area (`mean_dwell_time__answer_B`),
+   plus five comparisons of the correct answer with the wrong ones (`glossary.md` §7)
+2. the five sequence statistics: `seq_len`, `has_xyx`, `has_xyxy`, `longest_alt_answer_run`,
+   `trial_mean_dwell`
+3. the opening-scan features, which compare each trial with the participant's usual opening
+   scan: `breaks_pattern_*`, `dominance_score_*`, ...
+4. the paragraph features (Study 1 only), from `features/paragraph_spans.csv`
+5. the area looked at before the confirming press, as 0/1 columns
+6. the same, before the last selection press
+7. the three reading-time measures for each answer area, plus comparisons
+8. `ANSWER_PRESS_NUMBER` and `total_answering_RT` (and its per-word version)
+
+Every block is joined on `(participant_id, TRIAL_INDEX)`. Before each join,
+`checks.assert_full_coverage` stops the run unless every trial has exactly one row in the
+block. Without it, a missing trial would get NaN, the model would fill that with 0, and the
+trial would look like an average one. The paragraph block is the exception: it comes from a
+separate file, so it is only checked to add no rows and to match at least one trial.
+
+`load_model_ready` reads the table back with `participant_id` as text. Study 2's ids are all
+digits, and read as numbers they would not join with the other tables.
+
+**EyeBench paragraph features** are a separate, extra table: per-trial paragraph-reading
+features made by the lab's EyeBench code, built by
+`src/vendor/eyebench/runner.py::get_paragraph_trial_features` into `features/eyebench/`. They
+are not in the model table; only exploration code (`explorations/answer_reading_times/`) uses
+them. Build them
+with the runner: the vendored file's own `__main__` gives every `ptb_pos_*` feature the value 0
+(a bug in the original code). The runner avoids that, and records how it built the table in a
+`.meta.json` file beside it.
+
+---
+
+## 7. The three reading-time measures — `features/reading_times.py`
+
+| Columns | What it measures | From |
 |---|---|---|
-| L1 / OneStop — answer features | that run's **answer** fixation report (`fixations_Answers.csv`) | `l1_onestop/interim/aux/pupil_baseline__answers.csv` |
-| L1 / OneStop — **paragraph** span features | that run's **paragraph** fixation report (`fixations_Paragraph.csv`) | `l1_onestop/interim/aux/pupil_baseline__paragraph.csv` — streamed by `features/paragraph/spans.py::scan_paragraph_fixations`, saved since 2026-10-15 |
-| KnowQA | that run's own **answer** fixation report | `knowqa/interim/aux/pupil_baseline__answers.csv` |
-| testrun_QA / second_test | their own answer fixation reports | `<run>/interim/aux/pupil_baseline__answers.csv` |
+| `TFD_*` | total fixation duration: the looking time on the area's words, added up | the word table |
+| `RT_*` | time spent on visits to the area. A visit is a run of fixations in a row on the area; it counts from its first fixation's start to the start of the next fixation anywhere | the fixation report |
+| `TimeSinceOffset_*` | from the start of the first look at the area to the end of the last look, so time spent elsewhere in between counts too | the word table |
 
-Two consequences worth knowing:
+Each comes as `_pure` (ms) and `_normalized` (divided by the number of words in the area).
 
-- **Answer-screen and paragraph-screen pupil z are no longer on a shared scale**, and that is
-  deliberate: the two screens differ in luminance and in task, so a shared baseline measured
-  the gap between screens as much as anything about the participant. Do not compare a
-  `__critical` pupil z against an `__answer_A` pupil z as if they were one measure.
-- **The paragraph baseline is streamed, not held.** The paragraph fixation report is several
-  GB, so `compute_paragraph_pupil_stats` accumulates count/sum/sum-of-squares per participant
-  chunk by chunk. Verified equal to the in-memory computation to ~1e-15.
+`compute_reading_times` makes `TFD_*` and the span measure, `compute_run_based_rt_from_fixations`
+makes `RT_*`, and `build_screen_rt_tfd` puts them together for one screen. The span measure
+comes out of `compute_reading_times` named `RT_*` and is renamed to `TimeSinceOffset_*`, so the
+name `RT_*` always means the visit-based measure.
 
-### The four RT definitions — they are not the same measure
-
-| Function | Definition |
-|---|---|
-| `compute_reading_times` | **span-based**: `max_last_fixation − min_first_fixation + last_fixation_duration`. Counts every excursion away and back as part of the region's time. Renamed to `TimeSinceOffset_*` on output. |
-| `compute_run_based_rt` | **run-based**, from the `(ts, IA)` sequence in `button_clicks_data.csv` |
-| `compute_run_based_rt_from_fixations` | same definition, from the paragraph fixation report |
-| `build_rt_and_tfd` | assembles them; guarantees `RT_*` is always run-based |
+An area nobody looked at gets 0, never NaN. Every area is on screen in every trial, so 0 can
+only mean "not looked at".
 
 ---
 
-## 8. Known gotchas
+## 8. Pupil baselines
 
-Things that will bite someone re-running this. Not yet fixed — listed so they are at
-least visible.
+A pupil z-score is `(pupil size − mean) / SD`, using the participant's own mean and SD: their
+**baseline**.
 
-1. **`data_csv_generation` group functions mutate the caller's frame in place.** Five of
-   them do, which creates an undocumented ordering dependency: `create_first_encounter_pupil_size`
-   filters on `IA_FIRST_FIXATION_DURATION > 0` and only works because
-   `create_mean_first_fix_duration` already coerced that column to int earlier in registry
-   order. Running a subset via `group_function_names=[...]` can therefore compare `str > int`.
-   It also means `area_skipped` and the `"." → 0` coercions leak into the saved output.
-   → **`todo.md` T3.11**
+- **One baseline per person**, in every dataset. In Study 2, a person's sessions and all three
+  knowledge regimes are pooled into one, so "this person's typical pupil size" means the same
+  thing in both studies. (`python -m src.ingest.knowqa --pupil-norm-unit session` gives one
+  per session instead.)
+- **One per screen.** The answer screen and the paragraph screen differ in brightness and in
+  task, so the same person's pupil differs between them. An answer-screen pupil z-score and a
+  paragraph one are therefore on different scales; do not compare them as one measure.
+- **Each dataset uses its own fixations.** There is no default: `get_participant_pupil_stats`
+  stops with an error unless it is told which fixations to use.
 
-2. **The paragraph path reimplements the answer path's metrics.** ~~and one of them diverged~~
-   **The divergence is fixed as of 2026-09-23 (T3.6).** `answer_RTs/features.py` rewrites eight
-   `create_*` functions from `data_csv_generation`, grouped by span instead of area. The one
-   that used to differ was **`mean_first_fixation_duration`** (answer zero-filled `"."`,
-   paragraph dropped it); the answer path now coerces the same way, so **all eight agree** and
-   `features.py:47-49`'s claim of a 1:1 mirror is true rather than aspirational. `skip_rate`,
-   `mean_dwell_time` and `mean_fixations_count` were always identical, because their source
-   columns carry a real `0` and no `"."` to coerce. *An earlier version of this file claimed
-   `skip_rate` diverged; measurement showed it does not.*
+| Dataset | Baseline from | Saved to |
+|---|---|---|
+| Study 1, answer screen | `fixations_Answers.csv` | `l1_onestop/interim/aux/pupil_baseline__answers.csv` |
+| Study 1, paragraph screen | `fixations_Paragraph.csv` | `l1_onestop/interim/aux/pupil_baseline__paragraph.csv` |
+| Study 2 | its own answer-screen fixation report | `knowqa/interim/aux/pupil_baseline__answers.csv` |
+| pilots | their own answer-screen fixation reports | their own `interim/aux/` folder |
 
-   **The duplication itself is still there** — two implementations that now happen to agree,
-   with nothing structural keeping them in step. That is **T1.7**, and it is the reason this
-   entry stays in the list: the next metric to drift has exactly the same opening.
-
-   ⚠️ **Data caveat:** the fix is in the code and in KnowQA's rebuilt output. **L1 and the two
-   pilots still hold the old zero-filled column** — see `todo.md` T3.6 for the rebuild command
-   and why it was not run here.
-
-3. **Run-based RT fails silently to all-zeros** on a `(participant_id, TRIAL_INDEX)` key
-   mismatch — the row is still written with every region at 0, indistinguishable from a real
-   zero. The compounding half of this is **fixed as of 2026-10-15**: `button_clicks_data.csv` used
-   to be reused whenever it existed, so a stale click table was picked up quietly. It is now
-   always rebuilt from raw. The silent all-zeros on a key mismatch is unchanged.
-   → **`todo.md` T3.7**
-
-4. ~~**`get_participant_pupil_stats` defaults to a hardcoded L1 path.**~~ **FIXED 2026-09-23
-   (T3.20).** It used to default `fixations_path` to L1's answer fixation report, and
-   `answer_RTs/features.py` called it with no path — so paragraph-span pupil z-scores were
-   baselined against L1's answer screen *whatever dataset was being processed*, which for a
-   non-L1 dataset means a different set of people entirely. There is now **no default source**:
-   the function raises unless a caller names one. See §7.1 for what each dataset uses.
-
-5. **Participant-level features are computed over whatever trials the frame holds.**
-   `dominance_score` / `breaks_pattern` accumulate over a participant's trials, and the scope
-   is set by whichever frame is passed in. The hunters/gatherers split is safe —
-   `question_preview` is between-participant, so a participant's whole trial set is in one
-   group file. Trial-level filtering that keeps the participant is not (CV regime rebuilds,
-   correct-only subsets, and the KnowQA knowledge regimes, which are within-participant). See
-   `docs/pitfalls.md` §3. → **`todo.md` T3.21**, which enumerates every affected quantity and
-   makes the scope an explicit flag rather than a property of the caller
-
-6. **Unfixated regions are filled with `0`, not NaN**, throughout the RT/TFD family — and
-   that `0` is real data: every area exists on every trial, so it means "never fixated".
-   → **no action needed** — confirmed correct 2026-09-04.
-
-7. ~~**Trials with no recorded selection are scored `is_correct = 0`**, not excluded.~~
-   → ✅ **fixed 2026-09-27** (`todo.md` T3.5, absorbed into T3.17). `add_is_correct` now
-   raises on a null `selected_answer_position` or `correct_answer_position` instead of
-   scoring the trial as a wrong answer. Measured: the case does not occur on any of the
-   four datasets.
-
-8. **`add_base_features` leaves a spurious `index` column** — a double `reset_index`, so the
-   saved table starts with row numbers under that name. It used to be an L1-only quirk; as of
-   2026-09-27 **all four datasets carry it**, so the schemas agree rather than differing.
-   The column is inert: row numbers, never reaches the trial-level model table, nothing reads
-   it. → **no action** (was `todo.md` T1.8, removed 2026-09-27)
-
-9. `data/L1_based_data/all_participants_with_practice.csv` (~3.9 GB) and
-   `Auxiliary/paragraph_RT_run_based.csv` are not registered in `data_paths.py`. The first is
-   read only by `experiment_builder/extract_text.ipynb`; the second appears unreferenced. `?`
-   → **`todo.md` T5.8**
-
-10. **The `L1_` prefix is a sample restriction, not a study number.** `L1` means *native
-    language*: these paths hold data derived from OneStop's **L1 (native English speaker)**
-    portion. OneStop also has an L2 portion, unused here. So any future non-native data
-    needs its own namespace rather than reusing `L1_based_data/` — and the prefix should be
-    explained in the README, since a public reader will otherwise read it as "level 1" or
-    "study 1".
+Pupil size arrives in the tracker's units (an area) and is converted to a diameter in mm first.
 
 ---
 
-## 9. Where paths are defined
+## 9. Things to know
 
-`src/data_paths.py` is the single registry of dataset locations, anchored on
-`PROJECT_ROOT = Path(__file__).resolve().parents[1]`. It also inserts the project root into
-`sys.path` on import.
-
-**Convention (agreed 2026-09-04):** all paths resolve through `PROJECT_ROOT`; code is run
-from the repo root. The `"../reports/..."` string literals scattered through `src/viz/` and
-`generate_column_options.py` predate this and are being migrated out.
+1. **A trial missing from the fixation report gets 0 reading time.** If a trial in the word
+   table has no fixations in the fixation report — for example because its ids are written
+   differently in the two — every `RT_*` column for it is 0, the same as "not looked at".
+   Nothing checks for this. The opposite case is checked: a fixation that points at a word its
+   trial does not have stops the run.
+2. **Per-participant features depend on which trials they are given.** The opening-scan
+   features summarise a person over the trials in the table they are handed. `pitfalls.md` §3
+   explains when that matters.
+3. **The pilot notebook does not match the current code.** Its `main()` call does not pass
+   `dataset=`, so it saves none of the three tables, and it calls `save_model_ready` with an
+   argument (`include_paragraph_features`) that the function does not have. As it stands, it
+   cannot rebuild the pilots.
+4. **`interest_areas.csv` has an `index` column.** It holds row numbers (0 to 760,627 on
+   Study 1), left over from resetting the table's index while the per-word features run.
+   Nothing reads it.
+5. **Two files in `l1_onestop/interim/` are not in `config/datasets.py`:**
+   `all_participants_with_practice.csv` (3.9 GB, read only by
+   `notebooks/experiment/extract_text.ipynb`) and `aux/paragraph_RT_run_based.csv` (read by
+   nothing).
 
 ---
 
-## Open questions for Diana
+## 10. Where paths are defined
 
-1. `Auxiliary/paragraph_RT_run_based.csv` — does anything still read this? To be answered
-   during the restructure rather than now (`todo.md` T5.8).
-
-**Resolved 2026-09-04/05:**
-
-- The `data_raw` symlinks are deliberate; the release ships placement instructions for the
-  user's own OneStop download (`todo.md` T5.7).
-- **KnowQA has no paragraph data at all**, so the paragraph refusal is correct rather than a
-  limitation to lift.
-- `skip_rate`, `mean_dwell_time` and `mean_fixations_count` are **not** divergent between the
-  answer and paragraph paths — only `mean_first_fixation_duration` was (gotcha 2).
-- **KnowQA exports only the Answers screen**, which is identical across regimes and to L1 (§1).
-- `all_participants_with_practice.csv` (3.9 GB) is a **leftover from `extract_text.ipynb`, and
-  is being kept** — not a deletion candidate (`todo.md` T5.8).
-- **Both pilots stay runnable**, not archive-only — they may need naming brought into line
-  first (`todo.md` T5.8).
-- A trial **should never** be present in one feature block and absent from another, and a
-  trial **can never** lack a confirmed selection. Both are invariants to assert rather than
-  handle — ✅ **both asserted 2026-09-27** (`todo.md` T3.17), and both verified to hold, so
-  neither guard changed a number.
+Every data location is in `src/config/datasets.py`, built from `PROJECT_ROOT`, the repo root.
+Where results are written is in `src/config/outputs.py`. Run everything from the repo root.

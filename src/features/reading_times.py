@@ -1,4 +1,26 @@
-# src/features/reading_times.py
+"""How long each area was looked at, three ways, one row per trial.
+
+Three measures, each per area (e.g. RT_pure_answer_A):
+
+    TFD_*              total fixation duration: the looking time on the area's
+                       words, added up
+    RT_*               time actually spent on the area. A visit is a run of
+                       fixations in a row on the area; each visit counts from
+                       the start of its first fixation to the start of the next
+                       fixation anywhere. Visits are added up.
+    TimeSinceOffset_*  from the start of the first look at the area to the end
+                       of the last look -- so time spent elsewhere in between
+                       counts too
+
+Each comes as `_pure` (milliseconds) and `_normalized` (divided by the number of
+words in the area).
+
+An area nobody looked at gets 0, never NaN. That 0 is a real value: every area
+is on screen in every trial, so 0 can only mean "not looked at".
+
+Both screens use the same functions; `build_screen_rt_tfd` puts them together.
+"""
+
 from __future__ import annotations
 
 import sys
@@ -33,15 +55,14 @@ PARAGRAPH_REGIONS = ("outside", "distractor", "critical")
 
 IA_ID_COL = "IA_ID"
 
-# Columns of the paragraph fixation report needed for the run-based RT.
+# Columns of a fixation report (one row per fixation) that RT needs.
 FIX_START_COL = "CURRENT_FIX_START"
 FIX_DURATION_COL = "CURRENT_FIX_DURATION"
 FIX_IA_ID_COL = "CURRENT_FIX_INTEREST_AREA_ID"
-# The interest area a fixation landed NEAR, when it landed on none. EyeLink sets
-# both columns, and they never disagree when both are present -- measured
-# 2026-10-06 over both full reports, 0 disagreements in 718,207 answer and
-# 2,400,788 paragraph fixations. So the coalesce below is a generalisation of
-# "use nearest", not a different rule.
+# The word a fixation landed NEAR, when it landed on none. When the tracker
+# fills both this and the column above, they always agree (checked over every
+# fixation in both Study 1 reports), so "the word it is on, else the nearest
+# one" gives the same answer as "the nearest one" wherever both exist.
 FIX_NEAREST_IA_COL = "CURRENT_FIX_NEAREST_INTEREST_AREA"
 
 
@@ -50,10 +71,17 @@ def compute_reading_times(
     area_col: str,
     regions: Sequence[str],
 ) -> pd.DataFrame:
-    """Per (participant_id, TRIAL_INDEX), for each region in `regions`:
-    RT_pure / RT_normalized — based on first/last IA fixation timestamps.
-    TFD_pure / TFD_normalized — sum of IA_DWELL_TIME, raw and divided by n_words.
-    Normalization is by number of IAs (rows) in that participant-trial-area.
+    """The two measures that come straight from the word table, one row per trial.
+
+    For each area in `regions`:
+
+    - `RT_pure_*` / `RT_normalized_*`: from the start of the first look at the
+      area to the end of the last look (the "span"). In the normal run these
+      columns are renamed to `TimeSinceOffset_*` by `build_screen_rt_tfd`.
+    - `TFD_pure_*` / `TFD_normalized_*`: the area's looking time, added up.
+
+    `_normalized` divides by the number of words in the area. An area never
+    looked at gets 0.
     """
     regions = list(regions)
     rt_cols = [
@@ -131,13 +159,6 @@ def compute_reading_times(
     return out
 
 
-# `compute_run_based_rt` and `_parse_fixation_pairs` were deleted on 2026-10-06.
-# They computed run-based RT from the (timestamp, nearest-IA) list that
-# `ingest/clicks.py` copied into the button-click table. `compute_run_based_rt_from_fixations`
-# below is now the only run-based RT, for both screens, reading the fixation
-# report directly -- see `docs/decisions/2026-10-06-stage-d-proposal.md` section 3.6.
-
-
 def load_fixations(
     fixations_path: Path,
     participants: Sequence[str] | None = None,
@@ -145,18 +166,15 @@ def load_fixations(
     trial_index_dtype: str | None = None,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Read only the columns of a fixation report that RT and visit counts need.
+    """Read the six columns of a fixation report that reading times need.
 
-    Either screen's report, which is the point: since 2026-10-06 the answer
-    screen reads its own fixation report here instead of a per-trial sequence
-    that had been copied into the button-click table.
+    Works for either screen. The reports are several GB, so they are read in
+    chunks. `participants` keeps only those participants, for a quick check.
+    Rows without a fixation start time are dropped.
 
-    The reports are several GB wide, so this keeps six columns and streams in
-    chunks. `participants` restricts to a subset, for a quick check.
-
-    `TRIAL_INDEX` is left as text unless `trial_index_dtype` says otherwise.
-    That matters: KnowQA's TRIAL_INDEX is a composite string (`b2l01t005`) and
-    coercing it to int64 would drop every row (`docs/pitfalls.md` section 5).
+    `TRIAL_INDEX` is kept as text unless `trial_index_dtype` asks for a number.
+    That matters: Study 2's TRIAL_INDEX is text (`b2l01t005`), and converting it
+    to a number would drop every row.
     """
     numeric = [FIX_START_COL, FIX_DURATION_COL, FIX_IA_ID_COL, FIX_NEAREST_IA_COL]
     header = pd.read_csv(fixations_path, nrows=0).columns
@@ -164,9 +182,9 @@ def load_fixations(
     usecols = ["participant_id", "TRIAL_INDEX"] + present
 
     parts = []
-    # Read everything as text: the reports use "." for a missing interest area,
-    # so dtype inference differs between chunks and pandas errors on the mixed
-    # -type warning path. Coerce once, here.
+    # Read everything as text and convert afterwards: the report writes "." for
+    # a missing value, so letting pandas guess the types would give different
+    # types in different chunks.
     reader = pd.read_csv(
         fixations_path, usecols=usecols, chunksize=chunksize, dtype=str
     )
@@ -199,11 +217,11 @@ def load_paragraph_fixations(
     chunksize: int = 2_000_000,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """`load_fixations` for the paragraph report, pinning TRIAL_INDEX to int64.
+    """`load_fixations` for the paragraph report, with TRIAL_INDEX as a whole number.
 
-    Only the two Study-1 paragraph runs have a paragraph report at all, and their
-    TRIAL_INDEX is an integer, so the cast is safe here and nowhere else -- see
-    `docs/pitfalls.md` section 5 for why KnowQA must never reach this.
+    Only Study 1 has a paragraph report, and its TRIAL_INDEX is a number, so
+    converting is safe here. Study 2 data must never come through this: its
+    TRIAL_INDEX is text, and converting it would drop every row.
     """
     return load_fixations(
         fixations_path,
@@ -225,24 +243,23 @@ def resolve_fixation_area(
     label: str = "",
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Attach `area_col` to every fixation, on both screens, by one rule.
+    """Give every fixation the area it belongs to (`area_col`).
 
-    **The rule (Diana, 2026-10-06): take the interest area the fixation landed
-    ON; if there is none, take the one it landed NEAREST.** Applied here once,
-    so every consumer -- run-based RT, visit counts, either screen -- resolves
-    fixations the same way. Before this the answer screen always used `nearest`
-    and the paragraph screen always used the exact id, which silently dropped
-    1.3% of its fixations from RT while its own visit counts kept them.
+    The rule: the word the fixation landed on; if it landed on none, the word
+    it landed nearest. Both screens, and every measure that needs a fixation's
+    area, use this one function, so fixations are placed the same way
+    everywhere.
 
-    The coalesce is not a third behaviour: the two columns never disagree when
-    both are present, so this equals "nearest" wherever nearest was already used.
+    A fixation that cannot be placed -- no word and no nearest word -- gets no
+    area. It still separates one visit from the next, but adds no time to any
+    area, because we cannot say where the reader was looking. Such fixations
+    are counted and printed.
 
-    A fixation with neither column, or whose id matches no interest area in
-    `ia_data` for that trial, is left unmapped -- it breaks a run without
-    accruing time, which is correct, since we cannot say where the reader was
-    looking. **Those are counted and reported, never silently dropped.**
+    Stops with an error if a fixation in an analysed trial points at a word
+    that trial does not have: that means the fixation report and the word table
+    do not match, and the area would wrongly read as not looked at.
 
-    Returns `fixations` with one added column, `area_col`.
+    Returns `fixations` with the `area_col` column added.
     """
     keys = ["participant_id", "TRIAL_INDEX"]
     fix = fixations.copy()
@@ -262,13 +279,16 @@ def resolve_fixation_area(
         .drop_duplicates(subset=keys + [ia_id_col])
         .copy()
     )
-    # Both sides of the id join cast to float: the fixation report carries NaN
-    # for off-area fixations, so an int/float mismatch would join to nothing.
+    # Word ids as decimals on both sides: the fixation report has NaN for
+    # fixations on no word, so its ids are decimals, and whole numbers on the
+    # other side would match nothing.
     labels[ia_id_col] = pd.to_numeric(labels[ia_id_col], errors="coerce").astype("float64")
 
-    # The trial key must agree in dtype or the merge yields nothing and every
-    # region comes back 0 -- a plausible-looking wrong number, so it is asserted
-    # rather than trusted. KnowQA's TRIAL_INDEX is a composite string.
+    # The trial ids must be the same type on both sides, or the join would match
+    # nothing and every area would read as not looked at. So the fixation
+    # report's are converted to the word table's type. (Study 2's TRIAL_INDEX
+    # is text.) The check further down still stops the run if anything fails to
+    # match.
     for k in keys:
         if fix[k].dtype != labels[k].dtype:
             fix[k] = fix[k].astype(labels[k].dtype)
@@ -281,19 +301,17 @@ def resolve_fixation_area(
     assert len(merged) == len(fix), (
         f"fixation -> {area_col} join duplicated rows: {len(fix)} -> {len(merged)}"
     )
-    # Two very different reasons an id fails to resolve, and conflating them
-    # hides the one that matters. A fixation in a trial the IA table does not
-    # contain is routine -- the report carries practice and excluded trials that
-    # the analysis set drops. A fixation in a trial we DO analyse whose id is not
-    # among that trial's interest areas is a key mismatch, and would mean a
-    # region silently accruing no time. Measured on L1 2026-10-06: 143,123 of
-    # the first kind (the 4,610 report-only trials), ZERO of the second.
+    # Two very different reasons a fixation can fail to get an area:
+    #   - its trial is not in the word table at all. Normal: the fixation report
+    #     also holds practice and excluded trials (about 4,600 on Study 1).
+    #   - its trial IS analysed, but its word id is not one of that trial's
+    #     words. That would mean the two tables do not match, so it stops the run.
     analysed = set(map(tuple, labels[keys].drop_duplicates().itertuples(index=False, name=None)))
     in_analysed = merged.set_index(keys).index.isin(analysed)
     unresolved = merged[area_col].isna().to_numpy()
     no_ia = merged["_no_ia"].to_numpy()
     n_outside = int((~in_analysed).sum())
-    # Counted WITHIN the analysis set, so the two numbers do not overlap.
+    # Counted only inside analysed trials, so the two counts do not overlap.
     n_neither = int((no_ia & in_analysed).sum())
     n_unmatched = int((unresolved & in_analysed & ~no_ia).sum())
 
@@ -328,38 +346,32 @@ def compute_run_based_rt_from_fixations(
     ia_id_col: str = IA_ID_COL,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Run-based per-area RT from a fixation report. **The only run-based RT.**
+    """The RT_* measure: time actually spent looking at each area.
 
-    Same definition as the answer-region RT: the trial's fixations are ordered,
-    split into runs of consecutive fixations on the same area, and each run
-    contributes
+    The trial's fixations are put in time order and cut into visits -- runs of
+    fixations in a row on the same area. Each visit counts
 
-        run_RT = next_fix_start_in_trial - first_fix_start_in_run
+        start of the next fixation in the trial - start of the visit's first fixation
 
-    so a region only accrues time while it is actually being looked at. Time
-    spent elsewhere between two visits belongs to the other region, not to this
-    one. The trial's final run has no following fixation, so it ends at
-    `last_fix_start + last_fix_duration`.
+    and an area's RT is the sum over its visits. So time spent on another area
+    between two visits counts for that other area, not this one. The trial's
+    last visit has no next fixation, so it ends at the end of its own last
+    fixation.
 
-    This differs from `compute_reading_times`, which takes one span from the
-    region's first to its last fixation and therefore counts every excursion
-    away and back as part of the region's reading time.
-
-    The report carries each fixation's own start and duration, so the final run
-    of a trial ends at `last_start + last_duration` -- no matching back into the
-    IA-level table, and no case where a fixation silently contributes 0 ms.
+    (`compute_reading_times` differs: it takes one span from an area's first
+    look to its last, so time spent elsewhere in between counts too.)
 
     Parameters
     ----------
-    fixations : paragraph fixation report, at least `participant_id`,
-        `TRIAL_INDEX`, and the three fixation columns.
-    ia_data : paragraph IA report, used to map `IA_ID` -> `area_col` and to
-        count words per area.
+    fixations : a fixation report for either screen, with at least
+        participant_id, TRIAL_INDEX and the fixation start, duration and word
+        columns.
+    ia_data : the word table for the same screen, used to find each word's
+        area and to count the words in each area.
 
     Returns
     -------
-    DataFrame with one row per (participant_id, TRIAL_INDEX) and
-    `RT_pure_{region}` / `RT_normalized_{region}` columns.
+    One row per trial, with `RT_pure_<area>` and `RT_normalized_<area>`.
     """
     regions = list(regions)
     keys = ["participant_id", "TRIAL_INDEX"]
@@ -372,7 +384,7 @@ def compute_run_based_rt_from_fixations(
         fix[c] = pd.to_numeric(fix[c], errors="coerce")
     fix = fix.dropna(subset=[fix_start_col])
 
-    # One rule for placing a fixation, shared with visit counts and both screens.
+    # Place each fixation in an area, by the same rule used everywhere.
     fix = resolve_fixation_area(
         fix,
         ia_data,
@@ -384,18 +396,18 @@ def compute_run_based_rt_from_fixations(
         verbose=verbose,
     )
 
-    # Order within trial, then cut into runs of consecutive same-area fixations.
+    # Put each trial's fixations in time order, then cut them into visits.
     fix = fix.sort_values(keys + [fix_start_col], kind="mergesort").reset_index(drop=True)
     same_trial = (
         fix["participant_id"].eq(fix["participant_id"].shift())
         & fix["TRIAL_INDEX"].eq(fix["TRIAL_INDEX"].shift())
     )
-    # NaN labels (fixations off any interest area) never compare equal, so each
-    # one becomes its own run -- they break runs without accruing time.
+    # A fixation with no area never matches its neighbour, so it is its own
+    # "visit" -- it separates visits but is not counted for any area.
     same_area = fix[area_col].eq(fix[area_col].shift()) & fix[area_col].notna()
     fix["_run"] = (~(same_trial & same_area)).cumsum()
 
-    # The next fixation's start, within the same trial; NaN on the trial's last.
+    # When the next fixation in the same trial starts; NaN for the trial's last.
     next_start = fix[fix_start_col].shift(-1)
     next_same_trial = (
         fix["participant_id"].eq(fix["participant_id"].shift(-1))
@@ -409,14 +421,10 @@ def compute_run_based_rt_from_fixations(
         area=(area_col, "first"),
         first_start=(fix_start_col, "first"),
     )
-    # The run's genuinely last row, NOT `.agg("last")`. **`.agg("last")` skips
-    # NaN**, so for the trial's final run it would resurrect the *previous*
-    # fixation's `_next_start` instead of the NaN that marks "nothing follows" --
-    # and the run would then end at its own last fixation's START, losing that
-    # fixation's duration. Fixed 2026-10-06; before that every trial's final run
-    # was truncated this way, which is where the paragraph RT family's missing
-    # time was going. Measured on L1: the final run is on average 143 ms longer
-    # once the trailing fixation is counted.
+    # Take each visit's real last row with `.tail(1)`, NOT `.agg("last")`.
+    # `.agg("last")` skips NaN, so for the trial's last visit it would pick up an
+    # earlier fixation's "next start" instead of the NaN meaning "nothing
+    # follows" -- and the visit would lose its last fixation's duration.
     tail = fix.groupby("_run", sort=False).tail(1).set_index("_run")
     runs["last_start"] = tail[fix_start_col]
     runs["last_duration"] = tail[fix_duration_col]
@@ -458,15 +466,12 @@ def compute_run_based_rt_from_fixations(
 
 
 def rename_rt_to_time_since_offset(df: pd.DataFrame) -> pd.DataFrame:
-    """Rename the span-based `RT_*` columns to `TimeSinceOffset_*`.
+    """Rename the span measure's `RT_*` columns to `TimeSinceOffset_*`.
 
-    Both screens do this, for the same reason: `compute_reading_times` measures
-    an area from its first to its last fixation, counting every excursion away
-    and back. That is a real quantity and worth keeping, but it is not reading
-    time, so it is renamed out of the way and the run-based RT takes the `RT_*`
-    names. **One implementation since 2026-10-06** -- it was the same dict
-    comprehension, character for character, in `build_rt_and_tfd` and in
-    `spans.build_paragraph_rt_tfd`.
+    `compute_reading_times` names its first-look-to-last-look span `RT_*`.
+    That span counts time spent elsewhere in between, so it is not really
+    reading time. It is kept, under the name `TimeSinceOffset_*`, and the
+    `RT_*` names go to the visit-based measure.
     """
     rename = {
         c: c.replace("RT_pure_", "TimeSinceOffset_pure_", 1).replace(
@@ -486,19 +491,20 @@ def build_screen_rt_tfd(
     include_run_based_rt: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Per-area RT / TFD / TimeSinceOffset for either screen, one row per trial.
+    """All three time measures for one screen, one row per trial.
 
-    **The assembly both screens used to keep their own copy of** (stage D step
-    2b). `scr` is a `config.screens.Screen`; it supplies the grouping column and
-    the regions, and nothing else differs:
+    `scr` is a `config.screens.Screen`, which says which column names the areas
+    and what the areas are.
 
-      * `TimeSinceOffset_*` -- first-to-last-fixation span, from `ia_data`;
-      * `TFD_*` -- summed dwell, from `ia_data`;
-      * `RT_*` -- run-based, from the fixation report, so a region only accrues
-        time while it is actually being looked at.
+      * `TFD_*` and `TimeSinceOffset_*` come from the word table (`ia_data`);
+      * `RT_*` comes from the fixation report.
 
-    Pass `fixations` when the report is already in memory, or `fixations_path`
-    to have it read here.
+    Pass `fixations` if the report is already loaded, or `fixations_path` to
+    read it here.
+
+    With `include_run_based_rt=False` the fixation report is not used, and the
+    columns named `RT_*` hold the span measure instead (there are then no
+    `TimeSinceOffset_*` columns).
     """
     span_based = compute_reading_times(ia_data, area_col=scr.area_col, regions=scr.regions)
     if not include_run_based_rt:
@@ -530,28 +536,17 @@ def build_rt_and_tfd(
     save: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Build RT/TFD features and (optionally) save to CSV.
+    """The three time measures for the answer screen, optionally saved.
 
-    Answer regions (all processed IA data, by `area_label`):
-      - TFD via per-area aggregation of IA dwell times.
-      - RT: when `include_run_based_rt` is True, via run-based aggregation over
-        the trial's fixation sequence (loaded from `fixations_path`), to
-        avoid conflating non-consecutive visits — and the fixation-span RT is
-        kept as `TimeSinceOffset_*`. When False, the fixation-span RT is used
-        directly as `RT_*` and no fixation report is read at all.
-        **Neither branch reads the button-click table** — that was the pre-
-        2026-10-06 source for run-based RT and the parenthetical here used to
-        say so; see the note above `load_fixations`.
-    Paragraph regions are NOT built here. Since T6.1 (2026-09-23) the paragraph
-    screen has its own pipeline, `features/paragraph/spans.py`, which produces the
-    per-span RT / TFD / TimeSinceOffset columns using these same functions. This
-    one is answer-only, so preparing the answer screen no longer opens a
-    paragraph report.
+    `all_participants` is the answer screen's word table. If it is not given,
+    it is read from `hunters_path` and `gatherers_path` -- but those files are
+    only written on request (see `config/datasets.py`), so normally pass the
+    table in. `fixations_path` is the answer screen's fixation report.
 
-    `all_participants` may be passed in-memory (the processed answer-IA
-    DataFrame); if omitted, it is loaded and concatenated from
-    `hunters_path` / `gatherers_path`. Set `save=False` to skip writing the CSV
-    and only return the DataFrame.
+    `save=False` returns the table without writing it to `output_path`.
+
+    Answer screen only; the paragraph screen's times are built by
+    `features/paragraph/spans.py`, using the same functions.
     """
     if all_participants is None:
         if verbose:
@@ -570,13 +565,6 @@ def build_rt_and_tfd(
         verbose=verbose,
     )
 
-    # The paragraph half of this function moved to
-    # `features/paragraph/spans.build_paragraph_rt_tfd` on 2026-09-23 (`todo.md`
-    # T6.1). It used to open the paragraph IA and fixation reports here and merge
-    # per-span RT/TFD into the answer table with `how="inner"` -- so preparing the
-    # answer screen depended on multi-GB paragraph reports, and a trial with
-    # answer data but no paragraph data silently disappeared. Paragraph RT/TFD is
-    # now built by the paragraph pipeline and joined where it is wanted.
     rt_and_tfd = answer
 
     if save:

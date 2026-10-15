@@ -1,9 +1,15 @@
-"""Last area fixated before the selection press and before the confirmation press.
+"""Which area the participant looked at last -- three versions.
 
-Two of the three last-visitation perspectives the paper reports. Both are built
-from the click timestamps in button_clicks_data.csv, unlike the third
-(``last_answer_area_visited_lbl``), which data_csv_generation derives from the
-fixation sequence -- so the three are not guaranteed to agree.
+    last_lbl_before_select        the area looked at just before the final
+                                  selection press
+    last_lbl_before_confirm       the area looked at just before the
+                                  confirming press
+    last_answer_area_visited_lbl  the last ANSWER looked at in the trial
+                                  (ignoring the question)
+
+The first two are timed from the button presses (`button_clicks_data.csv`, see
+`ingest/clicks.py`). The third comes from the word table alone, with no button
+times. They are built differently, so they need not agree.
 """
 
 import sys
@@ -22,6 +28,7 @@ from src.config.datasets import BUTTON_CLICKS_PATH, GATHERERS_LAST_PATH, GATHERE
 
 
 def _parse_tuple_list(x):
+    """Read a stored list of (time, word id) pairs; empty if missing."""
     if pd.isna(x):
         return []
     if isinstance(x, list):
@@ -30,14 +37,12 @@ def _parse_tuple_list(x):
 
 
 def _extract_last_ia_from_tuple_list(x):
-    """
-    From a list like:
-    [(42231, 24), (44993, 9), (45873, 45), (46380, 32)]
+    """The word id of the last (time, word id) pair in a list.
 
-    return:
-    32
+    [(42231, 24), (44993, 9), (45873, 45), (46380, 32)] -> 32
 
-    Returns pd.NA for empty or malformed values.
+    Returns a missing value (no error) for an empty list or anything that
+    cannot be read.
     """
 
     try:
@@ -65,13 +70,8 @@ def extract_last_areas_from_trial_level_df(
     select_fix_col: str = "LAST_FIXATIONS_BEFORE_SELECT",
     confirm_fix_col: str = "LAST_FIXATIONS_BEFORE_CONFIRM",
 ) -> pd.DataFrame:
-    """
-    Extract:
-    - last IA before the last select
-    - last IA before confirm
-
-    directly from tuple-list columns in the trial-level CSV.
-    """
+    """From the button-press table, the word looked at just before the last
+    selection press and just before the confirming press. One row per trial."""
     out = trial_df[[participant_col, trial_col, select_fix_col, confirm_fix_col]].copy()
 
     out["last_ia_before_last_select"] = out[select_fix_col].apply(
@@ -100,12 +100,11 @@ def attach_area_labels(
     ia_id_col: str = "IA_ID",
     area_label_col: str = "area_label",
 ) -> pd.DataFrame:
-    """
-    Keep only participant/trial pairs that exist in ia_df.
-    Then, within each valid participant/trial pair, attach the area label
-    corresponding to:
-    - last_ia_before_last_select
-    - last_ia_before_confirm
+    """Turn the two word ids into areas, by looking them up in the word table.
+
+    Only trials that are in `ia_df` are kept: the press table also holds
+    practice and excluded trials. A word id that is missing, or not one of the
+    trial's words, gives a missing area.
     """
 
     ia_small = ia_df[[participant_col, trial_col, ia_id_col, area_label_col]].copy()
@@ -125,7 +124,7 @@ def attach_area_labels(
         extracted["last_ia_before_confirm"], errors="coerce"
     ).astype("Int64")
 
-    # keep only participant/trial pairs that exist in the original ia_df
+    # keep only the trials that are in the word table
     extracted = extracted.merge(
         valid_pairs,
         on=[participant_col, trial_col],
@@ -175,16 +174,12 @@ def compute_last_area_labels(
     trial_level_path: Path = BUTTON_CLICKS_PATH,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Compute last-area-label features for an in-memory IA-level DataFrame.
+    """The area looked at just before the last selection and just before the
+    confirmation, for every trial in `ia_df`. This is what the pipeline uses.
 
-    Unlike `get_last_areas_from_trial_level_csv`, this does not assume a
-    hunters/gatherers split or a pre-existing processed CSV: it operates on
-    whatever trials are present in `ia_df` (typically the combined
-    all-participants processed data).
-
-    Returns one row per (participant_id, TRIAL_INDEX) with:
-      - last_ia_before_last_select / area_label_before_last_select
-      - last_ia_before_confirm     / area_label_before_confirm
+    Reads the button-press table at `trial_level_path`. Returns one row per
+    trial: the word id and area before the last selection, and before the
+    confirmation.
     """
     if verbose:
         print("Extracting last IAs from trial-level data...")
@@ -204,6 +199,12 @@ def get_last_areas_from_trial_level_csv(
     out_gath_path: Path = GATHERERS_LAST_PATH,
     verbose=True,
 ):
+    """The same two labels, built separately for hunters and gatherers and saved.
+
+    Reads `hunters.csv` and `gatherers.csv`, which are only written on request
+    (see `config/datasets.py`), so on a normal build this fails. The pipeline
+    uses `compute_last_area_labels` instead.
+    """
     if verbose:
         print("Loading data...")
 
@@ -242,19 +243,21 @@ if __name__ == "__main__":
     get_last_areas_from_trial_level_csv()
 
 # ---------------------------------------------------------------------------
-# Moved here from data_prep/data_csv_generation.py in stage C (2026-10-06).
-# These are the registry's `create_*` / `add_*` entries -- the functions the
-# prep pipeline calls to put columns on the IA frame. They mutate the frame
-# they are handed and depend on registry order; that is kept as-is by decision
-# (Diana, 2026-10-06), with the default runner executing them in that order.
+# Registry entry: the last answer looked at, from the word table alone
 # ---------------------------------------------------------------------------
 
 
 def create_last_area_and_location_visited(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Determine the last-visited *answer* area label and screen location per trial,
-    using the most recent fixation on one of the answer areas.
+    """The last ANSWER looked at in each trial, by meaning and by place.
 
+    Among the trial's answer words, takes the one whose last fixation started
+    latest. The question is ignored, so if the very last look was at the
+    question, this is the last answer before it.
+
+    Careful: a word nobody looked at has last-fixation time "." and counts as
+    0. So in a trial where no answer word was looked at, all are tied at 0 and
+    one is picked arbitrarily -- the trial still gets an answer it never looked
+    at. This happens on 28 Study 1 trials and 1 Study 2 trial.
     """
     df_local = df.copy()
 

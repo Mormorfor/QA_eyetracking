@@ -1,1 +1,1 @@
-"""Paragraph-screen features: critical / distractor / outside spans."""
+"""The paragraph screen's features, by part: critical, distractor, outside."""

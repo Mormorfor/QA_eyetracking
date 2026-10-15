@@ -1,20 +1,10 @@
-# checks.py
-"""
-Invariant checks for joins the pipeline assumes are total.
+"""A check for joins that must match every trial.
 
-`docs/todo.md` T3.17. The pipeline is full of `how="left"` merges whose right
-side is built from the same trial set as the left, so every key must match.
-When one does not, a left join does not fail -- it writes NaN, and the model
-then fills NaN with 0.0. A dropped trial therefore arrives at the model as a
-trial that behaved like the population mean, which is a plausible-looking
-wrong number rather than a crash. That is exactly the case
-`docs/conventions.md` says to assert on.
-
-Deliberately *not* a general-purpose validation layer: these raise on the two
-failure modes that are silent, and on nothing else.
-
-The planned home for this module is `lib/checks.py` (`docs/restructure-map.md`
-§3); it sits at `src/` top level until Stage B creates that package.
+The pipeline joins many tables onto the trial table with left joins, and each
+of them is built from the same trials, so every trial should match. When one
+does not, a left join does not fail: it fills in NaN, the model then turns that
+NaN into 0, and the trial looks like an average one. That is a wrong number
+that looks right, so these joins are checked instead of trusted.
 """
 
 from typing import Sequence
@@ -29,23 +19,18 @@ def assert_full_coverage(
     name: str,
     max_reported: int = 5,
 ) -> None:
-    """
-    Raise unless `right` can be left-joined onto `left` without losing or
-    duplicating a row.
+    """Stop with an error unless `right` can be left-joined onto `left` without
+    losing or repeating a row.
 
-    Two things are checked, because a left join hides both:
+    Two checks, because a left join hides both problems:
 
-    1. **`right`'s keys are unique.** Duplicates do not drop rows, they
-       *multiply* them -- the frame silently stops being one row per trial,
-       and every downstream count is wrong by the duplication factor.
-    2. **`right` covers every key in `left`.** A missing key becomes a row of
-       NaN, indistinguishable from a measured absence.
+    1. **Each key appears once in `right`.** A repeated key would repeat rows,
+       so the table would stop being one row per trial.
+    2. **Every key in `left` is in `right`.** A missing key would become a row
+       of NaN that looks like a real absence.
 
-    Checked before the merge rather than after, because afterwards an
-    unmatched key and a matched-but-NaN value look the same.
-
-    `name` names the feature block, so the error says which of the nine
-    merges failed rather than only that one did.
+    Checked before joining, because afterwards a missing key and a real NaN
+    look the same. `name` says which block failed.
     """
     keys = list(keys)
 

@@ -1,26 +1,18 @@
-"""Row-level builders: the columns that make a raw report row a tidy row.
+"""Per-word columns that turn a raw report row into a tidy one.
 
-Each of these takes the IA frame and adds columns **in place on the row** --
-nothing here aggregates. They parse the stimulus (text ids, the four answer
-texts), resolve identity and the target (`is_correct`, the selected label), and
-assign each interest area to a screen area.
+Each function takes the word-level frame and adds columns to every row; none
+of them summarises anything. Between them they:
 
-**Why these live in `ingest/` and not `features/`.** They are not measurements.
-`area_screen_loc`, `n_interest_areas` and the five `*_len` columns are the
-*structure* of the tidy table, derived from the stimulus and the screen geometry
-rather than from behaviour -- so by the boundary stated in both package
-docstrings, this is ingest work. Before 2026-10-06 they sat in
-`features/build.py`, which forced `features/` to import `ingest/geometry` and was
-the one exception to the one-way layering rule (`restructure-map.md` S5.4).
+- name the item: `text_id`, `text_id_with_q`
+- score the answer: `is_correct`, `selected_answer_label`
+- put each answer's text under its letter: `answer_A`..`answer_D`
+- place each word in a screen area: `area_screen_loc`, then `area_label`
+- scale the total answering time by the words on screen:
+  `total_answering_RT_normalized`
 
-> **One of them is arguable, and is flagged rather than quietly settled:**
-> `add_total_answering_RT_normalized` divides a reading time by a word count,
-> which is a *measurement*. It is here because it is row-level and reads
-> `n_interest_areas` from `add_IA_screen_location` directly above it. Whether it
-> moves to `features/` is a stage D question -- see the stage D proposal, "what I
-> am least sure about".
-
-Registered, and run in order, by `ingest/registry.py`.
+They describe the trial and its text rather than the eye movements, which is
+why they are in `ingest/` rather than `features/`. They run in the order
+listed in `ingest/registry.py`, and some need columns made by earlier ones.
 """
 
 import ast
@@ -33,9 +25,7 @@ from src.ingest.geometry import _reconcile_area_with_geometry
 
 
 def add_text_id(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a unique text identifier column combining article, difficulty, batch, and paragraph.
-    """
+    """Add `text_id`, naming the paragraph: batch_article_difficulty_paragraph."""
     out = df.copy()
     out[C.TEXT_ID_COLUMN] = (
         out[C.BATCH_COLUMN].astype(str)
@@ -50,9 +40,10 @@ def add_text_id(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a 'text_id_with_q' column that matches the original answer-text logic:
-    text_id_with_q = text_id + '_' + same_critical_span
+    """Add `text_id_with_q` = text_id + "_" + same_critical_span.
+
+    That is the paragraph plus which of its three questions was asked -- one
+    test item.
     """
     df = df.copy()
 
@@ -66,25 +57,18 @@ def add_text_id_with_q(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_is_correct(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds IS_CORRECT_COLUMN to the dataframe based on comparison of selected and correct answer positions.
+    """Add `is_correct`: 1 if the chosen position is the correct one, else 0.
 
-    A trial can never lack a confirmed selection -- the task does not let a
-    participant leave one without confirming -- so a null position is a data
-    fault, not a participant who abstained. Asserted rather than handled
-    (`todo.md` T3.17b) because the equality below makes NaN compare unequal,
-    which would score the fault as a *wrong answer* and put it in the model as
-    a real incorrect trial. Verified 2026-09-27: zero nulls across all four
-    datasets.
+    Stops with an error if either position is missing. A participant cannot
+    leave a trial without confirming an answer, so a missing one is a data
+    fault -- and the comparison below would quietly score it as a wrong answer.
     """
     out = df.copy()
 
     for col in (C.SELECTED_ANSWER_POSITION_COLUMN, C.CORRECT_ANSWER_POSITION_COLUMN):
         null = out[col].isna()
         if null.any():
-            # Name the trials, not just the count -- but this runs inside a base
-            # feature, so fall back to whatever id columns exist rather than
-            # turning an informative failure into a KeyError.
+            # List the trials involved, using whichever id columns are present.
             id_cols = [c for c in (C.PARTICIPANT_ID, C.TRIAL_ID) if c in out.columns]
             offenders = out.loc[null, id_cols].drop_duplicates()
             raise ValueError(
@@ -101,13 +85,10 @@ def add_is_correct(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_answer_text_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Creates explicit answer text columns (answer_A, answer_B, answer_C, answer_D)
-    per answer label (correctness level).
+    """Put each answer's text under its letter: `answer_A`..`answer_D`.
 
-    based on the answer order and the screen location based
-    answer_1, answer_2, answer_3, answer_4 columns.
-
+    The report stores the text by screen position (`answer_1`..`answer_4`);
+    `answers_order` says which letter was in each position.
     """
     df_out = df.copy()
 
@@ -125,22 +106,19 @@ def add_answer_text_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Assign a screen-location label to each interest area within a trial.
+    """Add `area_screen_loc`: which screen area each word is in (question, top,
+    left, right or bottom answer).
 
-    For each trial (TRIAL_ID, PARTICIPANT_ID), the function:
-    - tokenizes question and answer_1–answer_4 text,
-    - computes token lengths,
-    - treats INTEREST_AREA_ID (1-based) as the token index,
-    - assigns each IA to one of LOC_CHOICES
-    (ordered: question, answer on top, answer to the left, answer to the right, answer on bottom)
+    Done two ways, and the second wins:
 
-    That token-count assignment is then cross-checked against each interest
-    area's on-screen rectangle, and the rectangle wins where they disagree --
-    see `_reconcile_area_with_geometry`. The token counts are still computed and
-    kept: the `*_len` columns are what `add_total_answering_RT_normalized` reads,
-    and the comparison is what makes a stored text that does not match the
-    display visible instead of silent.
+    1. by counting words: split the stored question and answer texts into
+       words, and use each word's number (`IA_ID`) to see which text it falls in;
+    2. by position on screen, in `geometry._reconcile_area_with_geometry`, which
+       replaces (1) wherever the two disagree and prints the corrections.
+
+    The word counts are kept as columns (`question_len`, `1_len`..`4_len`, and
+    the word lists), and so is `n_interest_areas`, the number of words that
+    actually appeared on screen.
     """
     df = df.copy()
     for col in ["question", "answer_1", "answer_2", "answer_3", "answer_4"]:
@@ -158,11 +136,10 @@ def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
     df["3_len"] = df["3_tokens"].apply(len)
     df["4_len"] = df["4_tokens"].apply(len)
 
-    # The words that actually got an interest area. Every per-area metric is
-    # computed over these, and add_total_answering_RT_normalized divides by them
-    # too -- it is not always the stored token count above, because the stored
-    # text does not always match what the screen rendered. Kept as a column so
-    # the two counts stay comparable in the saved output.
+    # The number of words that actually appeared on screen in this trial. It can
+    # differ from the word count of the stored text, because the stored text
+    # does not always match what was displayed. Every per-area measurement is
+    # over these words, and add_total_answering_RT_normalized divides by this.
     df["n_interest_areas"] = df.groupby([C.TRIAL_ID, C.PARTICIPANT_ID])[
         C.INTEREST_AREA_ID
     ].transform("size")
@@ -205,15 +182,12 @@ def add_IA_screen_location(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_IA_answer_label(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a logical answer label (correctness level) per interest area based on its screen location and
-    the trial-specific answers order.
+    """Add `area_label`: each word's area by meaning (question, answer_A..D)
+    rather than by place.
 
-    - If AREA_SCREEN_LOCATION == LOC_CHOICES[0], return 'question'.
-    - Else, find position index p = LOC_CHOICES.index(loc) - 1 (0..3),
-     take letter = answers_order[p] (A/B/C/D),
-     and map it to 'answer_A' / 'answer_B' / 'answer_C' / 'answer_D'.
-
+    The question stays "question". For an answer, its position number is its
+    place in LOC_CHOICES minus 1 (0-3), and `answers_order` says which letter
+    sat in that position on this trial.
     """
     df_out = df.copy()
 
@@ -244,14 +218,13 @@ def add_IA_answer_label(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_selected_answer_label(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a selected-answer-label (A/B/C/D) column based on the answer position
-    and the trial-specific answer order.
+    """Add `selected_answer_label`: the letter (A-D) the participant chose.
 
-    This converts a *location-based* selected answer (e.g. "selected position = 1")
-    into a *label-based* answer (e.g. "selected answer = 'B'") by using the
-    answers_order sequence stored per trial.
+    Turns the chosen screen position (e.g. 1) into a letter (e.g. "B") using
+    `answers_order`.
 
+    Careful: this also turns `answers_order` itself from text into a list, in
+    place. Features that read `answers_order` as text must run before this one.
     """
     df = df.copy()
     df[C.ANSWERS_ORDER_COLUMN] = df[C.ANSWERS_ORDER_COLUMN].apply(ast.literal_eval)
@@ -263,16 +236,14 @@ def add_selected_answer_label(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_total_answering_RT_normalized(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create total_answering_RT_normalized by dividing total_answering_RT by the
-    number of words on the answer screen.
+    """Add `total_answering_RT_normalized`: the time from the answers appearing
+    to the confirming press, divided by the number of words on screen.
 
-    The divisor is `n_interest_areas` -- the words that actually got an interest
-    area -- rather than the stored-text token count in `total_words_on_screen`.
-    The two agree on all but a handful of trials; where they differ the stored
-    text carries a token the display never rendered, so normalising by it would
-    divide the reading time by a word the tracker never measured. Both counts are
-    kept in the output so the difference stays inspectable.
+    It divides by `n_interest_areas` (the words actually displayed), not by
+    `total_words_on_screen` (the word count of the stored text). The two
+    differ on a handful of trials, where the stored text has a word the screen
+    never showed. Both counts are kept, and the number of rows where they
+    differ is printed.
     """
     out = df.copy()
 

@@ -1,10 +1,19 @@
-"""Reconstruct the trial's button-press events from the fixation report.
+"""Rebuild when the participant selected and confirmed an answer.
 
-The tracker records selection and confirmation presses as message lists on
-fixation rows, not as columns. This module parses them back into trial-level
-select/confirm timestamps, the (timestamp, IA) fixation pairs, and the last
-fixations before each press -- the Auxiliary/button_clicks_data.csv that the
-reading-time and last-visitation features are built from.
+The tracker does not store button presses as columns. It logs them as text
+messages ("CHOOSE_ANSWER", "CONFIRM_ANSWER") attached to fixation rows. This
+module reads those messages back and builds one row per trial with:
+
+- the times of every selection press and of the confirming press,
+- the trial's fixations as (time, word) pairs,
+- the last fixation before each press,
+- the number of selection presses.
+
+The result is saved as `button_clicks_data.csv`, and is what "the area looked
+at before each press" (`features/last_visited.py`) is built from.
+
+Participant ids are lower-cased and trimmed when the pieces are joined, so the
+same person matches across reports.
 """
 
 from __future__ import annotations
@@ -34,9 +43,19 @@ def truncate_recordings_at_first_malformed_trial(
     answers_col: str = Con.ALL_ANSWERS,
     verbose: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Keep valid trials at the beginning of each recording and drop all trials
-    from the first malformed ALL_ANSWERS trial onward.
+    """Drop every trial from the first unreadable answer log onward, per recording.
+
+    `ALL_ANSWERS` is a text list of the answers clicked. A trial whose list
+    cannot be read is "malformed", and it and every later trial in the same
+    recording are dropped, because in a cumulative log each trial's answers are
+    worked out by comparing its list with the previous trial's. The counts are
+    printed.
+
+    Returns (the kept rows, the first malformed trial per recording, the
+    malformed trials).
+
+    In this module only `TRIAL_ANSWERS` is built from the shortened table; the
+    press times use every trial.
     """
 
     def safe_parse_answers(x):
@@ -95,37 +114,24 @@ def build_trial_answers_df(
     answers_col: str = Con.ALL_ANSWERS,
     all_answers_is_cumulative: bool = True,
 ) -> pd.DataFrame:
-    """
-    Build a one-row-per-participant/trial dataframe with this trial's answers.
+    """One row per trial, with the answers clicked on that trial (`TRIAL_ANSWERS`).
 
-    `all_answers_is_cumulative` controls how ALL_ANSWERS is interpreted:
-    - True (default, legacy behavior): ALL_ANSWERS is cumulative over the whole
-      recording, so this trial's answers are the tail added since the previous
-      trial (all_answers[len(prev_all_answers):]).
-    - False: ALL_ANSWERS already stores only this trial's clicks (fixed at the
-      experiment stage), so the trial answers are the parsed list as-is.
+    `all_answers_is_cumulative` says how to read `ALL_ANSWERS`:
 
-    SEQUENTIAL, not aggregate -- the one quantity in this pipeline that depends on
-    trial ORDER rather than on a set of trials (`todo.md` T3.21 row 13). The
-    cumulative branch shifts within participant, so it diffs against the previous
-    *present* trial. If a participant's trials were ever incomplete here, the diff
-    would silently absorb the missing trials' clicks. No scope flag makes sense
-    for this; the right guard is an ordering/completeness assertion, which belongs
-    with the other join assertions in T3.17.
+    - True (Study 1): each trial's list holds every answer clicked so far in
+      the recording, so this trial's answers are what was added since the
+      previous trial.
+    - False (Study 2): the list already holds only this trial's clicks.
 
-    Measured 2026-09-25, so the risk is known rather than assumed: L1 TRIAL_INDEX
-    is NOT gap-free here -- 342 of 360 participants have gaps, because this table
-    is built before the practice / repeated-reading filter and spans 24,046 trials
-    against the 19,436 that reach modeling. So the diff is already running over a
-    non-contiguous index.
+    Careful with True: each trial is compared with the previous one in the
+    table, so the result is only right if every trial is present and in order.
+    That is not guaranteed -- in Study 1's table, 342 of 360 participants have
+    gaps in their trial numbers.
 
-    What keeps that from mattering today: **nothing consumes TRIAL_ANSWERS.** It is
-    written here and joined into the trial-level diagnostics frame, and no module
-    reads it. In particular ANSWER_PRESS_NUMBER -- which IS live, and is one of the
-    ten headline model features -- does not come from this diff at all; it is read
-    straight off the fixation report's own column (see `build_trial_level_df`). So
-    this is a latent hazard in an unconsumed column, not a live defect. Anything
-    that starts reading TRIAL_ANSWERS needs the assertion first.
+    Nothing reads `TRIAL_ANSWERS` at present. (`ANSWER_PRESS_NUMBER`, a model
+    feature, comes straight from the report, not from here.) Anything that
+    starts using it should first check that each participant's trials are
+    complete and in order.
     """
     trial_answers = (
         df[[participant_col, trial_col, answers_col]]
@@ -169,10 +175,12 @@ def extract_click_timestamps(
     time_list_col_2: str = Con.NEXT_SAC_MSG_LIST_TIME,
     output_col: str = Con.SELECT_ANS_TIMESTAMPS,
 ) -> pd.DataFrame:
-    """
-    Collect timestamps whose paired message text contains `keyword`
-    from two list-based message sources, combine them, sort them,
-    and deduplicate them within each participant/trial.
+    """The times of every press whose message contains `keyword`, per trial.
+
+    A message can be attached to a fixation or to the eye movement after it, so
+    both message columns are searched. The times are combined, sorted, and
+    duplicates removed. Use `keyword="CHOOSE_ANSWER"` for selections and
+    `"CONFIRM_ANSWER"` for the confirming press.
     """
 
     keys = [participant_col, trial_col]
@@ -243,9 +251,10 @@ def extract_fixation_timestamps_with_ia(
     label_col: str = Con.CURRENT_FIX_LABEL,
     ia_col: str = Con.NEAREST_IA,
 ) -> pd.DataFrame:
-    """
-    Extract fixation timestamps and corresponding interest area values,
-    returning a list of (timestamp, ia) tuples per participant/trial.
+    """Each trial's fixations as a list of (time, word id) pairs.
+
+    The time is read out of the fixation's label ("Fixation: 1234 ms"); the
+    word is the nearest interest area. Rows whose label has no time are dropped.
     """
     out = df[[participant_col, trial_col, label_col, ia_col]].copy()
 
@@ -279,9 +288,11 @@ def join_on_participant_trial(
     participant_aliases: list[str] | None = None,
     trial_aliases: list[str] | None = None,
 ) -> pd.DataFrame:
-    """
-    Join multiple dataframes on participant + trial columns.
-    Automatically renames alternative column names if found.
+    """Join several tables on participant and trial (an outer join by default).
+
+    The reports name the participant column differently, so a table without
+    `participant_col` has its alternative name (e.g. RECORDING_SESSION_LABEL)
+    renamed to it. Participant ids are lower-cased and trimmed so they match.
     """
 
     if participant_aliases is None:
@@ -330,9 +341,10 @@ def extract_last_fixations_before_clicks(
     click_col: str = Con.SELECT_ANS_TIMESTAMPS,
     output_col: str = Con.LAST_FIXATIONS_BEFORE_SELECT,
 ) -> pd.DataFrame:
-    """
-    For each click timestamp in a row, find the last fixation tuple
-    (timestamp, ia) occurring at or before that click.
+    """For each press on a trial, the last fixation (time, word id) at or before it.
+
+    Returns one fixation per press, in press order. A press with no fixation
+    before it is left out.
     """
 
     def last_fixations_for_row(fixations, clicks):
@@ -382,17 +394,17 @@ def build_trial_level_df(
     all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
-    """
-    Run the full trial-level pipeline and return the final dataframe together
-    with useful intermediate diagnostics.
+    """Build the one-row-per-trial press table, plus the pieces it was made from.
 
-    `fix_tsv` supplies the message/answer columns and `fix_csv` the fixation
-    label/IA columns. For a self-contained report that holds both (e.g. the new
-    experiment fixations file), pass the same dataframe for both.
+    `fix_tsv` supplies the messages and answer logs; `fix_csv` the fixations.
+    Study 1 keeps these in two exports. For a report that holds both (Study 2),
+    pass the same table for both.
 
-    `msg_participant_col` is the participant column in `fix_tsv` (RECORDING_SESSION_LABEL
-    for the legacy TSV export, participant_id for the standardized new report).
-    `all_answers_is_cumulative` is forwarded to build_trial_answers_df.
+    `msg_participant_col` is the participant column in `fix_tsv`:
+    RECORDING_SESSION_LABEL in Study 1's TSV export, participant_id in Study 2.
+    `all_answers_is_cumulative` is passed to `build_trial_answers_df`.
+
+    Returns (the table, a dict of the intermediate tables for inspection).
     """
     fix_tsv_cleaned, malformed_summary_df, bad_trial_rows = (
         truncate_recordings_at_first_malformed_trial(
@@ -472,15 +484,12 @@ def run_trial_level_pipeline(
     all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """
-    Load inputs, run the full pipeline, save the final trial-level dataframe,
-    and return it.
+    """Load the reports, build the press table, save it to `output_csv_path`.
 
-    Legacy default: read the message columns from a separate TSV (`fix_tsv_path`)
-    and the fixation columns from `fix_csv_path`. For a self-contained report that
-    holds both (e.g. the standardized new experiment fixations CSV), pass
-    `fix_tsv_path=None` so the single `fix_csv` source is used for both roles, and
-    set `msg_participant_col`/`all_answers_is_cumulative` to match that data.
+    The defaults are Study 1's: messages from the separate TSV export
+    (`fix_tsv_path`), fixations from `fix_csv_path`. For a report that holds
+    both (Study 2), pass `fix_tsv_path=None` and set `msg_participant_col` and
+    `all_answers_is_cumulative` to match it.
     """
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 

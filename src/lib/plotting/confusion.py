@@ -1,21 +1,4 @@
-"""Confusion-matrix heatmap.
-
-Moved from `predictive_modeling/common/viz_utils.py` in stage D step 7. It is in
-`lib/plotting/` by the test `restructure-map.md` section 4 sets: *if it mentions
-an eye-tracking column name, it is not lib*. This takes `y_true`, `y_pred` and
-`labels` and names no project vocabulary at all, so it qualifies -- and its one
-caller (`run_model_bundles`) becomes an analysis in stage E, which would
-otherwise have left a parked exploration importing from `analyses/`.
-
-It briefly sat in `viz/` because it calls `save_output`, which was still there;
-`plot_output.py` moved to `lib/plotting/output.py` in the same step, so the two
-now sit together as the map's section 3 tree intends.
-
-`maybe_save_plot` used to live beside it and was the third plot-saving path in
-the project (`restructure-map.md` section 1.2). It went with T1.3 on 2026-09-20:
-`save_output` already takes `save` and returns an empty result when it is False,
-so the wrapper had nothing left to do.
-"""
+"""Confusion-matrix heatmap: how often each true label was predicted as each label."""
 
 from typing import Iterable, Optional
 
@@ -43,9 +26,14 @@ def plot_confusion_heatmap(
     close: bool = False,
     **facets,
 ):
-    """
-    Confusion matrix heatmap with optional saving.
+    """Draw the confusion matrix as a heatmap and save it with its numbers.
 
+    Rows are the true labels, columns the predicted ones. With
+    `normalize=True` each row is divided by its total, so a cell reads as "the
+    share of this true label predicted as that one"; a row with no cases stays
+    all zeros. Saved under the `correctness_prediction` analysis.
+
+    Returns the figure, the matrix as a table, and the paths written.
     """
 
     labels = list(labels)

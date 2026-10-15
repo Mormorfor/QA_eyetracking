@@ -1,6 +1,7 @@
-"""The project's vocabulary and locations. No logic.
+"""The project's vocabulary and locations. Nothing here computes anything.
 
-columns.py  -- column-name constants (was src/constants.py)
-datasets.py -- where each dataset lives   (was the first half of src/data_paths.py)
-outputs.py  -- where artefacts are written (was the last three constants of it)
+columns.py   -- the name of every column the project uses
+datasets.py  -- where each dataset's files are on disk
+screens.py   -- the two screens a trial can show (answers, paragraph)
+outputs.py   -- where results and caches are written
 """

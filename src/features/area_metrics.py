@@ -1,43 +1,40 @@
-# src/features/area_metrics.py
-#
-# The eight per-area eye-movement metrics, in ONE implementation parameterized by
-# the grouping column.
-#
-# The project measures the same eight things on two different screens:
-#
-#     answer screen     grouped by `area_label`           question / answer_A..D
-#     paragraph screen  grouped by `auxiliary_span_type`  critical / distractor / outside
-#
-# Until 2026-09-23 those were two codebases (`data_prep/data_csv_generation.py`
-# and `predictive_modeling/answer_RTs/features.py`), which is how they came to
-# disagree on `mean_first_fixation_duration` (T3.6) without anyone noticing.
-# `features.py:47-49` asserted the two "line up 1:1"; nothing made that true.
-# Now one set of functions serves both, and identical behaviour is structural
-# rather than aspirational. (`todo.md` T1.7.)
-#
-# WHAT IS DELIBERATELY *NOT* SHARED
-# ---------------------------------
-# Two things differ between the screens for real reasons, and are parameters
-# rather than divergence:
-#
-#   * the dwell-proportion denominator is the trial's total over *the areas of
-#     that screen* -- five answer areas, or three paragraph spans. Same formula,
-#     different scope, and the scope follows from `area_col`.
-#   * the isolated leading fixation on the question is dropped as spillover from
-#     the question screen. There is no question area on the paragraph screen, so
-#     `drop_leading_question` is a QA-only step.
-#
-# Everything else -- the "." handling, the missing-value conventions, the
-# nearest-interest-area fallback, the first-encounter ordering -- is identical on
-# both screens by construction.
-#
-# MISSING-VALUE CONVENTIONS (docs/pitfalls.md section 2; do not "unify" these)
-# ---------------------------------------------------------------------------
-#   dwell time, fixation count      unread words count as 0 -- zero attention is
-#                                   a real amount of attention
-#   first fixation duration, pupil  unread words are EXCLUDED -- these are
-#                                   properties *of a fixation* and undefined
-#                                   when there was none
+"""The per-area measurements: one set of functions for both screens.
+
+Each function turns word rows into one row per trial and area. The same code
+measures both screens; only the column naming the area changes:
+
+    answer screen     area_label           question, answer_A..D
+    paragraph screen  auxiliary_span_type  critical, distractor, outside
+
+What is measured, per area:
+
+    mean_dwell_time               average looking time per word
+    mean_fixations_count          average number of fixations per word
+    mean_first_fixation_duration  average first-fixation length per word
+    skip_rate                     share of words never looked at
+    area_dwell_proportion         share of the trial's looking time
+    mean_*_pupil_size(_z)         average pupil size during fixations
+    first_encounter_*_pupil_size  pupil size on the area's first fixated word
+                                  (see `first_encounter_pupil_size`)
+
+**Words nobody looked at are handled two ways, on purpose:**
+
+    dwell time, fixation count      count as 0 -- zero attention is a real
+                                    amount of attention
+    first fixation duration, pupil  left out -- these describe a fixation, and
+                                    there was none
+
+Do not make these consistent; the difference is deliberate.
+
+Two things differ between the screens, and follow from the area column:
+
+* `area_dwell_proportion` is a share of the looking time on *that screen*, so
+  it sums to 1 over the five answer-screen areas or over the three paragraph
+  parts.
+* An isolated first fixation on the question is dropped as left over from the
+  previous screen. The paragraph screen has no question area, so this only
+  applies to the answer screen.
+"""
 
 from __future__ import annotations
 
@@ -50,18 +47,18 @@ import pandas as pd
 from src.config import columns as C
 from src.config.columns import TRIAL_ID_COLS
 
-# The two grouping columns in use. Passing anything else is fine -- the functions
-# only ever use `area_col` as a groupby key -- but these are the two that exist.
+# The two area columns in use, one per screen.
 ANSWER_AREA_COL = C.AREA_LABEL_COLUMN
 PARAGRAPH_AREA_COL = C.AUXILIARY_SPAN_TYPE_COLUMN
 
 
 def _group_cols(area_col: str) -> list[str]:
+    """participant_id, TRIAL_INDEX and the area column: one group per trial and area."""
     return list(TRIAL_ID_COLS) + [area_col]
 
 
 # ---------------------------------------------------------------------------
-# Coercion -- done ONCE, up front
+# Turning the report's text columns into numbers -- done once, before anything
 # ---------------------------------------------------------------------------
 
 def coerce_ia_columns(
@@ -70,29 +67,23 @@ def coerce_ia_columns(
     pupil: bool = False,
     inplace: bool = False,
 ) -> pd.DataFrame:
-    """Coerce the raw IA measure columns from report text to numbers.
+    """Turn the per-word measurement columns from report text into numbers.
 
-    The reports write `"."` for "no fixation landed here". This resolves that
-    once, for every metric, instead of each metric coercing its own source
-    column on the way past -- which is what created the undocumented ordering
-    dependency between `create_mean_first_fix_duration` and
-    `create_first_encounter_pupil_size` (`todo.md` T3.11).
+    The report writes "." where no fixation landed. This is done once, before
+    any measurement, so every measurement sees the same numeric columns.
 
-    The conventions differ by column and the difference is intentional:
+    The "." becomes a different value per column, on purpose:
 
-    * `IA_DWELL_TIME` / `IA_FIXATION_COUNT` -> `"."` becomes 0. In practice these
-      columns carry no `"."` at all (the report writes a real 0), so this is a
-      no-op that documents the convention rather than a substitution.
-    * `IA_FIRST_FIXATION_DURATION` -> `"."` becomes NaN. A fixation of length
-      zero does not exist, so the sentinel cannot be read as a measurement
-      (T3.6).
-    * pupil columns -> `"."` becomes NaN, same reasoning. Only coerced when
-      `pupil=True`, because the answer pipeline scales these to mm and z-scores
-      them in an earlier step and must not undo that.
+    * dwell time, fixation count -> 0. (In practice these columns have no "."
+      -- the report already writes 0 -- so nothing actually changes.)
+    * first fixation duration -> NaN. A fixation of length zero does not exist,
+      so "." cannot be read as a measurement.
+    * pupil columns -> NaN, for the same reason. Only when `pupil=True`: the
+      answer-screen pipeline has already converted and z-scored them by this
+      point, and must not convert them again.
 
-    `inplace=True` mutates the caller's frame. The answer pipeline needs that:
-    its coerced columns are expected in the saved IA-level table, and changing
-    it would alter `all_participants.csv`'s schema.
+    `inplace=True` changes the caller's frame instead of returning a copy; the
+    answer-screen pipeline uses that so the numeric columns are what get saved.
     """
     out = df if inplace else df.copy()
 
@@ -120,23 +111,15 @@ def coerce_ia_columns(
 
 
 # ---------------------------------------------------------------------------
-# The metrics
+# The measurements
 # ---------------------------------------------------------------------------
 
 def _require_numeric(df: pd.DataFrame, cols: Sequence[str], fn: str) -> None:
-    """Fail loudly if a measure column is still report text.
+    """Stop with a clear error if a measurement column is still text.
 
-    `todo.md` T3.11. These columns arrive from the report carrying `"."` for
-    "no fixation landed here", and every metric below assumes they have already
-    been resolved to numbers. That used to be arranged by each metric coercing
-    the caller's frame in place on the way past, which made the result depend
-    on the order the metrics happened to run in -- and running one on its own
-    failed with an opaque dtype error deep inside a groupby.
-
-    The coercion is now a single explicit step (`coerce_ia_columns`), done once
-    before any metric: `generate_new_row_features` for the answer pipeline,
-    `paragraph_prep` for the paragraph one. This says so when it is skipped,
-    instead of letting a comparison between `str` and `int` decide.
+    Every measurement below expects `coerce_ia_columns` to have run first.
+    Without this check, forgetting it would fail with an unclear type error
+    deep inside pandas.
     """
     bad = [
         c for c in cols
@@ -146,8 +129,7 @@ def _require_numeric(df: pd.DataFrame, cols: Sequence[str], fn: str) -> None:
         raise TypeError(
             f"{fn}: {bad} arrived as text rather than numbers. Run "
             f"coerce_ia_columns() on the frame once before computing any "
-            f"metric -- it resolves the report's '.' sentinel, and doing it per "
-            f"metric is what T3.11 removed."
+            f"measurement -- it turns the report's '.' into numbers."
         )
 
 
@@ -168,10 +150,10 @@ def mean_fixations_count(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
 
 
 def mean_first_fix_duration(df: pd.DataFrame, area_col: str) -> pd.DataFrame:
-    """Mean first-fixation duration over the words actually fixated (T3.6).
+    """Average first-fixation duration over the words that were looked at.
 
-    Unread words arrive as NaN from `coerce_ia_columns` and `.mean()` skips
-    them, so an area in which nothing was fixated yields NaN rather than 0.
+    Words nobody looked at are NaN (from `coerce_ia_columns`) and the average
+    skips them, so an area where nothing was looked at gives NaN, not 0.
     """
     _require_numeric(df, [C.IA_FIRST_FIXATION_DURATION], "mean_first_fix_duration")
     return df.groupby(_group_cols(area_col), as_index=False).agg(
@@ -185,11 +167,10 @@ def skip_rate(
     *,
     write_indicator: bool = False,
 ) -> pd.DataFrame:
-    """Proportion of the area's words that were never fixated.
+    """Share of the area's words that were never looked at (dwell time 0).
 
-    `write_indicator=True` writes the per-word `area_skipped` flag back onto the
-    caller's frame. The answer pipeline relies on that -- the column reaches the
-    saved IA-level table -- so it is preserved rather than quietly dropped.
+    `write_indicator=True` also adds the per-word 0/1 flag `area_skipped` to
+    the caller's frame, so it ends up in the saved word table.
     """
     _require_numeric(df, [C.IA_DWELL_TIME], "skip_rate")
     if write_indicator:
@@ -210,19 +191,16 @@ def dwell_proportion(
     *,
     keep_totals: bool = False,
 ) -> pd.DataFrame:
-    """Share of the trial's total dwell time spent in each area.
+    """Share of the trial's looking time spent in each area.
 
-    The denominator is the trial's total over the areas of THIS screen, so it
-    sums to 1 across the five answer areas or across the three paragraph spans.
-    That difference in scope is real and follows from `area_col`.
+    The total is over the areas of this screen only, so the shares add up to 1
+    over the five answer-screen areas, or over the three paragraph parts.
 
-    A trial with zero total dwell would divide by zero; the resulting NaN is
-    filled with 0, so on such a trial the values sum to 0 rather than 1. That is
-    the one documented exception to "sums to 1".
+    Exception: a trial with no looking time at all would divide by zero. Its
+    shares are set to 0, so they add up to 0 instead of 1.
 
-    `keep_totals=True` also returns `total_area_dwell_time` and
-    `total_dwell_time`. The answer pipeline merges those into the saved IA-level
-    table, so dropping them would change `all_participants.csv`'s schema.
+    `keep_totals=True` also returns the looking time per area
+    (`total_area_dwell_time`) and per trial (`total_dwell_time`).
     """
     group = _group_cols(area_col)
     agg = (
@@ -249,15 +227,12 @@ def mean_pupil_size(
     include_raw: bool = True,
     include_z: bool = True,
 ) -> pd.DataFrame:
-    """Per-area means of the pupil-size columns.
+    """Three average pupil sizes per area: the average over its words of each
+    word's mean, largest and smallest pupil size during fixations.
 
-    Unfixated words carry NaN and `.mean()` skips them, so these are means over
-    the words actually fixated -- the exclude convention, as for first-fixation
-    duration.
-
-    The answer screen reports both raw (mm) and z-scored means; the paragraph
-    screen reports only the z-scored ones, because nothing consumes raw
-    paragraph pupil sizes.
+    Words nobody looked at have no pupil size (NaN) and are left out of the
+    average. `include_raw` gives the values in mm, `include_z` the z-scored
+    ones; both screens use both.
     """
     spec: dict = {}
     if include_raw:
@@ -279,17 +254,18 @@ def first_encounter_pupil_size(
     include_raw: bool = True,
     include_z: bool = True,
 ) -> pd.DataFrame:
-    """Pupil size at the first word of the area that was actually fixated.
+    """Pupil size on the area's first word, by position, that was looked at.
 
-    "First" means first in READING ORDER, so the frame is sorted explicitly by
-    `IA_ID` before taking the head of each group. The answer pipeline used to
-    sort only by the group keys and rely on the frame already arriving in IA
-    order -- true in practice, but an implicit dependency on row order that a
-    re-sort anywhere upstream would have silently changed.
+    Takes the words of the area that were looked at, picks the one with the
+    lowest word number (`IA_ID`, i.e. first in reading order), and reports its
+    average pupil size over all its fixations.
 
-    Unfixated words are excluded by `IA_FIRST_FIXATION_DURATION > 0`. Since T3.6
-    that column is NaN rather than 0 for an unread word, and `NaN > 0` is False,
-    so the filter behaves exactly as before.
+    Careful, the name suggests more than this does: it is the first word **by
+    position**, not the first word the participant looked at in time. On Study
+    1's answer screen the two are different words in about a third of areas.
+
+    Words nobody looked at are left out (their first-fixation duration is NaN,
+    and `NaN > 0` is False).
     """
     group = _group_cols(area_col)
     mm_col = C.IA_AVERAGE_FIX_PUPIL_SIZE
@@ -316,10 +292,11 @@ def first_encounter_pupil_size(
 # ---------------------------------------------------------------------------
 
 def parse_ia_sequence(raw) -> list:
-    """Parse the serialized `INTEREST_AREA_FIXATION_SEQUENCE` cell.
+    """Read the tracker's word-sequence cell (`INTEREST_AREA_FIXATION_SEQUENCE`)
+    into a list of word ids.
 
-    DataViewer writes `"."` (its missing marker) for a trial with no
-    interest-area fixations at all, which is a real state and becomes `[]`.
+    A trial with no fixation on any word is written as "."; that is a real
+    situation, not an error, and gives an empty list.
     """
     if isinstance(raw, (list, tuple)):
         return list(raw)
@@ -332,6 +309,7 @@ def parse_ia_sequence(raw) -> list:
 
 
 def _parse_interest_area_list(x) -> list:
+    """Read a fixation row's list of interest areas; empty if there are none."""
     if isinstance(x, list):
         return x
     if isinstance(x, str):
@@ -347,28 +325,20 @@ def resolve_fixation_sequence(
     known_ids: set,
     nearest_ids: Sequence,
 ) -> tuple[list, int]:
-    """Map a raw fixation sequence onto interest areas, filling off-area hits.
+    """Turn a trial's fixation sequence into a sequence of word ids, placing
+    fixations that missed every word on the nearest word.
 
-    A fixation that landed outside every interest area appears in the sequence
-    as an id the trial does not have. Rather than drop it -- which silently
-    discards a real fixation -- it is resolved to the nearest interest area,
-    taken in order from `nearest_ids` (the fixation report's
-    `CURRENT_FIX_NEAREST_INTEREST_AREA` for the rows whose
-    `CURRENT_FIX_INTEREST_AREAS` is empty).
+    A fixation that landed between words shows up with an id the trial does not
+    have. Instead of being dropped, it is given the nearest word, taken in turn
+    from `nearest_ids` (see `nearest_ia_queue`).
 
-    This used to happen on the answer screen only. The paragraph screen dropped
-    those fixations, which is why the two sides' `num_label_visits` disagreed on
-    77% of trials while sharing a column name. Shared here so the mechanics match
-    (Diana, 2026-09-23, `todo.md` T1.7).
+    A fixation with no nearest word either cannot be placed, and is dropped.
+    That is a normal limit of the recording, not a reason to stop. The number
+    dropped is returned, so the caller can report it.
 
-    **A fixation that cannot be placed is DROPPED, never fatal** (Diana,
-    2026-09-23). Not knowing which area a fixation fell into is a normal
-    limitation of the recording, not a reason to lose the trial or stop the run.
-    The count is returned rather than printed per occurrence, so the caller can
-    report one number instead of a line per fixation -- dropping stays visible
-    without becoming noise.
+    Both screens use this, so their visit counts are made the same way.
 
-    Returns (resolved ids, number of fixations dropped).
+    Returns (word ids, number of fixations dropped).
     """
     pointer = 0
     resolved = []
@@ -379,9 +349,9 @@ def resolve_fixation_sequence(
         elif pointer < len(nearest_ids):
             nearest = nearest_ids[pointer]
             pointer += 1
-            # `None` -- in no interest area and with no nearest one either, so
-            # there is nothing to resolve it to. Dropped and counted, per the
-            # ruling above. The pointer still advances: the queue is positional.
+            # `None`: on no word and with no nearest word, so it cannot be
+            # placed. Dropped and counted. The pointer still moves on, because
+            # the queue is matched up by position.
             if nearest is None:
                 dropped += 1
             else:
@@ -392,15 +362,12 @@ def resolve_fixation_sequence(
 
 
 def nearest_ia_queue(fix_group: pd.DataFrame) -> list:
-    """The trial's off-area fixations' nearest interest areas, in order.
+    """For each fixation in the trial that missed every word, the nearest word.
 
-    `None` marks a fixation the tracker put in no interest area and gave no
-    nearest one either -- the reports write "." there. The entry is **kept**
-    rather than removed, because `resolve_fixation_sequence` consumes this
-    queue positionally: removing one would shift every later off-area fixation
-    in the trial onto its neighbour's nearest area, which is a wrong number
-    rather than a missing one. `resolve_fixation_sequence` drops it and counts
-    it instead, which is the stated ruling for a fixation that cannot be placed.
+    Taken from the fixation report, in order. `None` marks a fixation with no
+    nearest word either (the report writes "."). It is kept in the list rather
+    than removed, because the list is matched to the fixations by position:
+    removing one would give every later fixation its neighbour's nearest word.
     """
     areas = fix_group[C.CURRENT_FIX_INTEREST_AREAS].apply(_parse_interest_area_list)
     ids = pd.to_numeric(
@@ -410,11 +377,12 @@ def nearest_ia_queue(fix_group: pd.DataFrame) -> list:
 
 
 def drop_leading_question_fixation(labels: list, *others: list) -> tuple[list, ...]:
-    """Drop an isolated opening fixation on the question.
+    """Drop a single opening fixation on the question.
 
-    A single fixation on the question immediately followed by a move elsewhere
-    is spillover from the question screen, not part of the answer scan. ANSWER
-    SCREEN ONLY -- the paragraph screen has no question area.
+    If the sequence starts with exactly one fixation on the question and then
+    moves elsewhere, that fixation is left over from the previous screen (which
+    showed the question), not part of looking at the answers. `others` are
+    parallel sequences trimmed the same way. Answer screen only.
     """
     if len(labels) >= 2 and labels[0] == "question" and labels[1] != "question":
         return (labels[1:], *[o[1:] for o in others])
@@ -422,7 +390,7 @@ def drop_leading_question_fixation(labels: list, *others: list) -> tuple[list, .
 
 
 def collapse_runs(seq: Iterable) -> list:
-    """Collapse consecutive repeats, turning a fixation sequence into transitions."""
+    """Merge repeats in a row: A A B A becomes A B A, so each entry is a move."""
     out = []
     for i, x in enumerate(seq):
         if i == 0 or x != seq[i - 1]:
@@ -435,22 +403,16 @@ def visit_counts_from_sequence(
     areas: Sequence[str],
     out_col: str = C.NUM_LABEL_VISITS,
 ) -> dict:
-    """Count entries into each area from an already-collapsed sequence."""
+    """How many times each area was entered, from a merged sequence.
+
+    Returns {area: count} for every area in `areas`, 0 for areas never entered.
+    `out_col` is not used.
+    """
     counts = Counter(collapsed)
     return {area: int(counts.get(area, 0)) for area in areas}
 
 # ---------------------------------------------------------------------------
-# Moved here from data_prep/data_csv_generation.py in stage C (2026-10-06).
-# These are the registry's `create_*` / `add_*` entries -- the functions the
-# prep pipeline calls to put columns on the IA frame. They mutate the frame
-# they are handed and depend on registry order; that is kept as-is by decision
-# (Diana, 2026-10-06), with the default runner executing them in that order.
-# ---------------------------------------------------------------------------
-
-
-
-# ---------------------------------------------------------------------------
-# One per-area metric block, for either screen
+# Every per-area measurement at once, for either screen
 # ---------------------------------------------------------------------------
 
 def build_area_metrics(
@@ -459,26 +421,23 @@ def build_area_metrics(
     visit_counts: pd.DataFrame | None = None,
     metric_cols: Sequence[str] | None = None,
 ) -> pd.DataFrame:
-    """One row per (participant, trial, area) carrying every per-area metric.
+    """Every per-area measurement, one row per participant, trial and area.
 
-    **The merge loop that both screens used to keep their own copy of**
-    (`docs/decisions/2026-10-06-stage-d-proposal.md` section 3.8). `scr` is a
-    `config.screens.Screen`; substituting it is the whole difference between
-    "answer screen" and "paragraph screen" here.
+    `scr` is a `config.screens.Screen` and says which screen this is. Includes
+    the dwell-time totals, and pupil size in mm as well as z-scored. As a side
+    effect, adds the per-word `area_skipped` flag to `df`.
 
-    `visit_counts` is passed in rather than computed, because the two screens
-    count visits from different sources: the answer screen from the simplified
-    label sequence, the paragraph screen by resolving the raw IA sequence
-    against its nearest-interest-area queue. Everything else is shared.
+    `visit_counts` (how many times each area was entered) is passed in rather
+    than computed here, because each screen builds it from a different sequence.
+    `metric_cols` keeps only those columns.
     """
     group = list(TRIAL_ID_COLS) + [scr.area_col]
     parts = [
         mean_dwell_time(df, scr.area_col),
         mean_fixations_count(df, scr.area_col),
         mean_first_fix_duration(df, scr.area_col),
-        # Both screens take everything (Diana, 2026-10-08). These were per-screen
-        # switches until the paragraph side was measured at 6 extra columns -- see
-        # `config/screens.py` for what each one costs.
+        # Both screens get every column: the per-word skip flag, the dwell
+        # totals, and pupil size in mm as well as z-scored.
         skip_rate(df, scr.area_col, write_indicator=True),
         dwell_proportion(df, scr.area_col, keep_totals=True),
         mean_pupil_size(df, scr.area_col, include_raw=True, include_z=True),
@@ -494,97 +453,50 @@ def build_area_metrics(
         return out
     return out[group + list(metric_cols)]
 
+# ---------------------------------------------------------------------------
+# Registry entries for the answer screen
+#
+# Each is a thin wrapper: one measurement above, grouped by area_label. These
+# are the names listed in ingest/registry.py.
+# ---------------------------------------------------------------------------
+
 def create_mean_area_dwell_time(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute the mean dwell time per (trial, participant, area_label) group.
-
-    This function aggregates interest-area-level data into area-level summaries
-    by computing the mean dwell time for each unique combination of:
-    - TRIAL_ID
-    - PARTICIPANT_ID
-    - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
-
-    """
+    """Average looking time per word, per answer-screen area. Unread words count as 0."""
     return mean_dwell_time(df, C.AREA_LABEL_COLUMN)
 
 
 def create_mean_area_fix_count(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute the mean number of fixations per (trial, participant, area_label) group.
-
-    This function aggregates interest-area-level data by computing the mean
-    number of fixations for each unique combination of:
-    - TRIAL_ID
-    - PARTICIPANT_ID
-    - AREA_LABEL_COLUMN (e.g., 'question', 'answer_A', ...)
-
-    """
+    """Average number of fixations per word, per answer-screen area. Unread words count as 0."""
     return mean_fixations_count(df, C.AREA_LABEL_COLUMN)
 
 
 def create_mean_first_fix_duration(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute the mean first-fixation duration per (trial, participant, area_label).
+    """Average first-fixation length, per answer-screen area, over the words
+    that were looked at.
 
-    This function:
-    Groups by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN).
-    Computes the mean first-fixation duration over the words that were
-    ACTUALLY FIXATED within each group.
+    Unread words are left out rather than counted as 0, because a fixation of
+    length zero does not exist. (Counting them as 0 would make this measure
+    mostly a copy of skip_rate.) This is the opposite of dwell time and fixation
+    count, where 0 is a real value -- see the module docstring.
 
-    Unread words are excluded rather than counted as zero: a fixation of length
-    zero does not exist, so the "." sentinel can only ever mean "no fixation
-    landed here", never a measurement. Averaging it in as 0 made this metric
-    largely a restatement of skip_rate (r = -0.70 to -0.94 per area before the
-    change). Coercing to NaN lets `.mean()` skip those words, so the result is
-    intensity per *read* word.
-
-    This is deliberately the OPPOSITE convention from mean_dwell_time and
-    mean_fixations_count, where 0 is a real measurement -- a word nobody read
-    genuinely received 0 ms and 0 fixations, and those metrics are meant to
-    capture attention per *available* word. Do not unify the family for
-    tidiness; see docs/pitfalls.md section 2. It matches the paragraph path
-    (answer_RTs/features.py::_mean_first_fix_duration), which always coerced
-    this way, so the two are now one measure. (todo.md T3.6)
-
-    Consequence: an area in which no word was fixated yields NaN, not 0 --
-    5,810 question areas and 253-829 per answer area on L1.
+    An area where no word was looked at gives NaN, not 0. On Study 1 that is
+    5,810 question areas and 253-829 per answer.
     """
     return mean_first_fix_duration(df, C.AREA_LABEL_COLUMN)
 
 
 def create_skip_rate(df: pd.DataFrame) -> pd.DataFrame:
+    """Share of each answer-screen area's words never looked at (dwell time 0).
+
+    Also adds the per-word 0/1 flag `area_skipped` to the frame.
     """
-    Compute the skip rate per (trial, participant, area_label).
-
-    A skip is defined as an interest area (IA) with *zero dwell time*.
-    The skip rate is the proportion of IAs within an area (e.g., 'answer_A')
-    that were skipped by the participant during the trial.
-
-    - Create an indicator AREA_SKIPPED:
-          1 if IA_DWELL_TIME == 0
-          0 otherwise
-    - Group by (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN)
-    - Compute the mean of AREA_SKIPPED → skip_rate
-
-    """
-    # write_indicator=True keeps `area_skipped` on the caller's frame, where the
-    # saved IA-level table expects it.
     return skip_rate(df, C.AREA_LABEL_COLUMN, write_indicator=True)
 
 
 def create_dwell_proportions(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute dwell time proportions per area within each trial and participant.
+    """Share of the trial's looking time spent on each answer-screen area.
 
-    For each (TRIAL_ID, PARTICIPANT_ID, AREA_LABEL_COLUMN), this function:
-    1. Sums IA_DWELL_TIME to obtain TOTAL_IA_DWELL_TIME per area.
-    2. Sums TOTAL_IA_DWELL_TIME over all areas within a trial/participant to
-       obtain TOTAL_TRIAL_DWELL_TIME.
-    3. Computes AREA_DWELL_PROPORTION as:
-           TOTAL_IA_DWELL_TIME / TOTAL_TRIAL_DWELL_TIME
-
-    Any resulting NaN values (e.g., if TOTAL_TRIAL_DWELL_TIME is 0) are replaced by 0.
+    Also returns the looking time per area and per trial. A trial with no
+    looking time at all gets shares of 0.
     """
-    # keep_totals=True: total_area_dwell_time and total_dwell_time are merged into
-    # the saved IA-level table, so dropping them would change its schema.
     return dwell_proportion(df, C.AREA_LABEL_COLUMN, keep_totals=True)

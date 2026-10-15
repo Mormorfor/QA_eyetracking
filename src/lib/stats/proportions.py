@@ -1,8 +1,7 @@
-"""Binomial proportions and significance notation.
+"""Confidence intervals for proportions, and significance stars.
 
-`wilson_ci` came from derived/correctness_measures.py, where it was the real
-one; three nested near-copies of it elsewhere were deleted in T1.5. One home
-now, so the next caller finds it instead of writing a fourth.
+This is the project's only copy of `wilson_ci`; use it rather than writing
+another.
 """
 
 from __future__ import annotations
@@ -13,7 +12,12 @@ import numpy as np
 
 
 def wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
-    """Wilson score interval for a binomial proportion."""
+    """Confidence interval for a proportion k/n, by the Wilson method.
+
+    The Wilson interval behaves well near 0 and 1 and for small n, where the
+    simpler "p +- 1.96 * se" interval goes wrong. `z` sets the confidence level;
+    the default 1.96 gives 95%. Returns (nan, nan) when n is 0.
+    """
     if n <= 0:
         return (np.nan, np.nan)
     phat = k / n
@@ -24,6 +28,10 @@ def wilson_ci(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
 
 
 def p_to_stars(p: Optional[float]) -> str:
+    """Significance stars for a p-value: *** < .001, ** < .01, * < .05, else "n.s.".
+
+    Returns "n/a" when there is no p-value.
+    """
     if p is None or not np.isfinite(p):
         return "n/a"
     if p < 0.001:

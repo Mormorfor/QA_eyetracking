@@ -15,27 +15,19 @@ Everything else will make sense if these do, and nothing will if they don't.
 number goes wrong here.**
 
 - One row per **word** — every word on the screen, for every trial, for every person. About 39
-  rows per trial.
+  rows per trial. File: `interest_areas.csv`.
 - One row per **area** — the question and the four answer options, so five rows per trial.
+  File: `areas_answers.csv`.
 - One row per **trial** — one person answering one question. This is what the model reads.
+  File: `trials.csv`.
 
-The trap: when a trial-level fact (like "this person got it right") sits in the word-level file,
-it's copied onto all 39 word rows. Count those rows and you think you have 39 times more data
-than you do. That has actually happened here.
+Each feature is stored in the file for its size, so a trial-level fact like "this person got it
+right" is stored once, in `trials.csv`.
 
-> **Changed 2026-10-13, and it changes what you are reading.** Those three sizes are now three
-> **files** — `interest_areas.csv`, `areas_answers.csv`, `trials.csv` — instead of one file
-> holding all three at the finest. Every feature declares which size it belongs to, and the
-> trap above is now structural rather than something to remember: a trial-level fact lives on
-> `trials.csv`, once.
->
-> One file was 2.9 GB and 46% of its columns were constant within a trial; the three are 165 MB
-> together. `all_participants.csv`, `hunters.csv` and `gatherers.csv` are **gone** — anything
-> that wants the old wide frame calls `features/build.py::load_model_input(ds)`, which reads
-> the three and rejoins them.
->
-> The reasoning is `docs/decisions/2026-10-13-feature-grain-proposal.md`. You do not need it to
-> read the code, but you do need it if you want to argue with the shape.
+The trap is when the three are joined back together. `features/build.py::load_model_input(ds)`
+does this, and in the result a trial-level fact is copied onto all ~39 word rows of its trial.
+Count those rows and you think you have 39 times more data than you do. So any test about trials
+must run on a table with one row per trial.
 
 **2. `L1` means "native English speaker".** Not "level 1", not "study 1". It's which slice of the
 OneStop corpus this is. Study 1 is the L1 data; Study 2 is called KnowQA.
@@ -61,78 +53,86 @@ one trial from the eye tracker to the paper.**
 
 Nine stops. Line counts are there so you can budget — they're the real sizes.
 
-### Stop 1 — The words the project uses · `src/config/` (880 lines)
+### Stop 1 — The words the project uses · `src/config/` (1,110 lines)
 
 **Start here. It's the dictionary.**
 
-- `columns.py` (307) — every column name in the project, with comments explaining the ones that
+- `columns.py` (459) — every column name in the project, with comments explaining the ones that
   aren't obvious. Read it like a glossary, not like code. Nothing happens in this file.
-- `datasets.py` (438) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
+- `datasets.py` (547) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
   described once.
-- `screens.py` (110), `outputs.py` (27) — small, skim them.
+- `screens.py` (75), `outputs.py` (19) — small, skim them.
 
 **You'll know this stop worked** if you can say what `skip_rate__contrast` means without looking
-it up. (It's: how much more of the correct answer's words were skipped than the wrong answers',
-on average.)
+it up. (It's the correct answer's skip rate minus the average skip rate of the three wrong
+answers. Positive means more of the correct answer's words went unread.)
 
 ---
 
-### Stop 2 — Generic helpers · `src/lib/` (870 lines)
+### Stop 2 — Generic helpers · `src/lib/` (860 lines)
 
 Nothing here knows anything about eye-tracking. Confidence intervals, star annotations, and the
 one function that saves figures.
 
-The only one worth real attention is **`plotting/output.py` (636)** — every single figure and
+The only one worth real attention is **`plotting/output.py` (619)** — every single figure and
 table in the project goes through it. It's also the reason you can't save a picture without
 saving the numbers behind it: the `tables=` argument is required.
 
 ---
 
-### Stop 3 — Raw recordings become tidy words · `src/ingest/` (3,030 lines)
+### Stop 3 — Raw recordings become tidy words · `src/ingest/` (3,610 lines)
 
 This is where the eye tracker's exports get cleaned up.
 
 Read in this order:
-1. `readers.py` (23) — trivial, 30 seconds.
-2. `geometry.py` (131) — works out which screen area each word is in, from where it physically
-   sits. Small and worth understanding; it replaced a word-counting method that got it wrong on
-   20 trials.
-3. `build.py` (403) — the conductor. It calls everything else in order.
-4. `registry.py` + `base_features.py` — the list of measurements and how they're built.
-   **Read `registry.py` properly; it grew a lot.** Every feature is one entry declaring three
-   things: what it reads (`needs`), what it produces, and **at what grain** — and those
-   declarations are what the three output files are split by. It is the closest thing the
-   project has to a table of contents.
-5. `clicks.py` (518) — reconstructs *when* the person pressed buttons, from the message log.
+1. `readers.py` (24) — trivial, 30 seconds.
+2. `geometry.py` (129) — works out which screen area each word is in, from where it sits on the
+   screen. Small and worth understanding. Where this disagrees with counting words in the stored
+   texts, position wins and the correction is printed.
+3. `build.py` (502) — the conductor. It calls everything else in order.
+4. `registry.py` (953) + `base_features.py` (266) — the list of measurements and how they're
+   built. **Read `registry.py` properly.** Each feature is one entry: the function that builds
+   it, the columns it reads (`needs`), and whether it works per word, per area or per trial. A
+   second list, `_PRODUCES`, says which columns each feature adds, and that decides which of the
+   three output files each column goes in. It is the closest thing the project has to a table of
+   contents.
+5. `clicks.py` (527) — reconstructs *when* the person pressed buttons, from the message log.
    Fiddly but self-contained.
-6. `knowqa.py` (1,282) — **skip on the first pass.** It's Study 2's version of all of the above,
-   and it only differs because Study 2 identifies trials differently. Come back to it when you
-   care about Study 2.
+6. `knowqa.py` (1,195) — **skip on the first pass.** Study 2's preparation: it converts and cleans
+   the raw exports, then runs the same `build.py`. Much of its length is about identifying a
+   trial, because one Study 2 participant can come back for several sessions. Come back to it
+   when you care about Study 2.
 
-**Output of this stop:** three files, not one — `interest_areas.csv` (one row per word, 23
-columns now that nothing trial-level is copied onto it), `areas_answers.csv` and `trials.csv`.
+**Output of this stop:** three files — `interest_areas.csv` (one row per word, 23 columns),
+`areas_answers.csv` (one row per area, 19 columns) and `trials.csv` (one row per trial, 89
+columns).
 
 ---
 
-### Stop 4 — Words become one row per trial · `src/features/` (4,510 lines)
+### Stop 4 — Words become one row per trial · `src/features/` (4,290 lines)
 
 **This is the most important stop, and where I'd spend the most time.** Every number the model
-sees is invented here.
+sees is made here.
 
-1. `area_metrics.py` (570) — the eight per-area measurements (how long they looked, how many
-   times, what fraction they skipped…). Read this one slowly.
-2. `reading_times.py` (590) — time spent on each region. Note there are *two different
-   definitions* of "reading time" here and they're deliberately kept apart.
-3. `sequences.py` (392) — turns fixations into a sequence of area symbols, like "A, B, A, C".
-4. `strategies.py` (753) — the opening scan: which order they first visited the four options.
+1. `area_metrics.py` (502) — the per-area measurements: how long each area was looked at, how
+   many fixations, what share of its words were skipped, pupil size. Read this one slowly.
+2. `reading_times.py` (580) — three different ways of timing an area: total fixation time, time
+   spent on visits to it, and first look to last look. Read the top of the file first; the three
+   are easy to mix up.
+3. `sequences.py` (497) — turns fixations into a sequence of areas, like "A, B, A, C", and a few
+   statistics of it.
+4. `strategies.py` (709) — the opening scan: which order they first visited the four options.
    Backs a whole section of the paper.
-5. `pupil.py` (327), `last_visited.py` (286), `preference.py` (143), `scope.py` (111) — smaller,
+5. `pupil.py` (295), `last_visited.py` (289), `preference.py` (133), `scope.py` (74) — smaller,
    each does one thing.
-6. `build.py` — assembles all of the above into the final table. Read it **last**, once you
-   know what it's assembling. It no longer *invents* anything: the five sequence statistics it
-   used to build by hand (`has_xyx` and friends) are registry entries now, so this file reshapes
-   and joins and that is all.
-7. `paragraph/spans.py` (423) — the same measurements, but over the paragraph screen instead.
+6. `build.py` (799) — assembles all of the above into the final table. Read it **last**, once you
+   know what it's assembling. It measures nothing new from the eye data: it turns the per-area
+   values into columns, compares the correct answer with the wrong ones, and joins everything on
+   the trial.
+7. `paragraph/spans.py` (390) — the same measurements, but over the paragraph screen instead.
+
+`src/checks.py` (58) belongs with this stop too: the check `build.py` runs before its joins, that
+every trial has exactly one match.
 
 **Output of this stop:** `model_ready.csv` — one row per trial, 219 columns, 19,436 rows.
 
@@ -219,20 +219,21 @@ Not bugs I know about — places where a mistake would be quiet rather than loud
    it's documented, but it's the single most common way a wrong number looks right. Search for
    `fillna` and ask "is zero actually true here?"
 2. **Any join.** If two tables get merged and one is missing rows, the result silently gets
-   blanks. Some joins check this now; not all. **This matters more than it did:** the three
-   files are rejoined every time something wants the wide frame, so that join is now on the
-   main path rather than at the edges.
+   blanks. Most joins in `features/build.py` are checked; not all. The paragraph join checks only
+   that it adds no rows and matches at least one trial (today it matches all 19,436). The joins in
+   `load_model_input`, which rebuild one wide table from the three files, are not checked at all —
+   and they run every time a model table is built.
 3. **`features/strategies.py` and anything "per participant".** These summarise a person across
-   their trials — so the answer depends on *which* trials you handed it. There's now an explicit
-   setting for that, but it's worth confirming each caller passes what it means. It is also the
-   one family deliberately kept *out* of the registry, because a registry entry is computed once
-   over everything — which is the scope that leaks. The docstring says so.
+   their trials — so the answer depends on *which* trials you handed it. There is a setting for
+   that (`scope_df`, `scope_by`), and it's worth confirming each caller passes what it means.
+   These features are deliberately not in the registry, because a registry entry is computed once
+   over the whole dataset — which is exactly the scope that leaks. The docstring says so.
 4. **`analyses/correctness_associations/stats.py`.** These tests treat every trial as independent,
    when trials are grouped within people and within texts. It makes the p-values too small. Known,
    not yet addressed.
-5. **Anything where the paragraph screen and the answer screen are compared.** They used to be
-   measured by two separate pieces of code that drifted apart. They're one now — worth confirming
-   you agree they should be.
+5. **Anything where the paragraph screen and the answer screen are compared.** Both are measured
+   by the same code. The two places they differ are listed at the top of `area_metrics.py` — worth
+   confirming you agree those are the only differences there should be.
 
 ---
 

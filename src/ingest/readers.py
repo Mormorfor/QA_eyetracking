@@ -1,4 +1,4 @@
-"""Loading the raw interest-area reports."""
+"""Load the raw interest-area reports (one row per word)."""
 
 from __future__ import annotations
 
@@ -10,25 +10,15 @@ from src.config.datasets import IA_ANSWERS_PATH, IA_PARAGRAPH_PATH
 
 
 def load_raw_answers_data(ia_a_path: Path = IA_ANSWERS_PATH, usecols=None):
-    """
-    Load raw interest area level answers data from CSV file.
+    """Load the answer screen's interest-area report.
 
-    `usecols` is the read-time column whitelist (stage D section 3.4, proved and
-    switched on 2026-10-13). `None` reads every column, which is what the
-    two-run comparison in step 2 of the grain proposal needs in order to stay
-    repeatable -- so this stays a parameter rather than becoming unconditional.
-
-    The whitelist itself is **not built here.** `ingest/registry.py` owns it, and
-    registry imports `features/`; building it here would drag that dependency
-    into a primitive and break the one layering rule this package actually
-    enforces -- only the orchestration modules reach downstream. So `build.main`
-    computes it and passes it in.
+    `usecols` is the list of columns to read; `None` reads all of them. The list
+    is worked out by `ingest/build.py` (from `registry.raw_whitelist`) and passed
+    in, so that this file does not depend on the registry.
     """
     return pd.read_csv(ia_a_path, engine="python", usecols=usecols)
 
 
 def load_raw_paragraphs_data(ia_p_path: Path = IA_PARAGRAPH_PATH):
-    """
-    Load raw interest area level paragraphs data from CSV file.
-    """
+    """Load the paragraph screen's interest-area report (every column)."""
     return pd.read_csv(ia_p_path, engine="python")

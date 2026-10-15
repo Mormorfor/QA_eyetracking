@@ -1,556 +1,313 @@
 # Pitfalls
 
-Conceptual clarifications about this codebase — the things you need to *understand* to avoid
-drawing a wrong conclusion. Durable explanations, not a bug list.
-
-**Known bugs and planned fixes live in `docs/todo.md`.** Where an entry here has an open fix,
-it says so in one line and points there rather than restating the diagnosis.
-
-**Add to this file** when something turns out to be conceptually confusing. It is meant to grow.
+The things that will trip you up in this codebase. Each one is a fact about how the
+code works and what goes wrong if you forget it.
 
 ---
 
-## 1. Three grains coexist
+## 1. Three different "one row per" live in this project
 
-| Grain | One row per | Where |
+| Grain | One row per | Files |
 |---|---|---|
-| **IA-level** | one **word**, in one area, in one trial, one participant | `all_participants.csv`, `hunters.csv`, `gatherers.csv` |
-| **area-level** | one of the 5 screen areas, in one trial | intermediate |
-| **trial-level** | one (participant, trial) | `L1_model_ready_all_features.csv` — what modeling consumes |
+| **interest area** | one word, in one area, in one trial, for one participant | `interim/interest_areas.csv` |
+| **area** | one of the five screen areas, in one trial | `interim/areas_answers.csv` |
+| **trial** | one participant × trial | `interim/trials.csv`, `features/model_ready.csv` |
 
-An IA-level frame holds ~30–60 rows per trial, and trial-level properties are **broadcast onto
-every one of them**. So a trial-level value looks correct in a column and is wrong in a count
-by a factor of ~39.
+A trial has 30–60 words on screen, so an interest-area frame holds about **39 rows per
+trial**. Trial-level values get copied onto every one of those rows.
 
-> **Rule: any statistical test on a trial-level property must run on a trial-level frame.**
-> Recover it with `groupby([TRIAL_ID, PARTICIPANT_ID]).first()`.
+This is the single easiest way to get a wrong number here. The value in the column looks
+right; the count is 39× too big. A test that should see 19,436 trials sees 760,628 rows and
+reports a p-value of zero.
 
-✅ **Closed 2026-09-26 (`todo.md` T3.1).** The three correctness Fisher tests were the live
-instance of this: they were handed the IA frame and counted every word as an observation.
-They now read the trial-level frame's already-computed split, and `_check_trial_frame` raises
-on a duplicated `(participant_id, TRIAL_INDEX)` rather than testing whatever it was given.
-One result flipped to non-significant — see `findings.md`'s change log.
+**So: any statistical test about a trial must run on a trial-level frame.** If you only have
+the interest-area frame, collapse it first with
+`groupby([TRIAL_INDEX, participant_id]).first()`.
 
-The *rule* above is unchanged and still the thing to remember; what changed is that one
-family of tests can no longer break it silently.
+The three correctness Fisher tests take the trial frame directly and refuse to run on
+anything with a duplicated `(participant_id, TRIAL_INDEX)`.
 
 ---
 
-## 2. Every per-word mean is coverage × intensity
+## 2. A per-word average mixes two different things
 
-**The underlying fact.** All of these columns encode the *same* event for an unfixated word —
-no fixation landed there. They just encode it differently:
+For a word nobody looked at, the tracker writes:
 
-| Column | Unfixated word | Why |
+| Column | Value | Why |
 |---|---|---|
-| `IA_DWELL_TIME` | `0` | dwell is the sum of fixation durations; no fixations ⇒ 0 |
-| `IA_FIXATION_COUNT` | `0` | no fixations ⇒ 0 |
-| `IA_FIRST_FIXATION_DURATION` | `"."` | a fixation of length zero is not a thing, so there is nothing to write |
-| pupil sizes | `"."` | measured only during a fixation |
+| `IA_DWELL_TIME` | `0` | dwell is the sum of fixation durations, and there were none |
+| `IA_FIXATION_COUNT` | `0` | same |
+| `IA_FIRST_FIXATION_DURATION` | `"."` | a fixation of length zero does not exist, so there is nothing to write |
+| pupil size | `"."` | only measured during a fixation |
 
-So `dwell == 0`, `count == 0` and `first_fix == "."` are three spellings of one binary fact.
-`.replace(".", 0)` on dwell or count is a no-op — there is no `"."` there to replace.
+All four say the same thing: no fixation landed here. They just spell it differently.
 
-**The consequence.** Averaging over *all* words in an area, zeros included, gives
+Now average over every word in an area. If you include the unread words as zeros, you get
 
 ```
-per-word mean  =  intensity-per-read-word  ×  fixated fraction
-               =  intensity  ×  (1 − skip_rate)
+per-word mean = (how hard the read words were read) × (what fraction got read)
 ```
 
-So every one of these metrics carries the coverage signal that `skip_rate` already reports,
-multiplied by whatever the true per-word intensity is. Whether that matters depends on how
-much the intensity term actually varies:
+The second half is just `skip_rate` again. So the metric carries the coverage signal twice —
+once on its own and once inside every other metric.
 
-| metric | per-read-word value, answers A→D | spread | verdict |
+Whether that matters depends on how much the first half actually varies. Divide each metric
+by the fraction of words that were read, and you recover the per-read-word value:
+
+| Metric | Answers A → D | Spread | What that means |
 |---|---|---|---|
-| first fixation duration | 192.2 · 184.8 · 181.9 · 181.2 ms | **6%** | ~pure coverage — effectively a restatement of `skip_rate` |
-| dwell time | 381.2 · 323.3 · 296.5 · 284.7 ms | **34%** | real intensity signal on top of coverage |
-| fixation count | 1.911 · 1.693 · 1.581 · 1.536 | **24%** | real intensity signal on top of coverage |
+| first fixation duration | 192.2 · 184.8 · 181.9 · 181.2 ms | **6%** | almost pure coverage — it is `skip_rate` wearing a hat |
+| dwell time | 381.2 · 323.3 · 296.5 · 284.7 ms | **34%** | real signal on top of coverage |
+| fixation count | 1.911 · 1.693 · 1.581 · 1.536 | **24%** | real signal on top of coverage |
 
-*(Measured on `L1_model_ready_all_features.csv`, 2026-09-04. Raw metric ÷ (1 − skip_rate).)*
+A word inside the chosen answer genuinely gets more time and more fixations *when it is
+read*. First fixation duration does not — the differences between answers on that metric are
+entirely about how often the words got read at all.
 
-So for dwell and count the zeros conflate two genuine signals; for first-fixation duration
-there is barely a second signal to conflate — its entire between-area difference is coverage.
+### Which metrics include unread words, and which don't
 
-**Correlation structure among the five area metrics** (answer_A): dwell ↔ count r = 0.92;
-both ↔ skip_rate r ≈ −0.55; first-fix ↔ dwell r = 0.56. `area_dwell_proportion` is the most
-independent (r = 0.23 with dwell), because it is normalized by the trial total rather than by
-word count. Five named metrics, closer to two independent ones.
-
-> **Decided (2026-09-04), and ✅ implemented in code 2026-09-23: drop `"."` for first fixation
-> duration, on all data.** `create_mean_first_fix_duration` coerces with
-> `pd.to_numeric(errors="coerce")`, matching what the paragraph path always did — so the
-> answer-side and paragraph-side columns of the same name are **now one measure**, and
-> `features.py`'s long-standing claim of a 1:1 mirror became true rather than aspirational.
-> The pupil columns already dropped on both paths and are unchanged.
->
-> **L1 and KnowQA are both rebuilt (2026-09-23)**; the two pilots are not, so their
-> `mean_first_fixation_duration` is still on the old convention — stated rather than silent.
-> On L1 the change touched **exactly 10 of 217** model-ready columns, all of them
-> first-fixation-duration, leaving the headline feature set bit-identical. Measured numbers in
-> `findings.md` §3.1 and its change log.
->
-> **Corollary: never fill this column's NaN with `0`.** A zero-length fixation does not exist,
-> so the model's global `fill_value = 0.0` would put an impossible value back. It needs a
-> per-column exception.
->
-> **Decided (2026-09-04, `todo.md` T3.13): dwell time and fixation count stay
-> coverage-inclusive.** Their coefficients mix coverage and intensity *by design* — they
-> measure attention per *available* word, not per read word. Say that rather than fixing it.
-
-### The line, and why the family is deliberately asymmetric
-
-| | Convention | Rationale |
+| | Convention | Why |
 |---|---|---|
-| dwell time, fixation count | **include** unread words as 0 | measures of *how much attention the area received* — zero is a meaningful amount of attention |
-| first fixation duration, pupil size | **exclude** unread words | properties *of a fixation* — undefined when there was none |
+| dwell time, fixation count | **include** them as 0 | these measure *how much attention the area got*, and zero is a real amount of attention |
+| first fixation duration, pupil size | **exclude** them | these are properties *of a fixation*, and there wasn't one |
 
-> ⚠️ **This inconsistency is intentional. Do not unify it for tidiness.** Someone will
-> eventually notice that four sibling metrics in `AREA_METRIC_COLUMNS_MODELING` handle
-> unfixated words two different ways and want to make them match. The split is the considered
-> position, not an oversight.
+**This asymmetry is on purpose. Do not "fix" it.** Four metrics sitting next to each other in
+`AREA_METRIC_COLUMNS_MODELING` handle missing words two different ways, and it looks like an
+oversight. It isn't.
 
-### `0` in the RT/TFD family is not ambiguous
+The practical consequence: dwell time and fixation count measure attention per *available*
+word, not per word read. Their coefficients mix coverage and intensity, and that is what the
+paper should say they measure.
 
-Worth stating because it looks like it should be. Every area exists on every trial — the four
-answers and the question are always on screen, and every paragraph has all three spans. So a
-`0` reading time means one thing only: **that area was never fixated.** Verified — the RT,
-TFD and TimeSinceOffset families contain **no NaN at all** in
-`L1_model_ready_all_features.csv`, only zeros (5,284 in `RT_pure`, 9,862 in `TFD_pure`,
-19,671 in `TimeSinceOffset`).
+### A zero reading time is not ambiguous
 
-Under the coverage-inclusive convention above, that zero is real data — "spent no time reading
-it" — and needs no special handling.
+All five areas exist on every trial — the question and four answers are always on screen, and
+every paragraph has all three spans. So a `0` in the RT, TFD or TimeSinceOffset family means
+one thing only: **nobody looked at that area.** Those families contain no NaN at all, only
+zeros. That zero is real data and needs no special handling.
 
-### Where imputation *is* a problem: the exclude-convention families
+### Where missing values do need care
 
-> **Updated 2026-09-23 (T3.6 landed in code).** This section used to say the pupil family was
-> *the only* one carrying genuine NaN. That is no longer true: first-fixation duration now
-> excludes unread words too, so it carries NaN in **exactly the same cells** — verified
-> identical per area on L1. Two families, one policy.
->
-> The numbers below were also re-measured, and two were wrong:
->
-> * **The old "10,039 cells per metric" did not match its own breakdown.** 10,039 was the sum
->   over all **ten** columns of a metric family (5 areas + 5 derived contrasts); the
->   per-area list printed beside it summed to 8,467. Both are useful, but they are different
->   quantities and were being quoted as one.
-> * **257 → 253**, and **D 787 → 785**, since the T3.18 rebuild (`findings.md` §8).
+Pupil size and first fixation duration follow the exclude convention, so they are the two
+families that carry genuine NaN — one cell for every area a participant never fixated.
 
-Pupil metrics and — since T3.6 — first-fixation duration follow the exclude convention, so they
-are the families carrying genuine NaN, one cell for every area a participant never fixated.
-Measured on L1, 2026-09-23:
+On L1:
 
-| scope | cells per metric family |
+| | Cells per metric family |
 |---|---|
-| the five **area** columns | **8,461** — question 5,810 · A 253 · B 784 · C 829 · D 785 |
-| all **ten** columns (areas + the five derived contrasts) | **10,021** |
+| the five area columns | **8,461** — question 5,810 · A 253 · B 784 · C 829 · D 785 |
+| all ten columns (areas plus the five contrasts) | **10,021** |
 
-The contrasts inherit NaN asymmetrically, which is worth knowing before quoting either number:
-`__wrong_mean` is NaN only when *all three* wrong answers were unfixated (158 trials), while
-`__contrast`, `__distance_furthest` and `__distance_closest` are NaN when *either* side is (383).
+The contrasts inherit NaN unevenly, which matters if you quote either number. `__wrong_mean`
+is NaN only when all three wrong answers went unread (158 trials). `__contrast`,
+`__distance_furthest` and `__distance_closest` are NaN when *either* side is (383 trials).
 
-The model then fills every NaN with `0.0` (`logreg_model.py:24`). These are **z-scores**, so
-`0` asserts *this area had exactly this participant's mean pupil size* — a specific and false
-claim about an area that was never looked at.
+**The model fills every NaN with `0`.** For a z-scored pupil that asserts "this area had
+exactly this participant's average pupil size" for an area they never looked at — a specific
+claim, and a false one. The fill is a deliberate choice, and `conventions.md` has the
+reasoning; what matters here is that you know those cells are assumptions, not measurements.
 
-Live in the headline model: `mean_max_fix_pupil_size_z__correct` is in `SELECT_1_COLS` and has
-**253 NaN (1.30% of trials)**; the other nine features have none. That is 0.130% of the
-feature matrix — too small to threaten the reported accuracy, big enough to belong in Methods.
-
-**T3.6 has now landed in code, and it does not change that number.** `SELECT_1_COLS` contains
-no first-fixation column, so the headline model still imputes exactly those 253 cells. What
-changed is the *scope of the policy*: the fill now covers a second family, so the Methods
-sentence T3.14 requires has two counts to state, not one. Verified on KnowQA (870 trials),
-where the first-fixation family went from 0 to 295 NaN cells while the pupil family stayed at
-1,180 and every `SELECT_1_COLS` count was unchanged.
-
-**Decided 2026-09-05 (`todo.md` T3.14): the `0` fill stays at model-prep time for now, and is
-documented rather than removed** — commented where it happens, counted, and reported in
-Methods. The point of the entry above is unchanged: know that these cells are imputed and that
-the imputed value is an assumption, not a measurement.
+In the headline model it is **253 cells, 1.3% of trials**, all in
+`mean_max_fix_pupil_size_z__correct`. The other nine features have none.
 
 ---
 
-## 3. Participant-level features are computed over the trials you pass
+## 3. Participant-level features depend on which trials you hand them
 
-`pattern_breaking.py` computes the dominant strategy and dominance score **over whatever
-trials are in the frame handed to it**. So the rule used to be:
+A dominance score summarises a person across their trials. Which trials? Whichever ones are
+in the frame you passed.
 
-> **Anything participant-level needs that participant's full trial set.**
+The strategy and dominance features take two arguments that make this explicit:
 
-> **Superseded for the strategy family, 2026-09-25 (`todo.md` T3.21).** That rule was the
-> right instinct and the wrong default. "The participant's full trial set" is the *widest*
-> scope, and under cross-validation it is the leaking one — a dominance score summarising all
-> of someone's trials, attached to a training row, is a function of the held-out data.
->
-> **The scope is now an argument, on two axes**, and the default is the safe one:
->
-> | | question | default |
-> |---|---|---|
-> | `scope_df` | which trials estimate the aggregate | the frame being featurised — never wider |
-> | `scope_by` | how that population is partitioned beneath the participant | not at all: one value per participant, pooling knowledge regimes *and* sessions |
->
-> So the rule is now: **the scope is whatever you asked for, and the trial count says which.**
-> `n_strategy_trials_{with,no}_q` rides alongside the score on every trial — a proportion
-> looks identical whether it came from 145 trials or 46, and the count is the only thing that
-> distinguishes them.
->
-> Read a saved dominance score by checking its `n_strategy_trials_*` first. On KnowQA, 145
-> means pooled across that person's regimes and sittings; ~48 means one regime.
->
-> **The two axes apply to the strategy/dominance family.** The rest of T3.21's list was closed
-> alongside it on 2026-09-25, each on its own terms rather than by bolting the same two
-> parameters everywhere:
->
-> | | |
-> |---|---|
-> | pupil baselines | settled separately by T3.20 |
-> | prefix-completion map | one map per dataset, over everyone in it (§4) — population-scoped, so neither axis describes it |
-> | KnowQA regime comparison | stays session-scoped, for train/test symmetry with the L1-trained model |
-> | `person_variance` means and correlations | always driven globally; they got **counts**, not parameters, so a narrowed frame would be visible |
-> | dominant-eye crosstab | descriptive, already reported `n_total` — unchanged by decision |
-> | `TRIAL_ANSWERS` | sequential, not aggregate; no flag applies. Inert today because nothing reads the column |
+| | What it decides | Default |
+|---|---|---|
+| `scope_df` | which trials estimate the aggregate | the frame being featurised — never wider |
+| `scope_by` | how to subdivide below the participant | not at all — one value per person, pooling regimes and sessions |
 
-### The two studies split in opposite ways — this is the thing to get right
+The default is the narrow one, and that is deliberate: a score computed over *all* of
+someone's trials includes the held-out ones, so attaching it to a training row leaks the test
+set into the model. Small — one number per person — but real, and easy for a reviewer to
+name.
+
+**Read a saved dominance score by looking at its trial count first.** Every row carries
+`n_strategy_trials_with_q` and `n_strategy_trials_no_q`. A proportion looks identical whether
+it came from 145 trials or 46; the count is the only thing that tells them apart. On KnowQA,
+145 means pooled across a person's regimes and sittings, about 48 means one regime.
+
+### The two studies split in opposite directions
 
 | | Study 1 (L1) | Study 2 (KnowQA) |
 |---|---|---|
-| manipulation | question preview | knowledge regime |
-| design | **between**-participant | **within**-participant |
-| a participant appears in | exactly one group | **all three regimes, every run** |
-| splitting by it | **safe** | **splits a participant's trials** |
+| what varies | question preview | knowledge regime |
+| design | **between** participants | **within** participants |
+| a person appears in | exactly one group | all three regimes, every session |
+| splitting by it | **safe** | **splits that person's trials** |
 
-**Study 1 — safe.** Verified 2026-09-04: 360 participants, 180 per group, and **zero**
-participants with more than one `question_preview` value. `hunters.csv` and `gatherers.csv`
-hold disjoint participant sets, so per-participant features come out identical whether
-computed on a group file or on `all_participants.csv` — pooling the other group adds that
-participant no trials.
+**Study 1 is safe.** 360 participants, 180 per group, nobody in both. So a per-participant
+feature comes out the same whether you compute it on `hunters` alone or on everybody —
+pooling the other group adds that person no trials.
 
-*(An earlier version of this file claimed otherwise. It was wrong.)*
+**Study 2 is not.** Filtering KnowQA to one regime keeps the participant but drops two thirds
+of their trials, so anything per-participant becomes a different quantity. Do not reason by
+analogy from hunters/gatherers — it is the opposite design. KnowQA also has a second version
+of this: one person sits for several sessions, so regime and session are two different ways
+of cutting the same person's data.
 
-**Study 2 — not safe.** Every KnowQA participant does all three regimes in every run. So
-filtering to one regime keeps the participant but drops ~two thirds of their trials, and any
-per-participant feature computed on that slice is a different quantity from the one computed
-on their full set. Do not reason by analogy from the hunters/gatherers case — it is the
-opposite design.
+### Where this actually bites
 
-*(KnowQA has a second, independent version of this: one `participant_id` also spans several
-sessions. Regime and session are two different ways the same person's trials get split.)*
+**Cross-validation.** Features are rebuilt inside each fold, which means a participant-level
+feature is estimated from only that fold's slice of their trials. That is not a preference,
+it is forced: the alternative — estimate on the training rows and score the held-out ones
+against it — cannot work for the unseen-subject folds, where the person has no training
+trials at all. So the only two options are "within the slice" and "across everything", and
+the second leaks. On KnowQA the difference is measurable: estimating over the full set rather
+than the slice flips `breaks_pattern_no_q` on 52 of 300 no-knowledge trials.
 
-### Where it does bite
+**Any filter that keeps a person but drops some of their trials** — correct-trials-only
+analyses, exclusion thresholds, and so on.
 
-- **CV regime rebuilds.** `cross_validation.py` can rebuild features per regime
-  (`:228`), which computes participant-level features over only that regime's slice of the
-  participant's trials. This is the documented trade-off at `:206-208` — the alternative,
-  passing a globally prebuilt `trial_df`, is faster but forfeits the leakage guarantee.
-  Whichever is used, be aware the two notebooks driving CV use different paths, so their
-  numbers need not match exactly.
-
-  *Worth knowing (2026-09-25): per-slice is not a preference, it is forced.* The third
-  option — estimate on the training rows and score eval trials against that — cannot work for
-  the `unseen_subject` regimes, where the participant has no training trials at all. So the
-  only two available scopes are "within the slice" and "across the whole dataset", and the
-  second is the leaking one. On KnowQA the gap is measurable: estimating over the full set
-  rather than the slice flips `breaks_pattern_no_q` on **52 of 300** no-knowledge trials.
-- **Any trial-level filtering** that keeps a participant but drops some of their trials —
-  correct-trials-only analyses, exclusion thresholds, and so on.
-- **KnowQA sessions.** Here one `participant_id` really does span several sittings *within*
-  the same file, so per-participant features pool across them. Pupil z-scoring is already done
-  per `participant_id` against that dataset's own fixations (T3.20, 2026-09-23 — it was
-  per `session_id` until then). The strategy features **pool across sittings by default**
-  since 2026-09-25 — that is now a stated choice rather than an accident, and
-  `scope_by=["session_id"]` separates them. A KnowQA participant has 3 sittings and 145
-  trials, so the pooled estimate is the wide one.
-- **The prefix-completion map** used to be learned from the group it was run on, so hunters
-  and gatherers repaired the same short scan differently. **Settled 2026-09-25: one map per
-  dataset, learned over every participant in it**, built once before the group loop. It is
-  population-scoped rather than participant-scoped, so it is the one quantity here that
-  neither `scope_df` nor `scope_by` describes. No paper number moved (§4).
-
-**`todo.md` T3.21** lists every quantity with this shape and is where the rule gets decided:
-the scope becomes an explicit flag — compute within the group being analysed, or over the
-participant's true full trial set — rather than a consequence of which frame was passed.
+**KnowQA sessions.** Pupil baselines are per person, computed over that dataset's own
+fixations. Strategy features pool across sittings unless you pass
+`scope_by=["session_id"]`.
 
 ---
 
-## 4. "Starting strategy" exists in two variants — check which one a number used
+## 4. "Starting strategy" comes in two flavours
 
-The concept is the same everywhere: the first four tokens of the collapsed **location**
-sequence, question tokens dropped — the order in which the four answer positions were first
-visited. What varies is whether short scans get repaired:
+The concept is one thing: take the collapsed sequence of screen locations, drop the question,
+keep the first four — that is the order in which the person first visited the four answer
+positions.
+
+What varies is whether short scans get repaired. If someone's opening pass only reached two
+positions, **prefix completion** fills the rest in from the most common way that prefix gets
+completed by everyone else.
 
 | Variant | Used by |
 |---|---|
-| **with** prefix completion (interrupted scans shorter than four filled from the most common completion of that prefix) | the paper's descriptive prevalence figures |
-| **without** completion (raw window) | the per-trial model features |
+| **with** completion | the paper's descriptive prevalence figures |
+| **without** completion | the per-trial model features |
 
-So a "dominant strategy" percentage can be either the raw or the completed one — the raw/
-completed pair differ by ~2 points and flip the dominant label for ~1.1% of participants
-(`findings.md` §1.2–1.3). When reading a figure or a coefficient, know which it was.
+The two differ by about 2 percentage points and flip which strategy is "dominant" for about
+1.1% of participants. So when you read a prevalence number, know which one produced it.
 
-**"Dominant" means modal, not consistent.** The threshold is "their most common opening scan
-covers at least half their trials" — and hunters use 6–28 distinct opening sequences each, so
-a 50%-dominant participant still produced a dozen others.
+The completion map is learned **once over the whole dataset**, so repairing a short scan does
+not depend on which group the person happens to be in. One map per dataset, never pooled
+across datasets — pooling L1 with KnowQA would make Study 1's numbers depend on Study 2 data.
 
-> **Resolved 2026-09-20 (`todo.md` T1.1, and most of T1.6).** Two implementations of this used
-> to exist (`viz/visualisations_strategies.py` and `derived/pattern_breaking.py`) with
-> divergent parsing, tie-breaking and threshold operators. **There is now one, in
-> `derived/pattern_breaking.py`**, and `viz/` only plots: `build_starting_strategies` for the
-> per-trial strategy, `dominant_strategy_by_participant` for the modal pick,
-> `has_dominant_strategy` for the threshold (`≥`, the only operator left), and
-> `build_prefix_completion_map` / `add_completed_strategy_column` for interrupted-scan
-> completion. The viz copy was verified byte-identical before deletion.
->
-> Two corrections fell out: the tie-breaking never actually diverged between those two
-> (`glossary.md` §8 Caveat 2), but a **third** implementation in `visualisations_dominant_eye.py`
-> did have an order-dependent tie-break, which moved one participant.
->
-> **The scope parameters landed 2026-09-25** (T3.21): `build_trial_level_pattern_features`
-> takes `scope_df` and `scope_by`, so "which trials estimate the dominant strategy, and how
-> they are partitioned" is now asked rather than inherited.
->
-> **The completion map was the last piece, and it is settled** (Diana, 2026-09-25): **one map,
-> learned over the entire population of a dataset.** `run_all_strategy_plots` builds it once
-> before the group loop and applies the same map to hunters, gatherers and all-participants
-> alike, so repairing a short scan is no longer a property of which group you happened to be
-> in. **One map per dataset, not across datasets** — pooling L1 with KnowQA would make Study 1's
-> descriptive numbers depend on Study 2 data.
->
-> **No paper number moved.** The pooled map disagrees with the old per-group maps on 9
-> (hunters) and 4 (gatherers) rare prefixes, and none of those flip a participant past the 50%
-> threshold: completed prevalence stays **53.33% / 61.11%**. Worth a sentence in the paper —
-> it means the completed figures are insensitive to how the repair was learned, which is the
-> obvious thing to ask about a repair heuristic.
+**"Dominant" means most common, not consistent.** The test is that a person's single most
+frequent opening scan covers at least half their trials. Hunters use between 6 and 28
+distinct opening sequences each, so someone at exactly 50% still produced a dozen others.
+
+Everything lives in `features/strategies.py`: `build_starting_strategies` for the per-trial
+value, `dominant_strategy_by_participant` for the modal pick, `has_dominant_strategy` for the
+threshold, `build_prefix_completion_map` and `add_completed_strategy_column` for the repair.
+The plotting code only plots.
 
 ---
 
-## 5. KnowQA's `TRIAL_INDEX` is a string
+## 5. KnowQA's trial id is a string, and it has no paragraph screen
 
-For KnowQA, `TRIAL_INDEX` is a composite (`b2l01t005`) rather than an integer — see
-`glossary.md` §2 for why. Most of the pipeline is dtype-agnostic, but
-`derived.reading_times.load_paragraph_fixations` coerces `TRIAL_INDEX` to int64 and drops what
-won't convert, which would silently reduce the paragraph fixations to nothing.
+For L1, `TRIAL_INDEX` is an integer counter. For KnowQA it is a composite string like
+`b2l01t005` — batch, list, trial — because one person sits for several sessions, so a plain
+counter no longer identifies a trial. `glossary.md` has the full reasoning.
 
-`know_qa_dataprep.run_pipeline` therefore **hard-refuses** `include_paragraph=True` with an
-explanatory error. That guard is correct behaviour — don't remove it to make a run go through.
-**No todo item: working as intended.** Note the deeper reason is simply that KnowQA has no
-paragraph data exported at all (only a third of its trials show a paragraph, and
-`data_paths.py` defines no paragraph path for any Study 2 run) — the dtype issue is a
-secondary blocker that would also need fixing if that ever changed.
+Most of the pipeline does not care about the type. One place does:
+`reading_times.load_paragraph_fixations` converts `TRIAL_INDEX` to a 64-bit integer and drops
+whatever will not convert, which for KnowQA would be every row.
 
-> **Changed 2026-09-23 (T6.1).** The answer pipeline has **no paragraph step left to turn on**:
-> paragraph features are built by `derived/paragraph_prep.py`, and `data_csv_generation` opens
-> no paragraph report at all. So the refusal is no longer protecting a flag that would do
-> something — it is there to tell a caller who passes it that KnowQA has no paragraph data to
-> build from, rather than silently handing back a table with no paragraph columns. The dtype
-> hazard itself is unchanged and still lives in `load_paragraph_fixations`, which
-> `paragraph_prep` calls.
+That does not come up, because **KnowQA has no paragraph data at all.** Only the answer
+screen was exported. Paragraph features are built by `features/paragraph/spans.py`, which
+KnowQA simply does not run; `has_paragraph` is `False` on its dataset record. If you ask the
+KnowQA pipeline for paragraph features it refuses and says why.
 
-Related: `load_all_features` pins `participant_id` to `str` because KnowQA ids are all digits
-and would otherwise be inferred as int, breaking merges.
+Related: anything reading a feature table pins `participant_id` to text, because KnowQA's ids
+are all digits and would otherwise be read as integers, breaking every join.
 
 ---
 
-## 6. A package named after a standard-library module will shadow it
+## 6. Never name a folder after a standard-library module
 
-✅ **Fixed 2026-10-06 by renaming `src/statistics/` → `src/stats/`.** Kept because the mechanism
-is not obvious, costs a long debugging session when it bites, and the next person to add a
-folder gets to avoid it.
+`src/statistics/` shadowed Python's own `statistics` module. The symptom was 21 unrelated
+modules failing to import because seaborn's `from statistics import NormalDist` found ours
+instead.
 
-`statistics` is a standard-library module name. A folder of ours with that name is harmless
-while `src/` is *off* the import path, and a live bug the moment it is on.
+The folder is now `src/stats/`, and the import path carries only the repo root — everything
+is reached as `src.…`. **Putting `src/` back on the path re-arms this**, whether through
+`.env`, a notebook cell, a `conftest.py`, or a `sys.path.insert`. The failure surfaces inside
+a third-party library, nowhere near the cause.
 
-**What happened (2026-10-06, found while adding `__init__.py` files).** The project used to put
-**two** entries on the path — the repo root *and* `src/` — because two import conventions
-coexisted (`from src.predictive_modeling…` and the bare `from predictive_modeling…`). With
-`src/` on the path, adding `src/statistics/__init__.py` turned that folder into a regular
-package, which **outranks the standard library**, and seaborn's
-`from statistics import NormalDist` resolved to our package instead. Twenty-one modules stopped
-importing.
-
-**Why it was dormant before.** Without an `__init__.py` the folder was a *namespace* package,
-and namespace packages are the lowest-precedence thing the import system will match — Python
-found the real `statistics.py` first. So the collision existed the whole time and was hidden by
-the absence of a file.
-
-> **The rule: the repo root is the only thing that belongs on the import path.** Everything is
-> reached as `src.…`. Adding `src/` back — in `.env`, in a notebook cell, in a `conftest.py`,
-> or via a `sys.path.insert` — silently re-arms this, and the failure surfaces in an unrelated
-> third-party library rather than anywhere near the cause.
-
-**How it was actually fixed, in two steps.** First the import convention was unified so `src/`
-came off the path at all (`todo.md` T5.2), which defused it. Then the folder was renamed
-`src/statistics/` → **`src/stats/`** (Diana, 2026-10-06: *"I am fully in favor of renaming our
-folders / files to avoid name conflicts"*), which removes it. Belt and braces, deliberately —
-the rename means the rule above can be broken without this particular bug coming back.
-
-**It was the only one.** Every directory and module name under `src/` was checked against the
-standard library and against every installed third-party top-level name: `statistics` was the
-single collision, and after the rename there are none. *(An earlier version of this entry said
-`src/external/` was "a second instance waiting to happen". That was wrong — `external` is not a
-standard-library name. Corrected 2026-10-06.)*
-
-Worth re-running that check when a new top-level folder is added, which the restructure will do
-several times — `analyses`, `modeling`, `features`, `ingest`, `lib`, `config` are all clear
-today.
+Every directory and module name under `src/` has been checked against the standard library
+and against every installed package. There are no other collisions. Worth re-running that
+check whenever a new top-level folder appears.
 
 ---
 
-## 6b. A Windows console cannot print half of what this project prints
+## 7. A Windows console cannot print half of what this project prints
 
-✅ **Fixed 2026-10-07 in `src/__init__.py`.** Recorded because the failure mode is maximally
-annoying and the fix is easy to undo by accident.
+Windows consoles default to cp1252. The project prints `✓`, `…`, `≤`, `≥`, `→`, `★`, `β`, `±`
+and more — 23 lines across 12 modules. A full rebuild once ran to completion, wrote every
+output file, and then died on its final `print("✓ Done.")` with a `UnicodeEncodeError`.
+Nothing was lost; nothing said so either.
 
-Windows consoles default to **cp1252**, and the project prints characters it cannot encode:
+`src/__init__.py` sets stdout and stderr to UTF-8 with `errors="replace"`. That touches the
+console only — pandas writes files with its own encoding and is unaffected.
 
-| character | where |
-|---|---|
-| `✓` | the "Done" line at the end of `ingest/build.py::main` |
-| `…` | the "Saving splits by column…" line |
-| `≤` `≥` | threshold group labels — `correctness_measures.py`, `strategies.py`, `stats/`, three `viz/` modules |
-| `→` `★` `↑↓` `β` `±` `−` | sequence joins, significance markers, heatmap annotations, plot titles |
-
-23 lines across 12 modules.
-
-**What it cost, 2026-10-07.** A full L1 rebuild ran for about an hour, wrote
-`all_participants.csv`, `hunters.csv`, `gatherers.csv` and every auxiliary table — and then died
-on its **final line**, `print("
-✓ Done.
-")`, with a `UnicodeEncodeError`. Nothing was lost,
-but nothing said so either: the traceback looks like the run failed.
-
-**Why the fix is an encoding setting and not a character strip.** Stripping the characters would
-have been a *data* change. Several of them are category labels that reach saved tables and figure
-legends — `≤ 4` versus `> 4` is the group label for the entire correctness-threshold family, in
-`reports/correctness_associations/tables/` and in every one of those figures. Renaming it to
-`<= 4` would silently invalidate comparisons against previously saved output. So `src/__init__.py`
-reconfigures `sys.stdout` / `sys.stderr` to UTF-8 with `errors="replace"`, which touches the
-console only; pandas writes files with its own encoding and is unaffected (verified: a `≤` label
-round-trips through `to_csv`/`read_csv` unchanged).
-
-> **Do not "clean this up" by deleting the reconfigure block.** It looks like defensive clutter
-> and is the one thing standing between a public reader on Windows and a crash on their first
-> run. `conventions.md` requires the repo to run from scratch on a clean machine; "remember to set
-> `PYTHONIOENCODING`" is not something a reader can be expected to know.
-
-*(Claude never hit this during development because every command it ran set
-`PYTHONIOENCODING=utf-8` — which is exactly why it survived to be found by a real run.)*
+**Do not delete that block.** It looks like clutter and it is the only thing between a reader
+on Windows and a crash on their first run. Stripping the characters instead would be a data
+change: `≤ 4` is a category label that reaches saved tables and figure legends, so renaming
+it would quietly invalidate comparisons against anything saved earlier.
 
 ---
 
-## 7. The vendored EyeBench code is meant to be replaced wholesale
+## 8. The vendored EyeBench code is meant to be swapped out whole
 
-`src/external/EyeBench/utils - paragraph feature extraction.py` came from the lab's
-EyeBench/OneStop project and is kept as received. Two consequences:
+`src/vendor/eyebench/utils - paragraph feature extraction.py` came from the lab's
+EyeBench/OneStop project and is kept exactly as received. Two consequences:
 
-- Its filename has spaces and a dash, so it is **not importable by name**. It is loaded by
-  path via `importlib`, after `configs/` is aliased into `sys.modules` as `src.configs`.
-- It carries **one local change**: an f-string was reflowed onto a single line, because
-  multi-line f-string expressions need Python 3.12 and this environment is 3.11. Drop in a
-  fresh upstream copy without re-applying that and it will not parse.
+- Its filename has spaces and a dash, so it cannot be imported by name. It is loaded by path,
+  after its `configs/` folder is registered under the name it expects.
+- It carries **one** local edit: an f-string reflowed onto a single line, because multi-line
+  f-string expressions need Python 3.12 and this project runs 3.11. Drop in a fresh upstream
+  copy without re-applying that and it will not parse.
 
-Don't patch it incrementally — the point of the arrangement is that a newer copy can replace
-it entirely. Our glue lives in `src/derived/external/EyeBench/runner.py`.
-
-Its cache can currently be written with either of two feature definitions (`todo.md` T5.9).
+Do not patch it incrementally — the whole point is that a newer copy can replace it.
 
 ---
 
-## 8. Writing to `reports/` can also write to `papers/` — but it is currently switched off
+## 9. Writing figures can also write into the paper, and that switch is off
 
-`lib/plotting/output.py::save_output(..., to_paper=True)` mirrors into **one** folder inside the
-Overleaf repo, laid out exactly like the local tree:
+Everything under `reports/` is written by one function, `lib/plotting/output.py::save_output`.
+Given `to_paper=True` it also mirrors into the Overleaf repo, laid out identically:
 
 ```
-reports/<analysis>/{figures,tables}/...                      local
-papers/correctness_prediction/reports/<analysis>/{figures,tables}/...   mirrored
+reports/<analysis>/{figures,tables}/...
+papers/correctness_prediction/reports/<analysis>/{figures,tables}/...
 ```
 
-So the mirror path is the local path with a different root, and "which local file is this?" is
-answerable by swapping the prefix. So "regenerate the plots" is not necessarily a
-`reports/`-only operation — it can change what the paper compiles, without anyone editing
-`papers/`.
+Same path, different root — so "which local file is this?" is answered by swapping the prefix.
 
-> **Changed 2026-09-20.** The mirror used to write `figures/` and `report_data/` at the paper
-> repo's *top level*, which put two more trees beside the drafts and split one analysis across
-> both. **This code never moves or deletes anything under `papers/`** — that repo is Diana's
-> and Overleaf-synced.
->
-> **But those two folders are no longer there** (checked 2026-09-21). The Overleaf repo's own
-> commit `fab3aa2 "ploting revamp"` deleted all **198** files in them — 177 under `figures/`,
-> 21 under `report_data/`. That was a commit in `papers/`, not something `save_output` did, and
-> the repo is clean, so nothing is dangling and everything is recoverable:
-> `git -C papers/correctness_prediction show HEAD~1`.
->
-> **Net effect right now: the paper repo holds no figures and no tables at all** — just the two
-> drafts and `OLD/`. `papers/correctness_prediction/reports/` does not exist yet either, because
-> the mirror is off (below). Nothing breaks, because no `\includegraphics` in either draft is
-> uncommented — the drafts still reference figures only in prose. But "the mirror is paused" is
-> an understatement of the current state.
+**The mirror is currently off.** `PAPER_MIRROR_ENABLED` is `False`, `to_paper` defaults to
+`False`, and asking for `to_paper=True` while the flag is off **raises** rather than quietly
+doing nothing — a caller that thinks it published to the paper and didn't is the failure that
+guards against. Turning it back on is one constant.
 
-> **Since 2026-09-20 (T1.3) the mirror is off.** `plot_output.PAPER_MIRROR_ENABLED = False`,
-> `to_paper` defaults to `False`, and passing `to_paper=True` while the flag is off **raises**
-> rather than quietly not mirroring — a caller that believes it published to the paper and did
-> not is the failure this guards. Turning it back on is one constant.
->
-> The reason it is off: figures are being regenerated while the numbers behind them are still
-> moving (T3.1, T3.6), and Overleaf should not track that churn.
-
-*The two conflicting `paper_dirs` conventions (T1.5) are gone with `paper_dirs` itself. For the
-record, the deeper one never actually produced a `figures/figures/` tree on disk — it was a
-latent bug in notebook source, not a thing that had happened. The last references to the old
-API — a dead `PAPER_DIRS` constant in `person_variance/loo_runs.py`, its import in
-`per_person_runs.ipynb`, two unused copies in other notebooks, and a markdown cell still
-telling readers to call `save=True, paper_dirs=...` — were cleared 2026-09-21. `to_paper` is
-now the only way to ask for the mirror.*
+Nothing in this repo ever moves or deletes anything under `papers/`. That repo is Diana's and
+Overleaf syncs it.
 
 ---
 
-## 9. Some results exist only as pixels — in the *old* tree
+## 10. A figure cannot be saved without its numbers
 
-> **Fixed at source 2026-09-20 (T1.3).** Every figure in the project is now written by
-> `lib/plotting/output.py::save_output`, whose `tables=` argument is **required**. A figure cannot
-> be saved without its numbers being passed alongside it; a figure that genuinely has none
-> passes `tables={}`, which is greppable — "this has no numbers" became a stated choice rather
-> than an omission. `print_summaries` still exists, but it only controls console printing and
-> no longer decides whether a result survives.
->
-> T4.0's acceptance test is now **structural** rather than a convention to remember: outputs
-> live at `reports/<analysis>/figures/` and `reports/<analysis>/tables/`, so a figure with no
-> `tables/` sibling is visible in the same folder instead of requiring a comparison of two
-> parallel trees. The old name mismatches (`area_significance_heatmaps` ↔ `area_mixed_models`,
-> `texts_to_answers` ↔ `slopes`) are gone with the two-tree layout.
+`save_output` requires a `tables=` argument. A figure that genuinely has no numbers behind it
+— an illustration, a scanpath example — passes `tables={}`, which you can grep for. "This has
+no numbers" is a stated choice, never an accident.
 
-**The historical problem, for anyone reading an old figure folder.** Nine of the fifteen topics
-under `reports/plots/` had no numbers saved anywhere — driver notebooks passed
-`print_summaries=False` and discarded the returned frames, so the values survived only inside
-the PNGs. `RT_correlations` wrote nothing at all (T4.1, now fixed).
+Outputs live at `reports/<analysis>/figures/` and `reports/<analysis>/tables/`, so a figure
+with no `tables/` sibling is visible in the same folder rather than requiring you to compare
+two parallel trees.
 
-**Zero-byte PNGs: 329, not the 308 usually quoted.** The three wholly-empty folders
-(`area_significance_heatmaps` 108, `texts_to_answers` 165, `participant_similarity` 35, all
-stamped 2026-03-17 09:37) are the well-known ones. A **second, separate failed write on
-2026-03-20 12:57** left 21 more — 15 in `correctness_measures/` and 6 in
-`matching_correctness/` — and those are the dangerous ones, because they sit next to
-non-empty siblings in folders that look populated.
-
-> **Correction, 2026-09-27: the old trees are gone, not kept.** This section used to say they
-> were retained "until their replacements are checked". They were **deleted in `496f8d0`
-> ("ploting revamp")** along with all 329 zero-byte PNGs, and `reports/` now holds only the
-> seven `<analysis>/` folders — 710 figures, **zero** zero-byte, every one with a `tables/`
-> sibling. So the two cautions that used to live here no longer apply to anything on disk.
->
-> **What to do instead, if you need something from the old trees:** they are tracked in git, so
-> read them at `496f8d0^` (`git show '496f8d0^:reports/report_data/<path>'`) rather than
-> hunting the working tree. Three constants used to point into them and resolve to nothing.
-> **All three were rehomed by 2026-10-08** and none is stale now: the feature-set folder became
-> `config/outputs.py::FEATURE_SETS_DIR` -> `configs/feature_sets/` (and its old name
-> `COL_SAVE_PATH` was deleted once the last call site moved), while `CROSS_VALIDATION_RUNS_DIR`
-> and `PER_PERSON_LOO_RESULTS_DIR` now sit under `reports/_cache/`. Those two still resolve to
-> directories that do **not exist yet** — correctly, because they are caches nothing has
-> rewritten since the old tree was deleted.
->
-> **The one thing to carry forward:** anything recovered from `496f8d0^` is **pre-rebuild** —
-> earlier than T3.6, T3.18, T3.20, T3.21 and T3.10 — so it is a record of what the numbers used
-> to be, never a substitute for regenerating them.
+This exists because results used to survive only inside PNG files. Nine of fifteen topics had
+no numbers saved anywhere, and a sync failure left 329 image files at zero bytes with nothing
+to regenerate them from. If you ever need something from that old tree, it is in git history
+rather than on disk — and anything you recover from it predates the current data, so it tells
+you what a number used to be, never what it is.

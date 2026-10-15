@@ -1,61 +1,53 @@
 # Glossary
 
-Vocabulary of the project: the columns, the units of analysis, and the words that
-mean something specific here. Drafted from `src/constants.py` and `src/data_paths.py`.
-
-**Status: partially reviewed.** The `L1`/`L2` naming, the A > B > C > D answer construction,
-the strategy vocabulary and the regime names are confirmed. The rest is still my reading of
-`constants.py` and `data_paths.py` — items marked `?` are inference, not established fact.
+What the project's words mean: the tables, the columns, and the terms that mean something
+specific here. Column names are defined in `src/config/columns.py`; the constant is what the code
+uses, the column is what appears in the files.
 
 ---
 
-## 1. Grain — the single most important distinction
+## 1. Grain: what one row is
 
-Three different "one row per" conventions exist in this project, and mixing them up
-is the main way a number goes wrong.
+The same data is stored at three levels, and mixing them up is the main way a number goes wrong.
 
-| Grain | One row per | Where it lives |
+| Level | One row per | File |
 |---|---|---|
-| **IA-level** (interest-area) | one word, in one area, in one trial, for one participant | `all_participants.csv`, `hunters.csv`, `gatherers.csv` — the output of `data_csv_generation` |
-| **area-level** | one of the 5 screen areas, in one trial | intermediate; what `mixed_area_comparisons` dedups to |
-| **trial-level** | one (participant, trial) | `L1_model_ready_all_features.csv` — the output of `model_data.save_all_features`, and what all modeling consumes |
+| **word** (interest area) | one word on screen, in one trial, for one participant | `interim/interest_areas.csv` |
+| **area** | one of the five screen areas, in one trial | `interim/areas_answers.csv` |
+| **trial** | one participant answering one question | `interim/trials.csv`, and `features/model_ready.csv`, which holds every feature |
 
-An IA-level frame has roughly 30–60 rows per trial (one per word on screen). Trial-level
-features are *broadcast* onto every IA row when they appear in an IA-level frame, so
-`groupby([TRIAL_ID, PARTICIPANT_ID]).first()` is the correct way to recover them —
-counting IA rows inflates every n by ~39×.
+A trial has 30–60 words on screen, about 39 on average. When the three files are joined back into
+one wide table (`features/build.py::load_model_input`), every trial-level value is copied onto
+all of its trial's word rows, so counting rows there makes every n about 39 times too big. To get
+back to one row per trial: `groupby(["participant_id", "TRIAL_INDEX"]).first()`.
 
-> Any statistical test on a trial-level property must run on a trial-level frame.
+> Any statistical test about trials must run on a table with one row per trial.
 
 ---
 
-## 2. Identity: who and which trial
+## 2. Identity: who, and which trial
 
-The L1 (OneStop) and KnowQA datasets identify trials **differently**, and the
-KnowQA scheme is deliberately designed to keep the L1 code working unchanged.
+A trial is identified by two columns together, `participant_id` and `TRIAL_INDEX`
+(`TRIAL_ID_COLS`). Almost every join in the project uses them. The two studies fill them
+differently:
 
-| Constant | Column | L1 / OneStop | KnowQA |
+| Constant | Column | Study 1 | Study 2 |
 |---|---|---|---|
-| `PARTICIPANT_ID` | `participant_id` | the recording label; one label = one person | the **person** only (`4000`) |
-| `SESSION_ID` | `session_id` | — | the full recording label (`4000_21`) |
-| `TRIAL_ID` | `TRIAL_INDEX` | integer trial counter | composite **string** (`b2l01t005`) |
-| `TRIAL_NUMBER` | `trial_number` | — | the tracker's within-session integer counter |
+| `PARTICIPANT_ID` | `participant_id` | the participant | the person only (`4000`) |
+| `SESSION_ID` | `session_id` | — | the full recording name (`4000_21`) |
+| `TRIAL_ID` | `TRIAL_INDEX` | a whole number counting the trials | a text code, e.g. `b2l01t005` |
+| `TRIAL_NUMBER` | `trial_number` | — | the tracker's trial counter within one session |
 
-**Why.** A KnowQA recording label is `4XXX_YZ`: person `4XXX`, batch `Y` (1–3), list
-`Z` (1–18), with no separator because the tracker caps labels at 8 characters. One
-person can sit for several (batch, list) sessions, so `participant_id` alone no longer
-identifies a session and `(participant_id, trial_number)` no longer identifies a trial.
-Rather than widen the `(participant_id, TRIAL_INDEX)` key the whole pipeline is built
-on, batch and list are folded into `TRIAL_INDEX` itself.
+**Why Study 2 is different.** A Study 2 recording is named `4XXX_YZ`: the person (`4XXX`), the
+batch (`Y`, 1–3) and the list (`Z`, 1–18), with no separator because the tracker allows only 8
+characters. One person can come back for several sessions, so the person alone does not pick out
+a session, and the trial counter alone does not pick out a trial. Rather than add a third
+column to every join, batch and list are folded into `TRIAL_INDEX` itself: `b2l01t005` is
+batch 2, list 1, trial 5.
 
-**Consequence to remember:** for KnowQA, per-participant features (pupil baselines,
-dominant strategy, dominance score) pool across a person's several sittings unless
-computed per `session_id`. **Pupil z-scoring deliberately does pool across a person's
-sessions** — the baseline unit is the person for every dataset (T3.20, 2026-09-23); the
-pattern-breaking features are not.
-
-`TRIAL_ID_COLS = (PARTICIPANT_ID, TRIAL_ID)` is the join key used by essentially every
-merge in the project.
+**What that means for per-person features.** In Study 2, anything computed per person pools all
+of their sessions. For the pupil baseline that is on purpose. For the opening-scan features it is
+the default, and `scope_by=["session_id"]` computes them per session instead.
 
 ---
 
@@ -64,449 +56,362 @@ merge in the project.
 | Constant | Column | Meaning |
 |---|---|---|
 | `ARTICLE_COLUMN` | `article_id` | which article |
-| `BATCH_COLUMN` | `article_batch` | article batch (1–3) |
-| `PARAGRAPH_COLUMN` | `paragraph_id` | which paragraph within the article |
-| `DIFFICULTY_COLUMN` | `difficulty_level` | Adv / Ele (OneStopQA's two versions of each text) |
+| `BATCH_COLUMN` | `article_batch` | which batch of articles (1–3) |
+| `PARAGRAPH_COLUMN` | `paragraph_id` | which paragraph of the article |
+| `DIFFICULTY_COLUMN` | `difficulty_level` | `Adv` or `Ele`: OneStop's two versions of each text. Study 1 has both; Study 2 uses `Adv` only |
 | `LIST_COLUMN` | `list_number` | which counterbalancing list the participant got |
-| `TEXT_ID_COLUMN` | `text_id` | identifies the paragraph |
-| `TEXT_ID_WITH_Q_COLUMN` | `text_id_with_q` | paragraph **+ question** — the item identifier |
+| `TEXT_ID_COLUMN` | `text_id` | one paragraph in one version: `batch_article_difficulty_paragraph` |
+| `TEXT_ID_WITH_Q_COLUMN` | `text_id_with_q` | `text_id` plus which of its questions was asked: one test item |
 
-### The two question orderings — do not conflate
+### The two question numberings — never swap them
 
-| Constant | Column | Ordering |
+Each paragraph has three questions, and two columns number them in different orders:
+
+| Constant | Column | Order |
 |---|---|---|
-| `SAME_CRITICAL_SPAN_COLUMN` | `same_critical_span` | question index within the paragraph **in the L1 experiment's ordering**; the last component of `text_id_with_q` |
-| `ONESTOPQA_QUESTION_ID` | `onestopqa_question_id` | question index **in OneStopQA's own ordering**, as recorded by the KnowQA experiment builder |
+| `SAME_CRITICAL_SPAN_COLUMN` | `same_critical_span` | Study 1's order; the last part of `text_id_with_q` |
+| `ONESTOPQA_QUESTION_ID` | `onestopqa_question_id` | OneStopQA's own order, which the Study 2 materials were built from |
 
-These are different permutations of the same three questions and **disagree on ~40% of
-trials**. Conflating them silently pairs up the wrong items. `know_qa_dataprep` derives
-`same_critical_span` from the report's `text_id_with_q` suffix, never from
-`onestopqa_question_id`.
+They disagree on about a third of Study 2's trials, so using one in place of the other silently
+pairs up the wrong items. Study 2's cleaning takes `same_critical_span` from `text_id_with_q`,
+never from `onestopqa_question_id`.
 
 ---
 
-## 4. The screen and its five areas
+## 4. The answer screen and its five areas
 
-The trial screen analysed in this project (OneStop's page 4) shows the question plus
-four answer options. Answer options are arranged to match the gamepad's diamond D-pad.
+The answer screen shows the question at the top and the four answers in a diamond — one above,
+two side by side, one below — matching the gamepad's buttons.
 
-Two orthogonal ways to name an area:
+An area can be named two ways:
 
 | | Constant | Values |
 |---|---|---|
-| **By label** (semantic) | `LABEL_CHOICES` | `question`, `answer_A`, `answer_B`, `answer_C`, `answer_D` |
-| **By location** (spatial) | `LOC_CHOICES` | `question`, `answer_0(top)`, `answer_1(left)`, `answer_2(right)`, `answer_3(bottom)` |
+| **by meaning** | `LABEL_CHOICES` | `question`, `answer_A`, `answer_B`, `answer_C`, `answer_D` |
+| **by place** | `LOC_CHOICES` | `question`, `answer_0(top)`, `answer_1(left)`, `answer_2(right)`, `answer_3(bottom)` |
 
-`ANSWER_LABELS = ["A", "B", "C", "D"]`. **`answer_A` is always the correct option** —
-labels are semantic, not positional. Screen position is randomized per trial and lives
-in the `*_loc` columns. `LABEL_CHOICES` is marked `# DO NOT CHANGE` in `constants.py`
-because ordering consistency is assumed elsewhere.
+**`answer_A` is always the correct answer.** The letters are meanings, not positions: the answers
+are shuffled across the four positions on every trial, and the position is in the `*_loc`
+columns. Do not reorder either list; code relies on the order.
 
-### The labels are ordinal, not arbitrary
+### The letters are ranked, not arbitrary
 
-OneStopQA builds each option from a defined relationship to the paragraph:
+OneStopQA builds each answer from a set relationship to the paragraph:
 
-| Label | Source | Role |
+| Letter | Built from | Role |
 |---|---|---|
-| `answer_A` | **critical span** | correct |
-| `answer_B` | **critical span** | a misinterpretation of the correctly relevant text |
-| `answer_C` | **distractor span** | built from a different real segment of the text |
-| `answer_D` | — | not present in the text at all |
+| `answer_A` | the critical span | correct |
+| `answer_B` | the critical span | a misreading of the right part of the text |
+| `answer_C` | the distractor span | based on a different part of the text |
+| `answer_D` | nothing in the text | not supported by the text at all |
 
-So plausibility runs **A > B > C > D**, and the data follows it (selection 84.07 / 8.97 /
-4.85 / 2.11%). The code does not encode this ordering — `ANSWER_LABELS` is a flat list and
-`wrong_mean` averages B, C and D as equals. That is accepted. See `research-context.md` §2.
+So plausibility runs A > B > C > D, and the choices follow it: on Study 1, 84.1% of choices are
+A, 9.0% B, 4.9% C and 2.1% D. The code does not use this ranking — `wrong_mean` averages B, C and
+D as equals. See `research-context.md` §2.
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `AREA_LABEL_COLUMN` | `area_label` | which of the five areas this IA belongs to, by label |
-| `AREA_SCREEN_LOCATION` | `area_screen_loc` | same, by screen position |
-| `SELECTED_ANSWER_LABEL_COLUMN` | `selected_answer_label` | which label the participant chose |
-| `SELECTED_ANSWER_POSITION_COLUMN` | `selected_answer_position` | which position they chose |
-| `CORRECT_ANSWER_POSITION_COLUMN` | `correct_answer_position` | where the correct answer sat |
-| `IS_CORRECT_COLUMN` | `is_correct` | 1 if selected == correct. A trial can never lack a confirmed selection, so the NaN-compares-unequal branch is unreachable — ✅ since 2026-09-27 `add_is_correct` **raises** on a null position rather than scoring it as wrong (`todo.md` T3.17) |
+| `AREA_LABEL_COLUMN` | `area_label` | which of the five areas a word is in, by meaning |
+| `AREA_SCREEN_LOCATION` | `area_screen_loc` | the same, by place |
+| `SELECTED_ANSWER_LABEL_COLUMN` | `selected_answer_label` | the letter the participant chose |
+| `SELECTED_ANSWER_POSITION_COLUMN` | `selected_answer_position` | the position they chose |
+| `CORRECT_ANSWER_POSITION_COLUMN` | `correct_answer_position` | the position of the correct answer |
+| `IS_CORRECT_COLUMN` | `is_correct` | 1 if they chose the correct answer, else 0: what the model predicts. A trial with no recorded choice stops the run rather than counting as wrong |
 
 ---
 
-## 5. Experimental conditions
+## 5. The two experiments' conditions
 
-### Study 1 (L1 / OneStop) — question preview
+### Study 1 — question preview
 
 | Constant | Column | Meaning |
 |---|---|---|
 | `QUESTION_PREVIEW_COLUMN` | `question_preview` | whether the participant saw the question *before* reading the paragraph |
 
-- **hunters** = `question_preview == True` — saw the question first, read to hunt for the answer
-- **gatherers** = `question_preview == False` — read the paragraph first, then saw the question
+- **hunters** (`question_preview == True`): saw the question first, so read hunting for the answer
+- **gatherers** (`question_preview == False`): read the paragraph first, then saw the question
 
-**This is a BETWEEN-participant manipulation.** Every subject is either a hunter or a
-gatherer, never both — verified: 360 participants, 180 per group, no overlap. That is why
-`hunters.csv` / `gatherers.csv` can be analysed separately without disturbing anything
-computed per participant.
+**Each participant is in one group only:** 360 participants, 180 per group, nobody in both. So the
+two groups can be analysed separately without changing anything computed per person. This is the
+split behind the `hunters`, `gatherers` and `all_participants` groups in the analyses.
 
-This is the split behind `hunters.csv` / `gatherers.csv` and behind every
-`hunters` / `gatherers` / `all_participants` output folder.
+Two kinds of trial are dropped during preparation: repeated readings (`repeated_reading_trial`)
+and practice trials (`practice_trial`).
 
-Also excluded during prep: `REPEATED_TRIAL_COLUMN` (`repeated_reading_trial`) and
-`PRACTICE_TRIAL_COLUMN` (`practice_trial`).
+### Study 2 — knowledge regime
 
-### Study 2 (KnowQA) — knowledge regime
+Instead of question preview, Study 2 varies **prior knowledge**, in three regimes:
 
-The manipulation is **prior knowledge**, in three regimes, replacing question-preview:
+- **full knowledge**: the participant is first shown the correct answer's content, reworded
+- **partial knowledge**: the participant reads the paragraph — the closest match to Study 1
+- **no knowledge**: no context at all, so a correct answer is a guess
 
-- **full knowledge** — the participant is shown the correct answer's content beforehand (rephrased)
-- **partial knowledge** — the paragraph is presented to read (the closest analogue to Study 1)
-- **no knowledge** — no context at all; any correct answer is a guess
+> **Every participant does all three regimes** — the opposite of Study 1. So splitting Study 2 by
+> regime splits each person's trials, and anything computed per person would then use about a
+> third of their data. See `pitfalls.md` §3.
 
-> ⚠️ **This is a WITHIN-participant manipulation — the opposite of Study 1.** Each KnowQA
-> participant does **all three regimes in every run**. So, unlike the hunters/gatherers split,
-> **splitting KnowQA by regime splits a participant's trials**: anything computed per
-> participant (dominant strategy, dominance score, pupil baselines) would then be computed on
-> roughly a third of that person's data. See `pitfalls.md` §3.
-
-Plus a per-trial **confidence self-report on a 1–5 scale**, which Study 1 lacked.
-Counterbalanced by a double Latin square (regime × article group, then question ordering)
-across 27 lists, times 6 regime orderings = 54 ordered lists.
+Study 2 also asks for a confidence rating on every trial, on a 1–5 scale. The lists are
+counterbalanced with a double Latin square (regime × article group, then question order); the
+design is in `src/experiment/lists.py`.
 
 ---
 
-## 6. Per-area eye-movement metrics
+## 6. Per-area measurements
 
-Computed separately for each of the five areas, from per-word (IA) data. Unfixated words
-count as zero for **dwell time and fixation count**, and are **excluded** from **pupil size
-and first-fixation duration**. That split is deliberate — a word nobody read genuinely
-received 0 ms and 0 fixations, whereas a pupil size or a fixation duration is a property *of a
-fixation* and is undefined when there was none. See `pitfalls.md` §2; do not unify the family.
+Computed separately for each of the five areas, from the word rows (`features/area_metrics.py`).
 
-*(First-fixation duration moved to the excluded side on 2026-09-23, `todo.md` T3.6. L1's saved
-data is still on the old convention until it is rebuilt.)*
+**Words nobody looked at are handled two ways, on purpose.** They count as 0 for dwell time and
+fixation count: a word nobody read really did get 0 ms and 0 fixations. They are left out of
+first-fixation duration and pupil size, because those describe a fixation, and there was none.
+Do not make the two consistent; `pitfalls.md` §2 explains why.
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `MEAN_DWELL_TIME` | `mean_dwell_time` | mean per-word dwell time in the area |
-| `MEAN_FIXATIONS_COUNT` | `mean_fixations_count` | mean fixations per word |
-| `MEAN_FIRST_FIXATION_DURATION` | `mean_first_fixation_duration` | mean duration of each word's first fixation |
-| `SKIP_RATE` | `skip_rate` | proportion of words in the area never fixated |
-| `AREA_DWELL_PROPORTION` | `area_dwell_proportion` | share of the trial's total dwell time in this area; sums to 1 across the five areas |
-| `NUM_LABEL_VISITS` | `num_label_visits` | number of times the participant enters the area (by label) |
-| `NUM_LOC_VISITS` | `num_loc_visits` | same, by location |
+| `MEAN_DWELL_TIME` | `mean_dwell_time` | average looking time per word |
+| `MEAN_FIXATIONS_COUNT` | `mean_fixations_count` | average number of fixations per word |
+| `MEAN_FIRST_FIXATION_DURATION` | `mean_first_fixation_duration` | average length of the first fixation, over the words that were looked at |
+| `SKIP_RATE` | `skip_rate` | share of the area's words never looked at |
+| `AREA_DWELL_PROPORTION` | `area_dwell_proportion` | the area's share of the trial's looking time; sums to 1 over the five areas |
+| `NUM_LABEL_VISITS` | `num_label_visits` | how many separate times the participant entered the area |
+| `NUM_LOC_VISITS` | `num_loc_visits` | the same, counted by place |
 
-Pupil measures, raw and z-scored (`_z` suffix = z-scored **within participant, for every
-dataset** — the baseline unit is the person, and for KnowQA a person's baseline pools across
-their several sessions and all three regimes; T3.20, 2026-09-23):
+**Pupil size**, in mm and z-scored. The tracker reports pupil size as an area in its own units;
+the pipeline converts it to a diameter in mm, and the `_z` version is z-scored against the
+participant's own baseline (`data-pipeline.md` §8).
 
-`MEAN_AVG_FIX_PUPIL_SIZE`, `MEAN_MAX_FIX_PUPIL_SIZE`, `MEAN_MIN_FIX_PUPIL_SIZE`,
-`FIRST_ENCOUNTER_AVG_PUPIL_SIZE` — each with a `_z` counterpart.
+| Column (each also has a `_z` version) | Meaning |
+|---|---|
+| `mean_avg_fix_pupil_size`, `mean_max_fix_pupil_size`, `mean_min_fix_pupil_size` | each looked-at word's average / largest / smallest pupil size during its fixations, averaged over the area |
+| `first_encounter_avg_pupil_size` | pupil size on the area's first word *by position* that was looked at. Despite the name, not necessarily the first word looked at in time: on Study 1's answer screen the two are different words in about a third of areas |
 
-Pupil sizes are converted from the tracker's area units to mm diameter before z-scoring.
+Two lists of these measurements, ten each:
 
-Two curated lists:
-- `AREA_METRIC_COLUMNS_MODELING` — the `_z` pupil variants; what models consume
-- `AREA_METRIC_COLUMNS_VIZES` — the raw pupil variants; what plots consume
+- `AREA_METRIC_COLUMNS_MODELING` — for building model columns; uses the z-scored pupil values
+- `AREA_METRIC_COLUMNS_VIZES` — for plots; uses pupil size in mm
 
 ---
 
-## 7. Derived (contrast) features — how per-area becomes per-trial
+## 7. Comparing the correct answer with the wrong ones
 
-Each per-area metric over the four answer options collapses into five trial-level
-features. Naming: `{metric}{DERIVED_SEP}{suffix}` where `DERIVED_SEP = "__"`.
+Each per-area measurement on the four answers becomes five numbers per trial, named
+`<measurement>__<comparison>` (`DERIVED_SEP = "__"`):
 
-| Suffix constant | Suffix | Meaning |
+| Constant | Suffix | Meaning |
 |---|---|---|
-| `CORRECT_SUFFIX` | `correct` | the metric's value on the correct answer |
-| `WRONG_MEAN_SUFFIX` | `wrong_mean` | mean of the metric across the three wrong answers |
-| `CONTRAST_SUFFIX` | `contrast` | correct − wrong_mean |
-| `DISTANCE_FURTHEST_SUFFIX` | `distance_furthest` | max absolute distance between correct and any wrong answer |
-| `DISTANCE_CLOSEST_SUFFIX` | `distance_closest` | min absolute distance between correct and any wrong answer |
+| `CORRECT_SUFFIX` | `correct` | the value on the correct answer |
+| `WRONG_MEAN_SUFFIX` | `wrong_mean` | the average over the three wrong answers |
+| `CONTRAST_SUFFIX` | `contrast` | `correct` minus `wrong_mean` |
+| `DISTANCE_FURTHEST_SUFFIX` | `distance_furthest` | the largest gap between the correct answer and any one wrong answer |
+| `DISTANCE_CLOSEST_SUFFIX` | `distance_closest` | the smallest such gap |
 
-e.g. `mean_dwell_time__contrast`, `skip_rate__correct`.
+The two distances are absolute values: they say how different the correct answer is, not in which
+direction. Examples: `mean_dwell_time__contrast`, `skip_rate__correct`.
 
-**Note on imputation:** missing values in these columns are filled with `0.0` before
-standardization. For a `contrast` feature, 0 means "read exactly like the others"; for a
-z-scored pupil feature, 0 means "this participant's own mean". Worth stating in Methods.
+**Missing values.** A wrong answer with no value is skipped, so a comparison is missing only when
+the correct answer has no value or none of the wrong answers does. That happens only for
+first-fixation duration and pupil size, the measurements that leave unread words out. The model
+fills every missing value with 0. For a `contrast`, 0 means "looked at like the others"; for a
+z-scored pupil value, it means "this person's own average". `conventions.md` records this choice
+and how many values it affects, under accepted deviations.
 
 ---
 
 ## 8. Fixation sequences
 
-A trial's fixations are converted into a sequence of area symbols, in temporal order.
+A trial's fixations, in time order, written as a sequence of areas (`features/sequences.py`).
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `FIX_SEQUENCE_BY_LABEL` | `fix_by_label` | fixation sequence, areas named by label |
-| `FIX_SEQUENCE_BY_LOCATION` | `fix_by_loc` | same, by screen location |
-| `SIMPLIFIED_FIX_SEQ_BY_LABEL` | `simpl_fix_by_label` | **collapsed**: consecutive identical entries merged into one |
-| `SIMPLIFIED_FIX_SEQ_BY_LOCATION` | `simpl_fix_by_loc` | same, by location |
-| `SEQUENCE_LENGTH_COLUMN` | `sequence_length` | number of entries in the collapsed sequence = number of area transitions |
+| `FIX_SEQUENCE_BY_LABEL` | `fix_by_label` | one entry per fixation: which area, by meaning |
+| `FIX_SEQUENCE_BY_LOCATION` | `fix_by_loc` | the same, by place |
+| `SIMPLIFIED_FIX_SEQ_BY_LABEL` | `simpl_fix_by_label` | repeats merged, so one entry per visit: `A A B A` → `A B A` |
+| `SIMPLIFIED_FIX_SEQ_BY_LOCATION` | `simpl_fix_by_loc` | the same, by place |
 
-Two prep steps applied: fixations outside any interest area are assigned to the nearest
-word; and an isolated leading fixation on the question (a single fixation immediately
-followed by a move elsewhere) is removed as spillover from the question screen.
+Two clean-up steps come first: a fixation that landed on no word is given the nearest word, and a
+single fixation on the question at the very start of the trial is dropped, as left over from the
+previous screen.
 
-`IA_LABEL` (`IA_LABEL`) holds the word an interest area covers — one IA per word in
-reading order, so it reconstructs the on-screen text. `know_qa_dataprep.check_text_alignment`
-uses this to look for a displaced-quote bug that used to shift every downstream area boundary
-by one word. ✅ **The defect is real, and no longer reaches the areas** (`todo.md` T3.18,
-resolved 2026-09-07): words are now assigned to areas by their on-screen rectangle
-(`IA_TOP` / `IA_LEFT`), so the stored text cannot move a boundary.
+`IA_LABEL` is the word each interest area covers; read in order, they spell out the text on
+screen. Study 2's `check_text_alignment` uses it to find trials whose stored text does not match
+the screen (`data-pipeline.md` §3).
 
-### Which sequence each family reads
+### The five sequence statistics
 
-| family | sequence | why |
-|---|---|---|
-| XYX / XYXY / `longest_alternating_answer_run` / `seq_len` | **label** (`simpl_fix_by_label`) | the question is which *answers* were flipped between |
-| starting strategy, dominance, first-visit matrices | **location** (`simpl_fix_by_loc`) | the question is the *scan geometry* — clockwise vs counter-clockwise |
+| Column | Meaning |
+|---|---|
+| `seq_len` | how many visits: the length of the merged sequence. Visits to the question count |
+| `has_xyx` | 1 if the merged sequence *ends* in x, y, x (e.g. A B A) |
+| `has_xyxy` | 1 if it *ends* in x, y, x, y (e.g. A B A B) |
+| `longest_alt_answer_run` | the longest stretch anywhere that goes back and forth between two answers |
+| `trial_mean_dwell` | average looking time per word over the whole screen |
 
-The first row changed from location to label on 2026-10-06 and **no number moved**: within a
-trial the two are a bijection, so the collapsed sequences are identical up to renaming. Verified
-on all 19,436 L1 trials, twice. The second row is **not** interchangeable — rendering a scan
-path by answer letter would destroy the clockwise finding.
+`has_xyx` and `has_xyxy` look only at the end of the sequence, and any area counts, including the
+question: "answer_A, question, answer_A" at the end counts as x-y-x. `longest_alt_answer_run`
+leaves the question out.
 
-### Hesitation patterns
+**Which sequence each one reads.** These statistics read the sequence by meaning
+(`simpl_fix_by_label`); the opening-scan features below read it by place (`simpl_fix_by_loc`). For
+the statistics it makes no difference, because within one trial the two sequences are the same up
+to renaming. For the opening scan it matters: the clockwise finding is about screen positions, and
+would disappear if scans were written by letter.
 
-- **XYX** — the collapsed sequence ends in a back-and-forth between two options (`[A, B, A]`)
-- **XYXY** — the extended version (`[A, B, A, B]`)
-- `longest_alternating_answer_run` — the graded version
+### The opening scan (starting strategy)
 
-### Strategies / first-scan behaviour / pattern breaking
+The opening scan is the order in which a participant first visits the four answer positions: the
+first four entries of the merged *place* sequence, e.g. (top, right, bottom, left). It comes in
+two versions, with visits to the question kept (`_with_q`) or removed first (`_no_q`). A scan
+that reached fewer than four answers stays shorter. Everything is in `features/strategies.py`.
 
-Paper-critical as of draft2 — the opening scan is a Results subsection in its own right.
-
-Paper-side vocabulary:
+Terms used in the paper:
 
 | Term | Meaning |
 |---|---|
-| **first scan** | the participant's opening pass over the four answer options |
-| **clockwise** | the most common first scan: from the top, then round — by *location*, so `answer_0(top)` → `answer_2(right)` → `answer_3(bottom)` → `answer_1(left)` |
-| **counter-clockwise** | the second most common: from the top, the other way round |
-| **dominant strategy** | a participant has one if their most common first-scan strategy accounts for **at least half** of their trials |
-| **interrupted-scan completion** | a repair step applied to scan passes **shorter than four items**, which raises the measured prevalence of dominant strategies. Implemented as `build_prefix_completion_map_from_series` + `add_completed_sequence_column` in `viz/visualisations_strategies.py` |
+| **first scan** | the opening pass over the four answers |
+| **clockwise** | the most common first scan: top, right, bottom, left (`answer_0(top)` → `answer_2(right)` → `answer_3(bottom)` → `answer_1(left)`) |
+| **counter-clockwise** | the second most common: from the top, round the other way |
+| **dominant strategy** | a participant has one if their most common first scan covers at least half of their trials |
+| **interrupted-scan completion** | a repair for first scans shorter than four: each is completed the way that start is most often completed in the dataset's full-length scans |
 
-Code-side constants:
-
-| Constant | Meaning |
-|---|---|
-| `STRATEGY_COL` (`strategy`) | the trial's scanning strategy |
-| `STARTING_STRATEGY_COL` | the first `window_len=4` tokens of the collapsed **location** sequence (`simpl_fix_by_loc`) |
-| `DOMINANT_STARTING_STRATEGY` | the participant's modal starting strategy |
-| `DOMINANCE_SCORE` | how consistently they use it |
-| `BREAKS_PATTERN_WITH_Q` / `_NO_Q` | this trial's starting strategy differs from the participant's dominant one; two variants, question tokens kept vs. dropped |
-| `BREAKS_X_DOMINANCE_*` | interaction: `breaks_pattern × dominance_score` — "how much breaking matters, scaled by how consistent the person is" |
-| `STRATEGY_DISTANCE_*` | graded version: token-level Levenshtein distance from the dominant strategy |
-| `N_STRATEGY_TRIALS_*` | how many trials the dominant strategy was estimated from, per q-variant. **Read this before reading a dominance score** — the score is a proportion and looks the same at n=145 and n=46. It is what records the scope the feature was built under (`todo.md` T3.21) |
-| `REGIME_COLUMN` (`regime`) | Study 2's knowledge regime, §5. Carried into the trial-level table since 2026-09-25 so it can be grouped on after the fact; absent on L1 |
-
-**Caveat 1 — frame dependence.** These are computed over whatever trials are in the frame
-passed in, so a participant needs their **full trial set** present.
-
-The hunters/gatherers split is **safe**: `question_preview` is between-participant (360
-participants, 180 per group, none appearing in both), so each participant's whole trial set is
-in one group file and the values come out identical either way. What is *not* safe is any
-filtering that keeps a participant but drops some of their trials — CV regime rebuilds,
-correct-trials-only subsets. For KnowQA there is a separate issue: one `participant_id` spans
-several sessions within the same file, so these features pool across sittings.
-See `docs/pitfalls.md` §3.
-
-**Caveat 2 — ~~two implementations, one with completion and one without~~ ✅ merged
-2026-09-20 (`todo.md` T1.1 / most of T1.6).** There is now one implementation of every
-dominance quantity, all in `derived/pattern_breaking.py`; `viz/` plots and nothing else:
-
-| | |
-|---|---|
-| `build_starting_strategies` | the per-trial strategy — first `window_len` tokens, `drop_question` optional |
-| `dominant_strategy_by_participant` | modal strategy + `dominance_score` + `n_strategy_trials` |
-| `has_dominant_strategy` | the `≥` threshold, the only operator in the stack |
-| `build_prefix_completion_map` + `add_completed_strategy_column` | interrupted-scan completion: from strategies observed at full length 4, learn how each prefix is most often completed, then fill the short ones |
-| `dominance_gap_by_participant`, `strategy_variety_by_participant`, `dominant_strategy_counts`, `summarize_completion_effect` | the descriptive quantities behind `findings.md` §1.1–§1.5 |
-
-The completion-on/off difference remains a real parameter — the paper's prevalence figures
-are reported both raw and completed — but it is now a separate, composable call rather than a
-second code path. The old `viz::build_strategy_dataframe` was verified byte-identical to
-`build_starting_strategies` on both L1 groups before being deleted.
-
-> *Correction, 2026-09-20:* this entry used to add that the two "tie-break differently
-> (`idxmax` vs an explicit deterministic rule), so they can pick different dominant strategies
-> on ties". **That was wrong.** `unstack()` sorts the strategy tuples and `idxmax` returns the
-> first maximum — the lexicographically smallest — which is the same rule. Checked against the
-> L1 data, where 2 hunters and 1 gatherer have genuine ties: all 360 participants come out
-> identical. A *third* implementation, in `visualisations_dominant_eye.py`, did have an
-> order-dependent tie-break (`sort_values(...).head(1)`); replacing it moved one participant
-> (`findings.md` §1.6 and its change log).
-
-> *Correction, 2026-09-20:* this paragraph used to add that the two "tie-break differently
-> (`idxmax` vs an explicit deterministic rule), so they can pick different dominant strategies
-> on ties". **That was wrong.** `unstack()` sorts the strategy tuples and `idxmax` returns the
-> first maximum — the lexicographically smallest — which is the same rule. Checked against the
-> L1 data, where 2 hunters and 1 gatherer have genuine ties: all 360 participants come out
-> identical. Moot now that there is one implementation, but recorded so the claim is not
-> reintroduced.
-
-**Caveat 3 — ~~the threshold operator is inconsistent~~ ✅ fixed 2026-09-20 (`todo.md` T1.1).**
-`proportion_with_dominant_strategy` used strict `prop > threshold` while
-`summarize_before_after` and `plot_dominant_strategy_counts_above_threshold` used
-`prop >= threshold`, so the same data gave two numbers (hunters: 46.1% vs 48.9%).
-Draft2's "at least half" implies `≥`, and that is now the only operator: every threshold
-comparison goes through `derived/pattern_breaking.has_dominant_strategy`, with
-`DEFAULT_DOMINANCE_THRESHOLD = 0.5` beside it. **Canonical: hunters 48.89% raw / 53.33%
-completed, gatherers 58.33% / 61.11%.**
-
-**Caveat 4 — ~~no all-participants figure~~ resolved 2026-09-25.** `run_all_strategy_plots`
-used to hardcode `split_participant_groups(..., include_all=False)`, which is why draft2's
-`X%` had never been computed. It is now a parameter defaulting to `True`, and the number
-exists: **all participants 53.6% raw / 57.2% completed** (n = 360), alongside the unchanged
-hunters and gatherers figures above.
-
-**Caveat 5 — the completion map is learned over the whole dataset**, not per group
-(Diana, 2026-09-25). One map is built before the group loop and applied to hunters,
-gatherers and all-participants alike, so the repair is not a property of the grouping. Per
-dataset, though — L1 and KnowQA learn separate maps. See `pitfalls.md` §4.
-
-**Note — clockwise and counter-clockwise are not code categories.** Strategies are raw
-location tuples; `plot_dominant_strategy_counts_above_threshold` ranks them and the top two
-turn out to *be* the clockwise and counter-clockwise circuits. No classifier exists or is
-needed, though naming them would improve the paper figure. See `docs/findings.md` §1.1.
-
-**Note on interpretation:** the first-scan strategy is *not* predictive of correctness, and
-draft2 treats that as the finding — evidence that the opening scan is a necessary
-scanning behaviour independent of knowledge state. An earlier commit message calls the
-feature "a bust"; in draft2 it is a null result doing real work.
-
----
-
-## 9. Last visitation — the "self-validation" baseline
-
-Three perspectives on the participant's final fixation:
+Columns:
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `LAST_VISITED_LABEL` | `last_answer_area_visited_lbl` | last *answer* area fixated (steps back if the last fixation was on the question) |
-| `LAST_LBL_BEFORE_SELECT` | `last_lbl_before_select` | last area fixated before the final answer selection |
-| `LAST_LBL_BEFORE_CONFIRM` | `last_lbl_before_confirm` | last area fixated before the confirmation press |
+| `STRATEGY_COL` | `strategy` | a trial's scan strategy |
+| `STARTING_STRATEGY_COL` | `starting_strategy` | its first four entries |
+| `DOMINANT_STARTING_STRATEGY` | `dominant_starting_strategy` | the participant's most common starting strategy |
+| `DOMINANCE_SCORE` | `dominance_score` | the share of their trials that use it |
+| `BREAKS_PATTERN_WITH_Q` / `_NO_Q` | `breaks_pattern_with_q` / `_no_q` | 1 if this trial's starting strategy differs from the participant's dominant one |
+| `BREAKS_X_DOMINANCE_*` | `breaks_x_dominance_*` | `breaks_pattern` × `dominance_score`: breaking the pattern counts for more in a consistent person |
+| `STRATEGY_DISTANCE_*` | `strategy_distance_*` | how far this trial's starting strategy is from the dominant one: the number of entries to change (edit distance) |
+| `N_STRATEGY_TRIALS_*` | `n_strategy_trials_*` | how many trials the dominant strategy was worked out from. **Read this before reading a dominance score**: the score is a proportion, and looks the same from 145 trials as from 46 |
+| `REGIME_COLUMN` | `regime` | Study 2's knowledge regime (§5), kept in the trial table so results can be grouped by it. Not in Study 1 |
 
-~80% of participants look at the answer they ultimately select. Used both as a strong
-predictor and as an interpretive claim: the attention features reflect the decision, the
-last fixation reflects self-validation after it.
+Functions:
+
+| Function | Does |
+|---|---|
+| `build_starting_strategies` | the per-trial starting strategy |
+| `dominant_strategy_by_participant` | each participant's most common one, with `dominance_score` and `n_strategy_trials`. A tie goes to the strategy that sorts first |
+| `has_dominant_strategy` | the "at least half" test (`>=`, `DEFAULT_DOMINANCE_THRESHOLD = 0.5`) — the only place the threshold is applied |
+| `build_prefix_completion_map`, `add_completed_strategy_column` | interrupted-scan completion: learn from the full-length scans how each start is most often completed, then fill in the short ones |
+| `dominance_gap_by_participant`, `strategy_variety_by_participant`, `dominant_strategy_counts`, `summarize_completion_effect` | descriptive summaries for the scan-strategy analysis |
+| `build_trial_level_pattern_features` | the model's per-trial columns above |
+
+Things to know:
+
+- **They depend on which trials they are given.** They summarise a person over the trials in the
+  table passed in, so a person needs all of their trials there. The hunters/gatherers split is
+  safe, since each person is in one group. Dropping some of a person's trials is not:
+  cross-validation folds, correct-only subsets, a single Study 2 regime. See `pitfalls.md` §3.
+- **Completion is learned once per dataset**, over all of it: not per group, so the repair does
+  not depend on the grouping, and never across datasets. The paper's descriptive figures show
+  scans both with and without completion; the model features use them without.
+- **Clockwise and counter-clockwise are not categories in the code.** Strategies are raw tuples
+  of positions; ranked by how common they are, the top two turn out to be the two circuits.
+- In the paper, the opening scan *not* predicting correctness is itself a result.
 
 ---
 
-## 10. Response times
-
-Participants select an answer, then confirm with a second button press; selection can
-change before confirmation, and the unconfirmed presses are recorded.
+## 9. The last look
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `CONFIRM_FINAL_ANSWER_RT` | `CONFIRM_FINAL_ANSWER_RT` | raw: answers-shown → confirm click |
-| `TOTAL_ANSWERING_RT` | `total_answering_RT` | the same, exposed under a friendlier name |
-| `TOTAL_ANSWERING_RT_NORMALIZED` | `total_answering_RT_normalized` | normalized version |
+| `LAST_VISITED_LABEL` | `last_answer_area_visited_lbl` | the last answer looked at in the trial; if the very last look was at the question, the last answer before it |
+| `LAST_LBL_BEFORE_SELECT` | `last_lbl_before_select` | the area looked at just before the final selection press |
+| `LAST_LBL_BEFORE_CONFIRM` | `last_lbl_before_confirm` | the area looked at just before the confirming press |
+
+The last two are timed from the button presses, and go into the model as 0/1 columns, one per
+area. `last_answer_area_visited_lbl` is not in the model table.
+
+Careful with `last_answer_area_visited_lbl`: in a trial where no answer word was looked at, it
+still names an answer, picked arbitrarily. That happens on 28 Study 1 trials and 1 Study 2 trial.
+
+In the paper, the last look is read as checking a decision already made ("self-validation"),
+while the attention measures reflect the decision itself.
+
+---
+
+## 10. Response times and reading times
+
+The participant selects an answer, can change it, and then confirms with a second press.
+
+| Constant | Column | Meaning |
+|---|---|---|
+| `CONFIRM_FINAL_ANSWER_RT` | `CONFIRM_FINAL_ANSWER_RT` | from the answers appearing to the confirming press, in ms, as the tracker reports it |
+| `TOTAL_ANSWERING_RT` | `total_answering_RT` | the same number, under a clearer name |
+| `TOTAL_ANSWERING_RT_NORMALIZED` | `total_answering_RT_normalized` | divided by the number of words on screen |
 | `NUM_OF_SELECTS` | `ANSWER_PRESS_NUMBER` | how many selection presses before confirming |
 
-Per-region RT/TFD families, one per area (`question`, `answer_A`…`answer_D`, and for
-paragraph runs `outside` / `distractor` / `critical`):
+**Reading time per area**, for `question` and `answer_A`..`answer_D` (and on the paragraph screen,
+`critical`, `distractor` and `outside`):
 
-| Prefix | Meaning |
+| Columns | Meaning |
 |---|---|
-| `RT_pure_*` / `RT_normalized_*` | **run-based** reading time on the region; `_normalized` divides by the region's word count |
-| `TFD_pure_*` / `TFD_normalized_*` | total fixation duration — the sum of dwell times |
-| `TimeSinceOffset_*` | **span-based**: last-fixation-end minus first-fixation-start, so it counts every excursion away and back as part of the region's time |
+| `TFD_pure_*` / `TFD_normalized_*` | total fixation duration: the looking time on the area's words, added up |
+| `RT_pure_*` / `RT_normalized_*` | time spent on visits to the area; a visit is a run of fixations in a row on it |
+| `TimeSinceOffset_pure_*` / `TimeSinceOffset_normalized_*` | from the start of the first look to the end of the last look, so time spent elsewhere in between counts too |
 
-`RT_*` is always run-based; the span measure is deliberately renamed to
-`TimeSinceOffset_*` to keep the two apart. Unfixated regions are filled with `0`, not
-NaN — so "looked for 0 ms" and "no data" are currently indistinguishable.
+`_normalized` divides by the area's number of words. An area nobody looked at gets 0.
+`data-pipeline.md` §7 has the details.
 
-### Paragraph spans
-
-For paragraph-reading screens, the text is divided by relevance to the question:
+### The paragraph's three parts
 
 | Constant | Values |
 |---|---|
-| `AUXILIARY_SPAN_TYPE_COLUMN` (`auxiliary_span_type`) | `critical` (the span containing the answer), `distractor` (the span supporting a wrong answer), `outside` (the rest) |
+| `AUXILIARY_SPAN_TYPE_COLUMN` (`auxiliary_span_type`) | `critical` (holds the answer), `distractor` (supports a wrong answer), `outside` (the rest) |
 
 ---
 
 ## 11. Cross-validation regimes
 
-Folds are pre-computed and read from `fold_{i}_trial_ids_by_regime.csv`. Each
-(participant × paragraph) cell is labelled with one of seven regimes, crossing subject
-and item novelty:
+Folds are worked out in advance and read from `data/cv_folds/`, one file per fold
+(`fold_{i}_trial_ids_by_regime.csv`). Each participant × paragraph pair is given one of seven
+regimes, crossing whether the participant and the item were seen in training:
 
-| Regime | Subject | Item |
+| Regime | Participant | Item |
 |---|---|---|
 | `train_train` | seen | seen |
 | `val_seen_subject_unseen_item` / `test_seen_subject_unseen_item` | seen | **new** |
 | `val_unseen_subject_seen_item` / `test_unseen_subject_seen_item` | **new** | seen |
 | `val_unseen_subject_unseen_item` / `test_unseen_subject_unseen_item` | **new** | **new** |
 
-The paper reports three test regimes; in figure and folder names these appear as
-`new_item`, `new_subject`, and `both`. `both` = `test_unseen_subject_unseen_item` is the
-strict generalization regime.
+The paper reports three, named in figures and folders `new_item`, `new_subject` and `both`.
+`both` (new participant *and* new item) is the strictest test of generalising.
 
-Since the live model has no tuned hyperparameters, the `val_*` regimes currently serve no
-selection purpose — they are effectively a second test set. `?` Worth deciding whether to
-report or drop them.
+Nothing in the model is tuned, so the `val_*` regimes do not choose anything: they are a second
+held-out sample, like `test_*`. `modeling/crossval.py` reads each regime name as a `split` (`val`
+or `test`) and a `novelty` (`new_item`, `new_subject` or `both`). `eval_split` picks which splits
+to evaluate — both by default — and `summary_by_novelty_df` gives one result per novelty: the
+paper's numbers. The three novelties ask different questions and differ a lot in size, so
+`summary_overall_df`, which averages over them, is only a quick check that a run worked.
 
 ---
 
 ## 12. Error analysis and guessing
 
-Vocabulary for the error-analysis Results subsection (expanded substantially in draft2).
+Terms used in the paper's error-analysis section.
 
 | Term | Meaning |
 |---|---|
-| **FN / FP asymmetry** | false negatives occur ~**6×** more often than false positives. No recall/precision preference is applied at training, so this is a property of the data, not of the objective. |
-| **theoretical relabeling** | restating the task as *knows the answer* / *doesn't know*, rather than *answered correctly* / *incorrectly*. The two label sets correlate strongly but asymmetrically. |
-| **the asymmetry itself** | someone who knows will almost certainly select correctly; someone who doesn't still has **≥ 1-in-4** chance of selecting correctly by luck. This is why FN and FP are not symmetric errors under the confidence interpretation. |
-| **empirical guess rate** | the observed proportion of correct responses in Study 2's **no-knowledge** regime — trials where we know the participant could not have known. Fills in the paper's `x%`. |
-| **guessing models** | three assumptions the errors are restated under: guessing among **all four** options (1/4), having **eliminated one** (1/3), or narrowed to a **fifty-fifty** (1/2). |
-| **unlikely trial** | a trial whose predicted probability disagrees strongly with the outcome — a likely-guessed correct answer, or a wrong answer where the correct option was seriously considered. Code: `unlikely_analysis.py` — **stale, and probably not part of this paper** (2026-09-05). The error-analysis subsection is served by `general_model_confusion.ipynb` instead |
-| **model-friendly / model-unfriendly participant** | someone whose feature profile the model predicts well / poorly. The model struggles on participants who attend heavily to the question, and on those who skim the answers including the correct one. |
+| **FN / FP asymmetry** | false negatives occur ~**6×** more often than false positives. No recall/precision preference is applied in training, so this is a property of the data, not of the objective |
+| **theoretical relabeling** | restating the task as *knows the answer* / *doesn't know*, rather than *answered correctly* / *incorrectly*. The two label sets correlate strongly but not symmetrically |
+| **the asymmetry itself** | someone who knows will almost certainly choose correctly; someone who doesn't still has at least a 1-in-4 chance of choosing correctly by luck. So under the confidence reading, FN and FP are not equally serious errors |
+| **empirical guess rate** | the share of correct answers in Study 2's **no-knowledge** regime, where the participant could not have known |
+| **guessing models** | three assumptions the errors are restated under: guessing among **all four** answers (1/4), having **ruled one out** (1/3), or down to **two** (1/2) |
+| **unlikely trial** | a trial whose predicted probability strongly disagrees with the outcome: a probably-guessed correct answer, or a wrong answer where the correct one was seriously considered. Code: `src/explorations/unlikely_analysis/`, which does not back the paper; the paper's error analysis comes from `notebooks/drivers/general_model_confusion.ipynb` |
+| **model-friendly / model-unfriendly participant** | someone whose features the model predicts well / poorly. The model struggles with participants who attend heavily to the question, and with those who skim the answers, the correct one included |
 
 ---
 
-## 13. Other names worth knowing
+## 13. Other names
 
 | Term | Meaning |
 |---|---|
-| **OneStop / OneStopQA** | the source corpus: paragraphs at two difficulty levels, each with three comprehension questions |
-| **L1** | **native language.** In this project's filenames it means the **L1 OneStop dataset** — the native-English-speaker participants. So `L1_based_data/`, `L1_model_ready_all_features.csv`, `L1_paragraph_span_features.csv` are all derived from the native-speaker sample. The prefix encodes a **sample restriction**, not a study number: any future non-native data needs its own namespace rather than reusing these paths. |
-| **L2** | a second, learned language. OneStop also has an L2 (non-native English) portion, which this project does not use. **Study 2 recruits participants of mixed linguistic backgrounds**, which is a stated limitation of that study — the two studies are not matched on language background. |
-| **KnowQA** | Study 2: the new knowledge-regime experiment, and the first real collection under it |
-| **testrun_QA / second_test** | the two pilots that preceded KnowQA |
-| **EyeBench** | the lab's external paragraph-feature extraction pipeline, vendored into `src/external/EyeBench/` |
-| **matching / preference matching** | whether the answer the participant selected is the one their gaze "preferred" on a given metric |
-| **strange trials** | `data/strange_trials.csv` — 9 old trials flagged for having **zero fixations**. ✅ **Verified 2026-09-27 (T3.7): the list still holds exactly** — recomputing zero-dwell trials on the current `all_participants.csv` gives the same 9, across the same 6 participants. So it is accurate, not stale. It is still **not a live exclusion mechanism**: those 9 trials are in the modeling table with all-zero RT/TFD. The other datasets have them too and no file lists them — KnowQA 1, second_test **10** (one participant, t22–t31 consecutive: a tracker dropout), testrun_QA 0. Whether zero-fixation trials belong in the modeling table is an open exclusion question, not something the code decides |
-
----
-
-## Open questions for Diana
-
-*(None currently — the `val_*` question was answered 2026-09-05, see below.)*
-
-**Resolved 2026-09-04/05:**
-
-- `val_*` regimes — **kept and reported**, not dropped. Because the logreg tunes no
-  hyperparameters they function as a second test set rather than a validation set, which is
-  fine as long as they are shown separately. What does change: `summary_overall_df` should
-  stop averaging all six regimes into a single `mean_balanced_accuracy`, since that number
-  mixes val and test (`todo.md` T3.9).
-
-✅ **Done 2026-09-27, with a correction.** Nothing in the project tunes, so val and test are
-interchangeable held-out samples — measured, test 0.769 vs val 0.762 — and mixing them was
-the *lesser* fault. The real one was that the single number also averaged the three
-**novelty** regimes, which ask different questions and differ hugely in size (~875 / ~875 /
-**97** trials per fold). A regime name is now parsed into its two axes, `split` (val/test)
-and `novelty` (`new_item` / `new_subject` / `both`); `eval_split` chooses which splits to
-evaluate, defaulting to both; and `summary_by_novelty_df` carries the three numbers the
-paper reports. Pooling val+test roughly doubles n on the `both` cell, which is the smallest
-and the one the headline comes from.
-
-- `L1`/`L2` mean native / second language (§13).
-- **"Partial knowledge"** is the canonical name for Study 2's middle regime (§5).
-- The **A > B > C > D** answer construction is documented in §4.
-- **Interrupted-scan completion exists** (`build_prefix_completion_map_from_series`), and
-  **no clockwise/counter-clockwise classifier is needed** — those are observations about
-  which strategy tuples came out on top, not a category the code assigns (§8).
-- **`strange_trials.csv`** is a historical list of zero-fixation trials; not a live filter (§13).
-- **`unlikely_analysis.py`** is stale and probably out of this paper (§12).
-- **Study 1's group manipulation is between-participant; Study 2's regime manipulation is
-  within-participant** (§5) — they are not analogous splits.
+| **OneStop / OneStopQA** | the source corpus: paragraphs in two versions (`Adv`, `Ele`), each paragraph with three reading-comprehension questions |
+| **L1** | native language. Study 1 uses OneStop's **L1** part, the native English speakers, so `l1` and `l1_onestop` mean "the native-speaker sample" — not "level 1" or "study 1". Non-native data would need its own name |
+| **L2** | a second, learned language. OneStop also has an L2 part, which is not used here. Study 2's participants have mixed language backgrounds, a stated limitation: the two studies are not matched on it |
+| **KnowQA** | Study 2: the knowledge-regime experiment |
+| **testrun_QA / second_test** | the two pilots run before KnowQA |
+| **EyeBench** | the lab's paragraph-feature code, kept as received in `src/vendor/eyebench/` |
+| **matching / preference matching** | whether the chosen answer is the one the participant's gaze favoured on a given measurement (`features/preference.py`) |
+| **zero-fixation trials** | trials with no fixation on any word. They stay in the model table, with every reading time 0. Study 1 has 9, from 6 participants, listed in `l1_onestop/interim/strange_trials.csv`. Study 2 has 1, the second pilot 10 (one participant, ten trials in a row) and the first pilot none; no file lists those. Whether they belong in the model table is an open question, and the code does not decide it |

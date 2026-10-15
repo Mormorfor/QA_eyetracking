@@ -1,15 +1,17 @@
-"""Which screen area a word sits in, from its on-screen rectangle.
+"""Which screen area each word is in, worked out from where it sits on screen.
 
-This is the T3.18 fix. Area labels used to be derived by counting tokens
-against the stored stimulus text, which silently shifted every boundary after
-a displaced quote -- 20 L1 trials were affected and nobody had looked. Labels
-now come from IA_TOP / IA_LEFT, with the token-count assignment kept as a
-cross-check: geometry wins where they disagree, every override is printed, and
-a disagreement rate above MAX_GEOMETRY_DISAGREEMENT aborts the run rather than
-quietly relabelling a dataset whose screen template does not match.
+Each word's box has a position (IA_TOP, IA_LEFT). The answer screen always has
+the same layout, so position alone says whether a word belongs to the question
+or to which answer.
 
-It lives in ingest/ because it encodes the *screen layout* -- a property of how
-the experiment was displayed, like the report format, not a measurement.
+The pipeline also assigns areas a second way, by counting words in the stored
+question and answer texts. The two are compared on every run:
+
+- where they disagree, position wins, because it is what was measured -- the
+  stored text does not always match what was displayed;
+- every correction is printed;
+- if they disagree on more than 5% of trials, the run stops, because that means
+  the layout below does not describe this dataset's screen.
 """
 
 from __future__ import annotations
@@ -23,22 +25,21 @@ from src.config import columns as C
 # ---------------------------------------------------------------------------
 #  Answer-screen layout
 # ---------------------------------------------------------------------------
-# The answer screen is a fixed template: the question on one or two lines at the
-# top, then the four options in a diamond -- one above, two side by side, one
-# below. Every interest-area rectangle therefore falls into one of four vertical
-# bands, and the middle band splits by x into the left and right options.
+# The answer screen always has the same layout: the question on one or two lines
+# at the top, then the four answers in a diamond -- one above, two side by side,
+# one below. So every word's box falls into one of four horizontal bands, and
+# the middle band is split into left and right.
 #
-# The numbers are midpoints of the gaps measured on OneStop's L1 export: bands at
-# IA_TOP 153-265 / 381-720 / 723-1062 / 1065-1294, with the left option ending at
-# IA_LEFT 873 and the right one starting at 1717. Across 759,990 interest areas
-# no IA_TOP value falls in two bands and no IA_LEFT value in both side options.
-# Study 2 reuses the same screen (KnowQA's IA_TOP spans 153-1290), so the same
-# template applies.
+# The boundaries are the midpoints of the gaps between bands, measured on the
+# Study 1 data: bands at IA_TOP 153-265 / 381-720 / 723-1062 / 1065-1294, with
+# the left answer ending at IA_LEFT 873 and the right one starting at 1717.
+# Across all 759,990 Study 1 words, no word falls in two bands. Study 2 uses the
+# same screen, so the same boundaries apply.
 #
-# NB: these bands cannot be recovered from the gaps within a single trial. Line
-# spacing inside one area is ~110 px while the gap between the top band and the
-# middle one is 3 px, so gap-clustering finds line breaks, not area boundaries.
-# The template has to be stated, and is cross-checked on every run below.
+# The boundaries are written down rather than found from the data, because they
+# cannot be found from a single trial: lines inside one area are ~110 px apart,
+# while two neighbouring bands can be just 3 px apart. Gap-finding would find
+# line breaks, not area boundaries.
 AREA_BAND_QUESTION_TOP = 323.0
 
 
@@ -51,19 +52,17 @@ AREA_BAND_MIDDLE_BOTTOM = 1063.5
 AREA_SPLIT_LEFT_RIGHT = 1295.0
 
 
-# If the template ever stops describing a dataset's display, geometry and token
-# counts disagree on essentially every trial rather than on a handful. Refuse
-# rather than relabel a whole run from a template that does not fit it.
+# If the layout above did not fit a dataset's screen, the two ways of assigning
+# areas would disagree on nearly every trial, not on a handful. Above this share
+# of trials the run stops instead of relabelling everything.
 MAX_GEOMETRY_DISAGREEMENT = 0.05
 
 
 def assign_area_by_geometry(df: pd.DataFrame) -> np.ndarray:
-    """Assign each interest area to a screen area from its on-screen rectangle.
+    """The screen area of each word, from where its box sits on screen.
 
-    Unlike the token-count assignment this reads the measurement rather than an
-    inference from stored text, so it is unaffected by a stored question that
-    carries a token the screen never rendered, or by options reaching the report
-    in a different order than the template assumes.
+    Returns one location per row: "question", "answer_0(top)",
+    "answer_1(left)", "answer_2(right)" or "answer_3(bottom)".
     """
     missing = [c for c in ("IA_TOP", "IA_LEFT") if c not in df.columns]
     if missing:
@@ -88,13 +87,12 @@ def assign_area_by_geometry(df: pd.DataFrame) -> np.ndarray:
 
 
 def _reconcile_area_with_geometry(df: pd.DataFrame) -> pd.DataFrame:
-    """Cross-check the token-count assignment against the on-screen rectangles.
+    """Compare the word-count areas with the on-screen positions, and keep the
+    positions.
 
-    The two agree on all but a handful of trials. Where they differ the rectangle
-    wins: it is what was measured, while the token count is an inference from
-    stored text the display may not have rendered word for word. Corrections are
-    printed rather than applied quietly. See `docs/todo.md` T3.18 for the three
-    ways the stored text drifts from the display and what each one costs.
+    `df` already has `area_screen_loc` from counting words in the stored text.
+    This replaces it with the position-based area, prints how many words and
+    trials changed, and stops with an error if more than 5% of trials changed.
     """
     by_counts = df[C.AREA_SCREEN_LOCATION].to_numpy()
     by_geometry = assign_area_by_geometry(df)

@@ -1,9 +1,8 @@
-"""Gaze "preference" vs. the answer actually selected.
+"""Did the participant choose the answer their eyes "preferred"?
 
-For a given per-area metric, find the answer with the extreme value on that
-metric and label the trial by whether it is the one the participant selected.
-``polarity`` respects the metric's direction (high dwell = preferred, high skip
-rate = not); ``relative`` ignores direction.
+For one per-area measurement, find the answer that stands out most on it --
+e.g. the one looked at longest -- and label each trial "matching" if that is
+the answer the participant chose, otherwise "not_matching".
 """
 
 from __future__ import annotations
@@ -27,32 +26,23 @@ def compute_trial_matching(
     extreme_mode: ExtremeMode = "polarity",
     out_col: str = "pref_group",
 ) -> pd.DataFrame:
-    """
-    Trial-level matching label (one row per TRIAL_ID x PARTICIPANT_ID),
-    while carrying along correctness and optionally other trial-level columns.
+    """One row per trial: the "preferred" answer, and whether it was chosen.
 
-    predicted answer can be defined in two ways:
+    The preferred answer (`pred_label`) is picked one of two ways:
 
-      1) extreme_mode="polarity"
-         - direction="high": argmax(metric) among A-D
-         - direction="low" : argmin(metric) among A-D
+      extreme_mode="polarity"  the highest value (direction="high", e.g. dwell
+                               time) or the lowest (direction="low", e.g. skip
+                               rate) among A-D
+      extreme_mode="relative"  the answer furthest from the trial's average,
+                               in either direction (`direction` is ignored)
 
-      2) extreme_mode="relative"
-         - argmax(|metric - trial_mean(metric)|) among A-D
-           (direction ignored)
+    `out_col` is "matching" if the chosen answer is the preferred one, else
+    "not_matching". Also returns the four answers' values, and `is_correct` if
+    the frame has it.
 
-    matching := selected_answer_label == pred_label
-
-    Required columns:
-      C.TRIAL_ID
-      C.PARTICIPANT_ID
-      C.AREA_LABEL_COLUMN
-      C.SELECTED_ANSWER_LABEL_COLUMN
-      metric_col
-
-    If present, this function will also keep:
-      - C.IS_CORRECT_COLUMN
-
+    A tie goes to the earlier letter (A before B before C before D). Answers
+    with no value are skipped; a trial where all four have no value stops with
+    an error.
     """
 
     required = [

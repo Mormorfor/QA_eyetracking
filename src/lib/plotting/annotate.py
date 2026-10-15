@@ -1,4 +1,4 @@
-"""Error bars, significance brackets and the bare accuracy barplot."""
+"""Small additions to accuracy bar charts: error bars, n labels, significance brackets."""
 
 from __future__ import annotations
 
@@ -21,14 +21,11 @@ def add_wilson_errorbars_and_ns(
     ci_high_col: str = "ci_high",
     show_n: bool = True,
 ) -> None:
-    """
-    Draw Wilson CI error bars and (optionally) add n=... labels above bars.
+    """Draw confidence-interval error bars on each bar, and "n=..." above it.
 
-    Expects columns:
-      - y (default: 'accuracy')
-      - ci_low_col (default: 'ci_low')
-      - ci_high_col (default: 'ci_high')
-      - n_col (default: 'n') if show_n=True
+    `summary_df` has one row per bar, in bar order, with the bar's value (`y`),
+    its interval (`ci_low_col`, `ci_high_col`) and its count (`n_col`). Bars
+    with a missing value or interval get no error bar.
     """
     for i, r in summary_df.reset_index(drop=True).iterrows():
         acc = r[y]
@@ -55,6 +52,11 @@ def add_wilson_errorbars_and_ns(
 
 
 def add_significance_bracket(ax: plt.Axes, stars: str, x1: int = 0, x2: int = 1) -> None:
+    """Draw a bracket joining bars x1 and x2, labelled with `stars`.
+
+    The bracket goes just above the tallest bar, and the y-axis is extended if
+    it would not fit.
+    """
     ymin, ymax = ax.get_ylim()
     yr = ymax - ymin
 
@@ -74,6 +76,7 @@ def add_significance_bracket(ax: plt.Axes, stars: str, x1: int = 0, x2: int = 1)
 
 
 def barplot_accuracy(summary_df: pd.DataFrame, order: Sequence[str], figsize=(6, 4)) -> Tuple[plt.Figure, plt.Axes]:
+    """Plain bar chart of `accuracy` per `group`, in the given order, y from 0 to 1."""
     fig, ax = plt.subplots(figsize=figsize)
     sns.barplot(data=summary_df, x="group", y="accuracy", order=list(order), ax=ax)
     ax.set_ylim(0, 1)

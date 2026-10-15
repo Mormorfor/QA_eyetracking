@@ -1,50 +1,17 @@
-"""The two screens a trial has, as configuration rather than as two code paths.
+"""The two screens a trial can show, described as data.
 
-A participant sees a **paragraph** (in Study 1; a third of Study 2's trials) and
-then an **answer screen**. Both are read, both yield the same eight per-area
-metrics and the same RT/TFD families, and before 2026-10-06 each had its own
-copy of the orchestration that produces them -- the merge loop, the pupil prep,
-the `RT_* -> TimeSinceOffset_*` rename.
+A participant reads a **paragraph** (every Study 1 trial; a third of Study 2's)
+and then sees an **answer screen** with the question and four options. Both
+screens are measured the same way -- the same per-area measurements and the
+same reading times -- so one piece of code serves both. A `Screen` holds only
+the few things that differ between them: which column says what area a word is
+in, and which areas exist.
 
-A `Screen` is the handful of things that genuinely differ. Everything else is
-one implementation taking one of these (`docs/decisions/2026-10-06-stage-d-proposal.md`
-section 3.8, Diana's ruling: *"can the paragraph csv creator be same as QA just
-with a few different flags?"*).
+A `Screen` holds column names and settings, never functions, because `config/`
+must not import `features/`.
 
-**This stays configuration, not behaviour.** `config/` must not import
-`features/`, so a Screen holds column names and switches -- never functions. The
-same rule `Dataset.skip_base_features` follows.
-
-**A field nothing reads is a lie about the design.** `drop_leading_question` was on this record
-briefly on 2026-10-06 and removed the same day, because nothing consumed it yet.
-
-> **Status, 2026-10-13 — the unification is done; this record was not part of how it landed.**
-> An earlier version of this docstring said the field "goes back on the day that step does".
-> The step is done -- stage D step 2c, 2026-10-07 -- and the field did **not** come back, so
-> that sentence was describing a plan rather than the code.
->
-> **What is true:** the collapsed-area-sequence step *is* unified. There is one
-> `features/sequences.py::build_area_sequences` serving both screens, both call the same
-> `area_metrics` primitives, `paragraph/spans.py::span_visit_counts` is a thin caller, and the
-> numbers did not move.
->
-> **What differs from the agreed shape:** §3.9 of the stage-D proposal specified that the
-> unified function would take a `Screen`, and that this record would regain
-> `drop_leading_question` and gain `sequence_vocabularies` (`("label", "loc")` vs `("span",)`).
-> It takes `area_cols` and a plain `drop_leading_question` bool instead, set per call site. So
-> the two properties exist -- they are passed as arguments rather than held here.
->
-> **Left open on purpose** (Diana, 2026-10-13): whether centralizing them on `Screen` would
-> actually improve consistency is a question to answer by reading the call sites, not by
-> matching the proposal. **Do not change the interface or the numbers to close this gap.**
-
-**What is NOT here, deliberately.** The two screens are still *generated
-separately into separate artifacts*, joined on `(participant_id, TRIAL_INDEX)`
-where something wants both (T6.1, Diana). Unifying the orchestration does not
-merge the outputs, and the answer screen keeps `ingest/build.py::main` as its
-production entry point -- it does much more than the paragraph path (base
-features, button clicks, last-visited, the hunters/gatherers split) and reaches
-trial grain later. Making those one pipeline is a separate step.
+Each screen is still processed into its own tables. Where something needs both,
+they are joined on participant_id and TRIAL_INDEX.
 """
 
 from __future__ import annotations
@@ -57,32 +24,23 @@ from src.config import columns as C
 
 @dataclass(frozen=True)
 class Screen:
-    """One reading surface, and the handful of ways it differs from the other."""
+    """One screen of a trial, and the ways it differs from the other one."""
 
     #: Short name, and the key in `SCREENS`.
     key: str
 
-    #: Human label for printed output.
+    #: Readable name for printed output.
     label: str
 
-    #: The column that says which area of this screen a word belongs to.
-    #: `area_label` on the answer screen, `auxiliary_span_type` on the paragraph.
-    #: This single substitution is what lets both screens share every metric
-    #: builder in `features/area_metrics.py`.
+    #: The column that says which area of this screen a word is in:
+    #: `area_label` on the answer screen, `auxiliary_span_type` on the
+    #: paragraph. Swapping this one column is what lets both screens use the
+    #: same measurement code in `features/area_metrics.py`.
     area_col: str
 
-    #: The areas that exist, in reporting order. Also the RT/TFD column suffixes.
+    #: The areas on this screen, in reporting order. Also used as the suffixes
+    #: of the reading-time columns, e.g. RT_pure_answer_A.
     regions: tuple[str, ...]
-
-    # Three fields lived here until 2026-10-08 -- `include_raw_pupil`,
-    # `write_skip_indicator`, `keep_dwell_totals` -- True for the answer screen and
-    # False for the paragraph one, on the grounds that nothing consumed the extra
-    # columns on the paragraph side. Diana: *"lets just include always, its just a few
-    # columns."* Measured before changing: on the paragraph screen the first two add
-    # 6 metric columns (4 raw-mm pupil means + the 2 dwell totals), and the third adds
-    # none at all -- it writes `area_skipped` back onto the caller's frame, which the
-    # paragraph path discards. With both screens agreeing there was nothing left to
-    # configure, so `build_area_metrics` now asks for all three unconditionally.
 
 
 ANSWERS = Screen(
@@ -109,8 +67,7 @@ def screen(key: str) -> Screen:
     return SCREENS[key]
 
 
-# The pupil columns both screens z-score. Raw EyeLink names, so they live here
-# beside the rest of the screen vocabulary rather than being retyped per screen.
+# The raw pupil columns that both screens convert and z-score.
 PUPIL_RAW_COLS: Sequence[str] = (
     C.IA_MAX_FIX_PUPIL_SIZE,
     C.IA_MIN_FIX_PUPIL_SIZE,

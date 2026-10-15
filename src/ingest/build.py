@@ -1,14 +1,28 @@
-"""The prep pipeline: raw reports in, all_participants.csv out.
+"""The answer-screen pipeline: raw reports in, three tables out.
 
-`main()` is the composition root for Stage 1. It reads the raw interest-area and
-fixation reports, runs the base and group features from `ingest/registry.py` in
-registry order, attaches the last-label and RT/TFD blocks, and writes the
-IA-level table plus its auxiliary outputs.
+`main()` turns a dataset's raw interest-area and fixation reports into:
 
-Being the composition root, it imports from both layers -- that is its job, and
-it is the only module here that does. The rule that matters is the one below it:
-no `features/` module imports `ingest/build`, and no `ingest/` primitive
-(`readers`, `geometry`, `clicks`) imports `features/`.
+    interest_areas.csv   one row per word
+    areas_answers.csv    one row per trial and screen area
+    trials.csv           one row per trial
+
+plus side files in `interim/aux/`: button presses, the pupil baseline, reading
+times and the area looked at before each press.
+
+In order, it:
+
+1. rebuilds when each answer was selected and confirmed, from the message log;
+2. reads the interest-area report and drops repeated-reading and practice trials;
+3. runs the row features, then the area and trial features (`ingest/registry.py`);
+4. adds reading times, and the area looked at before each button press;
+5. splits the result into the three tables and saves them.
+
+Nothing is reused from an earlier run: every side file is rebuilt each time.
+
+The paragraph screen is processed separately, by `features/paragraph/spans.py`.
+
+This file imports from `features/` as well as `ingest/` because it is where the
+pieces are put together. No `features/` module imports it.
 """
 
 import os
@@ -50,16 +64,11 @@ def _attach_last_label_features(
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """
-    Compute last-area-label features directly from the processed IA data and
-    merge in:
-    - C.LAST_LBL_BEFORE_SELECT
-    - C.LAST_LBL_BEFORE_CONFIRM
+    """Add the area looked at just before the answer was selected, and just
+    before it was confirmed (`last_lbl_before_select`, `last_lbl_before_confirm`).
 
-    The features are derived on the fly (via
-    src.features.last_visited.compute_last_area_labels) from the trial-level
-    button-click table at `button_clicks_path`. If `save_path` is given, the
-    computed (unmerged) last-label table is written there as an auxiliary artifact.
+    Worked out from the button-press table at `button_clicks_path`. If
+    `save_path` is given, the per-trial result is also saved there.
     """
     if verbose:
         print("Computing last-area-label features…")
@@ -92,22 +101,12 @@ def _attach_rt_and_tfd_features(
     fixations_path: Path = FIX_ANSWERS_PATH,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """
-    Compute RT_pure_/RT_normalized_/TFD_pure_/TFD_normalized_ features directly
-    from the processed IA data and merge them in at trial level on
-    (participant_id, TRIAL_INDEX).
+    """Add the reading times for each answer-screen area, one row per trial.
 
-    The features are derived on the fly (via
-    src.features.reading_times.build_rt_and_tfd), reading the run's own fixation
-    report at `fixations_path` for the run-based RT. **This step does not touch
-    the button-click table.** It used to: run-based RT came from the
-    (timestamp, nearest-IA) list that `ingest/clicks.py` copied into that table,
-    until `compute_run_based_rt` was deleted on 2026-10-06 in favour of reading
-    the fixation report directly (stage D step 3.6). Answer regions only
-    -- paragraph RT/TFD moved to `features/paragraph/spans.py` on 2026-09-23
-    (`todo.md` T6.1), so this step no longer opens any paragraph report and the
-    old `include_paragraph` flag is gone. If `save_path` is given, the computed
-    RT/TFD table is written there as an auxiliary artifact.
+    Built by `features/reading_times.py::build_rt_and_tfd`, which reads this
+    dataset's own fixation report at `fixations_path`. Adds the RT_*, TFD_* and
+    TimeSinceOffset_* columns. If `save_path` is given, the reading-time table
+    is also saved there.
     """
     if verbose:
         print("Computing RT/TFD features…")
@@ -141,11 +140,11 @@ def _save_splits(
     split_output_paths: dict = None,
     verbose: bool = True,
 ):
-    """Partition `df` by the unique values of `split_column` and save each subset.
+    """Save one file per value of `split_column` (e.g. hunters and gatherers).
 
-    The target path for a value is taken from `split_output_paths` (a
-    {value: path} mapping) when provided; otherwise it is derived from
-    `base_output_path` as "<stem>_<split_column>_<value><suffix>".
+    The file for a value is taken from `split_output_paths` ({value: path}) if
+    given; otherwise it is named "<stem>_<split_column>_<value><suffix>" next to
+    `base_output_path`.
     """
     if split_column not in df.columns:
         raise ValueError(
@@ -173,22 +172,19 @@ def save_grain_tables(
     split_column: str = None,
     verbose: bool = True,
 ) -> dict:
-    """Split the broadcast interest-area frame into its three grains and write them.
+    """Split the processed frame into the three tables, check the split, and save.
 
-    Step 4d of `docs/decisions/2026-10-13-feature-grain-proposal.md`. The split is
-    driven by `registry.column_grain()` -- declarations, not observation -- and is
-    checked before anything is written: keys present at every grain, no column
-    lost. A failure here must stop the run rather than write a table that quietly
-    drops a column.
+    Each column goes to the table its declared level says (see
+    `registry.column_grain`). Before anything is written, two checks run: every
+    table has the columns needed to rejoin it, and no column was lost. Either
+    failing stops the run.
 
-    `areas_paragraph` is **not** written here. The paragraph screen is a separate
-    pipeline with its own entry point (`features/paragraph/spans.py`), kept separate
-    by T6.1, and this function only ever sees the answer screen.
+    With `split_column` set, each group's subset is saved in the same call (e.g.
+    `trials__hunters.csv`), so the subsets can never be older than the full
+    tables.
 
-    Group subsets are written in the **same call** as their parent, which is the
-    point of doing it here rather than leaving it to a second pass: on 2026-10-13
-    `model_ready.csv` was five days newer than its own hunters/gatherers copies,
-    because those were a separate rebuild that nothing forced to happen.
+    Answer screen only. The paragraph screen's features are built and saved by
+    `features/paragraph/spans.py`.
     """
     ia, areas, trials = split_by_grain(result_df)
     check_join_keys(ia, areas, trials)
@@ -206,10 +202,9 @@ def save_grain_tables(
 
         if split_column and split_column in result_df.columns:
             key = [C.PARTICIPANT_ID, C.TRIAL_ID]
-            # Rename the facet to a name that cannot collide rather than relying
-            # on merge suffixes: the split column is itself trial-grain, so it is
-            # already present on `trials` and absent from the other two, and a
-            # suffix rule has to be right in both cases. This one does not care.
+            # The split column is already on `trials` but not on the other two
+            # tables. Giving it a temporary name that cannot clash means the same
+            # join works for all three.
             facet_col = "__grain_facet__"
             facets = (
                 result_df[key + [split_column]]
@@ -247,14 +242,12 @@ def _process(
     label: str = "",
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Run base + group pipelines on `df`, optionally attach last-label and
-    RT/TFD features (computed on the fly), and return the enriched DataFrame.
+    """Run every feature on the word-level frame and return it with the new columns.
 
-    The last-label features read the trial-level button clicks; RT reads the
-    answer fixation report directly (since 2026-10-06, stage D step 6). Paragraph
-    RT/TFD is not built here at all -- see `features/paragraph/spans.py` (T6.1).
-    `last_labels_path` / `rt_and_tfd_path`, when given, are where the computed
-    auxiliary tables are saved."""
+    First the row features, then the area and trial features, then (if asked)
+    the area looked at before each button press and the reading times.
+    `last_labels_path` and `rt_and_tfd_path`, when given, are where those last
+    two are also saved."""
     if verbose:
         print(f"\nProcessing {label} (row-level)…")
     out = add_base_features(df, base_funcs, verbose=verbose)
@@ -309,75 +302,65 @@ def main(
     write_broadcast_table: bool = False,
     verbose: bool = True,
 ):
+    """Run the whole answer-screen pipeline, from the raw reports.
+
+    Needs nothing from an earlier run, and reuses nothing: every side file is
+    rebuilt each time and saved only as a record of what this run used.
+
+    **What gets saved:**
+
+    - `dataset=` -- pass the dataset's record (`config/datasets.py`) to save
+      the three tables (interest_areas, areas_answers, trials). **Without it, no
+      table is saved** -- only the side files below.
+    - `write_broadcast_table=True` -- also save the single wide table
+      (one row per word, everything copied onto it) to `output_path`.
+    - `split_column` -- also save each group's subset, e.g.
+      `split_column=question_preview` gives `trials__hunters.csv` and
+      `trials__gatherers.csv`. `split_output_paths` ({value: path}) names the
+      subsets of the wide table, and is only used with `write_broadcast_table`.
+    - `save_auxiliary` -- save the side files in `interim/aux/` (on by default).
+
+    **Inputs:**
+
+    - `ia_answers_path` -- the interest-area report (one row per word).
+    - `fixations_path` -- the matching fixation report (one row per fixation).
+      Used for the fixation sequence, the reading times and, unless
+      `pupil_fixations_path` says otherwise, the pupil baseline.
+    - `button_clicks_fix_csv_path` + `button_clicks_fix_tsv_path` -- where the
+      button presses are rebuilt from. Study 1 keeps the message log in a
+      separate TSV export. For a report that holds everything in one file (Study
+      2), pass `button_clicks_fix_tsv_path=None`, and set
+      `button_clicks_msg_participant_col` and `all_answers_is_cumulative=False`
+      to match it.
+
+    **Side files** (saved when `save_auxiliary=True`):
+
+    - the answer-screen pupil baseline: each participant's typical pupil size,
+      worked out from the fixation report -> `pupil_stats_path`. The paragraph
+      screen has its own baseline, made in `features/paragraph/spans.py`.
+    - the button presses (only when `add_last`) -> `button_clicks_path`.
+    - the area looked at before each press (`add_last`) -> `last_labels_path`.
+    - the reading times (`add_rts`) -> `rt_and_tfd_path`.
+
+    **Other settings:**
+
+    - `remove_repeats`, `remove_practice` -- drop repeated-reading and practice
+      trials (both on by default).
+    - `base_function_names`, `group_function_names` -- run only these registry
+      entries instead of all of them.
+    - `filter_raw_columns` -- read only the raw columns something declares it
+      needs (`registry.raw_whitelist`). Pass False to read every column, e.g. to
+      check that the filter changes nothing.
     """
-    Full preprocessing pipeline. Runs end-to-end from the raw DATA_RAW reports —
-    no previously-generated file is required.
-
-    By default, all trials are processed together (after filtering repeated and
-    practice trials) and saved as a single combined CSV to `output_path`
-    (all_participants.csv).
-
-    `fixations_path` is the single canonical fixations report for the run. It feeds
-    both the participant pupil stats and the fixation-sequence group feature
-    (`create_fixation_sequence_tags`); point it at the matching fixations report when
-    processing a different raw dataset.
-
-    **Nothing here is cached. Every intermediate is rebuilt on every run**
-    (Diana, 2026-10-15). The auxiliary files below are a *record* of what a run
-    produced, never an input to the next one. The previous behaviour — reuse
-    `button_clicks_data.csv` whenever it happened to exist — is why L1's copy was
-    three months older than every other file beside it, having survived the T3.18
-    geometry fix and two full rebuilds without anything saying so.
-
-    Intermediate ("auxiliary") artifacts are all derived on the fly and, when
-    `save_auxiliary=True`, persisted under the dataset's `interim/aux/`:
-    - the answer-screen pupil baseline — always computed from the fixation data at
-      `pupil_fixations_path` (which defaults to `fixations_path`), per participant.
-      Saved to `pupil_stats_path`. The paragraph screen has its own, separate
-      baseline; see `features/paragraph/spans.py`.
-    - button clicks — the one derived *input* the **last-label** step needs, so it is
-      built only when `add_last` runs, and always rebuilt from raw (via
-      clicks.run_trial_level_pipeline), reading from `button_clicks_fix_csv_path`
-      + `button_clicks_fix_tsv_path`. `add_rts` does NOT need it — run-based RT has
-      read the fixation report directly since 2026-10-06. For a self-contained report that holds both the
-      message and fixation columns (e.g. the new experiment fixations), pass
-      `button_clicks_fix_tsv_path=None` and set `button_clicks_msg_participant_col`
-      (e.g. participant_id) and `all_answers_is_cumulative=False` to match it.
-    - last-area labels (`add_last`) → `last_labels_path`.
-    - RT/TFD features (`add_rts`) → `rt_and_tfd_path`.
-
-    If `split_column` is provided (e.g. C.QUESTION_PREVIEW_COLUMN to recover the
-    hunters/gatherers split), the processed DataFrame is *additionally*
-    partitioned by the unique values of that column and each partition is saved
-    as its own CSV. Use `split_output_paths` (a {value: path} mapping) to control
-    the per-split filenames, e.g.::
-
-        main(
-            split_column=C.QUESTION_PREVIEW_COLUMN,
-            split_output_paths={
-                True: HUNTERS_PROCESSED_PATH,
-                False: GATHERERS_PROCESSED_PATH,
-            },
-        )
-    """
-    # The canonical fixations report feeds both the pupil stats and the
-    # fixation-sequence group feature. pupil_fixations_path can still override just
-    # the pupil-stats source when set explicitly; otherwise it follows fixations_path.
+    # The pupil baseline comes from the same fixation report as everything else,
+    # unless pupil_fixations_path names a different one.
     if pupil_fixations_path is None:
         pupil_fixations_path = fixations_path
 
-    # Button clicks is the one derived input the RT/last-label steps need, so only
-    # build it when those steps run. Always rebuilt from raw, routing to the
-    # configured fixations source (default: the legacy CSV + separate TSV; pass
-    # button_clicks_fix_tsv_path=None for a self-contained new-data report).
-    #
-    # This used to be reused whenever the file existed. It is the only place in the
-    # prep pipeline that ever read its own previous output, and the staleness was
-    # invisible: the table holds fixation ids and timestamps, which still *look*
-    # right after an upstream change that invalidated them.
-    # `add_last` only: run-based RT stopped reading this table on 2026-10-06. The
-    # gate said `add_last or add_rts` until 2026-10-15, which was merely wasteful
-    # while the table was cached and is a full raw rebuild now that it is not.
+    # The button presses are needed only for "the area looked at before each
+    # press" (add_last), so they are built only then -- always from the raw
+    # reports, never reused from an earlier run. A saved press table from an
+    # earlier run can look perfectly valid and still be out of date.
     needs_button_clicks = add_last
     if needs_button_clicks:
         if verbose:
@@ -394,13 +377,9 @@ def main(
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
 
-    # The read-time column whitelist (stage D section 3.4; proved and switched on
-    # 2026-10-13, step 2 of the grain proposal). Built here rather than in
-    # `readers.py` so that the primitive stays free of the registry -- see
-    # `load_raw_answers_data`.
-    #
-    # `filter_raw_columns=False` reads every column, which is how the proof is
-    # re-run: one pass each way, compared byte for byte. Keep that escape hatch.
+    # Read only the raw columns something declares it needs. The list is built
+    # here, not in readers.py, so that readers.py does not depend on the registry.
+    # filter_raw_columns=False reads every column instead.
     usecols = None
     if filter_raw_columns:
         header = pd.read_csv(ia_answers_path, nrows=0, engine="python").columns
@@ -428,9 +407,8 @@ def main(
     base_funcs = resolve_base_functions(base_function_names)
     group_funcs = resolve_group_functions(group_function_names)
 
-    # The fixations report has up to two consumers: the pupil-stats computation and
-    # the fixation-sequence group feature. Load it once here and share the resulting
-    # DataFrame with both, instead of letting each re-read the same large file.
+    # The fixation report is large and two things need it: the pupil baseline and
+    # the fixation sequence. Load it once here and hand the same table to both.
     needs_pupil_fix = any(
         func is add_zscored_pupil_columns for func, _ in base_funcs
     )
@@ -444,8 +422,7 @@ def main(
             print(f"\nLoading fixations report once from: {fixations_path}")
         fixations_df = pd.read_csv(fixations_path)
 
-    # Route the loaded fixations into the fixation-sequence group feature (it reads
-    # raw fixation rows). Mirrors the pupil-stats injection for base funcs.
+    # Give the loaded fixation table to the fixation-sequence feature.
     if needs_seq_fix:
         group_funcs = [
             (func, {**kwargs, "fix_path": fixations_df})
@@ -454,22 +431,20 @@ def main(
             for func, kwargs in group_funcs
         ]
 
-    # Resolve the ANSWER-SCREEN pupil baseline once and inject it into the pupil
-    # z-scoring base feature (only if that feature is actually being run). Reuse the
-    # shared fixations_df when the pupil source is the canonical report; otherwise
-    # get_participant_pupil_stats reads the explicit pupil_fixations_path override.
+    # Work out each participant's typical pupil size on the answer screen, and give
+    # it to the pupil z-scoring feature (only if that feature is being run). It is
+    # always computed from this run's fixations, never loaded from a file.
     #
-    # Always computed, never loaded (2026-10-15). The paragraph screen builds its
-    # own baseline from its own fixations in `features/paragraph/spans.py` -- the
-    # two screens differ in luminance and in task, so they are separate quantities
-    # and are saved under separate names.
+    # The paragraph screen gets its own baseline, in features/paragraph/spans.py:
+    # the two screens differ in brightness and in task, so a person's typical
+    # pupil size is not the same on both.
     if any(func is add_zscored_pupil_columns for func, _ in base_funcs):
         pupil_stats = get_participant_pupil_stats(
             fixations_path=pupil_fixations_path,
             fixations=fixations_df if pupil_fixations_path == fixations_path else None,
             verbose=verbose,
         )
-        # Persist as an auxiliary artifact: a record of the baseline this run used.
+        # Saved as a record of the baseline this run used.
         if save_auxiliary:
             _save(
                 pupil_stats, pupil_stats_path,
@@ -496,16 +471,11 @@ def main(
         verbose=verbose,
     )
 
-    # The pre-split broadcast table: `all_participants.csv` and its group splits.
-    #
-    # **Off by default since 2026-10-13.** Every consumer now reads the grain
-    # tables below, and on L1 these three files were 5.8 GB holding the same data
-    # at ~39x redundancy -- 46% of their columns were constant within a trial.
-    # Leaving this on would recreate that on the next prep run.
-    #
-    # The switch stays rather than the code going, because the frame itself does
-    # not go away: `processed` is what the split is computed from, so persisting
-    # it is a one-flag question rather than a rebuild.
+    # The single wide table (all_participants.csv) and its group subsets. Off by
+    # default: it holds the same data as the three tables below, but with every
+    # trial-level value copied onto each of ~39 word rows -- on Study 1 that is
+    # 5.8 GB. Code that wants the wide frame rebuilds it from the three tables
+    # with features/build.py::load_model_input.
     if write_broadcast_table:
         _save(processed, output_path, label="all_participants", verbose=verbose)
 
@@ -520,8 +490,7 @@ def main(
                 verbose=verbose,
             )
 
-    # The three grains (step 4d) -- the only thing written by default now.
-    # `dataset=None` skips them, for a caller that wants the old output alone.
+    # The three tables. Only saved when the caller passed `dataset=`.
     if dataset is not None:
         if verbose:
             print("\nSplitting into grains…")

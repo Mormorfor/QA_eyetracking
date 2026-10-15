@@ -1,24 +1,13 @@
-"""Which participants a quantity is computed over.
+"""Splitting Study 1's participants into hunters and gatherers.
 
-The two functions here split the same way -- on `question_preview` -- and are
-**not** duplicates, which is the thing to notice before anyone tries to merge
-them:
+Both functions split on `question_preview` (True = hunters, False =
+gatherers), but they are not duplicates:
 
-  split_hunters_and_gatherers  pipeline-time. Returns a (hunters, gatherers)
-                               tuple and does the repeated/practice filtering
-                               itself, because it runs before the processed
-                               table exists.
-  split_participant_groups     plot-time. Returns a dict of named groups,
-                               optionally including "all_participants", and
-                               assumes filtering already happened.
-
-Both were moved here in stage C (map section 5.2) because grouping is a domain
-concept, not a plotting one -- `split_participant_groups` lived in viz_helpers,
-where its `include_all=False` default is what hides the all-participants
-strategy figure (`findings.md` section 1.2).
-
-This is also where the T3.21 scope machinery belongs if it ever needs a home
-outside features/strategies.py.
+  split_hunters_and_gatherers  for raw data: also drops repeated-reading and
+                               practice trials, and returns (hunters, gatherers)
+  split_participant_groups     for processed data, where those trials are
+                               already gone: returns {name: frame}, optionally
+                               with "all_participants" too
 """
 
 from __future__ import annotations
@@ -31,11 +20,8 @@ from src.config import columns as C
 
 
 def split_hunters_and_gatherers(df, remove_repeats=True, remove_practice=True):
-    """
-    Split trials into 'hunters' and 'gatherers' based on question preview.
-    Optionally removes repeated and practice trials before splitting.
-
-    """
+    """Split raw trials into hunters and gatherers, after dropping
+    repeated-reading and practice trials (both on by default)."""
     df_filtered = df.copy()
     if remove_repeats:
         df_filtered = df_filtered[df_filtered[C.REPEATED_TRIAL_COLUMN] == False].copy()
@@ -48,42 +34,20 @@ def split_hunters_and_gatherers(df, remove_repeats=True, remove_practice=True):
     return df_hunters, df_gatherers
 
 
-# ---------------------------------------------------------------------------
-#  Basic per Row Features Creation
-# ---------------------------------------------------------------------------
-
-
 def split_participant_groups(
     all_participants: pd.DataFrame,
     split: bool = True,
     include_all: bool = True,
 ) -> Dict[str, pd.DataFrame]:
-    """
-    Split a single ``all_participants`` DataFrame into the groups the
-    visualisation modules plot over.
+    """Split processed data into the groups the figures are drawn for.
 
-    The hunters/gatherers distinction is the question-preview split (mirrors
-    ``features.scope.split_hunters_and_gatherers``):
-      - hunters   : ``question_preview == True``
-      - gatherers : ``question_preview == False``
+    Returns ``{"hunters": ..., "gatherers": ..., "all_participants": ...}``,
+    where all_participants is the two halves put back together.
 
-    ``all_participants`` is expected to be the processed all-participants table
-    (repeated/practice trials already removed by the generation pipeline), so
-    the two halves reconcatenate to it exactly.
+    - ``split=False`` returns only ``{"all_participants": ...}``.
+    - ``include_all=False`` leaves out "all_participants".
 
-    Returns an insertion-ordered dict::
-
-        {"hunters": ..., "gatherers": ..., "all_participants": ...}
-
-    Parameters
-    ----------
-    split : bool, default True
-        If ``False``, skip the hunters/gatherers split entirely and return a
-        single group ``{"all_participants": all_participants}`` (``include_all``
-        is ignored in that case).
-    include_all : bool, default True
-        When splitting, whether to also include the ``"all_participants"`` entry
-        (the concatenation of the two halves). Ignored when ``split=False``.
+    A group with no rows is dropped, with a printed note.
     """
     if not split:
         return {"all_participants": all_participants}
@@ -98,11 +62,10 @@ def split_participant_groups(
             [hunters, gatherers], ignore_index=True
         )
 
-    # A group with no rows is not a group. It arises when this is handed a frame
-    # that only holds one side of the split (hunters.csv, say) -- legitimate
-    # usage, but every downstream summary would then be computed over zero
-    # trials and report a result anyway: Fisher on an all-zero table returns
-    # p = 1.0, not an error. Drop such groups and say so.
+    # An empty group happens when the frame holds only one side of the split
+    # (only hunters, say). Kept, it would still produce results -- a Fisher
+    # test on an all-zero table returns p = 1.0, not an error. So it is dropped,
+    # with a note.
     empty = [name for name, frame in groups.items() if frame.empty]
     for name in empty:
         print(f"[split_participant_groups] no rows for {name!r} -- group skipped")

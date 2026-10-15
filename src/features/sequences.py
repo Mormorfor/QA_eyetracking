@@ -1,13 +1,25 @@
-"""Fixation-sequence features: parsing, hesitation patterns, trial mean dwell.
+"""The order in which areas were looked at, and statistics of it.
 
-Split out of derived/correctness_measures.py (2026-10-06). These six are the
-half that `features/build.py` consumes as FEATURES; the
-correctness summaries that used to sit beside them are analysis and stayed
-behind until stage E gives them a home.
+For each trial this builds:
 
-Note what `has_back_and_forth_xyx` actually checks: the LAST three tokens of
-the collapsed sequence, not any back-and-forth anywhere in it. The names read
-more broadly than the behaviour.
+    fix_by_label / fix_by_loc         one entry per fixation: which area
+                                      (by meaning / by place)
+    simpl_fix_by_label / _by_loc      the same with repeats merged:
+                                      A A B A -> A B A
+    num_label_visits / num_loc_visits how many times each area was entered
+
+and five statistics of the merged sequence (`DERIVED_COLS`):
+
+    seq_len                 how many visits: the merged sequence's length
+    has_xyx                 1 if the sequence ENDS in x-y-x (e.g. A B A)
+    has_xyxy                1 if it ENDS in x-y-x-y (e.g. A B A B)
+    longest_alt_answer_run  the longest stretch anywhere that alternates
+                            between two answers
+    trial_mean_dwell        average looking time per word on the screen
+
+Careful with `has_xyx` and `has_xyxy`: they look only at the LAST three or four
+entries, not for a back-and-forth anywhere. Any area counts, including the
+question, so "answer_A, question, answer_A" at the end counts as x-y-x.
 """
 
 from __future__ import annotations
@@ -27,7 +39,11 @@ from src.config.datasets import FIX_ANSWERS_PATH
 
 
 def sequence_len_literal_eval(x) -> int:
-    """Sequences come as string representations of lists/tuples. Invalid -> 0."""
+    """The length of a stored sequence (text like "['a', 'b']", or a list).
+
+    Anything that cannot be read as a list -- missing, or malformed text --
+    counts as length 0, so it looks the same as an empty sequence.
+    """
     if x is None:
         return 0
     if isinstance(x, float) and np.isnan(x):
@@ -41,7 +57,11 @@ def sequence_len_literal_eval(x) -> int:
 
 
 def parse_seq(x):
-    """Parse sequence column via ast.literal_eval (expects list/tuple)."""
+    """Read a stored sequence into a list or tuple.
+
+    Accepts the text form (after a CSV round trip) or the list/tuple itself.
+    Anything that cannot be read gives None.
+    """
     if x is None:
         return None
     if isinstance(x, float) and np.isnan(x):
@@ -55,7 +75,10 @@ def parse_seq(x):
 
 
 def has_back_and_forth_xyx(seq) -> bool:
-    """Does the sequence END in an x-y-x return? Only the last 3 tokens are read."""
+    """True if the last three entries are x, y, x (with x and y different).
+
+    Only the end of the sequence is checked.
+    """
     if seq is None or len(seq) < 3:
         return False
     a, b, c = seq[-1], seq[-2], seq[-3]
@@ -63,10 +86,10 @@ def has_back_and_forth_xyx(seq) -> bool:
 
 
 def has_back_and_forth_xyxy(seq) -> bool:
-    """Does the sequence END in an x-y-x-y alternation? Only the last 4 tokens are read.
+    """True if the last four entries are x, y, x, y (with x and y different).
 
-    For the graded version over the whole sequence, see
-    ``longest_alternating_answer_run``.
+    Only the end of the sequence is checked. For a version that looks at the
+    whole sequence, see ``longest_alternating_answer_run``.
     """
     if seq is None or len(seq) < 4:
         return False
@@ -75,13 +98,12 @@ def has_back_and_forth_xyxy(seq) -> bool:
 
 
 def longest_alternating_answer_run(seq, exclude_label: str = "question") -> int:
-    """
-    Length of the longest contiguous run that strictly alternates between two
-    distinct answer labels (an "x y x y x ..." pattern), where x and y are any
-    two distinct labels other than ``exclude_label`` (the question).
+    """The longest stretch, anywhere in the sequence, that goes back and forth
+    between two answers (x y x y x ...).
 
-    The ``exclude_label`` breaks a run (it is not part of the alternation), as
-    does any repeat (``x x``) or a switch to a third symbol.
+    The question (``exclude_label``) breaks a stretch, as does a repeat
+    (``x x``). Moving on to a third answer starts a new stretch from the last
+    two entries.
 
     Examples (answers a, b, c; q = question):
         [a, b, a, b, a]      -> 5
@@ -119,10 +141,10 @@ def compute_trial_mean_dwell_per_word(
     df: pd.DataFrame,
     dwell_col: str = Con.IA_DWELL_TIME,
 ) -> pd.Series:
-    """Mean dwell per word on the trial, broadcast back onto every IA row.
+    """Average looking time per word on the trial, repeated on every word row.
 
-    ``transform`` keeps the IA grain, so the result is still one value per word
-    -- collapse before testing on it.
+    The result has one value per word row, not per trial, so collapse it to one
+    row per trial before running any test on it.
     """
     total_dwell = df.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
         "sum"
@@ -133,13 +155,8 @@ def compute_trial_mean_dwell_per_word(
     return total_dwell / n_words
 
 # ---------------------------------------------------------------------------
-# Moved here from data_prep/data_csv_generation.py in stage C (2026-10-06).
-# These are the registry's `create_*` / `add_*` entries -- the functions the
-# prep pipeline calls to put columns on the IA frame. They mutate the frame
-# they are handed and depend on registry order; that is kept as-is by decision
-# (Diana, 2026-10-06), with the default runner executing them in that order.
+# Building the sequences
 # ---------------------------------------------------------------------------
-
 
 
 def build_area_sequences(
@@ -151,31 +168,26 @@ def build_area_sequences(
     drop_leading_question: bool = False,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Per trial, the ordered sequence of areas the eyes passed through.
+    """For each trial, the areas the eyes passed through, one entry per fixation.
 
-    **One implementation for both screens** (stage D step 2c). The five steps --
-    parse the serialized id sequence, resolve off-area fixations against the
-    nearest-interest-area queue, map ids to areas, optionally drop an opening
-    question fixation, and return -- were written twice: once inline here for
-    the answer screen, and once in `features/paragraph/spans.py` for the
-    paragraph screen. The paragraph copy already called the shared primitives in
-    `area_metrics`; the answer copy predated them and carried its own versions.
+    Both screens use this. For each trial it:
 
-    `area_cols` is the vocabulary (or vocabularies) to map onto. The answer
-    screen passes two -- area label and screen location -- and gets one list
-    column per vocabulary back; the paragraph screen passes its span column
-    alone. That is the only structural difference between the screens here.
+    1. reads the tracker's list of fixated word ids,
+    2. places fixations that missed every word on the nearest word,
+    3. turns each word id into its area,
+    4. optionally (answer screen) drops a single opening fixation on the question.
 
-    The nearest queue comes either from `fixations` (built here in **one
-    groupby**) or prebuilt as `nearest_by_trial`, which is keyed
-    `(str(participant_id), str(trial_id))` either way -- stringified because
-    KnowQA's trial index is a composite string and L1's is an integer. The paragraph screen builds
-    its own during the single streaming pass it already makes over a multi-GB
-    report, so it passes the dict.
+    `area_cols` names the area column(s) to use. The answer screen passes two
+    -- area by meaning and by place -- and gets a list column for each; the
+    paragraph screen passes its one column.
 
-    A fixation that can be placed neither directly nor from the queue is
-    **dropped and counted**, never fatal (Diana, 2026-09-23) -- see
-    `area_metrics.resolve_fixation_sequence`.
+    The nearest-word lists come from `fixations` (the fixation report), or are
+    passed in ready-made as `nearest_by_trial`, keyed by (participant_id,
+    TRIAL_INDEX) as text. The paragraph screen passes them in, because it builds
+    them while it reads its large fixation report anyway.
+
+    A fixation that cannot be placed at all is dropped, and the total number
+    dropped is printed.
     """
     from src.features import area_metrics as am
 
@@ -188,18 +200,9 @@ def build_area_sequences(
                 "build_area_sequences needs either `fixations` (to build the "
                 "nearest-interest-area queue from) or a prebuilt `nearest_by_trial`."
             )
-        # One pass, not one scan per trial. The previous answer-screen version
-        # filtered the whole fixation frame inside the per-trial loop -- 19,436
-        # boolean scans of a 718k-row frame on L1, which is what the registry
-        # comment meant by "slow for now".
-        #
-        # Restricted to the trials in `df` first. The fixation report also holds
-        # trials that carry no interest-area data at all and were therefore
-        # excluded upstream, so they are absent from `df` -- on L1, 2 of them,
-        # every fixation off-area and without even a nearest area. Their queues
-        # are never looked up, so building them is wasted work; it is also how
-        # they reached `nearest_ia_queue` and crashed the build. Scoping here
-        # keeps the population the same as the per-trial loop's was.
+        # Built in one pass over the fixation report, and only for the trials in
+        # `df`: the report also holds trials with no word data, which were
+        # dropped earlier and whose lists would never be used.
         wanted = pd.MultiIndex.from_frame(
             df[[Con.PARTICIPANT_ID, Con.TRIAL_ID]].astype(str).drop_duplicates()
         )
@@ -242,9 +245,9 @@ def build_area_sequences(
             f"  area sequences: {dropped:,} fixation(s) on {unplaced_trials:,} trial(s) "
             f"could not be placed in any interest area and were dropped"
         )
-    # A queue keyed differently from this frame would look exactly like "no
-    # off-area fixations anywhere" -- every one silently dropped. Counted so a
-    # key or dtype mismatch is visible instead of being absorbed.
+    # If the nearest-word lists were keyed differently from this frame, every
+    # trial would look as if it had none, and every missed fixation would be
+    # dropped. Counted, so such a mismatch is visible.
     if no_queue:
         print(
             f"  area sequences: {no_queue:,} trial(s) have off-area fixations but NO "
@@ -255,17 +258,12 @@ def build_area_sequences(
 
 
 def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
-    """Per-trial fixation sequences for the answer screen, by label and by location.
+    """The answer screen's fixation sequences: `fix_by_label` (which area) and
+    `fix_by_loc` (where on screen), one entry per fixation.
 
-    A thin call since stage D step 2c. The parse / resolve / map / trim logic it
-    used to contain inline is now `build_area_sequences`, shared with the
-    paragraph screen, which calls the same `area_metrics` primitives the
-    paragraph side already used.
-
-    Two vocabularies, so two list columns come back: `fix_by_label` (which area)
-    and `fix_by_loc` (where on the screen). `drop_leading_question=True` is the
-    answer screen's one extra step -- a lone opening fixation on the question is
-    spillover from the question screen, and the paragraph screen has no question.
+    A single opening fixation on the question is dropped, as left over from the
+    previous screen. `fix_path` is the fixation report, as a path or already
+    loaded.
     """
     fixations = fix_path if isinstance(fix_path, pd.DataFrame) else pd.read_csv(fix_path)
     out = build_area_sequences(
@@ -283,30 +281,15 @@ def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
 
 
 def create_simplified_fixation_tags(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create simplified fixation sequences by collapsing consecutive fixations
-    on the same area into a single step.
+    """Merge repeats in each trial's fixation sequences, so each entry is a visit.
 
-    For each (TRIAL_ID, PARTICIPANT_ID), this function:
-    1. Reads the fixation sequence from INTEREST_AREA_FIXATION_SEQUENCE
-       (a serialized list of IA_IDs, e.g. "[1, 2, 2, 3, 3, 3, 2]").
-    2. Maps each IA_ID to:
-       - AREA_LABEL_COLUMN       (e.g. 'question', 'answer_A', ...)
-       - AREA_SCREEN_LOCATION    (e.g. 'top', 'left', ...)
-    3. Filters out IA_IDs that are not present in the group's IA set.
-    4. Collapses consecutive fixations on the same label into a single entry
-       (run-length compression).
+    Reads `fix_by_label` and `fix_by_loc` (from `create_fixation_sequence_tags`)
+    and writes `simpl_fix_by_label` and `simpl_fix_by_loc`. For example:
 
-    Example
-    -------
-    Raw label sequence:
         ['question', 'question', 'answer_A', 'answer_A', 'answer_B']
-    Simplified label sequence:
-        ['question', 'answer_A', 'answer_B']
+     -> ['question', 'answer_A', 'answer_B']
 
-    The location sequence is compressed in parallel, taking the location
-    of the first fixation in each run.
-
+    Repeats are merged by area; the place sequence is merged at the same points.
     """
     rows = []
     for (trial_id, participant_id), g in df.groupby(
@@ -342,15 +325,11 @@ def create_simplified_fixation_tags(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
-    """
+    """How many times each area was entered, one row per trial and area.
 
-    For each (trial, participant):
-      - Count occurrences of each label in SIMPLIFIED_FIX_SEQ_BY_LABEL
-      - Count occurrences of each location in SIMPLIFIED_FIX_SEQ_BY_LOCATION
-
-    Then for each (trial, participant, area_label):
-      - num_label_visits = count of that area_label in label sequence
-      - num_loc_visits   = count of that area's screen location in location sequence
+    `num_label_visits` counts the area (by meaning) in the merged sequence;
+    `num_loc_visits` counts its screen position in the merged place sequence.
+    An area never entered gets 0.
     """
     df_local = df.copy()
 
@@ -407,32 +386,14 @@ def create_simplified_visit_counts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# The five sequence statistics, as registry entries
+# The five sequence statistics
 #
-# Step 5 of `docs/decisions/2026-10-13-feature-grain-proposal.md`. These are the
-# `DERIVED_COLS` -- five columns that were built by a hand-written block inside
-# `features/build.py::build_trial_level_derived_features` rather than declared,
-# for no reason beyond `FUNCTION_REGISTRY` having stopped being the obvious place
-# by the time they were written (stage D proposal, "'Derived' is a date, not a
-# category"). They are sequence statistics, and they sit in the same module as
-# `create_simplified_fixation_tags`, which has always been a registry entry.
-#
-# **Five entries, not one** (Diana, 2026-10-13): each is its own quantity and
-# declares its own `needs`.
-#
-# **This is also cheaper than the block it replaces.** That block parsed the
-# sequence once per interest-area row -- 760,628 parses on L1 -- and then threw
-# away 38 of every 39 with a `groupby(...).first()`. Collapsing first and parsing
-# at trial grain is 19,436 parses per statistic, 97,180 for all five: about 7.8x
-# fewer. The values are identical because the sequence column is trial-grain.
+# Each is its own registry entry (see ingest/registry.py), one value per trial.
 # ---------------------------------------------------------------------------
 
 
-#: The five sequence statistics, in the order they are reported.
-#:
-#: Canonical here, beside the functions that build them. `modeling/feature_sets.py`
-#: imports this rather than keeping a second copy -- one name per concept, and a
-#: feature set cannot drift from what the pipeline actually produces.
+#: The five sequence statistics, in reporting order. `modeling/feature_sets.py`
+#: imports this list, so the model's feature names always match what is built.
 DERIVED_COLS = [
     "seq_len",
     "has_xyx",
@@ -445,21 +406,16 @@ DERIVED_COLS = [
 def _trial_sequences(df: pd.DataFrame, seq_col: str) -> pd.DataFrame:
     """One parsed sequence per trial.
 
-    Collapse first, parse second. `seq_col` is trial-grain -- declared so, and
-    checked against the data by `registry.check_declared_grains` -- so `.first()`
-    loses nothing.
+    The sequence is the same on every word row of a trial, so taking the first
+    row per trial loses nothing.
     """
     out = (
         df.groupby(list(Con.TRIAL_ID_COLS), as_index=False)[seq_col]
         .first()
     )
-    # `parse_seq`, not `ast.literal_eval` -- the column is a **string** when it has
-    # been through a CSV round trip and an actual **tuple** when it has not. The
-    # block this replaced only ever ran at model-ready time, reading the string
-    # form, so a bare `literal_eval` was enough there. These run during prep, where
-    # the sequence is still the in-memory tuple `create_simplified_fixation_tags`
-    # produced, and `literal_eval` raises on it. Found by rebuilding KnowQA,
-    # 2026-10-13.
+    # `parse_seq` rather than `ast.literal_eval`: the sequence is text after it
+    # has been saved and read back, but still a tuple during the pipeline run,
+    # and `literal_eval` fails on a tuple.
     out["_seq"] = out[seq_col].apply(parse_seq)
     return out
 
@@ -467,7 +423,11 @@ def _trial_sequences(df: pd.DataFrame, seq_col: str) -> pd.DataFrame:
 def create_seq_len(
     df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
 ) -> pd.DataFrame:
-    """Number of area transitions in the trial's collapsed sequence."""
+    """`seq_len`: how many visits the trial had, i.e. the merged sequence's length.
+
+    A A B A -> A B A -> 3. Visits to the question count. 0 if the sequence is
+    missing.
+    """
     out = _trial_sequences(df, seq_col)
     out["seq_len"] = out["_seq"].apply(
         lambda s: len(s) if isinstance(s, (list, tuple)) else 0
@@ -478,7 +438,11 @@ def create_seq_len(
 def create_has_xyx(
     df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
 ) -> pd.DataFrame:
-    """Does the trial end in an x-y-x return? Only the last three tokens count."""
+    """`has_xyx`: 1 if the merged sequence ENDS in x, y, x (e.g. A B A), else 0.
+
+    Only the last three entries are checked. Any area counts, including the
+    question.
+    """
     out = _trial_sequences(df, seq_col)
     out["has_xyx"] = out["_seq"].apply(
         lambda s: bool(has_back_and_forth_xyx(s)) if s is not None else False
@@ -489,7 +453,11 @@ def create_has_xyx(
 def create_has_xyxy(
     df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
 ) -> pd.DataFrame:
-    """The doubled version of `has_xyx` -- the last four tokens."""
+    """`has_xyxy`: 1 if the merged sequence ENDS in x, y, x, y (e.g. A B A B), else 0.
+
+    Only the last four entries are checked. Any area counts, including the
+    question.
+    """
     out = _trial_sequences(df, seq_col)
     out["has_xyxy"] = out["_seq"].apply(
         lambda s: bool(has_back_and_forth_xyxy(s)) if s is not None else False
@@ -500,7 +468,8 @@ def create_has_xyxy(
 def create_longest_alt_answer_run(
     df: pd.DataFrame, seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
 ) -> pd.DataFrame:
-    """Longest strictly-alternating run between two answers; the graded XYXY."""
+    """`longest_alt_answer_run`: the longest back-and-forth between two answers,
+    anywhere in the merged sequence. See `longest_alternating_answer_run`."""
     out = _trial_sequences(df, seq_col)
     out["longest_alt_answer_run"] = out["_seq"].apply(
         lambda s: longest_alternating_answer_run(s) if s is not None else 0
@@ -511,21 +480,15 @@ def create_longest_alt_answer_run(
 def create_trial_mean_dwell(
     df: pd.DataFrame, dwell_col: str = Con.MEAN_DWELL_TIME
 ) -> pd.DataFrame:
-    """Mean dwell per word on the trial.
+    """`trial_mean_dwell`: average looking time per word over the whole screen.
 
-    **Two things here are quirks of the existing definition, preserved exactly.**
+    That is, the trial's total looking time divided by its number of words.
 
-    1. `dwell_col` is `mean_dwell_time` -- the *area-level* metric -- not
-       `IA_DWELL_TIME`. `compute_trial_mean_dwell_per_word` defaults to the raw
-       per-word column, but the caller this replaces passed the area metric, and
-       the saved numbers are that.
-    2. The sum and count run over **interest-area rows**, where the area metric is
-       broadcast, so each area is weighted by its word count. Computing it from
-       `areas_answers` instead would weight the five areas equally and give a
-       different number.
-
-    So this one genuinely needs the interest-area frame; it cannot move to a
-    coarser input without changing what it measures.
+    It is computed by averaging the area-level `mean_dwell_time` over the word
+    rows. Each area's value is repeated once per word in that area, so this
+    gives exactly total looking time / number of words (checked on all Study 1
+    trials). It needs the word-level frame: averaging the five area values
+    directly would weight every area equally and give a different number.
     """
     g = df.groupby(list(Con.TRIAL_ID_COLS), as_index=False)[dwell_col].agg(
         _sum="sum", _n="count"

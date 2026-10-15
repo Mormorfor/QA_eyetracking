@@ -1,22 +1,18 @@
-"""Raw vendor exports -> tidy IA-level tables.
+"""Raw eye-tracker reports -> tidy tables, one row per word.
 
-Knows what an EyeLink export looks like: report formats, the "." sentinel,
-trial and session identity, button-click reconstruction, and the screen
-geometry each word sits in. Does NOT know what a dwell proportion is -- that
-is `features/`.
+This folder knows what the eye tracker's exports look like: their formats, the
+"." it writes for a missing value, how trials and sessions are identified, how
+to rebuild the button presses, and which screen area each word sits in. It does
+not decide what to measure -- that is `features/`.
 
-**One pipeline, two front ends**, which the old folder names hid: `knowqa.py`
-is a front end that calls the shared `build.main()`, not a second pipeline.
-What differs per dataset is declared on the `Dataset` record in
-`config/datasets.py` (`skip_base_features`, `has_paragraph`), not branched on
-here.
+    build.py          the pipeline: runs everything below in order
+    registry.py       the list of features the pipeline builds
+    readers.py        loads the raw reports
+    geometry.py       which screen area each word is in
+    base_features.py  the per-word features (item ids, correctness, areas, ...)
+    clicks.py         when each answer was selected and confirmed
+    knowqa.py         converts and cleans Study 2's reports, then runs build.py
 
-Where things came from, 2026-10-06 (stage C). Comments dated before then name
-the old paths, so this is the key that resolves them:
-
-    data_prep/data_csv_generation.py (part) -> readers · geometry · build
-    data_prep/button_clicks_processing.py   -> clicks.py
-    data_prep/know_qa_dataprep.py           -> knowqa.py
-    features/build.py (2026-10-06, stage D step 1)
-                                            -> base_features.py + registry.py
+There is one pipeline for every dataset. What differs between datasets is
+written on each dataset's record in `config/datasets.py`, not branched on here.
 """

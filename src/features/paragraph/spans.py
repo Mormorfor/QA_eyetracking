@@ -1,50 +1,22 @@
-# src/features/paragraph/spans.py
-#
-# The paragraph screen's own preprocessing pipeline: raw paragraph reports in,
-# one trial-level paragraph feature table out.
-#
-# WHY THIS EXISTS (`todo.md` T6.1)
-# -------------------------------
-# Paragraph features used to be built in two unrelated places, neither of which
-# was about paragraphs:
-#
-#   * the per-span eye-movement metrics lived inside
-#     `predictive_modeling/answer_RTs/features.py` -- a *modelling* module for a
-#     strand that is parked, even though the extraction it contains is
-#     load-bearing for the correctness model and for the text-QA analysis;
-#   * the per-span RT / TFD / TimeSinceOffset columns were produced by the
-#     ANSWER pipeline, which opened the paragraph IA and fixation reports in the
-#     middle of preparing the answer screen and merged the results into the
-#     answer table.
-#
-# The second is the one that hurt. It made "prepare the QA data" depend on
-# multi-GB paragraph reports, it threaded an `include_paragraph` flag through
-# four call layers purely because KnowQA has no paragraph screen, and it joined
-# the two screens with `how="inner"`, so a trial with answer data but no
-# paragraph data vanished from the RT table without a word.
-#
-# Now: paragraph reports -> this module -> one paragraph feature table, joined
-# to anything that wants it at feature-construction time, on
-# (participant_id, TRIAL_INDEX), with coverage asserted. The answer pipeline
-# reads no paragraph input at all.
-#
-# SAME MECHANICS AS THE ANSWER SCREEN
-# -----------------------------------
-# Every metric comes from `features/area_metrics.py`, the one implementation both
-# screens share, differing only in the grouping column (`auxiliary_span_type`
-# here, `area_label` there). The RT/TFD definitions come from
-# `features/reading_times.py`, which was already parameterized by area column.
-# The pupil baseline follows the project rule -- per person, computed over THIS
-# screen's fixations (`todo.md` T3.20).
+"""The paragraph screen: its raw reports in, one row of features per trial out.
+
+Study 1 only. Each paragraph is split into three parts: "critical" (holds the
+answer), "distractor" (supports a wrong answer) and "outside" (the rest). For
+each part this measures the same things as on the answer screen, with the same
+code (`area_metrics.py`, `reading_times.py`):
+
+    <metric>__<part>     e.g. area_dwell_proportion__critical
+    RT_* / TFD_* / TimeSinceOffset_* per part
+
+The pupil baseline is each person's own, from their fixations on this screen.
+
+`save_paragraph_features` builds the table and saves it to
+`features/paragraph_spans.csv`. The answer-screen pipeline reads nothing from
+the paragraph reports; the model table joins this file in by trial.
+"""
 
 from __future__ import annotations
 
-# The `sys.path.insert(PROJECT_ROOT)` header this file used to carry was removed
-# on 2026-10-06. It was correct at `src/derived/paragraph_prep.py`, but stage C
-# moved this file one level deeper, so its `parents[2]` resolved to `src/` rather
-# than the repo root -- putting `src/` back on the import path, which is the
-# stdlib-shadowing hazard stage A removed (docs/pitfalls.md section 6). Nothing
-# replaces it: the project is run from the repo root, which is already on the path.
 from pathlib import Path
 
 import numpy as np
@@ -77,14 +49,12 @@ from src.features.reading_times import (
 from src.features.build import build_area_metric_pivot
 
 def _key(pid, tid) -> tuple[str, str]:
-    """Normalize a (participant, trial) key to strings that match across reports.
+    """A (participant, trial) key as text that matches across the two reports.
 
-    The fixation report is streamed with `dtype=str` while the IA report is read
-    with inferred dtypes, so the same trial can arrive as `"5"` on one side and
-    `5` (or `5.0`) on the other. A mismatch here would not raise -- the
-    nearest-interest-area queue would simply come back empty and the fallback
-    would silently do nothing, which is exactly the behaviour T1.7 is removing.
-    So both sides go through this, and `build_span_metrics` reports the hit rate.
+    The fixation report is read as text and the word report with guessed types,
+    so the same trial can be "5" on one side and 5 or 5.0 on the other. Without
+    this, nothing would match, the nearest-word lists would quietly come back
+    empty, and every missed fixation would be dropped. Both sides use this.
     """
     def one(v):
         t = str(v).strip()
@@ -95,26 +65,20 @@ def _key(pid, tid) -> tuple[str, str]:
     return (one(pid), one(tid))
 
 
-# The screen this module builds. Everything that used to make this file "the
-# paragraph version" of the answer pipeline now lives on this record
-# (`config/screens.py`) -- grouping column, regions, and the three switches that
-# differ. SPAN_COL / SPANS are kept as local aliases because the code below reads
-# better with them.
+# The screen this module builds (see config/screens.py), and short names for
+# its area column and its three parts.
 PARAGRAPH_SCREEN = screen("paragraph")
 SPAN_COL = PARAGRAPH_SCREEN.area_col
 SPANS = PARAGRAPH_SCREEN.regions
 
 QUESTION_PREVIEW_COL = C.QUESTION_PREVIEW_COLUMN
 
-# The pupil columns both screens z-score. Declared once, in `config/screens.py`,
-# beside the rest of the screen vocabulary -- a local copy here is exactly the
-# drift stage D step 2b removed.
+# The raw pupil columns both screens z-score (defined in config/screens.py).
 _PUPIL_RAW_COLS = PUPIL_RAW_COLS
 
-# The 15 columns of the 157-column paragraph IA report this pipeline reads. The
-# report is 5.6 GB; reading it whole needs well over 12 GB in pandas and simply
-# does not fit on the project's machine. Naming the columns is what makes a
-# paragraph rebuild runnable at all.
+# The 15 columns of the paragraph word report this pipeline reads. The report is
+# 5.6 GB; reading all of it would need well over 12 GB of memory, so only these
+# columns are read.
 IA_USECOLS = [
     C.PARTICIPANT_ID,
     C.TRIAL_ID,
@@ -144,25 +108,20 @@ def scan_paragraph_fixations(
     chunksize: int = 2_000_000,
     verbose: bool = True,
 ) -> tuple[pd.DataFrame, dict]:
-    """Stream the paragraph fixation report once, returning what needs it.
+    """Read the paragraph fixation report once, collecting two things.
 
-    Two things come out of the same pass, because the report is several GB and
-    reading it twice is the only alternative:
+    The report is several GB, so both come from a single pass, read in chunks:
 
-    1. **the pupil baseline** -- per-participant mean/SD in mm, accumulated as
-       count / sum / sum-of-squares per chunk and combined at the end. Exact, and
-       memory-flat. `ddof=1` matches pandas `.std()`, so it agrees with
-       `compute_participant_pupil_stats` to floating-point precision.
-    2. **the nearest-interest-area queue** -- for each trial, the
-       `CURRENT_FIX_NEAREST_INTEREST_AREA` of the fixations that landed outside
-       every interest area, in order. `area_metrics.resolve_fixation_sequence`
-       uses it to place those fixations rather than drop them, which is what the
-       answer screen has always done and the paragraph screen never did.
+    1. **the pupil baseline** -- each person's average and SD of pupil size
+       (mm), built up chunk by chunk. Gives the same result as
+       `pupil.compute_participant_pupil_stats` would on the whole file.
+    2. **the nearest-word lists** -- for each trial, the nearest word of every
+       fixation that missed all words, in order, used to place those
+       fixations. A `None` marks a fixation with no nearest word; it is kept so
+       the list stays in step with the fixations (see
+       `area_metrics.nearest_ia_queue`).
 
-    Returns (pupil_stats, {(participant_id, TRIAL_INDEX): [nearest ids...]}),
-    where a `None` in the list marks a fixation with no nearest area recorded --
-    kept in place rather than removed, because the queue is positional. See
-    `area_metrics.nearest_ia_queue`.
+    Returns (pupil baseline, {(participant_id, TRIAL_INDEX): [nearest ids]}).
     """
     usecols = [
         C.PARTICIPANT_ID,
@@ -202,15 +161,8 @@ def scan_paragraph_fixations(
             for (pid, tid), g2 in off.groupby(
                 [C.PARTICIPANT_ID, C.TRIAL_ID], sort=False
             ):
-                # The shared builder, so both screens spell this one way. It was
-                # an inline `to_numeric(...).dropna()` here, which REMOVED the
-                # entry for a fixation with no nearest area -- and this queue is
-                # consumed positionally, so removing one shifts every later
-                # off-area fixation in the trial onto its neighbour's nearest
-                # area. `nearest_ia_queue` keeps the slot as None and
-                # `resolve_fixation_sequence` drops and counts it instead.
-                # Dormant on the current data: the paragraph report has no "."
-                # in this column at all (checked 2026-10-13, 2.4M fixations).
+                # The same function the answer screen uses, so both build these
+                # lists the same way.
                 nearest.setdefault(_key(pid, tid), []).extend(
                     am.nearest_ia_queue(g2)
                 )
@@ -245,13 +197,8 @@ def prepare_paragraph_ia(
     paragraph_ia: pd.DataFrame,
     pupil_stats: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Coerce the measure columns and add the z-scored pupil columns.
-
-    Now a one-line call: this function's body **became** the shared
-    `features.pupil.prepare_screen_pupil` in stage D step 2b, because the answer
-    screen does the same work by a different route. Kept as a name because the
-    paragraph pipeline reads better for it.
-    """
+    """Turn the paragraph word columns into numbers and add z-scored pupil
+    columns, using this screen's own baseline. See `pupil.prepare_screen_pupil`."""
     return prepare_screen_pupil(paragraph_ia, pupil_stats, _PUPIL_RAW_COLS)
 
 
@@ -260,14 +207,11 @@ def span_visit_counts(
     nearest_by_trial: dict,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Visits to each span, counted the same way the answer screen counts them.
+    """How many times each paragraph part was entered, one row per trial and part.
 
-    A thin call since stage D step 2c. Building the resolved span sequence is
-    `sequences.build_area_sequences`, shared with the answer screen; what is left
-    here is collapsing it to transitions and counting, which is two lines.
-
-    The leading-question cleanup the answer screen applies is deliberately NOT
-    applied: there is no question area on the paragraph screen.
+    Builds each trial's sequence of parts with the same function the answer
+    screen uses (`sequences.build_area_sequences`), merges repeats, and counts.
+    No opening-question fixation is dropped: this screen has no question.
     """
     seqs = build_area_sequences(
         df,
@@ -301,13 +245,10 @@ def build_span_metrics(
     nearest_by_trial: dict,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """One row per (participant, trial, span) with all eight metrics.
+    """Every per-area measurement for the paragraph, one row per trial and part.
 
-    A thin call since stage D step 2b: the merge loop this used to contain is now
-    `area_metrics.build_area_metrics`, shared with the answer screen and
-    parameterized by the `Screen`. What stays here is the one genuinely
-    paragraph-specific input -- visit counts resolved against the nearest-IA
-    queue, because this screen has no simplified label sequence to count from.
+    Uses `area_metrics.build_area_metrics`, as the answer screen does, with this
+    screen's own visit counts.
     """
     return am.build_area_metrics(
         df,
@@ -318,7 +259,7 @@ def build_span_metrics(
 
 
 # ---------------------------------------------------------------------------
-# RT / TFD, moved out of the answer pipeline
+# Reading times
 # ---------------------------------------------------------------------------
 
 def build_paragraph_rt_tfd(
@@ -327,12 +268,9 @@ def build_paragraph_rt_tfd(
     include_run_based_rt: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Per-span RT / TFD / TimeSinceOffset, one row per trial.
+    """The three time measures for each paragraph part, one row per trial.
 
-    A thin call since stage D step 2b. The assembly -- span-based measure, rename
-    to `TimeSinceOffset_*`, run-based `RT_*` from the fixation report, join --
-    is `reading_times.build_screen_rt_tfd`, shared with the answer screen. The
-    only difference between the two screens is the `Screen` passed in.
+    Uses `reading_times.build_screen_rt_tfd`, as the answer screen does.
     """
     return build_screen_rt_tfd(
         paragraph_ia,
@@ -357,15 +295,14 @@ def build_paragraph_features(
     include_rt_tfd: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Raw paragraph reports -> one trial-level paragraph feature table.
+    """Build the paragraph feature table from the raw paragraph reports.
 
-    Columns: `<metric>__<span>` for the eight metrics, the RT/TFD families per
-    span, and `question_preview`. Keyed on (participant_id, TRIAL_INDEX) so
-    anything wanting paragraph features joins them explicitly.
+    One row per trial: `<metric>__<part>` for every measurement, the reading
+    times per part (unless `include_rt_tfd=False`), and `question_preview`.
 
-    `pupil_baseline_path` is where this screen's pupil baseline is written as a
-    record of what the run used; pass None to skip. It is always *computed* here
-    and never read back -- see `features.pupil.get_participant_pupil_stats`.
+    The paragraph pupil baseline is computed here and saved to
+    `pupil_baseline_path` as a record of what was used (None skips saving). It
+    is never read back from that file.
     """
     if verbose:
         print("Scanning the paragraph fixation report...")
@@ -373,11 +310,8 @@ def build_paragraph_features(
         fixations_path, verbose=verbose
     )
 
-    # Persist the paragraph baseline under its own name. This screen's baseline is
-    # a different quantity from the answer screen's -- different luminance,
-    # different task -- and until 2026-10-15 it was computed, used and discarded,
-    # so the only pupil baseline on disk was the answer screen's under a name
-    # ("participant_pupils.csv") that did not say so.
+    # Saved under its own name: this screen's baseline differs from the answer
+    # screen's (different brightness, different task).
     if pupil_baseline_path is not None:
         pupil_baseline_path = Path(pupil_baseline_path)
         pupil_baseline_path.parent.mkdir(parents=True, exist_ok=True)
@@ -452,10 +386,5 @@ if __name__ == "__main__":
 def load_paragraph_features(
     path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
 ) -> pd.DataFrame:
-    """Load the cached paragraph features produced by `save_paragraph_features`.
-
-    Moved here from `answer_RTs/features.py` in stage E step 1. Reading the cache
-    pulls in no part of the paragraph pipeline, which is why it was worth keeping
-    together with the writer rather than with either caller.
-    """
+    """Read the paragraph feature table saved by `save_paragraph_features`."""
     return pd.read_csv(path)

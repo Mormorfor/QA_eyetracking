@@ -1,30 +1,25 @@
-"""IA tables -> the model-ready trial-level table.
+"""Build the final table: one row per trial, every feature a model can use.
 
-**This is where word grain becomes trial grain.** Everything above it in
-`features/` measures things per word or per area; this module pivots those to one
-column per (metric x area), derives the correct/wrong contrasts, collapses to one
-row per trial, and merges the families computed elsewhere (reading times,
-sequences, strategies, preference, the paragraph cache).
+This is where everything measured per word or per area becomes one row per
+trial. `build_trial_level_model_df` puts together, for each trial:
 
-Assembled here in stage D step 2 (2026-10-07). Before that it was split in two,
-for no reason either half could state:
+    area measurements    one column per measurement and area
+                         (mean_dwell_time__answer_B), plus the comparisons of
+                         the correct answer with the wrong ones
+                         (mean_dwell_time__contrast)
+    sequence statistics  seq_len, has_xyx, ... (made during prep)
+    opening scan         breaks_pattern_*, dominance_score_*, ...
+    paragraph features   paragraph-screen measurements (Study 1 only)
+    last look            which area was looked at before the selection and
+                         confirmation presses, as 0/1 columns
+    reading times        RT_*, TFD_*, TimeSinceOffset_* per answer area, plus
+                         comparisons
+    answering            ANSWER_PRESS_NUMBER, total_answering_RT(_normalized)
 
-* `predictive_modeling/common/feature_builders.py` held the pivot and the
-  contrast columns -- generic feature construction, sitting in a *modelling*
-  package. `features/paragraph/spans.py` had to reach **upward** into
-  `predictive_modeling/` to get the pivot, which is a layering inversion that
-  made this move worth doing on its own.
-* `answer_correctness/model_data.py` held the six `build_trial_level_*` builders
-  and the grain collapse -- so "which features exist" lived inside the module
-  that decides which of them a model uses. Those are different questions
-  (stage D proposal section 3.3).
+`save_model_ready` builds it and saves it as `features/model_ready.csv`;
+`load_model_ready` reads it back.
 
-Step 7 then emptied `model_data.py` entirely: the cache pair moved here as
-`save_model_ready` / `load_model_ready` (bottom of this file), the three
-`make_*_dataset` helpers were deleted as unused, and the file is gone.
-
-**Layering:** this module imports from `features/` and `config/` and nothing
-else. `features/` must not import `ingest/` or `predictive_modeling/`.
+This module imports only from `features/` and `config/`.
 """
 
 from __future__ import annotations
@@ -61,12 +56,11 @@ from src.features.strategies import build_trial_level_pattern_features
 
 
 # ---------------------------------------------------------------------------
-# Column vocabularies these builders produce. They moved with the builders in
-# stage D step 2: they describe what the generator emits, not which of it a
-# model consumes -- that distinction is the whole point of the split.
+# Names of the columns built here. Which of them a model uses is decided in
+# modeling/feature_sets.py, not here.
 # ---------------------------------------------------------------------------
 
-# Standalone answer-region metric prefixes (column = f"{metric}_{region}").
+# The reading-time column prefixes; the column is f"{metric}_{area}".
 ANSWER_RT_TFD_METRICS = (
     "RT_pure",
     "RT_normalized",
@@ -76,21 +70,17 @@ ANSWER_RT_TFD_METRICS = (
     "TimeSinceOffset_normalized",
 )
 
-# Paragraph-screen spans and the dwell-proportion columns they produce
-# (feature_groups.PARAGRAPH_BASED). Built per span by features/paragraph/spans.py
-# and cached in PARAGRAPH_SPAN_FEATURES_PATH; the trial frame gets them as-is.
+# The three paragraph parts, and their share-of-looking-time columns. Built by
+# features/paragraph/spans.py and saved at PARAGRAPH_SPAN_FEATURES_PATH; the
+# trial table takes them as they are.
 PARAGRAPH_SPANS = ("critical", "distractor", "outside")
 
 PARAGRAPH_PROPORTION_COLS = tuple(
     f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
 )
 
-# The per-span RT / TFD / TimeSinceOffset columns. These used to reach the trial
-# frame through RT_and_TFD.csv, because the ANSWER pipeline built them; since
-# T6.1 (2026-09-23) the paragraph pipeline owns them and they arrive through the
-# paragraph join instead. Same column names, same values, different provenance --
-# and now an explicit join rather than a silent by-product of preparing the
-# answer screen.
+# The paragraph parts' reading-time columns. They come from the paragraph
+# table too, joined in by trial.
 PARAGRAPH_RT_TFD_COLS = tuple(
     f"{metric}_{span}"
     for metric in ANSWER_RT_TFD_METRICS
@@ -104,7 +94,8 @@ def select_feature_columns(
     df: pd.DataFrame,
     feature_cols: Sequence[str],
 ) -> pd.DataFrame:
-
+    """The columns of `feature_cols` that exist in `df`; missing ones are left
+    out without a warning. Not used by any code."""
     df_cols = set(df.columns)
     present_cols = [c for c in feature_cols if c in df_cols]
     return df[present_cols].copy()
@@ -115,14 +106,11 @@ def build_area_metric_pivot(
     area_col: str,
     metric_cols: Sequence[str],
 ) -> pd.DataFrame:
-    """
-    Collapse already-aggregated area-level metrics into one row per group,
-    pivoting areas into feature columns.
+    """Turn the per-area measurements into one row per trial, one column per
+    measurement and area: `<metric>__<area>`, e.g. `skip_rate__answer_B`.
 
-    Input: word-level df with columns:
-        group_cols + [area_col] + metric_cols
-    Output: one row per group_cols, columns:
-        <metric>__<area_label>
+    `df` is the word-level frame, where each area's values are repeated on
+    every word of that area. Words with no area are ignored.
     """
     cols_needed = list(TRIAL_ID_COLS) + [area_col] + list(metric_cols)
     metrics_df = (
@@ -159,26 +147,20 @@ def add_answer_correct_wrong_contrast_columns(
     out_distance_furthest_suffix: str = Con.DISTANCE_FURTHEST_SUFFIX,
     out_distance_closest_suffix: str = Con.DISTANCE_CLOSEST_SUFFIX,
 ) -> pd.DataFrame:
-    """
-    Given a pivoted trial-level dataframe that already contains columns like:
-        <metric>__answer_A, <metric>__answer_B, <metric>__answer_C, <metric>__answer_D
+    """Add the five comparisons of the correct answer with the wrong ones.
 
-    add:
-        <metric>__correct
-        <metric>__wrong_mean
-        <metric>__contrast
-        <metric>__distance_furthest
-        <metric>__distance_closest
+    For each metric, given `<metric>__answer_A` .. `<metric>__answer_D`, adds:
 
-    where:
-        correct             = value of the correct answer
-        wrong_mean          = mean value across wrong answers
-        contrast            = correct - wrong_mean
-        distance_furthest   = max absolute distance between correct and any wrong answer
-        distance_closest    = min absolute distance between correct and any wrong answer
+        <metric>__correct            the value on the correct answer (answer_A)
+        <metric>__wrong_mean         the average over the three wrong answers
+        <metric>__contrast           correct minus wrong_mean
+        <metric>__distance_furthest  the largest gap between the correct answer
+                                     and any one wrong answer
+        <metric>__distance_closest   the smallest such gap
 
-    Does not drop any columns.
-    Assumes columns exist.
+    The two distances are absolute values. Wrong answers with no value are
+    skipped, so a comparison is missing only if the correct answer has no value
+    or none of the wrong answers does.
     """
     base = df_pivot.copy()
     new_cols = {}
@@ -216,14 +198,8 @@ def build_trial_level_constant_numeric_features(
     df: pd.DataFrame,
     feature_cols: Sequence[str],
 ) -> pd.DataFrame:
-    """
-    Collapse numeric columns that are constant within a trial-participant pair
-    into one row per trial.
-
-    Returns:
-        one row per trial with columns:
-            TRIAL_ID_COLS + feature_cols
-    """
+    """One row per trial for columns that have one value per trial (taken from
+    the trial's first row), as numbers."""
     feature_cols = list(feature_cols)
     cols_needed = list(TRIAL_ID_COLS) + feature_cols
 
@@ -246,14 +222,8 @@ def build_trial_level_categorical_feature(
     drop_first: bool = False,
     dummy_na: bool = False,
 ) -> pd.DataFrame:
-    """
-    Build one-hot encoded trial-level features from a categorical column
-    that should be constant within each trial.
-
-    Returns:
-        one row per trial with columns:
-            group_cols + dummy columns
-    """
+    """Turn a column with one category per trial into 0/1 columns, one per
+    category (`<prefix>_<category>`). One row per trial."""
     prefix = prefix or feature_col
 
     cols_needed = list(TRIAL_ID_COLS) + [feature_col]
@@ -278,6 +248,7 @@ def build_trial_level_categorical_feature(
 def _deduplicate_keep_cols(
     keep_cols: Optional[Sequence[str]],
 ) -> List[str]:
+    """`keep_cols` as a list, without the two trial-id columns."""
     keep_cols = list(keep_cols) if keep_cols is not None else []
     return [c for c in keep_cols if c not in TRIAL_ID_COLS]
 
@@ -287,8 +258,10 @@ def _build_trial_core(
     target_col: str = Con.IS_CORRECT_COLUMN,
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """
-    Build a one-row-per-trial core dataframe with IDs, target, and optional keep_cols.
+    """One row per trial with the ids, the target (`is_correct`) and `keep_cols`.
+
+    Trials with no target value are dropped. (There should be none: a missing
+    answer stops the run when `is_correct` is made.)
     """
     keep_cols = _deduplicate_keep_cols(keep_cols)
     cols = list(TRIAL_ID_COLS) + keep_cols + [target_col]
@@ -312,18 +285,9 @@ def build_trial_level_area_features(
     target_col: str = Con.IS_CORRECT_COLUMN,
     add_correct_wrong_contrasts: bool = True,
 ) -> pd.DataFrame:
-    """
-    Build a one-row-per-trial dataframe containing:
-      - target_col
-      - keep_cols
-      - area pivot columns: <metric>__<area>
-      - optionally contrast columns:
-            <metric>__correct
-            <metric>__wrong_mean
-            <metric>__contrast
-            <metric>__distance_furthest
-            <metric>__distance_closest
-    """
+    """One row per trial: the target, `keep_cols`, every `<metric>__<area>`
+    column, and (if `add_correct_wrong_contrasts`) the five comparisons of the
+    correct answer with the wrong ones."""
     trial_core = _build_trial_core(
         df=df,
         target_col=target_col,
@@ -350,50 +314,26 @@ def build_trial_level_area_features(
     return out
 
 
-# `build_trial_level_derived_features` stood here until 2026-10-13 and is gone
-# (grain proposal step 6). It built the five `DERIVED_COLS` by hand, at
-# interest-area grain, and collapsed them with a `groupby(...).first()` -- 760,628
-# sequence parses on L1 to keep 19,436 results. They are now five registry entries
-# in `features/sequences.py`, verified identical on full L1 including dtypes, and
-# 7.3x faster. `build_trial_level_model_df` carries them off the frame instead of
-# recomputing them.
-
-
 def build_trial_level_rt_tfd_features(
     df: pd.DataFrame,
     target_col: str = Con.IS_CORRECT_COLUMN,
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """
-    Trial-level features derived from the RT_and_TFD merge:
+    """The answer screen's reading times, one row per trial.
 
-    - One feature per region per metric — column name f"{metric}_{region}"
-      for region in ANSWER_REGIONS + PARAGRAPH_REGIONS and metric in
-      ANSWER_RT_TFD_METRICS (RT/TFD/TimeSinceOffset, pure & normalized).
-      For every region, answer and paragraph alike, RT_* is run-based (time
-      accrues only while the region is being looked at) and TimeSinceOffset_* is
-      the first-to-last-fixation span, which counts excursions away and back.
-      Paragraph regions only gained their TimeSinceOffset_* counterpart when the
-      run-based paragraph RT was added; older feature CSVs lack those columns,
-      and there RT_* holds the span values.
-    - For each metric, correct/wrong contrast columns derived from the answer
-      regions (answer_A is correct) — column names f"{metric}_correct",
-      f"{metric}_wrong_mean", f"{metric}_contrast", f"{metric}_distance_furthest"
-      and f"{metric}_distance_closest". The "question" and paragraph regions are
-      left untouched.
+    One column per measure and area, e.g. `RT_normalized_answer_B` (see
+    `features/reading_times.py`), plus the five comparisons of the correct
+    answer with the wrong ones, e.g. `RT_normalized_contrast`. Note the single
+    "_" in these names, where the area measurements use "__".
+
+    Answer-screen areas only; the paragraph parts' reading times come with the
+    paragraph features.
     """
     keep_cols = _deduplicate_keep_cols(keep_cols)
 
-    # ANSWER regions only. The paragraph regions used to be taken from here too,
-    # because the answer pipeline built them into RT_and_TFD.csv; since T6.1 the
-    # paragraph table owns them and they arrive through the paragraph join. Two
-    # sources for one column name is not a tie to break -- pandas silently
-    # suffixes them `_x`/`_y` and the feature simply stops existing under the name
-    # every feature set refers to.
-    #
-    # NOTE: an `all_participants.csv` built before T6.1 still carries the
-    # paragraph RT columns, merged in by the old Stage 1. They are ignored here
-    # rather than used, and disappear on the next Stage 1 rebuild.
+    # Answer-screen areas only. The paragraph parts' columns come in through the
+    # paragraph join; taking them here too would give two columns of the same
+    # name, which pandas would quietly rename to `_x` / `_y`.
     metric_cols = [
         f"{m}_{r}"
         for m in ANSWER_RT_TFD_METRICS
@@ -416,10 +356,8 @@ def build_trial_level_rt_tfd_features(
     for c in metric_cols:
         trial[c] = pd.to_numeric(trial[c], errors="coerce")
 
-    # Correct/wrong contrast columns over the answer regions (answer_A is correct).
-    # Column names are f"{metric}_{region}", so the separator here is a single "_".
-    # Only metrics whose four answer-region columns are all present can be
-    # contrasted (the builder assumes the columns exist).
+    # The comparisons of the correct answer with the wrong ones, for every
+    # measure that has all four answer columns. These names use a single "_".
     contrast_answer_regions = ("answer_A", "answer_B", "answer_C", "answer_D")
     contrast_metrics = [
         m
@@ -443,22 +381,18 @@ def build_trial_level_paragraph_features(
     paragraph_features_path: Path = PARAGRAPH_SPAN_FEATURES_PATH,
     feature_cols: Sequence[str] = PARAGRAPH_MODEL_COLS,
 ) -> pd.DataFrame:
-    """
-    One row per trial with the paragraph-screen features the model uses:
+    """One row per trial with the paragraph-screen features:
 
         area_dwell_proportion__critical / __distractor / __outside
-        RT_* / TFD_* / TimeSinceOffset_* per span
+        RT_* / TFD_* / TimeSinceOffset_* for each paragraph part
 
-    The dwell proportions are the same quantity as the per-answer
-    `area_dwell_proportion__*` columns, grouped by paragraph span rather than
-    answer area. Read from the cache written by
-    `features.paragraph.spans.save_paragraph_features`; run that first if the file
-    is missing.
+    The share of looking time is the same measure as on the answer screen, but
+    over the three paragraph parts. Read from the file written by
+    `features.paragraph.spans.save_paragraph_features` (or passed in as
+    `paragraph_features`).
 
-    A column named in `feature_cols` but absent from the cache is skipped rather
-    than raising, because an older cache predates the RT/TFD half. That is worth
-    knowing: a stale cache silently yields a trial frame with no paragraph RT
-    columns, so rebuild it after changing the paragraph pipeline.
+    Stops with an error if the file is missing or lacks any of
+    `feature_cols`; rebuild it with `save_paragraph_features()`.
     """
     if paragraph_features is None:
         path = Path(paragraph_features_path)
@@ -489,16 +423,12 @@ def build_trial_level_paragraph_features(
 
 
 # ---------------------------------------------------------------------------
-# The last-visited one-hot column names, moved here from
-# `answer_correctness/feature_groups.py` in stage D step 4 (2026-10-07). They are
-# the output vocabulary of `build_trial_level_last_visited_features` just below,
-# so they belong with their producer: "what the generator emits" rather than
-# "what a model chooses" (proposal section 3.3).
+# Names of the "last look" 0/1 columns made by
+# `build_trial_level_last_visited_features` below.
 #
-# This is also what removes the upward import that section 3.3 exists to fix.
-# `common/feature_specs.py` needed exactly one name from `feature_groups`
-# -- LAST_ALL -- and reached up into a modelling package to get it. Both it and
-# `feature_groups` now read these from here, which is downstream for both.
+# Each list leaves one category out (answer_D, or "wrong" in the compact
+# lists). With every category included, the columns would add up to 1 on
+# almost every trial.
 # ---------------------------------------------------------------------------
 
 LAST_CONFIRM_LONG: List[str] = [
@@ -529,8 +459,7 @@ LAST_SELECT_COMPACT: List[str] = [
     "last_before_select_question",
 ]
 
-# Backwards-compatible aliases: the bare names default to the original
-# (long / one-hot) form.
+# Short names for the per-answer lists.
 LAST_CONFIRM: List[str] = LAST_CONFIRM_LONG
 
 LAST_SELECT: List[str] = LAST_SELECT_LONG
@@ -545,14 +474,16 @@ def build_trial_level_last_visited_features(
     feature_col: str = Con.LAST_VISITED_LABEL,
     prefix: str = "last_visited",
 ) -> pd.DataFrame:
-    """
-    One-hot encode the last visited label at trial level, and add semantic
-    indicator columns derived from those dummies (answer_A is the correct
-    answer, answer_B/C/D are wrong):
+    """A "last look" area as 0/1 columns, one row per trial.
 
-      * f"{prefix}_correct"  -- last label is the correct answer (answer_A)
-      * f"{prefix}_wrong"    -- last label is a wrong answer (answer_B/C/D)
-      * f"{prefix}_question" -- last label is the question
+    One column per area (`<prefix>_answer_A`, ..., `<prefix>_question`, and
+    `<prefix>_nan` when there was no last look), plus three summary columns:
+
+      <prefix>_correct   the last look was at the correct answer (answer_A)
+      <prefix>_wrong     it was at a wrong answer (B, C or D)
+      <prefix>_question  it was at the question
+
+    The pipeline calls this for the look before confirming and before selecting.
     """
     out = build_trial_level_categorical_feature(
         df=df,
@@ -597,34 +528,27 @@ def build_trial_level_model_df(
     pattern_scope_df: Optional[pd.DataFrame] = None,
     pattern_scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
+    """Build the final table: one row per trial, every feature (see the module
+    docstring for the list).
+
+    `df` is the wide word-level frame (`load_model_input` makes it). `dataset`
+    says which dataset it is; the paragraph features are added only if that
+    dataset has a paragraph screen. They are the one part not computed from
+    `df` -- they come from the paragraph features file.
+
+    `keep_cols` are carried through and must exist. `optional_keep_cols`
+    (`regime`, `session_id`) are carried only if present: Study 2 has them,
+    Study 1 does not.
+
+    `pattern_scope_df` / `pattern_scope_by` choose which trials the opening-scan
+    features' dominant strategy is worked out from; see
+    `strategies.build_trial_level_pattern_features`. By default, `df` itself.
+
+    Every block except the paragraph one is checked to have exactly one row for
+    every trial before it is joined, and the run stops if not.
     """
-    Build the final one-row-per-trial modeling dataframe.
-
-    This is the main function you can use in the pipeline.
-
-    The paragraph-span features are the one block not computed from `df`: they
-    come from the cached paragraph-screen table, left-joined on
-    (participant_id, TRIAL_INDEX). A `df` from a different experiment therefore
-    needs its own cache passed via `paragraph_features`/`paragraph_features_path`,
-    or those columns come back NaN.
-
-    `keep_cols` is required to exist; `optional_keep_cols` is carried when
-    present and skipped otherwise. The split is deliberate: `regime` and
-    `session_id` are Study 2 identity/condition columns that L1 does not have,
-    so demanding them would make one pipeline refuse one of its two datasets --
-    but dropping them silently is what left the trial-level table unable to be
-    grouped by regime at all, which is why they are named here rather than
-    left out.
-
-    `pattern_scope_df` / `pattern_scope_by` set the scope of the participant-level
-    pattern-breaking features -- which trials estimate the dominant strategy, and
-    how they are partitioned. Defaults (None/None) estimate over `df` itself,
-    pooled per participant. See `features.strategies` and `todo.md` T3.21.
-    """
-    # Whether this dataset HAS a paragraph screen is a property of the dataset,
-    # not a choice the caller makes per run -- so it is read off the record
-    # rather than passed as a flag (stage D step 5). `dataset` accepts a key or a
-    # Dataset; `config/screens.py` and `config/datasets.py` hold the vocabulary.
+    # Whether the dataset has a paragraph screen is read from its record.
+    # `dataset` can be a key ("l1") or the record itself.
     ds = dataset if hasattr(dataset, "has_paragraph") else _dataset(dataset)
 
     present_optional = [
@@ -653,13 +577,8 @@ def build_trial_level_model_df(
     assert_full_coverage(out, area_df, TRIAL_ID_COLS, "area features")
     out = out.merge(area_df, on=list(TRIAL_ID_COLS), how="left")
 
-    # The five DERIVED_COLS are **carried, not computed** (grain proposal step 6).
-    # They became registry entries in step 5, so prep already built them and they
-    # arrive on `df` like any other trial-grain column. Recomputing them here would
-    # merge a second copy beside the first and suffix both.
-    #
-    # Values are unchanged: the registry entries were verified identical to the
-    # block this replaces, on full L1, including dtypes.
+    # The five sequence statistics were made during prep and are already on
+    # `df`, so they are carried over, not recomputed.
     derived_df = (
         df.groupby(list(TRIAL_ID_COLS), as_index=False)[list(DERIVED_COLS)].first()
     )
@@ -681,16 +600,11 @@ def build_trial_level_model_df(
             paragraph_features=paragraph_features,
             paragraph_features_path=paragraph_features_path,
         )
-        # A name carried by both frames would be silently suffixed `_x`/`_y`, and
-        # the feature every feature set refers to would simply stop existing --
-        # no error, just a column gone missing. Caught here rather than
-        # discovered when a model reports a KeyError three steps later.
-        #
-        # This block now runs only when the dataset record says the dataset HAS a
-        # paragraph screen, so an empty join is no longer a plausible
-        # configuration mistake -- it is a broken cache or a key mismatch, and it
-        # raises. Before stage D step 5 it was a printed warning, because the
-        # caller could reach here with the flag left on by accident.
+        # Two checks before joining. If the paragraph file shares no trial with
+        # this table, the file is out of date or the trial ids do not match --
+        # stop. And if a column name is in both, pandas would quietly rename the
+        # two copies `_x` / `_y`, and the column every feature list refers to
+        # would vanish -- stop.
         overlap = len(
             set(map(tuple, out[list(TRIAL_ID_COLS)].values))
             & set(map(tuple, paragraph_df[list(TRIAL_ID_COLS)].values))
@@ -707,17 +621,13 @@ def build_trial_level_model_df(
         if clash:
             raise ValueError(
                 f"Paragraph features collide with columns already on the trial "
-                f"frame: {sorted(clash)}. Each of these has two owners; since "
-                "T6.1 the paragraph table is the only one. The usual cause is an "
-                "`all_participants.csv` built before T6.1, whose Stage 1 baked "
-                "the paragraph RT columns into the answer table."
+                f"frame: {sorted(clash)}. These should come only from the "
+                "paragraph features file. The usual cause is a word table that "
+                "still holds paragraph reading-time columns; rebuild the dataset."
             )
-        # No assert_full_coverage here, unlike every other block (T3.17): this
-        # is the one block not built from `df`, so partial coverage is a real
-        # state rather than a pipeline fault -- a dataset with no paragraph
-        # screen legitimately matches nothing, which the warning above reports.
-        # The row count must still not move, which duplicate keys in the cache
-        # would do silently.
+        # Unlike the other blocks, this one is not required to cover every
+        # trial, because it comes from a separate file rather than from `df`.
+        # It still must not add rows, which repeated trials in the file would.
         before = len(out)
         out = out.merge(paragraph_df, on=list(TRIAL_ID_COLS), how="left")
         assert len(out) == before, (
@@ -762,8 +672,8 @@ def build_trial_level_model_df(
         assert_full_coverage(out, numeric_df, TRIAL_ID_COLS, "constant numeric features")
         out = out.merge(numeric_df, on=list(TRIAL_ID_COLS), how="left")
 
-    # Trial-level total answering RT, taken from the raw CONFIRM_FINAL_ANSWER_RT
-    # column and exposed under the friendlier name TOTAL_ANSWERING_RT.
+    # The time from the answers appearing to the confirming press, from the raw
+    # CONFIRM_FINAL_ANSWER_RT column, under the clearer name total_answering_RT.
     if Con.CONFIRM_FINAL_ANSWER_RT in df.columns:
         feature_cols = [Con.CONFIRM_FINAL_ANSWER_RT]
 
@@ -783,41 +693,21 @@ def build_trial_level_model_df(
     return out
 
 # ===========================================================================
-# The cache: writing the model-ready table, and reading it back
-#
-# Moved here from `answer_correctness/model_data.py` in stage D step 7 (Diana,
-# 2026-10-07: "putting them with the builders makes sense"). `save_model_ready`
-# is `build_trial_level_model_df` plus `to_csv`, so it belongs beside the builder
-# rather than in a modelling package -- and `analyses/text_qa_relationship` calls it to
-# rebuild a missing cache, which from `analyses/` is a downward import only if
-# the pair lives here.
-#
-# Renamed from `save_all_features` / `load_all_features`. "All features" named
-# neither the grain nor the contents, and collided with a different function of
-# the same name in `RT_correlations`. These match the artifact and the registry
-# property that locates it (`Dataset.model_ready`).
+# Reading the input, and saving and loading the final table
 # ===========================================================================
 
 def load_model_input(dataset, facet: str = None, verbose: bool = True) -> pd.DataFrame:
-    """Read the three grain tables and rejoin them into the frame the builder wants.
+    """Read a dataset's three tables and join them back into one wide
+    word-level frame -- the input `build_trial_level_model_df` takes.
 
-    Grain proposal step 6. `build_trial_level_model_df` still takes one wide
-    interest-area frame -- rewriting it to consume three tables is a larger change
-    to the project's most load-bearing function, and not what this step is for.
-    What changes is **where the frame comes from**: three small tables instead of
-    one 2.9 GB broadcast table.
+    Every word row gets its area's and its trial's values copied onto it.
+    `facet` reads one group's tables instead, e.g. "hunters" or "gatherers".
 
-    Measured on L1: 3 s to read the three plus 1 s to rejoin, against 38 s to read
-    `all_participants.csv`. Same frame either way -- the rejoin is verified
-    value-, null- and dtype-identical (acceptance 6).
+    Stops with an error naming the build command if the tables are missing.
 
-    `facet` reads one group subset instead of the whole dataset -- `"hunters"` or
-    `"gatherers"` on L1. The subsets are written in the same run as their parent
-    (`ingest/build.py::save_grain_tables`), so they cannot drift from it.
-
-    Fails loudly and says how to fix it when a dataset has not been through a prep
-    run since the split landed. That is a build-order problem, not a reason to
-    quietly fall back to the old table and read something else.
+    Careful: the two joins are not checked. A word whose area or trial is
+    missing from the other tables would get empty values for them, with no
+    error.
     """
     def _path(grain):
         return (
@@ -833,8 +723,7 @@ def load_model_input(dataset, facet: str = None, verbose: bool = True) -> pd.Dat
         raise FileNotFoundError(
             f"{dataset.key}: no grain tables ({', '.join(missing)}). Run "
             f"`python scripts/build_dataset.py --dataset {dataset.key}` to build "
-            f"them, or pass the interest-area frame directly if you meant the "
-            f"pre-split table."
+            f"them, or pass a word-level frame directly."
         )
 
     read = dict(dtype={Con.PARTICIPANT_ID: str}, low_memory=False)
@@ -865,30 +754,18 @@ def save_model_ready(
     pattern_scope_df: Optional[pd.DataFrame] = None,
     pattern_scope_by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """
-    Build the full trial-level feature DataFrame (every include_* flag turned on)
-    and save it to `output_path` as CSV. The CSV can later be read back with
-    `load_model_ready`.
+    """Build the final table (`build_trial_level_model_df`) and save it to
+    `output_path`. Read it back with `load_model_ready`.
 
-    The cache this writes is the whole dataset, so its participant-level
-    pattern features are estimated over every trial the participant has --
-    the widest scope there is. That is the right default for a cache meant to
-    be sliced descriptively, and the wrong one to hand to cross-validation as
-    `trial_df`: see `cross_validation.evaluate_one_fold_on_regimes` and
-    `todo.md` T3.21. `pattern_scope_by` narrows it, e.g. `["regime"]` for a
-    per-regime dominance score on KnowQA.
+    Careful: this table covers the whole dataset, so its opening-scan features
+    (dominance score etc.) are worked out from every trial a participant has.
+    That is right for describing the data, but wrong to hand to
+    cross-validation as a ready-made `trial_df` -- the scores would include the
+    held-out trials. `pattern_scope_by=["regime"]` gives Study 2 one dominance
+    score per regime.
 
-    `paragraph_features` / `paragraph_features_path` point at the paragraph-span
-    cache to join in -- see `build_trial_level_model_df`.
-
-    **`dataset` says which dataset this frame is**, and the paragraph block runs
-    only if that dataset's record has `has_paragraph=True` (stage D step 5). It
-    replaced an `include_paragraph_features` flag that every caller had to
-    remember to turn off: the paragraph cache path is global, so leaving it on
-    for a dataset with no paragraph screen joined it against L1's table, and
-    every column came back NaN -- harmlessly, but only because the participant
-    ids happen not to collide. Being a property of the dataset, it is now read
-    rather than passed.
+    `dataset` says which dataset this is; paragraph features are added only if
+    it has a paragraph screen.
     """
     trial_df = build_trial_level_model_df(
         df=df,
@@ -913,13 +790,10 @@ def save_model_ready(
 
 
 def load_model_ready(path: Path = READY_ALL_FEATURES_PATH) -> pd.DataFrame:
-    """
-    Load the cached full feature DataFrame produced by `save_model_ready`.
+    """Read the final table saved by `save_model_ready`.
 
-    `participant_id` is pinned to str: KnowQA person ids are all digits
-    (`4000`), so type inference would make them int64 here while every consumer
-    that joins on them (the regime and confidence merges, the button-click
-    join) casts its own side to str -- and the merge would then fail on the
-    dtype mismatch. L1's ids are already strings, so this is a no-op there.
+    `participant_id` is read as text. Study 2's ids are all digits (`4000`), so
+    pandas would otherwise read them as numbers, and joins with other tables,
+    where they are text, would fail.
     """
     return pd.read_csv(Path(path), dtype={Con.PARTICIPANT_ID: str})
