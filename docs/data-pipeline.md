@@ -105,12 +105,11 @@ Output: `all_participants.csv` — **IA-level** (see glossary §1) — plus auxi
 ```
 main()
  ├─ 1. button clicks           → Auxiliary/button_clicks_data.csv
- │      (only if add_last or add_rts; rebuilt only when rebuild_button_clicks=True
- │       OR the file is missing)
+ │      (only if add_last or add_rts; ALWAYS rebuilt from raw)
  ├─ 2. load IA report, filter  repeated_reading_trial == False, practice_trial == False
  ├─ 3. resolve function lists  from FUNCTION_REGISTRY
  ├─ 4. load fixation report ONCE, share it downstream
- ├─ 5. participant pupil stats → Auxiliary/participant_pupils.csv
+ ├─ 5. answer-screen pupil baseline → Auxiliary/pupil_baseline__answers.csv
  ├─ 6. _process()
  │      ├─ add_base_features()            9 functions, in registry order
  │      ├─ generate_new_row_features()    11 group functions, each left-merged back
@@ -138,7 +137,7 @@ Adding a feature means registering it in `FUNCTION_REGISTRY` with its `join_colu
 | File | Grain | Contents |
 |---|---|---|
 | `Auxiliary/button_clicks_data.csv` | trial | selection/confirm timestamps, `(ts, IA_id)` fixation pairs, last fixations before select/confirm, press counts |
-| `Auxiliary/participant_pupils.csv` | participant | pupil mean and SD in mm |
+| `Auxiliary/pupil_baseline__answers.csv` | participant | **answer-screen** pupil mean and SD in mm. The paragraph screen has its own, `pupil_baseline__paragraph.csv` |
 | `Auxiliary/all_participants_last.csv` | trial | last IA and area label before last select / before confirm |
 | `Auxiliary/RT_and_TFD.csv` | trial | `RT_pure_*`, `RT_normalized_*`, `TFD_*`, `TimeSinceOffset_*` per region |
 
@@ -146,7 +145,7 @@ Adding a feature means registering it in `FUNCTION_REGISTRY` with its `join_colu
 
 | | L1 | KnowQA |
 |---|---|---|
-| pupil z-scoring | `add_zscored_pupil_columns` runs here, z-scoring per `participant_id` against this run's own answer fixations | **the same, since T3.20 (2026-09-23)** — `pupil_norm_unit` now defaults to `"participant"`, so the base function runs normally and `main()` writes `KnowQA_runs/Auxiliary/participant_pupils.csv` from KnowQA's own fixations. The old `"session"` unit is still selectable, and under it Stage 0 does the z-scoring and this base function is excluded from the registry list instead |
+| pupil z-scoring | `add_zscored_pupil_columns` runs here, z-scoring per `participant_id` against this run's own answer fixations | **the same, since T3.20 (2026-09-23)** — `pupil_norm_unit` now defaults to `"participant"`, so the base function runs normally and `main()` writes KnowQA's `interim/aux/pupil_baseline__answers.csv` from KnowQA's own fixations, grouped by `participant_id` so a person's baseline pools their three sittings. The old `"session"` unit is still selectable, and under it Stage 0 does the z-scoring and this base function is excluded from the registry list instead |
 | `add_answer_text_columns` | runs | excluded |
 | repeated-reading filter | on | off (no such column) |
 | paragraph RT/TFD | supported | **not applicable — KnowQA has no paragraph data.** Only the answers screen is exported (`data_paths.py` defines no paragraph path for any Study 2 run), and only a third of KnowQA trials show a paragraph at all. `run_pipeline:884` refuses `include_paragraph=True`; its error cites a secondary technical blocker (`load_paragraph_fixations` coerces `TRIAL_INDEX` to int64, which the composite ids would fail), but the real reason is simply that there is nothing to read |
@@ -299,10 +298,10 @@ explicit one. Two rules now hold everywhere:
 
 | Dataset | Screen the baseline is computed over | Written to |
 |---|---|---|
-| L1 / OneStop — answer features | that run's **answer** fixation report (`fixations_Answers.csv`) | `L1_based_data/Auxiliary/participant_pupils.csv` |
-| L1 / OneStop — **paragraph** span features | that run's **paragraph** fixation report (`fixations_Paragraph.csv`) | not cached — computed by `answer_RTs.features.compute_paragraph_pupil_stats`, streamed |
-| KnowQA | that run's own **answer** fixation report | `KnowQA_runs/Auxiliary/participant_pupils.csv` |
-| testrun_QA / second_test | their own answer fixation reports | `<run>/Auxiliary/participant_pupils.csv` |
+| L1 / OneStop — answer features | that run's **answer** fixation report (`fixations_Answers.csv`) | `l1_onestop/interim/aux/pupil_baseline__answers.csv` |
+| L1 / OneStop — **paragraph** span features | that run's **paragraph** fixation report (`fixations_Paragraph.csv`) | `l1_onestop/interim/aux/pupil_baseline__paragraph.csv` — streamed by `features/paragraph/spans.py::scan_paragraph_fixations`, saved since 2026-10-15 |
+| KnowQA | that run's own **answer** fixation report | `knowqa/interim/aux/pupil_baseline__answers.csv` |
+| testrun_QA / second_test | their own answer fixation reports | `<run>/interim/aux/pupil_baseline__answers.csv` |
 
 Two consequences worth knowing:
 
@@ -358,8 +357,9 @@ least visible.
 
 3. **Run-based RT fails silently to all-zeros** on a `(participant_id, TRIAL_INDEX)` key
    mismatch — the row is still written with every region at 0, indistinguishable from a real
-   zero. Compounded by the fact that `button_clicks_data.csv` is only rebuilt when explicitly
-   asked or when missing, so a stale click table from another dataset is reused quietly.
+   zero. The compounding half of this is **fixed as of 2026-10-15**: `button_clicks_data.csv` used
+   to be reused whenever it existed, so a stale click table was picked up quietly. It is now
+   always rebuilt from raw. The silent all-zeros on a key mismatch is unchanged.
    → **`todo.md` T3.7**
 
 4. ~~**`get_participant_pupil_stats` defaults to a hardcoded L1 path.**~~ **FIXED 2026-09-23

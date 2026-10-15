@@ -249,6 +249,17 @@ class Dataset:
         """One row per (participant, trial): sequences, timings, identity."""
         return self.interim / "trials.csv"
 
+    def model_ready_split(self, facet: str) -> Path:
+        """The `<facet>` subset of the model-ready trial table.
+
+        Note the separator: `model_ready_hunters.csv`, single underscore, where the
+        grain tables use a double one (`trials__hunters.csv`). That is the naming
+        already on disk and this helper matches it rather than renaming data files
+        in passing; the inconsistency is worth tidying in its own pass.
+        """
+        base = self.model_ready
+        return base.with_name(f"{base.stem}_{facet}{base.suffix}")
+
     def grain_split(self, grain: str, facet: str) -> Path:
         """The `__<facet>` subset of one grain, e.g. `trials__hunters.csv`.
 
@@ -259,9 +270,19 @@ class Dataset:
         base = getattr(self, grain)
         return base.with_name(f"{base.stem}__{facet}{base.suffix}")
 
+    # The pupil baseline is per SCREEN as well as per dataset: the answer screen
+    # and the paragraph screen differ in luminance and in task, so a person's
+    # typical pupil size is not the same quantity on each. Both are computed per
+    # participant over THIS dataset's fixations for THAT screen (docs/todo.md
+    # T3.20); the filenames say which screen so the two can never be mistaken for
+    # one another, as they were under the old shared `participant_pupils.csv`.
     @property
-    def participant_pupils(self) -> Path:
-        return self.aux / "participant_pupils.csv"
+    def pupil_baseline_answers(self) -> Path:
+        return self.aux / "pupil_baseline__answers.csv"
+
+    @property
+    def pupil_baseline_paragraph(self) -> Path:
+        return self.aux / "pupil_baseline__paragraph.csv"
 
     @property
     def button_clicks(self) -> Path:
@@ -393,7 +414,8 @@ GATHERERS_LAST_PATH = AUXILIARY_DATA_DIR / "gatherers_last.csv"
 HUNT_PARAGRAPH_AND_ANSWERS = L1.interim / "hunters_paragraph_answer_merge.csv"
 GATH_PARAGRAPH_AND_ANSWERS = L1.interim / "gatherers_paragraph_answer_merge.csv"
 
-PARTICIPANT_PUPILS_PATH = L1.participant_pupils
+PUPIL_BASELINE_ANSWERS_PATH = L1.pupil_baseline_answers
+PUPIL_BASELINE_PARAGRAPH_PATH = L1.pupil_baseline_paragraph
 BUTTON_CLICKS_PATH = L1.button_clicks
 STRANGE_TRIALS_PATH = L1.interim / "strange_trials.csv"
 RT_AND_TFD_PATH = AUXILIARY_DATA_DIR / "RT_and_TFD.csv"

@@ -22,7 +22,7 @@ from src.config.datasets import (
     FIX_A_TSV_PATH,
     FIX_ANSWERS_PATH,
     IA_ANSWERS_PATH,
-    PARTICIPANT_PUPILS_PATH,
+    PUPIL_BASELINE_ANSWERS_PATH,
     RT_AND_TFD_PATH,
 )
 from src.ingest.clicks import run_trial_level_pipeline
@@ -98,8 +98,12 @@ def _attach_rt_and_tfd_features(
     (participant_id, TRIAL_INDEX).
 
     The features are derived on the fly (via
-    src.features.reading_times.build_rt_and_tfd), reading the trial's fixation
-    sequence from `button_clicks_path` for the run-based RT. Answer regions only
+    src.features.reading_times.build_rt_and_tfd), reading the run's own fixation
+    report at `fixations_path` for the run-based RT. **This step does not touch
+    the button-click table.** It used to: run-based RT came from the
+    (timestamp, nearest-IA) list that `ingest/clicks.py` copied into that table,
+    until `compute_run_based_rt` was deleted on 2026-10-06 in favour of reading
+    the fixation report directly (stage D step 3.6). Answer regions only
     -- paragraph RT/TFD moved to `features/paragraph/spans.py` on 2026-09-23
     (`todo.md` T6.1), so this step no longer opens any paragraph report and the
     old `include_paragraph` flag is gone. If `save_path` is given, the computed
@@ -286,10 +290,8 @@ def main(
     split_output_paths: dict = None,
     add_last: bool = True,
     add_rts: bool = True,
-    compute_pupil_stats: bool = True,
     pupil_fixations_path: Path = None,
-    pupil_stats_path: Path = PARTICIPANT_PUPILS_PATH,
-    rebuild_button_clicks: bool = False,
+    pupil_stats_path: Path = PUPIL_BASELINE_ANSWERS_PATH,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     button_clicks_fix_csv_path: Path = FIX_ANSWERS_PATH,
     button_clicks_fix_tsv_path: Path = FIX_A_TSV_PATH,
@@ -320,17 +322,24 @@ def main(
     (`create_fixation_sequence_tags`); point it at the matching fixations report when
     processing a different raw dataset.
 
+    **Nothing here is cached. Every intermediate is rebuilt on every run**
+    (Diana, 2026-10-15). The auxiliary files below are a *record* of what a run
+    produced, never an input to the next one. The previous behaviour — reuse
+    `button_clicks_data.csv` whenever it happened to exist — is why L1's copy was
+    three months older than every other file beside it, having survived the T3.18
+    geometry fix and two full rebuilds without anything saying so.
+
     Intermediate ("auxiliary") artifacts are all derived on the fly and, when
     `save_auxiliary=True`, persisted under the dataset's `interim/aux/`:
-    - participant pupil stats — computed from raw fixation data at
-      `pupil_fixations_path` (which defaults to `fixations_path`) when
-      `compute_pupil_stats=True`, else loaded from `pupil_stats_path`. Saved to
-      `pupil_stats_path` when freshly computed.
-    - button clicks — the one derived *input* the RT/last-label steps need, so it is
-      only built when `add_last`/`add_rts` run. Rebuilt from raw (via
-      clicks.run_trial_level_pipeline) when `rebuild_button_clicks=True`
-      or when `button_clicks_path` is missing, reading from `button_clicks_fix_csv_path`
-      + `button_clicks_fix_tsv_path`. For a self-contained report that holds both the
+    - the answer-screen pupil baseline — always computed from the fixation data at
+      `pupil_fixations_path` (which defaults to `fixations_path`), per participant.
+      Saved to `pupil_stats_path`. The paragraph screen has its own, separate
+      baseline; see `features/paragraph/spans.py`.
+    - button clicks — the one derived *input* the **last-label** step needs, so it is
+      built only when `add_last` runs, and always rebuilt from raw (via
+      clicks.run_trial_level_pipeline), reading from `button_clicks_fix_csv_path`
+      + `button_clicks_fix_tsv_path`. `add_rts` does NOT need it — run-based RT has
+      read the fixation report directly since 2026-10-06. For a self-contained report that holds both the
       message and fixation columns (e.g. the new experiment fixations), pass
       `button_clicks_fix_tsv_path=None` and set `button_clicks_msg_participant_col`
       (e.g. participant_id) and `all_answers_is_cumulative=False` to match it.
@@ -358,16 +367,21 @@ def main(
         pupil_fixations_path = fixations_path
 
     # Button clicks is the one derived input the RT/last-label steps need, so only
-    # build it when those steps run. Rebuild from raw when forced or absent, routing
-    # to the configured fixations source (default: the legacy CSV + separate TSV;
-    # pass button_clicks_fix_tsv_path=None for a self-contained new-data report).
-    needs_button_clicks = add_last or add_rts
-    if needs_button_clicks and (
-        rebuild_button_clicks or not Path(button_clicks_path).exists()
-    ):
+    # build it when those steps run. Always rebuilt from raw, routing to the
+    # configured fixations source (default: the legacy CSV + separate TSV; pass
+    # button_clicks_fix_tsv_path=None for a self-contained new-data report).
+    #
+    # This used to be reused whenever the file existed. It is the only place in the
+    # prep pipeline that ever read its own previous output, and the staleness was
+    # invisible: the table holds fixation ids and timestamps, which still *look*
+    # right after an upstream change that invalidated them.
+    # `add_last` only: run-based RT stopped reading this table on 2026-10-06. The
+    # gate said `add_last or add_rts` until 2026-10-15, which was merely wasteful
+    # while the table was cached and is a full raw rebuild now that it is not.
+    needs_button_clicks = add_last
+    if needs_button_clicks:
         if verbose:
-            reason = "forced" if rebuild_button_clicks else "missing"
-            print(f"\nBuilding button-click data from raw ({reason})…")
+            print("\nBuilding button-click data from raw…")
         run_trial_level_pipeline(
             fix_csv_path=button_clicks_fix_csv_path,
             fix_tsv_path=button_clicks_fix_tsv_path,
@@ -417,7 +431,7 @@ def main(
     # The fixations report has up to two consumers: the pupil-stats computation and
     # the fixation-sequence group feature. Load it once here and share the resulting
     # DataFrame with both, instead of letting each re-read the same large file.
-    needs_pupil_fix = compute_pupil_stats and any(
+    needs_pupil_fix = any(
         func is add_zscored_pupil_columns for func, _ in base_funcs
     )
     needs_seq_fix = any(
@@ -440,22 +454,27 @@ def main(
             for func, kwargs in group_funcs
         ]
 
-    # Resolve participant pupil stats once and inject them into the pupil
+    # Resolve the ANSWER-SCREEN pupil baseline once and inject it into the pupil
     # z-scoring base feature (only if that feature is actually being run). Reuse the
     # shared fixations_df when the pupil source is the canonical report; otherwise
     # get_participant_pupil_stats reads the explicit pupil_fixations_path override.
+    #
+    # Always computed, never loaded (2026-10-15). The paragraph screen builds its
+    # own baseline from its own fixations in `features/paragraph/spans.py` -- the
+    # two screens differ in luminance and in task, so they are separate quantities
+    # and are saved under separate names.
     if any(func is add_zscored_pupil_columns for func, _ in base_funcs):
         pupil_stats = get_participant_pupil_stats(
-            stats_csv_path=pupil_stats_path,
             fixations_path=pupil_fixations_path,
             fixations=fixations_df if pupil_fixations_path == fixations_path else None,
-            compute=compute_pupil_stats,
             verbose=verbose,
         )
-        # Persist freshly-computed stats as an auxiliary artifact (no need to
-        # re-save when they were just loaded from pupil_stats_path).
-        if save_auxiliary and compute_pupil_stats:
-            _save(pupil_stats, pupil_stats_path, label="participant pupils", verbose=verbose)
+        # Persist as an auxiliary artifact: a record of the baseline this run used.
+        if save_auxiliary:
+            _save(
+                pupil_stats, pupil_stats_path,
+                label="answer-screen pupil baseline", verbose=verbose,
+            )
         base_funcs = [
             (func, {**kwargs, "pupil_stats": pupil_stats})
             if func is add_zscored_pupil_columns

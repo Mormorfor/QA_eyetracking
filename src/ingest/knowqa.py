@@ -64,8 +64,9 @@ unit is the **person** -- one baseline per `participant_id`, pooled across all
 of that person's recording sessions and across all three knowledge regimes
 (Diana, 2026-09-23, `todo.md` T3.20). This matches L1, so "this participant's
 typical pupil size" means the same thing project-wide, and it means every
-dataset writes its own `Auxiliary/participant_pupils.csv` from its own
-fixations.
+dataset writes its own `interim/aux/pupil_baseline__answers.csv` from its own
+fixations. (KnowQA has no paragraph screen, so it has no paragraph baseline;
+L1 has both, under separate names.)
 
 This module previously z-scored within `session_id`, on the argument that
 baseline pupil size shifts between sittings (setup, lighting, fatigue) and a
@@ -964,14 +965,6 @@ def run_pipeline(
     if include_paragraph and not ds.has_paragraph:
         raise ValueError(
             f"include_paragraph=True is unsupported for {ds.key} "
-            "(has_paragraph=False). Since T6.1 "
-            "(2026-09-23) the answer pipeline has no paragraph step to turn on "
-            "at all -- paragraph features are built separately by "
-            "features/paragraph/spans.py. KnowQA has no paragraph report to build "
-            "them from: only a third of its trials show a paragraph and no "
-            "paragraph path is registered for any Study 2 run. This argument is "
-            "kept so a caller that passes it is told, rather than silently "
-            "getting a table with no paragraph columns."
         )
 
     cleaned_dir = Path(cleaned_dir)
@@ -1036,20 +1029,20 @@ def run_pipeline(
         # The single canonical fixations report: feeds both the pupil stats and
         # create_fixation_sequence_tags, so all group features can run.
         fixations_path=fix_path,
-        # These two are LIVE under the default pupil_norm_unit="participant"
-        # (T3.20): main() computes the baseline from THIS run's fixations report
+        # LIVE under the default pupil_norm_unit="participant" (T3.20): main()
+        # computes the answer-screen baseline from THIS run's fixations report
         # (`fixations_path=fix_path` above, never L1's) and writes it to
-        # `pupil_stats_path`, so KnowQA owns a real per-dataset pupil-stats file
-        # instead of having none. That file supersedes the 80-byte pre-Stage-0
-        # leftover that used to sit there.
+        # `pupil_stats_path`, so KnowQA owns a real per-dataset baseline instead
+        # of having none. Grouped by participant_id, so a person's baseline pools
+        # their three sittings -- which is the point: the knowledge regimes are
+        # what we compare *within* a common per-person scale.
         #
-        # Under pupil_norm_unit="session" they go inert instead: Stage 0 does the
+        # Under pupil_norm_unit="session" it goes inert instead: Stage 0 does the
         # z-scoring, `add_zscored_pupil_columns` is excluded above (see
-        # PUPIL_BASE_FUNC), and main() gates its whole pupil-stats block on that
-        # base feature running. They stay passed either way so the path is named
-        # in one place regardless of which unit is in force.
-        compute_pupil_stats=True,
-        pupil_stats_path=aux_dir / "participant_pupils.csv",
+        # PUPIL_BASE_FUNC), and main() gates its whole pupil block on that base
+        # feature running. It stays passed either way so the path is named in one
+        # place regardless of which unit is in force.
+        pupil_stats_path=ds.pupil_baseline_answers,
         button_clicks_path=aux_dir / "button_clicks_data.csv",
         last_labels_path=aux_dir / "all_participants_last.csv",
         rt_and_tfd_path=aux_dir / "RT_and_TFD.csv",
@@ -1057,7 +1050,6 @@ def run_pipeline(
         # last-label + RT/TFD features, fed by the button clicks built below
         add_last=True,
         add_rts=True,
-        rebuild_button_clicks=True,
         # Button clicks come from the fixations report itself (it holds both the
         # message-list and fixation columns), not the legacy CSV + TSV pair.
         button_clicks_fix_csv_path=fix_path,

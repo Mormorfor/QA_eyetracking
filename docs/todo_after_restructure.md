@@ -88,7 +88,7 @@ Four items that are explicitly **yours to drive**, by your own ruling on 2026-09
 
   | | where it lives today |
   |---|---|
-  | pupil baseline (mean, SD) | `interim/aux/participant_pupils.csv` — its own file, treated as an input rather than a feature |
+  | pupil baseline (mean, SD) | `interim/aux/pupil_baseline__answers.csv` (and `__paragraph.csv` on L1) — its own file per screen, treated as an input rather than a feature |
   | `dominant_starting_strategy`, `dominance_score`, `n_strategy_trials_*` | computed per participant, **stored per trial**, broadcast (T3.21) |
   | per-person accuracy, coefficients, feature means | `analyses/correctness_prediction/person_variance/`, computed on demand, cached only as a pickle |
 

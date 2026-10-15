@@ -68,22 +68,19 @@ def compute_participant_pupil_stats(
 
 def get_participant_pupil_stats(
     stats=None,
-    stats_csv_path: Path = None,
     fixations_path: Path = None,
     fixations=None,
-    compute: bool = True,
     group_col: str = C.PARTICIPANT_ID,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
-    Resolve participant-level pupil statistics from one of three sources.
+    Resolve participant-level pupil statistics from one of two sources.
 
     Priority:
     1. If `stats` is already a DataFrame, it is used as-is.
-    2. Else if `compute` is True, statistics are computed on the fly from a
-       fixation-level DataFrame: `fixations` when it is provided (to avoid
-       re-reading an already-loaded report), otherwise the CSV at `fixations_path`.
-    3. Else the precomputed statistics CSV at `stats_csv_path` is loaded.
+    2. Else statistics are computed from a fixation-level DataFrame: `fixations`
+       when it is provided (to avoid re-reading an already-loaded report),
+       otherwise the CSV at `fixations_path`.
 
     THERE IS NO DEFAULT SOURCE, deliberately. This function used to default to
     L1's answer-screen fixation report, so any caller that forgot to say where
@@ -92,38 +89,34 @@ def get_participant_pupil_stats(
     set of people (docs/todo.md T3.20). Callers name the baseline they mean, or
     this raises.
 
+    THE BASELINE IS ALWAYS COMPUTED, never loaded from a previous run's CSV
+    (Diana, 2026-10-15). The saved `pupil_baseline__*.csv` files are a record of
+    what a run used, not an input to the next one -- a baseline read back from
+    disk cannot say which fixation report produced it, which is the same class of
+    mistake T3.20 closed.
+
     Returns a DataFrame with columns [group_col, pupil_mean, pupil_sd].
     """
     if isinstance(stats, pd.DataFrame):
         return stats
 
-    if compute:
-        if isinstance(fixations, pd.DataFrame):
-            if verbose:
-                print("Computing participant pupil stats from preloaded fixations")
-            return compute_participant_pupil_stats(fixations, group_col=group_col)
-        if fixations_path is None:
-            raise ValueError(
-                "No pupil baseline source given. Pass one of: `stats` (a resolved "
-                "stats frame), `fixations` (a loaded fixation report), "
-                "`fixations_path` (a fixation report to compute from), or "
-                "`compute=False` with `stats_csv_path`. There is no default -- "
-                "see docs/todo.md T3.20 for why."
-            )
+    if isinstance(fixations, pd.DataFrame):
         if verbose:
-            print(f"Computing participant pupil stats from: {fixations_path}")
-        return compute_participant_pupil_stats(
-            pd.read_csv(fixations_path), group_col=group_col
-        )
+            print("Computing participant pupil stats from preloaded fixations")
+        return compute_participant_pupil_stats(fixations, group_col=group_col)
 
-    if stats_csv_path is None:
+    if fixations_path is None:
         raise ValueError(
-            "compute=False but no `stats_csv_path` given, and there is no default "
-            "stats file -- name the dataset's own pupil-stats CSV."
+            "No pupil baseline source given. Pass one of: `stats` (a resolved "
+            "stats frame), `fixations` (a loaded fixation report), or "
+            "`fixations_path` (a fixation report to compute from). There is no "
+            "default -- see docs/todo.md T3.20 for why."
         )
     if verbose:
-        print(f"Loading participant pupil stats from: {stats_csv_path}")
-    return pd.read_csv(stats_csv_path)
+        print(f"Computing participant pupil stats from: {fixations_path}")
+    return compute_participant_pupil_stats(
+        pd.read_csv(fixations_path), group_col=group_col
+    )
 
 
 def zscore_pupil_by_participant(

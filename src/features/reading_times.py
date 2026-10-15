@@ -537,9 +537,11 @@ def build_rt_and_tfd(
       - RT: when `include_run_based_rt` is True, via run-based aggregation over
         the trial's fixation sequence (loaded from `fixations_path`), to
         avoid conflating non-consecutive visits — and the fixation-span RT is
-        kept as `TimeSinceOffset_*`. When False (no button-click data), the
-        fixation-span RT is used directly as `RT_*` and button clicks are not
-        read.
+        kept as `TimeSinceOffset_*`. When False, the fixation-span RT is used
+        directly as `RT_*` and no fixation report is read at all.
+        **Neither branch reads the button-click table** — that was the pre-
+        2026-10-06 source for run-based RT and the parenthetical here used to
+        say so; see the note above `load_fixations`.
     Paragraph regions are NOT built here. Since T6.1 (2026-09-23) the paragraph
     screen has its own pipeline, `features/paragraph/spans.py`, which produces the
     per-span RT / TFD / TimeSinceOffset columns using these same functions. This

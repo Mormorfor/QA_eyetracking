@@ -15,13 +15,27 @@ Everything else will make sense if these do, and nothing will if they don't.
 number goes wrong here.**
 
 - One row per **word** — every word on the screen, for every trial, for every person. About 39
-  rows per trial. This is the big file.
+  rows per trial.
 - One row per **area** — the question and the four answer options, so five rows per trial.
 - One row per **trial** — one person answering one question. This is what the model reads.
 
 The trap: when a trial-level fact (like "this person got it right") sits in the word-level file,
 it's copied onto all 39 word rows. Count those rows and you think you have 39 times more data
 than you do. That has actually happened here.
+
+> **Changed 2026-10-13, and it changes what you are reading.** Those three sizes are now three
+> **files** — `interest_areas.csv`, `areas_answers.csv`, `trials.csv` — instead of one file
+> holding all three at the finest. Every feature declares which size it belongs to, and the
+> trap above is now structural rather than something to remember: a trial-level fact lives on
+> `trials.csv`, once.
+>
+> One file was 2.9 GB and 46% of its columns were constant within a trial; the three are 165 MB
+> together. `all_participants.csv`, `hunters.csv` and `gatherers.csv` are **gone** — anything
+> that wants the old wide frame calls `features/build.py::load_model_input(ds)`, which reads
+> the three and rejoins them.
+>
+> The reasoning is `docs/decisions/2026-10-13-feature-grain-proposal.md`. You do not need it to
+> read the code, but you do need it if you want to argue with the shape.
 
 **2. `L1` means "native English speaker".** Not "level 1", not "study 1". It's which slice of the
 OneStop corpus this is. Study 1 is the L1 data; Study 2 is called KnowQA.
@@ -84,15 +98,19 @@ Read in this order:
    sits. Small and worth understanding; it replaced a word-counting method that got it wrong on
    20 trials.
 3. `build.py` (403) — the conductor. It calls everything else in order.
-4. `registry.py` (381) + `base_features.py` (295) — the list of per-word measurements and how
-   they're built.
+4. `registry.py` + `base_features.py` — the list of measurements and how they're built.
+   **Read `registry.py` properly; it grew a lot.** Every feature is one entry declaring three
+   things: what it reads (`needs`), what it produces, and **at what grain** — and those
+   declarations are what the three output files are split by. It is the closest thing the
+   project has to a table of contents.
 5. `clicks.py` (518) — reconstructs *when* the person pressed buttons, from the message log.
    Fiddly but self-contained.
 6. `knowqa.py` (1,282) — **skip on the first pass.** It's Study 2's version of all of the above,
    and it only differs because Study 2 identifies trials differently. Come back to it when you
    care about Study 2.
 
-**Output of this stop:** `all_participants.csv` — one row per word. 2.9 GB.
+**Output of this stop:** three files, not one — `interest_areas.csv` (one row per word, 23
+columns now that nothing trial-level is copied onto it), `areas_answers.csv` and `trials.csv`.
 
 ---
 
@@ -110,8 +128,10 @@ sees is invented here.
    Backs a whole section of the paper.
 5. `pupil.py` (327), `last_visited.py` (286), `preference.py` (143), `scope.py` (111) — smaller,
    each does one thing.
-6. `build.py` (915) — assembles all of the above into the final table. Read it **last**, once
-   you know what it's assembling.
+6. `build.py` — assembles all of the above into the final table. Read it **last**, once you
+   know what it's assembling. It no longer *invents* anything: the five sequence statistics it
+   used to build by hand (`has_xyx` and friends) are registry entries now, so this file reshapes
+   and joins and that is all.
 7. `paragraph/spans.py` (423) — the same measurements, but over the paragraph screen instead.
 
 **Output of this stop:** `model_ready.csv` — one row per trial, 219 columns, 19,436 rows.
@@ -199,10 +219,14 @@ Not bugs I know about — places where a mistake would be quiet rather than loud
    it's documented, but it's the single most common way a wrong number looks right. Search for
    `fillna` and ask "is zero actually true here?"
 2. **Any join.** If two tables get merged and one is missing rows, the result silently gets
-   blanks. Some joins check this now; not all.
+   blanks. Some joins check this now; not all. **This matters more than it did:** the three
+   files are rejoined every time something wants the wide frame, so that join is now on the
+   main path rather than at the edges.
 3. **`features/strategies.py` and anything "per participant".** These summarise a person across
    their trials — so the answer depends on *which* trials you handed it. There's now an explicit
-   setting for that, but it's worth confirming each caller passes what it means.
+   setting for that, but it's worth confirming each caller passes what it means. It is also the
+   one family deliberately kept *out* of the registry, because a registry entry is computed once
+   over everything — which is the scope that leaks. The docstring says so.
 4. **`analyses/correctness_associations/stats.py`.** These tests treat every trial as independent,
    when trials are grouped within people and within texts. It makes the p-values too small. Known,
    not yet addressed.

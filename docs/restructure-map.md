@@ -733,7 +733,7 @@ data/
 ├── datasets/
 │   ├── l1_onestop/
 │   │   ├── interim/        all_participants.csv · hunters.csv · gatherers.csv
-│   │   │   └── aux/        button_clicks · RT_and_TFD · participant_pupils · last
+│   │   │   └── aux/        button_clicks · RT_and_TFD · pupil_baseline__{answers,paragraph} · last
 │   │   └── features/       model_ready.csv · paragraph_spans.csv · answer_text.csv
 │   │       └── eyebench/   paragraph_trial_level_features.csv + the two key files
 │   ├── knowqa/             interim/ features/     (same shape)

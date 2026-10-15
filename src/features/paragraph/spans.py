@@ -53,7 +53,12 @@ import pandas as pd
 from src.config import columns as C
 from src.config.screens import PUPIL_RAW_COLS, screen
 from src.config.columns import TRIAL_ID_COLS
-from src.config.datasets import FIX_PARAGRAPH_PATH, IA_PARAGRAPH_PATH, PARAGRAPH_SPAN_FEATURES_PATH
+from src.config.datasets import (
+    FIX_PARAGRAPH_PATH,
+    IA_PARAGRAPH_PATH,
+    PARAGRAPH_SPAN_FEATURES_PATH,
+    PUPIL_BASELINE_PARAGRAPH_PATH,
+)
 from src.features import area_metrics as am
 from src.features.sequences import build_area_sequences
 from src.features.pupil import (
@@ -348,6 +353,7 @@ def build_paragraph_features(
     paragraph_ia: pd.DataFrame | None = None,
     paragraph_ia_path: Path = IA_PARAGRAPH_PATH,
     fixations_path: Path = FIX_PARAGRAPH_PATH,
+    pupil_baseline_path: Path = PUPIL_BASELINE_PARAGRAPH_PATH,
     include_rt_tfd: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
@@ -356,12 +362,31 @@ def build_paragraph_features(
     Columns: `<metric>__<span>` for the eight metrics, the RT/TFD families per
     span, and `question_preview`. Keyed on (participant_id, TRIAL_INDEX) so
     anything wanting paragraph features joins them explicitly.
+
+    `pupil_baseline_path` is where this screen's pupil baseline is written as a
+    record of what the run used; pass None to skip. It is always *computed* here
+    and never read back -- see `features.pupil.get_participant_pupil_stats`.
     """
     if verbose:
         print("Scanning the paragraph fixation report...")
     pupil_stats, nearest_by_trial = scan_paragraph_fixations(
         fixations_path, verbose=verbose
     )
+
+    # Persist the paragraph baseline under its own name. This screen's baseline is
+    # a different quantity from the answer screen's -- different luminance,
+    # different task -- and until 2026-10-15 it was computed, used and discarded,
+    # so the only pupil baseline on disk was the answer screen's under a name
+    # ("participant_pupils.csv") that did not say so.
+    if pupil_baseline_path is not None:
+        pupil_baseline_path = Path(pupil_baseline_path)
+        pupil_baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        pupil_stats.to_csv(pupil_baseline_path, index=False)
+        if verbose:
+            print(
+                f"  paragraph pupil baseline: {len(pupil_stats)} participants "
+                f"-> {pupil_baseline_path}"
+            )
 
     if paragraph_ia is None:
         if verbose:
