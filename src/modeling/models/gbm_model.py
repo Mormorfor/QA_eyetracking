@@ -1,29 +1,29 @@
-# gbm_model.py
-#
-# Gradient-boosted trees for the answer reading-time regression, exposing the
-# same fit/predict/get_coef_summary surface as TrialLevelLinRegModel so it drops
-# into `run.evaluate_answer_rt_model` unchanged.
-#
-# Why this model: the ridge answers "is there a linear signal"; this answers "is
-# there a nonlinear one". It can express interactions the linear model cannot --
-# most obviously that hunters and gatherers may have different RT functions
-# rather than just different intercepts -- and it consumes NaN natively, so the
-# `fillna(0)-before-standardizing` step that turns a missing value into a fake
-# z-score of -(mean/sd) does not happen here.
-#
-# Two places where the participant-grouped discipline has to be re-imposed by
-# hand, because scikit-learn's defaults would quietly break it:
-#
-#   1. Early stopping. `HistGradientBoostingRegressor(early_stopping=True)`
-#      carves its validation slice out at random, so the same reader lands on
-#      both sides and the stopping point is chosen on leakage. Here the slice is
-#      cut by participant (`GroupShuffleSplit`), the iteration count is picked
-#      from the staged loss on that slice, and the final model is refit on the
-#      whole training split at that count.
-#   2. Feature importance. There is no `feature_importances_` on this estimator
-#      and no coefficients to report, so importance is permutation importance
-#      (mean drop in R2) measured on the held-out participants, from a model
-#      that never saw them -- not on the data the model was fit to.
+"""Gradient-boosted trees for predicting answer reading times (the exploration in
+`explorations/answer_reading_times/`). It has the same fit / predict /
+get_coef_summary methods as `TrialLevelLinRegModel`, so the exploration's
+`evaluate_answer_rt_model` can run either.
+
+Why this model: the ridge asks "is there a linear signal"; this asks "is there
+a nonlinear one". It can express interactions the linear model cannot -- most
+obviously that hunters and gatherers may have different RT functions rather
+than just different intercepts -- and it handles NaN itself, so the
+fill-with-0-then-standardise step, which turns a missing value into a fake
+z-score of -(mean/sd), does not happen here.
+
+Two places where splitting by participant has to be done by hand, because
+scikit-learn's defaults would quietly break it:
+
+  1. Early stopping. `HistGradientBoostingRegressor(early_stopping=True)` takes
+     its validation slice at random, so the same reader lands on both sides and
+     the stopping point is chosen on leaked data. Here the slice is cut by
+     participant (`GroupShuffleSplit`), the number of rounds is picked from the
+     loss on that slice, and the final model is refitted on the whole training
+     split with that number.
+  2. Feature importance. This estimator has no `feature_importances_` and no
+     coefficients, so importance is permutation importance (mean drop in R2),
+     measured on the held-out participants with a model that never saw them --
+     not on the data the model was fitted to.
+"""
 
 from __future__ import annotations
 
@@ -83,7 +83,8 @@ class TrialLevelGBMModel:
 
     # What `get_coef_summary` returns, so figures can label themselves honestly.
     coef_kind: str = field(default="permutation importance (drop in R2)", init=False)
-    # No penalty to report; `run.evaluate_answer_rt_model` reads this generically.
+    # No penalty to report; the exploration's `evaluate_answer_rt_model` reads
+    # `alpha_` from every model.
     alpha_: Optional[float] = field(default=None, init=False)
 
     # ------------------------------------------------------------------

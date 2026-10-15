@@ -101,16 +101,26 @@ Cleaning does more than rename:
 
 In order, it:
 
-1. rebuilds when each answer was selected and confirmed, from the tracker's message log
+1. reads the interest-area report and drops repeated-reading and practice trials;
+2. reads the fixation report, once (`features/fixations.py`). Everything below that needs
+   single fixations uses this one table;
+3. rebuilds when each answer was selected and confirmed, from the tracker's message log
    (`ingest/clicks.py`);
-2. reads the interest-area report and drops repeated-reading and practice trials;
-3. works out each participant's pupil baseline (§8);
-4. runs the features listed in `ingest/registry.py`: first the per-word ones, then the per-area
+4. works out each participant's pupil baseline (§8);
+5. runs the features listed in `ingest/registry.py`: first the per-word ones, then the per-area
    and per-trial ones;
-5. adds the three reading-time measures (§7) and the area looked at before each button press;
-6. splits the columns into the three tables and saves them.
+6. adds the three reading-time measures (§7) and the area looked at before each button press;
+7. splits the columns into the three tables and saves them.
 
 Every side file is rebuilt on every run; nothing is reused from an earlier one.
+
+**Placing a fixation on a word** (`features/fixations.py::place_fixations`). A fixation belongs
+to the word it landed on (`CURRENT_FIX_INTEREST_AREA_ID`), or, if it landed between words, to
+the nearest word (`CURRENT_FIX_NEAREST_INTEREST_AREA`); the word then gives it its area. The
+fixation sequence, the visit-based reading time and the area looked at before each press all
+place fixations with this one function, so they cannot disagree about where a fixation was. On
+Study 1's answer screen, 76,401 of the 718,207 fixations are placed by the nearest word. A
+fixation in an analysed trial that points at a word the trial does not have stops the run.
 
 **The registry** (`ingest/registry.py`) is the list of features. Each entry names the function,
 the columns it reads, and whether it works per word, per area or per trial. A second list,
@@ -121,7 +131,7 @@ the three tables each column goes into. To add a feature, add an entry and its `
 
 | File | One row per | Holds |
 |---|---|---|
-| `button_clicks_data.csv` | trial | the time of every selection press and of the confirming press; the trial's fixations as (time, word) pairs; the last fixation before each press; the number of presses |
+| `button_clicks_data.csv` | trial | the time of every selection press and of the confirming press; the answers clicked; the number of presses |
 | `pupil_baseline__answers.csv` | participant | average and SD of pupil size (mm) on the answer screen |
 | `all_participants_last.csv` | trial | the area looked at before the last selection press, and before the confirming press |
 | `RT_and_TFD.csv` | trial | the three reading-time measures for each area |
@@ -143,8 +153,10 @@ Each paragraph is split into three parts: **critical** (holds the answer), **dis
 answer-screen area, from the same code, saved one row per trial in
 `features/paragraph_spans.csv`.
 
-The paragraph fixation report is several GB, so it is read once, in chunks. The paragraph pupil
-baseline is built up in the same pass and saved to `interim/aux/pupil_baseline__paragraph.csv`.
+The paragraph reports are several GB each, so only the columns needed are read: 14 of the
+interest-area report, 5 of the fixation report. The fixation report is read once, in chunks, by
+the same function as the answer screen's, and that one table gives the paragraph pupil baseline
+(saved to `interim/aux/pupil_baseline__paragraph.csv`), the visit counts and the reading times.
 
 ---
 
@@ -193,7 +205,11 @@ with the runner: the vendored file's own `__main__` gives every `ptb_pos_*` feat
 | `RT_*` | time spent on visits to the area. A visit is a run of fixations in a row on the area; it counts from its first fixation's start to the start of the next fixation anywhere | the fixation report |
 | `TimeSinceOffset_*` | from the start of the first look at the area to the end of the last look, so time spent elsewhere in between counts too | the word table |
 
-Each comes as `_pure` (ms) and `_normalized` (divided by the number of words in the area).
+Each comes as `_pure` (ms) and `_normalized` (divided by the number of words in the area). The
+six column prefixes (`RT_pure`, ..., `TimeSinceOffset_normalized`) are defined once, in
+`config/columns.py` (`RT_TFD_METRICS`), and the areas in `config/screens.py`. The build uses
+both wherever it makes or collects these columns (`reading_times.py`, `features/build.py`,
+`ingest/registry.py`).
 
 `compute_reading_times` makes `TFD_*` and the span measure, `compute_run_based_rt_from_fixations`
 makes `RT_*`, and `build_screen_rt_tfd` puts them together for one screen. The span measure
@@ -233,18 +249,23 @@ Pupil size arrives in the tracker's units (an area) and is converted to a diamet
 
 ## 9. Things to know
 
-1. **A trial missing from the fixation report gets 0 reading time.** If a trial in the word
-   table has no fixations in the fixation report — for example because its ids are written
-   differently in the two — every `RT_*` column for it is 0, the same as "not looked at".
-   Nothing checks for this. The opposite case is checked: a fixation that points at a word its
-   trial does not have stops the run.
+1. **A trial missing from the fixation report gets 0 reading time and an empty sequence.** If a
+   trial in the word table has no fixations in the fixation report — for example because its
+   ids are written differently in the two — every `RT_*` column for it is 0, the same as "not
+   looked at", and its fixation sequence is empty. Nothing checks for this. The opposite case
+   is checked: a fixation that points at a word its trial does not have stops the run.
 2. **Per-participant features depend on which trials they are given.** The opening-scan
    features summarise a person over the trials in the table they are handed. `pitfalls.md` §3
    explains when that matters.
-3. **The pilot notebook does not match the current code.** Its `main()` call does not pass
-   `dataset=`, so it saves none of the three tables, and it calls `save_model_ready` with an
-   argument (`include_paragraph_features`) that the function does not have. As it stands, it
-   cannot rebuild the pilots.
+3. **Three builder notebooks do not match the current code.**
+   - `data_prep_new_exp.ipynb` (the pilots): its `main()` call does not pass `dataset=`, so it
+     saves none of the three tables, and it passes two arguments the functions do not have
+     (`button_clicks_fix_csv_path` to `main()`, `include_paragraph_features` to
+     `save_model_ready`). As it stands, it cannot rebuild the pilots.
+   - `clicks_selections_confirms.ipynb` and `reading_times.ipynb` call
+     `run_trial_level_pipeline`, `build_rt_and_tfd` and a last-look function in an older form,
+     and read `hunters.csv` / `gatherers.csv`, which a normal build does not write. The build
+     script makes everything these two notebooks used to make.
 4. **`interest_areas.csv` has an `index` column.** It holds row numbers (0 to 760,627 on
    Study 1), left over from resetting the table's index while the per-word features run.
    Nothing reads it.

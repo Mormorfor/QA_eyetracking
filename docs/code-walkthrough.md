@@ -53,13 +53,13 @@ one trial from the eye tracker to the paper.**
 
 Nine stops. Line counts are there so you can budget — they're the real sizes.
 
-### Stop 1 — The words the project uses · `src/config/` (1,110 lines)
+### Stop 1 — The words the project uses · `src/config/` (1,160 lines)
 
 **Start here. It's the dictionary.**
 
-- `columns.py` (459) — every column name in the project, with comments explaining the ones that
+- `columns.py` (508) — every column name in the project, with comments explaining the ones that
   aren't obvious. Read it like a glossary, not like code. Nothing happens in this file.
-- `datasets.py` (547) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
+- `datasets.py` (554) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
   described once.
 - `screens.py` (75), `outputs.py` (19) — small, skim them.
 
@@ -80,7 +80,7 @@ saving the numbers behind it: the `tables=` argument is required.
 
 ---
 
-### Stop 3 — Raw recordings become tidy words · `src/ingest/` (3,610 lines)
+### Stop 3 — Raw recordings become tidy words · `src/ingest/` (3,490 lines)
 
 This is where the eye tracker's exports get cleaned up.
 
@@ -89,16 +89,17 @@ Read in this order:
 2. `geometry.py` (129) — works out which screen area each word is in, from where it sits on the
    screen. Small and worth understanding. Where this disagrees with counting words in the stored
    texts, position wins and the correction is printed.
-3. `build.py` (502) — the conductor. It calls everything else in order.
-4. `registry.py` (953) + `base_features.py` (266) — the list of measurements and how they're
+3. `build.py` (524) — the conductor. It reads the two raw reports, once each, and calls
+   everything else in order.
+4. `registry.py` (946) + `base_features.py` (266) — the list of measurements and how they're
    built. **Read `registry.py` properly.** Each feature is one entry: the function that builds
    it, the columns it reads (`needs`), and whether it works per word, per area or per trial. A
    second list, `_PRODUCES`, says which columns each feature adds, and that decides which of the
    three output files each column goes in. It is the closest thing the project has to a table of
    contents.
-5. `clicks.py` (527) — reconstructs *when* the person pressed buttons, from the message log.
+5. `clicks.py` (418) — reconstructs *when* the person pressed buttons, from the message log.
    Fiddly but self-contained.
-6. `knowqa.py` (1,195) — **skip on the first pass.** Study 2's preparation: it converts and cleans
+6. `knowqa.py` (1,160) — **skip on the first pass.** Study 2's preparation: it converts and cleans
    the raw exports, then runs the same `build.py`. Much of its length is about identifying a
    trial, because one Study 2 participant can come back for several sessions. Come back to it
    when you care about Study 2.
@@ -109,27 +110,31 @@ columns).
 
 ---
 
-### Stop 4 — Words become one row per trial · `src/features/` (4,290 lines)
+### Stop 4 — Words become one row per trial · `src/features/` (3,860 lines)
 
 **This is the most important stop, and where I'd spend the most time.** Every number the model
 sees is made here.
 
-1. `area_metrics.py` (502) — the per-area measurements: how long each area was looked at, how
+1. `area_metrics.py` (421) — the per-area measurements: how long each area was looked at, how
    many fixations, what share of its words were skipped, pupil size. Read this one slowly.
-2. `reading_times.py` (580) — three different ways of timing an area: total fixation time, time
+2. `fixations.py` (184) — reads a fixation report, and puts each fixation on a word: the word it
+   landed on, or the nearest one. Short. Everything that needs single fixations — the next two
+   files, the pupil baseline, the last look before a button press — goes through it, so they all
+   agree on where a fixation was.
+3. `reading_times.py` (339) — three different ways of timing an area: total fixation time, time
    spent on visits to it, and first look to last look. Read the top of the file first; the three
    are easy to mix up.
-3. `sequences.py` (497) — turns fixations into a sequence of areas, like "A, B, A, C", and a few
+4. `sequences.py` (485) — turns fixations into a sequence of areas, like "A, B, A, C", and a few
    statistics of it.
-4. `strategies.py` (709) — the opening scan: which order they first visited the four options.
+5. `strategies.py` (709) — the opening scan: which order they first visited the four options.
    Backs a whole section of the paper.
-5. `pupil.py` (295), `last_visited.py` (289), `preference.py` (133), `scope.py` (74) — smaller,
+6. `pupil.py` (295), `last_visited.py` (145), `preference.py` (133), `scope.py` (74) — smaller,
    each does one thing.
-6. `build.py` (799) — assembles all of the above into the final table. Read it **last**, once you
+7. `build.py` (775) — assembles all of the above into the final table. Read it **last**, once you
    know what it's assembling. It measures nothing new from the eye data: it turns the per-area
    values into columns, compares the correct answer with the wrong ones, and joins everything on
    the trial.
-7. `paragraph/spans.py` (390) — the same measurements, but over the paragraph screen instead.
+8. `paragraph/spans.py` (285) — the same measurements, but over the paragraph screen instead.
 
 `src/checks.py` (58) belongs with this stop too: the check `build.py` runs before its joins, that
 every trial has exactly one match.
@@ -138,18 +143,28 @@ every trial has exactly one match.
 
 ---
 
-### Stop 5 — The prediction machinery · `src/modeling/` (3,750 lines)
+### Stop 5 — The prediction machinery · `src/modeling/` (3,710 lines)
 
 Generic. It doesn't know this is about eye-tracking — you could point it at anything.
 
-1. `feature_sets.py` (464) — named lists of which columns a model uses. The paper's model uses
-   ten of them, picked by hand.
-2. `folds.py` (400) — how the data is split for testing.
-3. `crossval.py` (685) — the testing loop.
-4. `evaluate.py` (620) — scoring, and turning results into tables.
-5. `inference.py` (393) — confidence intervals on the coefficients. **Worth scrutiny** — there
-   are three methods here and they disagree with each other on purpose.
-6. `models/logreg_model.py` (292) — the actual model. Smaller than you'd expect.
+1. `feature_sets.py` (407) — named lists of which columns a model uses. The paper's model uses
+   ten of them, picked by hand (`SELECT_1_COLS`).
+2. `folds.py` (396) — which trials train and which are held out. Ten stored folds per group;
+   each gives every person × paragraph pair a regime: new paragraph, new person, or both. **Read
+   the docstring of `attach_fold_regimes`** — the join leaves out, without a message, the trials
+   a fold file has no regime for.
+3. `crossval.py` (678) — the testing loop: fit on each fold's training trials, score on each
+   held-out regime. Note the choice between rebuilding the features per regime (safe) and
+   slicing a ready-made table (fast, leaks), explained at the top.
+4. `evaluate.py` (587) — fit-and-score on one split, the single full-data fit the paper's
+   coefficients come from, and the summary tables.
+5. `inference.py` (397) — confidence intervals on the coefficients. **Worth scrutiny.** Two
+   methods, used for different jobs: the bootstrap (slow, no approximation — the paper's
+   coefficients) and the Wald formula (fast, an approximation — inside cross-validation).
+6. `models/logreg_model.py` (301) — the actual model. Smaller than you'd expect. The note at the
+   top on how missing values become 0 is worth reading slowly.
+7. `selection.py` (343), and the other models in `models/` (dummy baseline, plus two used only
+   by an exploration) — skim.
 
 ---
 

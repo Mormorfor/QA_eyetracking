@@ -211,14 +211,15 @@ For L1, `TRIAL_INDEX` is an integer counter. For KnowQA it is a composite string
 `b2l01t005` — batch, list, trial — because one person sits for several sessions, so a plain
 counter no longer identifies a trial. `glossary.md` has the full reasoning.
 
-Most of the pipeline does not care about the type. One place does:
-`reading_times.load_paragraph_fixations` converts `TRIAL_INDEX` to a 64-bit integer and drops
-whatever will not convert, which for KnowQA would be every row.
+Most of the pipeline does not care about the type. Where it has to — joining a fixation report
+to a word table — the ids are read as text and `fixations.match_key_types` then gives them the
+word table's types: an integer `TRIAL_INDEX` for L1, text for KnowQA. A value that cannot be
+converted stops the run; nothing is dropped to make the join work.
 
-That does not come up, because **KnowQA has no paragraph data at all.** Only the answer
-screen was exported. Paragraph features are built by `features/paragraph/spans.py`, which
-KnowQA simply does not run; `has_paragraph` is `False` on its dataset record. If you ask the
-KnowQA pipeline for paragraph features it refuses and says why.
+**KnowQA has no paragraph data at all.** Only the answer screen was exported. Paragraph
+features are built by `features/paragraph/spans.py`, which KnowQA simply does not run;
+`has_paragraph` is `False` on its dataset record. If you ask the KnowQA pipeline for paragraph
+features it refuses and says why.
 
 Related: anything reading a feature table pins `participant_id` to text, because KnowQA's ids
 are all digits and would otherwise be read as integers, breaking every join.

@@ -1,5 +1,4 @@
-#logreg_model.py
-
+"""The paper's model: logistic regression on one row per trial."""
 
 from dataclasses import dataclass, field
 from typing import Optional, Sequence, Literal
@@ -14,34 +13,30 @@ from src.modeling.inference import get_coef_summary, bootstrap_logreg_coef_cis, 
 
 
 # ---------------------------------------------------------------------------
-# The imputation, and why it is named rather than anonymous
+# Missing values: how the model fills them, and why the fill is counted
 # ---------------------------------------------------------------------------
-# Two metric families follow the "exclude" convention: a word that was never
-# fixated has no pupil size and no first-fixation duration, because both are
-# properties *of a fixation*. So an area nobody looked at arrives here as NaN,
-# and the model fills it with 0.
+# Two measurement families leave out words nobody looked at, because both
+# describe a fixation: pupil size and first-fixation duration. So an area
+# nobody looked at arrives here as NaN, and the model fills it with 0.
 #
-# That fill is an ASSUMPTION, NOT A MEASUREMENT, and it is provisional:
-#   - for a z-scored pupil column, 0 asserts "this area had exactly this
-#     participant's mean dilation" -- a specific and false claim;
-#   - for a first-fixation duration, 0 asserts a fixation of length zero,
-#     which does not exist.
+# That 0 is an ASSUMPTION, NOT A MEASUREMENT:
+#   - for a z-scored pupil column, 0 says "this area had exactly this
+#     participant's average pupil size" -- a specific and false claim;
+#   - for a first-fixation duration, 0 says the fixation lasted 0 ms, which
+#     cannot happen.
 #
-# THE FILL IS DELIBERATELY BLANKET: every NaN in the feature matrix becomes 0,
-# not just these two families (Diana, 2026-09-23). One rule over the whole
-# matrix is the simplest thing to state in Methods and to reason about, and it
-# is the method this project has always used. Kept by decision (docs/todo.md
-# T3.14) on the condition that it stops being *silent*, which is what the
-# counting below is for: `imputed_counts_` says how many cells and which
-# columns, `imputed_mask_` says exactly which cells, so a filled 0 can always be
-# told from a measured one. A stated, counted imputation is a modelling choice;
-# the same one unrecorded is the violation conventions.md forbids.
+# The fill covers EVERY NaN in the feature matrix, not only these two
+# families: one rule for the whole matrix is the simplest to state in Methods
+# and to reason about. It is never silent: `imputed_counts_` says how many
+# cells were filled in each column and `imputed_mask_` says which, so a filled
+# 0 can always be told from a measured one. docs/conventions.md (accepted
+# deviations) has the reasoning.
 #
-# The markers below no longer gate the fill -- they only separate the NaN we can
-# EXPLAIN (an area nobody fixated) from any we cannot, so an unexplained hole
-# gets a warning on its way to becoming a 0 instead of vanishing quietly.
-# Background: docs/pitfalls.md section 2. Revisit if a question-area feature
-# ever enters the model -- that area is unfixated on ~30% of trials.
+# The markers below do not decide what is filled. They separate the NaN we can
+# EXPLAIN (an area nobody looked at) from any we cannot: a NaN anywhere else
+# still becomes 0, but with a warning. Background: docs/pitfalls.md section 2.
+# Revisit this if a question-area feature enters the model: the question goes
+# unread on about 30% of trials.
 EXCLUDE_CONVENTION_MARKERS: tuple[str, ...] = (
     "pupil_size",
     "first_fixation_duration",
@@ -54,10 +49,10 @@ def is_exclude_convention_column(col: str) -> bool:
 
 
 def imputed_cell_counts(df: pd.DataFrame, feature_cols: Sequence[str]) -> pd.Series:
-    """Per-column count of cells the model would impute, highest first.
+    """Per column, how many cells the model would fill, highest first.
 
-    The Methods number. Computable without fitting anything, so the count can be
-    reported for a dataset rather than recovered from a fitted model.
+    The number for Methods. Needs no fitting, so it can be reported for any
+    table and feature set.
     """
     na = df[list(feature_cols)].isna().sum()
     return na[na > 0].sort_values(ascending=False)
@@ -65,25 +60,33 @@ def imputed_cell_counts(df: pd.DataFrame, feature_cols: Sequence[str]) -> pd.Ser
 
 @dataclass
 class TrialLevelLogRegModel:
+    """Logistic regression predicting `is_correct` from one row per trial.
+
+    Before fitting, the feature columns are made numeric, every missing value
+    is filled with `fill_value` (counted; see the note above), and each column
+    is standardised with a scaler fitted on the training rows. The regression
+    uses sklearn's default L2 penalty (C = 1) and `class_weight="balanced"`, so
+    correct and wrong answers count equally although most answers are correct.
+    The coefficients are therefore per standard deviation of each feature.
+    """
+
     name: str = "trial_level_log_reg"
     max_iter: int = 100000
     class_weight: str = "balanced"
-    # Applied to EVERY NaN in the feature matrix -- see the comment above for
-    # what the value asserts, why it is provisional, and why it is blanket.
+    # Put in place of EVERY NaN in the feature matrix; see the note above.
     fill_value: float = 0.0
 
     model: LogisticRegression = field(default=None, init=False)
     scaler_: StandardScaler = field(default=None, init=False)
     feature_cols_: list[str] = field(default_factory=list, init=False)
-    # Set on every _prepare_X call so imputed cells stay identifiable after the
-    # fact -- without the mask, a genuine 0 (e.g. the 137 trials whose
-    # first_encounter_avg_pupil_size_z really does equal their own mean) is
-    # indistinguishable from a filled one. T3.14 point 4.
+    # Set on every _prepare_X call, so the filled cells can be found afterwards:
+    # without the mask, a measured 0 (a z-score can really be 0) could not be
+    # told from a filled one.
     imputed_counts_: pd.Series = field(default=None, init=False)
     imputed_mask_: pd.DataFrame = field(default=None, init=False)
-    # The subset of imputed_counts_ with no documented cause. Empty on L1 and
-    # KnowQA today; non-empty means something upstream is missing and the 0 is
-    # covering for it.
+    # The part of imputed_counts_ with no known cause. Empty for both studies'
+    # full feature sets; anything here means something upstream is missing and
+    # the 0 is covering for it.
     unexpected_imputed_: pd.Series = field(default=None, init=False)
 
     def _validate_feature_cols(
@@ -115,18 +118,17 @@ class TrialLevelLogRegModel:
         for c in X.columns:
             X[c] = pd.to_numeric(X[c], errors="coerce")
 
-        # Record what is about to be imputed, then fill EVERY remaining NaN.
-        # The blanket fill is the deliberate choice (Diana, 2026-09-23): one rule
-        # for the whole feature matrix is the simplest thing to state in Methods
-        # and to reason about. What the rule below does NOT do is hide it --
-        # every filled cell is counted and located before it disappears.
+        # Record what is about to be filled, then fill EVERY remaining NaN. One
+        # rule for the whole feature matrix is the deliberate choice; what it
+        # must not do is hide the fill, so every filled cell is counted and
+        # located first.
         self.imputed_mask_ = X.isna()
         self.imputed_counts_ = imputed_cell_counts(X, cols)
 
-        # Anything outside the two families whose NaN we can *explain* gets the
-        # same 0, but it is surfaced rather than absorbed: a hole in, say,
-        # has_xyx means something upstream is wrong, and the fill would otherwise
-        # make it invisible. Warn, don't block -- the fill is the policy.
+        # A NaN outside the two families we can explain gets the same 0, but
+        # with a warning: a gap in, say, has_xyx means something upstream is
+        # wrong, and the fill would otherwise hide it. Warn, don't stop -- the
+        # fill is the policy.
         self.unexpected_imputed_ = self.imputed_counts_[
             [not is_exclude_convention_column(c) for c in self.imputed_counts_.index]
         ]
@@ -138,7 +140,7 @@ class TrialLevelLogRegModel:
             warnings.warn(
                 f"Imputing 0 in columns outside {EXCLUDE_CONVENTION_MARKERS}, where "
                 f"a missing value has no documented cause: {detail}. The fill is "
-                "intended (docs/todo.md T3.14); an unexplained NaN is not. Worth "
+                "intended; an unexplained NaN is not. Worth "
                 "finding out why it is missing.",
                 RuntimeWarning,
                 stacklevel=2,
@@ -199,15 +201,14 @@ class TrialLevelLogRegModel:
             self,
             train_df: Optional[pd.DataFrame] = None,
             top_k: Optional[int] = None,
-            # Default to the participant-clustered BOOTSTRAP (Diana, 2026-09-27;
-            # todo.md T3.3). It refits the real penalised, class-weighted estimator
-            # on each resample, so it needs no approximation and no minimum cluster
-            # count -- which is why it is the right default for a small dataset
-            # such as KnowQA (6 participants), where the clustered-Wald sandwich is
-            # rank-deficient. The callers that cannot afford ~5,000 refits opt out
-            # explicitly: cross_validation.py (per fold x regime) and
-            # participant_level.py (per participant, where a single participant is
-            # one cluster and clustering is meaningless) both pass ci_method="wald".
+            # The default is the bootstrap, clustered by participant: it refits
+            # the real penalised, class-weighted model on each resample, so it
+            # needs no approximation, and it does not break down with few
+            # participants the way the clustered Wald formula does (Study 2 has
+            # 6). The callers that cannot afford ~5,000 refits ask for Wald
+            # instead: crossval.py (once per fold and regime) and
+            # analyses/correctness_prediction/participant_level.py (one model per
+            # participant, where clustering by participant means nothing).
             ci_method: Literal["bootstrap", "wald", "none"] = "bootstrap",
             ci_cluster: Literal["cluster", "row", "auto"] = "cluster",
             ci: float = 0.95,
@@ -216,6 +217,14 @@ class TrialLevelLogRegModel:
             feature_cols: Optional[Sequence[str]] = None,
             target_col: str = Con.IS_CORRECT_COLUMN,
     ) -> pd.DataFrame:
+        """Coefficient table for the fitted model, with confidence intervals.
+
+        `ci_method`: "bootstrap" (the default), "wald" (no refitting, much
+        faster) or "none". `ci_cluster`: "cluster" resamples or groups by
+        participant; "row" or "auto" treats each trial on its own. `train_df`
+        must be the table the model was fitted on. Coefficients are per
+        standard deviation of each feature.
+        """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
         if train_df is None:
@@ -258,9 +267,9 @@ class TrialLevelLogRegModel:
             )
 
         elif ci_method == "wald":
-            # Clustered Wald is a cluster-robust sandwich (todo.md T3.3, 2026-09-27):
-            # no refitting, so it is the affordable option inside cross-validation,
-            # where 5,000 bootstrap refits per fold x regime is not.
+            # The Wald sandwich needs no refitting, so it is the affordable option
+            # inside cross-validation, where 5,000 bootstrap refits per fold and
+            # regime are not.
             wald_df = wald_logreg_coef_cis(
                 model=self.model,
                 X=X,

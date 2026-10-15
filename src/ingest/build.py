@@ -11,11 +11,13 @@ times and the area looked at before each press.
 
 In order, it:
 
-1. rebuilds when each answer was selected and confirmed, from the message log;
-2. reads the interest-area report and drops repeated-reading and practice trials;
-3. runs the row features, then the area and trial features (`ingest/registry.py`);
-4. adds reading times, and the area looked at before each button press;
-5. splits the result into the three tables and saves them.
+1. reads the interest-area report and drops repeated-reading and practice trials;
+2. reads the fixation report, once (`features/fixations.py`); everything below
+   that needs single fixations uses this one table;
+3. rebuilds when each answer was selected and confirmed, from the message log;
+4. runs the row features, then the area and trial features (`ingest/registry.py`);
+5. adds reading times, and the area looked at before each button press;
+6. splits the result into the three tables and saves them.
 
 Nothing is reused from an earlier run: every side file is rebuilt each time.
 
@@ -40,6 +42,7 @@ from src.config.datasets import (
     RT_AND_TFD_PATH,
 )
 from src.ingest.clicks import run_trial_level_pipeline
+from src.features.fixations import load_fixations, match_key_types
 from src.features.pupil import get_participant_pupil_stats
 from src.features.reading_times import build_rt_and_tfd
 from src.features.last_visited import compute_last_area_labels
@@ -58,8 +61,32 @@ from src.ingest.registry import (
 )
 
 
+# The fixation-report columns this pipeline reads: when each fixation started
+# and how long it lasted, its word and nearest word, its pupil size, and the
+# number of selection presses.
+FIXATION_COLUMNS = [
+    C.CURRENT_FIX_START,
+    C.CURRENT_FIX_DURATION,
+    C.CURRENT_FIX_INTEREST_AREA_ID,
+    C.NEAREST_IA,
+    C.CURRENT_FIX_PUPIL_SIZE,
+    C.NUM_OF_SELECTS,
+]
+
+# When the fixation report also holds the message log (Study 2), the button
+# presses are rebuilt from these columns of it too.
+MESSAGE_COLUMNS = [
+    C.ALL_ANSWERS,
+    C.CURRENT_FIX_MSG_LIST_TEXT,
+    C.CURRENT_FIX_MSG_LIST_TIME,
+    C.NEXT_SAC_MSG_LIST_TEXT,
+    C.NEXT_SAC_MSG_LIST_TIME,
+]
+
+
 def _attach_last_label_features(
     df: pd.DataFrame,
+    fixations: pd.DataFrame,
     save_path: Path = None,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
     verbose: bool = True,
@@ -67,14 +94,15 @@ def _attach_last_label_features(
     """Add the area looked at just before the answer was selected, and just
     before it was confirmed (`last_lbl_before_select`, `last_lbl_before_confirm`).
 
-    Worked out from the button-press table at `button_clicks_path`. If
-    `save_path` is given, the per-trial result is also saved there.
+    Worked out from the press times in the button-press table at
+    `button_clicks_path` and the answer screen's `fixations`. If `save_path` is
+    given, the per-trial result is also saved there.
     """
     if verbose:
         print("Computing last-area-label features…")
 
     last_df = compute_last_area_labels(
-        df, trial_level_path=button_clicks_path, verbose=verbose
+        df, fixations, trial_level_path=button_clicks_path, verbose=verbose
     )
 
     if save_path is not None:
@@ -82,8 +110,8 @@ def _attach_last_label_features(
 
     merge_cols = [C.PARTICIPANT_ID, C.TRIAL_ID]
     rename_map = {
-        "area_label_before_last_select": C.LAST_LBL_BEFORE_SELECT,
-        "area_label_before_confirm": C.LAST_LBL_BEFORE_CONFIRM,
+        C.AREA_LABEL_BEFORE_SELECT: C.LAST_LBL_BEFORE_SELECT,
+        C.AREA_LABEL_BEFORE_CONFIRM: C.LAST_LBL_BEFORE_CONFIRM,
     }
 
     last_df = (
@@ -97,23 +125,22 @@ def _attach_last_label_features(
 
 def _attach_rt_and_tfd_features(
     df: pd.DataFrame,
+    fixations: pd.DataFrame,
     save_path: Path = None,
-    fixations_path: Path = FIX_ANSWERS_PATH,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Add the reading times for each answer-screen area, one row per trial.
 
-    Built by `features/reading_times.py::build_rt_and_tfd`, which reads this
-    dataset's own fixation report at `fixations_path`. Adds the RT_*, TFD_* and
-    TimeSinceOffset_* columns. If `save_path` is given, the reading-time table
-    is also saved there.
+    Built by `features/reading_times.py::build_rt_and_tfd` from the word table
+    and this dataset's `fixations`. Adds the RT_*, TFD_* and TimeSinceOffset_*
+    columns. If `save_path` is given, the reading-time table is also saved there.
     """
     if verbose:
         print("Computing RT/TFD features…")
 
     rt_df = build_rt_and_tfd(
         all_participants=df,
-        fixations_path=fixations_path,
+        fixations=fixations,
         save=save_path is not None,
         output_path=save_path,
         verbose=verbose,
@@ -233,21 +260,21 @@ def _process(
     df: pd.DataFrame,
     base_funcs,
     group_funcs,
+    fixations: pd.DataFrame,
     add_last: bool = True,
     add_rts: bool = True,
     last_labels_path: Path = None,
     rt_and_tfd_path: Path = None,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
-    fixations_path: Path = FIX_ANSWERS_PATH,
     label: str = "",
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Run every feature on the word-level frame and return it with the new columns.
 
     First the row features, then the area and trial features, then (if asked)
-    the area looked at before each button press and the reading times.
-    `last_labels_path` and `rt_and_tfd_path`, when given, are where those last
-    two are also saved."""
+    the area looked at before each button press and the reading times, both
+    from `fixations`. `last_labels_path` and `rt_and_tfd_path`, when given, are
+    where those last two are also saved."""
     if verbose:
         print(f"\nProcessing {label} (row-level)…")
     out = add_base_features(df, base_funcs, verbose=verbose)
@@ -259,6 +286,7 @@ def _process(
     if add_last:
         out = _attach_last_label_features(
             out,
+            fixations,
             save_path=last_labels_path,
             button_clicks_path=button_clicks_path,
             verbose=verbose,
@@ -267,8 +295,8 @@ def _process(
     if add_rts:
         out = _attach_rt_and_tfd_features(
             out,
+            fixations,
             save_path=rt_and_tfd_path,
-            fixations_path=fixations_path,
             verbose=verbose,
         )
 
@@ -286,7 +314,6 @@ def main(
     pupil_fixations_path: Path = None,
     pupil_stats_path: Path = PUPIL_BASELINE_ANSWERS_PATH,
     button_clicks_path: Path = BUTTON_CLICKS_PATH,
-    button_clicks_fix_csv_path: Path = FIX_ANSWERS_PATH,
     button_clicks_fix_tsv_path: Path = FIX_A_TSV_PATH,
     button_clicks_msg_participant_col: str = C.RECORDING_SESSION_LABEL,
     all_answers_is_cumulative: bool = True,
@@ -323,15 +350,15 @@ def main(
     **Inputs:**
 
     - `ia_answers_path` -- the interest-area report (one row per word).
-    - `fixations_path` -- the matching fixation report (one row per fixation).
-      Used for the fixation sequence, the reading times and, unless
+    - `fixations_path` -- the matching fixation report (one row per fixation),
+      read once. Used for the button presses, the fixation sequence, the area
+      looked at before each press, the reading times and, unless
       `pupil_fixations_path` says otherwise, the pupil baseline.
-    - `button_clicks_fix_csv_path` + `button_clicks_fix_tsv_path` -- where the
-      button presses are rebuilt from. Study 1 keeps the message log in a
-      separate TSV export. For a report that holds everything in one file (Study
-      2), pass `button_clicks_fix_tsv_path=None`, and set
-      `button_clicks_msg_participant_col` and `all_answers_is_cumulative=False`
-      to match it.
+    - `button_clicks_fix_tsv_path` -- where the message log for the button
+      presses is. Study 1 keeps it in a separate TSV export. For a fixation
+      report that holds it too (Study 2), pass `button_clicks_fix_tsv_path=None`,
+      and set `button_clicks_msg_participant_col` and
+      `all_answers_is_cumulative=False` to match it.
 
     **Side files** (saved when `save_auxiliary=True`):
 
@@ -356,23 +383,6 @@ def main(
     # unless pupil_fixations_path names a different one.
     if pupil_fixations_path is None:
         pupil_fixations_path = fixations_path
-
-    # The button presses are needed only for "the area looked at before each
-    # press" (add_last), so they are built only then -- always from the raw
-    # reports, never reused from an earlier run. A saved press table from an
-    # earlier run can look perfectly valid and still be out of date.
-    needs_button_clicks = add_last
-    if needs_button_clicks:
-        if verbose:
-            print("\nBuilding button-click data from raw…")
-        run_trial_level_pipeline(
-            fix_csv_path=button_clicks_fix_csv_path,
-            fix_tsv_path=button_clicks_fix_tsv_path,
-            output_csv_path=Path(button_clicks_path),
-            msg_participant_col=button_clicks_msg_participant_col,
-            all_answers_is_cumulative=all_answers_is_cumulative,
-            verbose=verbose,
-        )
 
     if verbose:
         print(f"\nLoading raw answers from: {ia_answers_path}")
@@ -407,23 +417,35 @@ def main(
     base_funcs = resolve_base_functions(base_function_names)
     group_funcs = resolve_group_functions(group_function_names)
 
-    # The fixation report is large and two things need it: the pupil baseline and
-    # the fixation sequence. Load it once here and hand the same table to both.
-    needs_pupil_fix = any(
-        func is add_zscored_pupil_columns for func, _ in base_funcs
-    )
-    needs_seq_fix = any(
-        func is create_fixation_sequence_tags for func, _ in group_funcs
+    # The fixation report is read once, here, and the same table is used for the
+    # button presses, the pupil baseline, the fixation sequence, the area looked
+    # at before each press and the reading times. Its participant and trial ids
+    # are given the word table's types, so the two can be joined.
+    if verbose:
+        print(f"\nReading the fixation report: {fixations_path}")
+    columns = FIXATION_COLUMNS + (MESSAGE_COLUMNS if button_clicks_fix_tsv_path is None else [])
+    fixations_df = match_key_types(
+        load_fixations(fixations_path, columns, verbose=verbose), df_answers
     )
 
-    fixations_df = None
-    if needs_seq_fix or (needs_pupil_fix and pupil_fixations_path == fixations_path):
+    # The button presses are needed only for "the area looked at before each
+    # press" (add_last), so they are built only then -- always from the raw
+    # reports, never reused from an earlier run. A saved press table from an
+    # earlier run can look perfectly valid and still be out of date.
+    if add_last:
         if verbose:
-            print(f"\nLoading fixations report once from: {fixations_path}")
-        fixations_df = pd.read_csv(fixations_path)
+            print("\nBuilding button-click data from raw…")
+        run_trial_level_pipeline(
+            fixations=fixations_df,
+            fix_tsv_path=button_clicks_fix_tsv_path,
+            output_csv_path=Path(button_clicks_path),
+            msg_participant_col=button_clicks_msg_participant_col,
+            all_answers_is_cumulative=all_answers_is_cumulative,
+            verbose=verbose,
+        )
 
-    # Give the loaded fixation table to the fixation-sequence feature.
-    if needs_seq_fix:
+    # Give the fixation table to the fixation-sequence feature.
+    if any(func is create_fixation_sequence_tags for func, _ in group_funcs):
         group_funcs = [
             (func, {**kwargs, "fix_path": fixations_df})
             if func is create_fixation_sequence_tags
@@ -465,8 +487,8 @@ def main(
         add_rts=add_rts,
         last_labels_path=last_labels_path if save_auxiliary else None,
         rt_and_tfd_path=rt_and_tfd_path if save_auxiliary else None,
+        fixations=fixations_df,
         button_clicks_path=button_clicks_path,
-        fixations_path=fixations_path,
         label="all_participants",
         verbose=verbose,
     )

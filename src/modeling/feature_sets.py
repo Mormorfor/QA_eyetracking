@@ -1,30 +1,22 @@
-"""Named feature-column sets: what a model is *told to use*.
+"""Named lists of the columns a model uses.
 
-Merged in stage D step 7 from `answer_correctness/feature_groups.py` and
-`common/feature_specs.py`, which were the two halves of one job (proposal §3.3,
-§4). This is the **chosen** side of the split: hand-written decisions about which
-columns a model sees, each with its reason. The **generated** side -- what the
-pipeline produces, and under what name -- lives in `features/`; the last-visited
-vocabulary below is imported from there rather than restated.
+These are hand-written choices. What the pipeline makes, and under what names,
+is decided in `features/`; this file only picks from it.
 
-The two merged modules expressed "a feature set" in two different ways, and both
-survive here because they are not interchangeable:
+A feature set is written one of two ways, and they are not interchangeable:
 
-* **Static lists** (`SELECT_1_COLS`, `GENERAL_FEATURES`, `RT_COLS`, ...) name
-  columns unconditionally. A model asked for one gets exactly those columns, and
-  a missing column is an error at fit time -- which is the point.
-* **Frame-aware predicates** (`get_*_feature_cols(df)`) return the columns that
-  are *present* in a given frame. Used where a caller does not know which blocks
-  a dataset carries -- KnowQA has no paragraph columns, for instance.
+* **Fixed lists** (`SELECT_1_COLS`, `GENERAL_FEATURES`, `RT_COLS`, ...) name
+  columns outright. A model given one gets exactly those columns, and a missing
+  column stops the fit with an error.
+* **Selectors** (`get_*_feature_cols(df)`) return whichever of their columns a
+  given table has. They are for tables whose blocks vary -- Study 2 has no
+  paragraph columns, for instance.
 
-> **They deliberately disagree on the RT variants, and this is not a bug to fix.**
-> `RT_TFD_VARIANTS` is `["normalized"]`, so the static `RT_COLS` / `TFD_COLS` /
-> `TIME_SINCE_OFFSET_COLS` name only the normalized columns. The predicate
-> `get_rt_tfd_feature_cols` walks `RT_TFD_ANSWER_METRICS`, which lists **both**
-> `pure` and `normalized`, and returns whichever are in the frame. So "the RT
-> features" means a different set depending on which door you came through.
-> Unifying them would change which columns existing models see. If it is ever
-> unified, that is a modelling decision with a rerun attached, not a tidy-up.
+**The two disagree on the reading-time columns.** The fixed lists use only the
+per-word versions (`_normalized`), while `get_rt_tfd_feature_cols` returns both
+the per-word and the total (`_pure`) versions, whichever are present. So "the reading-time features" is a different
+set depending on which you use. Making them agree would change which columns
+existing models see, so it is a modelling decision, not a tidy-up.
 """
 
 from __future__ import annotations
@@ -34,10 +26,15 @@ from typing import List
 import pandas as pd
 
 from src.config import columns as Con
+from src.config.screens import screen
 
-# The last-visited vocabulary belongs to the module that produces those columns
-# (stage D step 4). Re-exported here because seven call sites name it through
-# this module, and because it is genuinely part of the chosen vocabulary too.
+SEP = Con.DERIVED_SEP
+ANSWER_SCREEN = screen("answers")
+PARAGRAPH_SCREEN = screen("paragraph")
+
+# The last-look column lists are defined in `features/build.py`, which makes
+# those columns. They are re-exported here because code that picks feature sets
+# reads them from this module.
 from src.features.build import (
     LAST_ALL,
     LAST_ALL_COMPACT,
@@ -71,9 +68,8 @@ METRIC_COLUMNS: List[str] = [
 # Derived trial-level features
 # ---------------------------------------------------------------------------
 
-# Imported, not redefined: the canonical list lives beside the builders in
-# `features/sequences.py`, so a feature set cannot name a column the pipeline
-# stopped producing (grain proposal step 6).
+# The five sequence statistics. Imported from `features/sequences.py`, which
+# makes them, so a feature set can only name ones the pipeline actually builds.
 from src.features.sequences import DERIVED_COLS  # noqa: E402
 
 
@@ -102,11 +98,11 @@ PATTERN_INTERACTION_COLS: List[str] = [
 # Convenience: base pattern features together with their interaction terms.
 PATTERN_COLS_WITH_INTERACTIONS: List[str] = PATTERN_COLS + PATTERN_INTERACTION_COLS
 
-# Graded "breaks pattern": Levenshtein distance between the trial's starting
-# strategy and the participant's dominant one. Collinear with the binary
-# breaks_pattern_* cols (distance == 0 iff the trial does not break the
-# pattern), so kept as a separate opt-in group -- typically swapped in *instead*
-# of breaks_pattern rather than added alongside it.
+# Graded "breaks pattern": the edit distance between the trial's starting
+# strategy and the participant's dominant one -- how many single entries must
+# change to turn one into the other. It is 0 exactly when the trial does not
+# break the pattern, so it overlaps with breaks_pattern_*; kept as a separate
+# group, to use *instead of* breaks_pattern rather than beside it.
 PATTERN_DISTANCE_COLS: List[str] = [
     Con.STRATEGY_DISTANCE_WITH_Q,
     Con.STRATEGY_DISTANCE_NO_Q,
@@ -120,64 +116,48 @@ PATTERN_DISTANCE_COLS: List[str] = [
 # ---------------------------------------------------------------------------
 
 AREA_COLS: List[str] = (
-    [f"{m}__{Con.CORRECT_SUFFIX}" for m in METRIC_COLUMNS]
-    + [f"{m}__{Con.WRONG_MEAN_SUFFIX}" for m in METRIC_COLUMNS]
-    + [f"{m}__{Con.CONTRAST_SUFFIX}" for m in METRIC_COLUMNS]
-    + [f"{m}__{Con.DISTANCE_FURTHEST_SUFFIX}" for m in METRIC_COLUMNS]
-    + [f"{m}__{Con.DISTANCE_CLOSEST_SUFFIX}" for m in METRIC_COLUMNS]
+    [f"{m}{SEP}{Con.CORRECT_SUFFIX}" for m in METRIC_COLUMNS]
+    + [f"{m}{SEP}{Con.WRONG_MEAN_SUFFIX}" for m in METRIC_COLUMNS]
+    + [f"{m}{SEP}{Con.CONTRAST_SUFFIX}" for m in METRIC_COLUMNS]
+    + [f"{m}{SEP}{Con.DISTANCE_FURTHEST_SUFFIX}" for m in METRIC_COLUMNS]
+    + [f"{m}{SEP}{Con.DISTANCE_CLOSEST_SUFFIX}" for m in METRIC_COLUMNS]
 )
 
 
 # ---------------------------------------------------------------------------
-# Per-label metric columns (raw pivot: one column per metric x area label)
-#   PER_QUESTION_COLS:  <metric>__question
-#   PER_ANSWER_COLS:    <metric>__answer_A, ..._B, ..._C, ..._D
-#   PER_LABEL_COLS:     question + answers (everything in Con.LABEL_CHOICES)
+# The question area's own columns: <metric>__question
+#   The four answers have no columns of their own in the feature sets; the
+#   comparisons above stand in for them.
 # ---------------------------------------------------------------------------
 
-PER_QUESTION_COLS: List[str] = [f"{m}__question" for m in METRIC_COLUMNS]
-
-# PER_ANSWER_COLS: List[str] = [
-#     f"{m}__{Con.ANSWER_PREFIX}{letter}"
-#     for m in METRIC_COLUMNS
-#     for letter in Con.ANSWER_LABELS
-# ]
-
-# PER_LABEL_COLS: List[str] = PER_QUESTION_COLS + PER_ANSWER_COLS
+PER_QUESTION_COLS: List[str] = [f"{m}{SEP}{Con.QUESTION_AREA}" for m in METRIC_COLUMNS]
 
 
 # ---------------------------------------------------------------------------
-# Paragraph-based features
-#   Dwell proportions measured on the *paragraph* screen, one per span: the
-#   share of the trial's paragraph dwell time spent on the critical span, on
-#   the distractor span, and on the rest of the text. Same quantity as the
-#   per-answer area_dwell_proportion__* columns, computed over
-#   `auxiliary_span_type` instead of `area_label`; merged into the trial frame
-#   by build_trial_level_model_df from the cached paragraph-span features.
+# Paragraph-screen features (Study 1 only)
+#   The share of the paragraph-screen looking time spent on each part:
+#   critical, distractor and outside. The same measure as the answer areas'
+#   area_dwell_proportion__*, joined in from features/paragraph_spans.csv.
 #
-#   Opt-in, like PATTERN_INTERACTION_COLS: kept out of ALL_FEATURES /
-#   GENERAL_FEATURES so existing runs stay comparable, e.g.
+#   Not in ALL_FEATURES / GENERAL_FEATURES; add them on purpose, e.g.
 #       feature_cols = FS.GENERAL_FEATURES + FS.PARAGRAPH_BASED
-#   Note the three shares are compositional (they sum to 1), so alongside an
-#   intercept they carry only two degrees of freedom.
+#   The three shares add up to 1, so with an intercept only two of them carry
+#   information.
 # ---------------------------------------------------------------------------
-
-PARAGRAPH_SPANS: List[str] = ["critical", "distractor", "outside"]
 
 PARAGRAPH_BASED: List[str] = [
-    f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
+    f"{Con.AREA_DWELL_PROPORTION}{SEP}{span}" for span in PARAGRAPH_SCREEN.regions
 ]
 
 
 # ---------------------------------------------------------------------------
-# Last-visited / last-before-action one-hot groups
+# The area looked at just before each button press, as 0/1 columns
 #
-# Each "last before action" feature comes in two flavors:
-#   * LONG    -- the original one-hot encoding, one column per label.
-#   * COMPACT -- the collapsed correct / wrong / question indicators.
+# Two versions of each:
+#   * LONG    -- one column per area, with answer_D left out as the reference
+#   * COMPACT -- "the correct answer" and "the question" only
 #
-# The lists themselves are imported at the top of this module from
-# `features/build.py`, which is what produces those columns.
+# The lists are imported at the top of this module from `features/build.py`.
 # ---------------------------------------------------------------------------
 
 
@@ -186,8 +166,10 @@ PARAGRAPH_BASED: List[str] = [
 # (column names produced by build_trial_level_rt_tfd_features)
 # ---------------------------------------------------------------------------
 
-RT_TFD_PARAGRAPH_REGIONS: List[str] = ["outside", "distractor", "critical"]
-RT_TFD_VARIANTS: List[str] = ["normalized"]  # ["pure", "normalized"]
+RT_TFD_PARAGRAPH_REGIONS: List[str] = list(PARAGRAPH_SCREEN.regions)
+
+# The fixed lists below use the per-word versions only (`_normalized`); the
+# `_pure` prefixes would add the totals.
 
 # Correct/wrong contrast suffixes derived from the answer regions.
 RT_TFD_CONTRAST_SUFFIXES: List[str] = [
@@ -202,26 +184,22 @@ RT_TFD_CONTRAST_SUFFIXES: List[str] = [
 # and paragraph regions. The four answer regions (answer_A-D) are represented
 # through the correct/wrong contrast suffixes instead, mirroring AREA_COLS (which
 # excludes per-answer columns and keeps only the contrast + question variants).
-RT_TFD_NON_ANSWER_REGIONS: List[str] = ["question"] + RT_TFD_PARAGRAPH_REGIONS
+RT_TFD_NON_ANSWER_REGIONS: List[str] = [Con.QUESTION_AREA] + RT_TFD_PARAGRAPH_REGIONS
 
 RT_COLS: List[str] = [
-    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS
-] + [f"RT_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
+    f"{Con.RT_NORMALIZED}_{r}" for r in RT_TFD_NON_ANSWER_REGIONS
+] + [f"{Con.RT_NORMALIZED}_{s}" for s in RT_TFD_CONTRAST_SUFFIXES]
 
 TFD_COLS: List[str] = [
-    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_NON_ANSWER_REGIONS
-] + [f"TFD_{v}_{s}" for v in RT_TFD_VARIANTS for s in RT_TFD_CONTRAST_SUFFIXES]
+    f"{Con.TFD_NORMALIZED}_{r}" for r in RT_TFD_NON_ANSWER_REGIONS
+] + [f"{Con.TFD_NORMALIZED}_{s}" for s in RT_TFD_CONTRAST_SUFFIXES]
 
-# TimeSinceOffset has no paragraph counterpart, so among the non-answer regions
-# only "question" applies; it still gets the answer-region contrast columns
-# (computed from answer_A-D).
+# The question and the answer comparisons. Unlike RT_COLS and TFD_COLS, this
+# leaves out the paragraph parts, although the model table has
+# TimeSinceOffset_* columns for them too.
 TIME_SINCE_OFFSET_COLS: List[str] = [
-    f"TimeSinceOffset_{v}_question" for v in RT_TFD_VARIANTS
-] + [
-    f"TimeSinceOffset_{v}_{s}"
-    for v in RT_TFD_VARIANTS
-    for s in RT_TFD_CONTRAST_SUFFIXES
-]
+    f"{Con.TIME_SINCE_OFFSET_NORMALIZED}_{Con.QUESTION_AREA}"
+] + [f"{Con.TIME_SINCE_OFFSET_NORMALIZED}_{s}" for s in RT_TFD_CONTRAST_SUFFIXES]
 
 
 RT_TFD_OFFSET_COLS: List[str] = RT_COLS + TFD_COLS + TIME_SINCE_OFFSET_COLS
@@ -234,20 +212,18 @@ RT_TFD_OFFSET_COLS: List[str] = RT_COLS + TFD_COLS + TIME_SINCE_OFFSET_COLS
 # correct/wrong contrast representation of the answers instead).
 # ---------------------------------------------------------------------------
 
-RT_TFD_PER_ANSWER_REGIONS: List[str] = ["answer_A", "answer_B", "answer_C", "answer_D"]
+RT_TFD_PER_ANSWER_REGIONS: List[str] = list(Con.ANSWER_AREAS)
 
 RT_PER_ANSWER_COLS: List[str] = [
-    f"RT_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_PER_ANSWER_REGIONS
+    f"{Con.RT_NORMALIZED}_{r}" for r in RT_TFD_PER_ANSWER_REGIONS
 ]
 
 TFD_PER_ANSWER_COLS: List[str] = [
-    f"TFD_{v}_{r}" for v in RT_TFD_VARIANTS for r in RT_TFD_PER_ANSWER_REGIONS
+    f"{Con.TFD_NORMALIZED}_{r}" for r in RT_TFD_PER_ANSWER_REGIONS
 ]
 
 TIME_SINCE_OFFSET_PER_ANSWER_COLS: List[str] = [
-    f"TimeSinceOffset_{v}_{r}"
-    for v in RT_TFD_VARIANTS
-    for r in RT_TFD_PER_ANSWER_REGIONS
+    f"{Con.TIME_SINCE_OFFSET_NORMALIZED}_{r}" for r in RT_TFD_PER_ANSWER_REGIONS
 ]
 
 RT_TFD_OFFSET_PER_ANSWER_COLS: List[str] = (
@@ -277,8 +253,8 @@ ALL_FEATURES: List[str] = (
 
 # ---------------------------------------------------------------------------
 # General features
-#   = ALL_FEATURES_NO_LAST minus RT/TFD/TSO base columns and their
-#     interaction terms. Used as the "general" base for additive groupings.
+#   ALL_FEATURES_NO_LAST without the reading-time columns. The usual base that
+#   other groups are added to.
 # ---------------------------------------------------------------------------
 
 GENERAL_FEATURES: List[str] = (
@@ -287,7 +263,9 @@ GENERAL_FEATURES: List[str] = (
 
 
 # ---------------------------------------------------------------------------
-# Manually curated feature subsets
+# Hand-picked sets
+#   SELECT_1_COLS: the ten features of the paper's headline model.
+#   feature_sets/select_1.json holds the same list.
 # ---------------------------------------------------------------------------
 
 SELECT_1_COLS: List[str] = [
@@ -305,33 +283,8 @@ SELECT_1_COLS: List[str] = [
 
 
 # ===========================================================================
-# Frame-aware selectors
-#
-# Was `common/feature_specs.py`. These answer "which of these columns does this
-# frame actually have?", which the static lists above deliberately do not.
-#
-# Four constants this half used to define for itself were character-for-character
-# equal to lists above -- `DERIVED_BASE_FEATURES` == `DERIVED_COLS`,
-# `PATTERN_FEATURE_COLS` == `PATTERN_COLS`, and its own copies of
-# `RT_TFD_CONTRAST_SUFFIXES` and `RT_TFD_PARAGRAPH_REGIONS`. None was referenced
-# outside its own module, so the merge drops the duplicates and the selectors
-# read the canonical lists. The two names below have no counterpart above,
-# because they decompose the RT columns differently -- see the module docstring.
+# Selectors: which of these columns does this table have?
 # ===========================================================================
-
-# Standalone answer-region columns produced by build_trial_level_rt_tfd_features.
-# NOTE both variants, unlike RT_TFD_VARIANTS above. This is the disagreement the
-# module docstring describes; it is load-bearing, not an oversight.
-RT_TFD_ANSWER_METRICS = (
-    "RT_pure",
-    "RT_normalized",
-    "TFD_pure",
-    "TFD_normalized",
-    "TimeSinceOffset_pure",
-    "TimeSinceOffset_normalized",
-)
-RT_TFD_ANSWER_REGIONS = ("question", "answer_A", "answer_B", "answer_C", "answer_D")
-
 
 def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
     """
@@ -358,12 +311,12 @@ def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
 
     for metric in Con.AREA_METRIC_COLUMNS_MODELING:
         for area in area_labels:
-            col = f"{metric}__{area}"
+            col = f"{metric}{SEP}{area}"
             if col in df.columns:
                 cols.append(col)
 
         for suffix in derived_suffixes:
-            col = f"{metric}__{suffix}"
+            col = f"{metric}{SEP}{suffix}"
             if col in df.columns:
                 cols.append(col)
 
@@ -372,21 +325,12 @@ def get_area_feature_cols(df: pd.DataFrame) -> List[str]:
 
 def get_derived_feature_cols(df: pd.DataFrame) -> List[str]:
     """
-    Return derived trial-level feature columns that are present in df.
+    Return the five sequence statistics (`DERIVED_COLS`) present in df.
 
-    **Preference matching is deliberately not here** (Diana, 2026-10-13: *"I don't
-    want pref matching to ever become features"*). A line collecting
-    `pref_matching__*` columns stood here until then and had **never returned
-    anything** -- nothing in the pipeline produces that prefix, and
-    `model_ready.csv` has no such column among its 219. It read as a feature family
-    that happened to be empty, which is the same shape as T2.4, where
-    `get_last_visited_feature_cols` silently returned `[]` for a documented block
-    and quietly removed it from every default feature set.
-
-    Preference matching is live, but as an **analysis**: `analyses/correctness_associations/plots.py`
-    calls `features/preference.py::compute_trial_matching` directly, once per metric
-    and direction it wants. It is a parameterised family rather than one feature,
-    which is the other reason it does not belong in a feature-set list.
+    Preference matching is deliberately not a model feature. It is used as an
+    analysis instead: `analyses/correctness_associations/plots.py` calls
+    `features/preference.py::compute_trial_matching` directly, for each measure
+    and direction it needs. It is a family with settings, not one column.
     """
     return [c for c in DERIVED_COLS if c in df.columns]
 
@@ -400,45 +344,38 @@ def get_pattern_feature_cols(df: pd.DataFrame) -> List[str]:
 
 def get_last_visited_feature_cols(df: pd.DataFrame) -> List[str]:
     """
-    Return the last-before-action one-hot feature columns present in df.
+    Return the last-look 0/1 columns of `LAST_ALL` present in df.
 
-    Takes the canonical list from `LAST_ALL` rather than prefix-matching, for
-    two reasons (`todo.md` T2.4).
-
-    First, the prefix it used to match -- `last_visited_` -- names nothing.
-    These are built with `last_before_confirm` / `last_before_select`
-    (`build_trial_level_last_visited_features`), so the function returned `[]`
-    on every frame and this block was silently absent from
-    `get_full_feature_cols`.
-
-    Second, and the reason the fix is not simply a corrected prefix: the 16
-    built columns are **not** a usable feature block. Each family is six
-    mutually exclusive one-hots (answer_A-D, question, nan) that sum to 1 --
-    perfectly collinear with an intercept -- plus `correct` / `wrong`, which
-    are linear functions of the same indicators. `LAST_ALL` is the encoding the
-    rest of the project already uses: the long one-hot form with `answer_D`
-    held out as the reference level, and `nan` / `correct` / `wrong` excluded.
-    Matching on a prefix would have put the collinear block back, and under L2
-    that produces unstable coefficients rather than an error.
+    Not every last-look column the pipeline builds. Each of the two families
+    (before confirming, before selecting) has six 0/1 columns -- answer_A to
+    answer_D, question and nan -- that add up to 1, so with an intercept they
+    are perfectly collinear; its `correct` and `wrong` columns are sums of the
+    same six. `LAST_ALL` is the usable encoding: one column per area, with
+    answer_D left out as the reference and nan / correct / wrong left out.
+    Picking the columns by their name prefix instead would bring the collinear
+    set back, and with the model's L2 penalty that gives unstable coefficients
+    rather than an error.
     """
     return [c for c in LAST_ALL if c in df.columns]
 
 
 def get_rt_tfd_feature_cols(df: pd.DataFrame) -> List[str]:
     """
-    Feature columns produced by build_trial_level_rt_tfd_features:
-      - per-region features:  f"{metric}_{region}" for metric in
-        RT_TFD_ANSWER_METRICS and region in
-        RT_TFD_ANSWER_REGIONS + RT_TFD_PARAGRAPH_REGIONS. Paragraph regions
-        (outside, distractor, critical) have no TimeSinceOffset counterpart,
-        so those columns are simply absent.
-      - correct/wrong contrast features derived from the answer regions:
-        f"{metric}_{suffix}" for suffix in RT_TFD_CONTRAST_SUFFIXES.
-      - the trial-level total answering RT (Con.TOTAL_ANSWERING_RT).
+    Return the reading-time columns present in df:
+
+      - per area: f"{metric}_{area}" for each of the six measures in
+        `Con.RT_TFD_METRICS` -- both the total (`_pure`) and the per-word
+        (`_normalized`) versions, unlike the fixed lists above; that is the
+        disagreement described at the top of this file, and it is deliberate --
+        and each area of the answer screen and of the paragraph (the paragraph
+        parts exist only for Study 1);
+      - the comparisons of the correct answer with the wrong ones:
+        f"{metric}_{suffix}" for each suffix in RT_TFD_CONTRAST_SUFFIXES;
+      - the total answering time (`total_answering_RT`).
     """
     cols: List[str] = []
-    regions = list(RT_TFD_ANSWER_REGIONS) + list(RT_TFD_PARAGRAPH_REGIONS)
-    for metric in RT_TFD_ANSWER_METRICS:
+    regions = list(ANSWER_SCREEN.regions) + list(RT_TFD_PARAGRAPH_REGIONS)
+    for metric in Con.RT_TFD_METRICS:
         for region in regions:
             col = f"{metric}_{region}"
             if col in df.columns:

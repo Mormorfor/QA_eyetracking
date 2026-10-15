@@ -2,8 +2,8 @@
 
 For each trial this builds:
 
-    fix_by_label / fix_by_loc         one entry per fixation: which area
-                                      (by meaning / by place)
+    fix_by_label / fix_by_loc         one entry per run of fixations on one
+                                      word: which area (by meaning / by place)
     simpl_fix_by_label / _by_loc      the same with repeats merged:
                                       A A B A -> A B A
     num_label_visits / num_loc_visits how many times each area was entered
@@ -36,6 +36,14 @@ from pathlib import Path
 
 from src.config import columns as Con
 from src.config.datasets import FIX_ANSWERS_PATH
+from src.features.fixations import load_fixations, place_fixations
+
+# The fixation-report columns a sequence is built from.
+SEQUENCE_FIXATION_COLUMNS = [
+    Con.CURRENT_FIX_START,
+    Con.CURRENT_FIX_INTEREST_AREA_ID,
+    Con.NEAREST_IA,
+]
 
 
 def sequence_len_literal_eval(x) -> int:
@@ -163,109 +171,89 @@ def build_area_sequences(
     df: pd.DataFrame,
     area_cols: Sequence[str],
     *,
-    fixations: pd.DataFrame | None = None,
-    nearest_by_trial: dict | None = None,
+    fixations: pd.DataFrame,
     drop_leading_question: bool = False,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """For each trial, the areas the eyes passed through, one entry per fixation.
+    """For each trial, the areas the eyes passed through, in time order.
 
     Both screens use this. For each trial it:
 
-    1. reads the tracker's list of fixated word ids,
-    2. places fixations that missed every word on the nearest word,
-    3. turns each word id into its area,
-    4. optionally (answer screen) drops a single opening fixation on the question.
+    1. places every fixation on a word with `fixations.place_fixations` -- the
+       word it landed on, else the word it landed nearest -- and puts the
+       fixations in time order;
+    2. merges fixations in a row on the same word into one entry, so there is
+       one entry per run of fixations on one word;
+    3. turns each entry into its area;
+    4. optionally (answer screen) drops a single opening entry on the question.
 
     `area_cols` names the area column(s) to use. The answer screen passes two
     -- area by meaning and by place -- and gets a list column for each; the
-    paragraph screen passes its one column.
+    paragraph screen passes its one column. `df` is the screen's word table and
+    `fixations` its fixation table (`fixations.load_fixations`).
 
-    The nearest-word lists come from `fixations` (the fixation report), or are
-    passed in ready-made as `nearest_by_trial`, keyed by (participant_id,
-    TRIAL_INDEX) as text. The paragraph screen passes them in, because it builds
-    them while it reads its large fixation report anyway.
-
-    A fixation that cannot be placed at all is dropped, and the total number
-    dropped is printed.
+    A fixation that cannot be placed at all (no word and no nearest word) is
+    left out, and the number left out is printed.
     """
     from src.features import area_metrics as am
 
     keys = [Con.TRIAL_ID, Con.PARTICIPANT_ID]
     area_cols = list(area_cols)
+    trials = df[keys].drop_duplicates()
 
-    if nearest_by_trial is None:
-        if fixations is None:
-            raise ValueError(
-                "build_area_sequences needs either `fixations` (to build the "
-                "nearest-interest-area queue from) or a prebuilt `nearest_by_trial`."
-            )
-        # Built in one pass over the fixation report, and only for the trials in
-        # `df`: the report also holds trials with no word data, which were
-        # dropped earlier and whose lists would never be used.
-        wanted = pd.MultiIndex.from_frame(
-            df[[Con.PARTICIPANT_ID, Con.TRIAL_ID]].astype(str).drop_duplicates()
-        )
-        in_scope = pd.MultiIndex.from_frame(
-            fixations[[Con.PARTICIPANT_ID, Con.TRIAL_ID]].astype(str)
-        ).isin(wanted)
-        nearest_by_trial = {
-            (str(pid), str(tid)): am.nearest_ia_queue(g)
-            for (tid, pid), g in fixations[in_scope].groupby(keys, sort=False)
-        }
+    placed = place_fixations(
+        fixations[[Con.PARTICIPANT_ID, Con.TRIAL_ID] + SEQUENCE_FIXATION_COLUMNS],
+        df,
+        area_cols,
+        label="area sequences",
+        verbose=verbose,
+    )
+    # The fixations of `df`'s trials, each trial in time order.
+    placed = placed.merge(trials, on=keys, how="inner")
+    placed = placed.sort_values(keys + [Con.CURRENT_FIX_START], kind="mergesort")
 
-    rows, dropped, unplaced_trials, no_queue = [], 0, 0, 0
-    for key, group in df.groupby(keys, sort=False):
-        trial_id, participant_id = key
-        queue = nearest_by_trial.get((str(participant_id), str(trial_id)), [])
-        known = set(group[Con.INTEREST_AREA_ID].unique())
-        maps = [
-            dict(zip(group[Con.INTEREST_AREA_ID], group[col])) for col in area_cols
-        ]
-        sequence = am.parse_ia_sequence(
-            group[Con.INTEREST_AREA_FIXATION_SEQUENCE].iloc[0]
-        )
-        off_area = [i for i in sequence if i not in known]
-        if off_area and not queue:
-            no_queue += 1
-        resolved, n_dropped = am.resolve_fixation_sequence(sequence, known, queue)
-        dropped += n_dropped
-        unplaced_trials += bool(n_dropped)
+    # A new entry starts wherever the word changes. A fixation with no word
+    # never matches its neighbour, so it is an entry of its own, and is then
+    # left out.
+    word = placed[Con.INTEREST_AREA_ID]
+    same_trial = placed[Con.TRIAL_ID].eq(placed[Con.TRIAL_ID].shift()) & placed[
+        Con.PARTICIPANT_ID
+    ].eq(placed[Con.PARTICIPANT_ID].shift())
+    new_entry = ~(same_trial & word.eq(word.shift()))
+    unplaced = int(word.isna().sum())
+    entries = placed[new_entry.to_numpy() & word.notna().to_numpy()]
+    lists = entries.groupby(keys, sort=False)[area_cols].agg(list)
 
-        seqs = [[m[i] for i in resolved if i in m] for m in maps]
+    rows = []
+    for key in trials.itertuples(index=False, name=None):
+        seqs = [list(lists.at[key, col]) if key in lists.index else [] for col in area_cols]
         if drop_leading_question and seqs:
             seqs = list(am.drop_leading_question_fixation(seqs[0], *seqs[1:]))
-
         row = dict(zip(keys, key))
         row.update({col: seq for col, seq in zip(area_cols, seqs)})
         rows.append(row)
 
-    if verbose and dropped:
+    if verbose and unplaced:
         print(
-            f"  area sequences: {dropped:,} fixation(s) on {unplaced_trials:,} trial(s) "
-            f"could not be placed in any interest area and were dropped"
-        )
-    # If the nearest-word lists were keyed differently from this frame, every
-    # trial would look as if it had none, and every missed fixation would be
-    # dropped. Counted, so such a mismatch is visible.
-    if no_queue:
-        print(
-            f"  area sequences: {no_queue:,} trial(s) have off-area fixations but NO "
-            f"nearest-interest-area queue entry. If this is most of the trials, the "
-            f"queue is keyed differently from the frame."
+            f"  area sequences: {unplaced:,} fixation(s) could not be placed on "
+            f"any word and were left out"
         )
     return pd.DataFrame(rows, columns=keys + area_cols)
 
 
 def create_fixation_sequence_tags(df, fix_path: Path = FIX_ANSWERS_PATH):
     """The answer screen's fixation sequences: `fix_by_label` (which area) and
-    `fix_by_loc` (where on screen), one entry per fixation.
+    `fix_by_loc` (where on screen), one entry per run of fixations on one word.
 
-    A single opening fixation on the question is dropped, as left over from the
-    previous screen. `fix_path` is the fixation report, as a path or already
-    loaded.
+    A single opening entry on the question is dropped, as left over from the
+    previous screen. `fix_path` is the fixation report: either the table the
+    pipeline has already read, or a path to read it from.
     """
-    fixations = fix_path if isinstance(fix_path, pd.DataFrame) else pd.read_csv(fix_path)
+    fixations = (
+        fix_path
+        if isinstance(fix_path, pd.DataFrame)
+        else load_fixations(fix_path, SEQUENCE_FIXATION_COLUMNS)
+    )
     out = build_area_sequences(
         df,
         [Con.AREA_LABEL_COLUMN, Con.AREA_SCREEN_LOCATION],

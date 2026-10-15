@@ -1,21 +1,19 @@
-"""The cross-validation loop, and the runs it persists.
+"""The cross-validation loop, and saving and reloading its results.
 
-Split out of `answer_correctness/cross_validation.py` in stage D step 7, which
-was 1,329 lines doing three jobs (map §6.3). The other two went to siblings:
-reading fold assignments is `modeling/folds.py`, turning results into tables is
-`modeling/evaluate.py`, and the three figures went to `viz/`.
+For each stored fold (`folds.py`), each model is fitted on the fold's training
+trials and scored on each held-out regime. `evaluate.py` turns the per-fold
+scores into summary tables, and the tables can be saved and reloaded, so a run
+does not have to be repeated to look at it again.
 
-Nothing here is specific to answer correctness. It takes a frame, a fold
-directory and a model factory, and evaluates across regimes -- which is why it
-sits in `modeling/` rather than beside the one analysis that currently calls it.
-
-**On the two feature-provenance paths** (`todo.md` T3.21, `pitfalls.md` §3).
-`evaluate_one_fold_on_regimes` either rebuilds trial-level features per regime
-slice, or slices a prebuilt `trial_df` it was handed. The rebuild is the
-non-leaking one: a participant-level aggregate computed over all of someone's
-trials and attached to a training row is a function of the held-out data. The
-prebuilt path is faster and leaks. Passing `trial_df` chooses the fast one, so
-pass it deliberately or not at all.
+**Where the trial table comes from matters.** `evaluate_one_fold_on_regimes`
+either rebuilds the trial-level features separately for each regime's trials,
+or takes slices of a ready-made table (`trial_df`). Rebuilding is the safe
+one: the per-participant opening-scan features are then worked out only from
+the trials in that slice. A ready-made table built over the whole dataset has
+them worked out from all of a person's trials, held-out ones included, so the
+training rows carry information from the held-out ones. Passing `trial_df` is
+faster and leaks, so pass it on purpose or not at all. `pitfalls.md` §3 has
+more.
 """
 
 from __future__ import annotations
@@ -78,16 +76,13 @@ class CrossValidationRunResult:
 # One-fold evaluation
 # ---------------------------------------------------------------------
 
-# Coefficient CIs inside cross-validation: WALD, but CLUSTERED by participant
-# (Diana, 2026-09-27; todo.md T3.3). Since 2026-09-27 `wald_logreg_coef_cis` is a
-# cluster-robust sandwich that also carries the L2 penalty and the class weights,
-# so the clustered-Wald interval is not an approximation of convenience: on L1's
-# 12-feature model it reproduces the clustered *bootstrap* to within 2.5% per
-# feature, at 0.13 s against 73 s -- ~560x faster. That speed is the whole reason
-# it is used here rather than the bootstrap: this runs per fold x regime.
-# The paper's reported coefficients do not come from here; they come from the
-# single full-data fit in evaluation_core.collect_logreg_coef_summaries, which
-# uses the bootstrap.
+# Coefficient intervals inside cross-validation are Wald intervals, clustered by
+# participant (`inference.wald_logreg_coef_cis`, which accounts for the L2
+# penalty and the class weights). They are used here because they need no
+# refitting: this runs once per fold and regime, where thousands of bootstrap
+# refits each time would be far too slow. The paper's coefficients do not come
+# from here; they come from one fit on all the data, with the clustered
+# bootstrap (`evaluate.collect_logreg_coef_summaries`).
 def evaluate_one_fold_on_regimes(
     df: pd.DataFrame,
     *,
@@ -108,31 +103,28 @@ def evaluate_one_fold_on_regimes(
     trial_fold_df: Optional[pd.DataFrame] = None,
 ) -> Dict[str, FoldRegimeEvaluationResult]:
     """
-    Fit on train_regime and evaluate on each requested regime.
+    Fit on ``train_regime`` and score on each regime in ``eval_regimes``.
 
-    By default the trial-level features are (re)built from ``df`` once per
-    regime, so participant-level features (the pattern-breaking / dominance
-    columns) are computed inside each regime and nothing leaks from the eval
-    regimes into training. In the T3.21 vocabulary this is
-    ``pattern_scope_df=None`` on each slice: the aggregate is estimated over
-    exactly the frame being featurised.
+    By default the trial-level features are rebuilt from ``df`` separately for
+    each regime, so the per-participant features (opening scan, dominance) are
+    worked out only from that regime's trials, and nothing leaks from the
+    held-out regimes into training. The rebuild uses Study 1's settings (it
+    joins Study 1's paragraph features), so it is for Study 1 only.
 
-    Per-slice is not a preference here, it is forced. The alternative -- estimate
-    the aggregate on the training rows and score eval trials against it -- cannot
-    work for the ``unseen_subject`` regimes, where the participant has no
-    training trials at all. So the only two options are "within the slice" and
-    "across the whole dataset", and the second is the leaking one.
+    Per regime is not a preference, it is forced. The alternative -- work the
+    per-participant values out on the training rows and score held-out trials
+    against them -- cannot work for the new-person regimes, where the person
+    has no training trials at all. So the only options are "within the slice"
+    and "over the whole dataset", and the second leaks.
 
-    ``trial_fold_df`` short-circuits that: pass this fold's slice of an
-    already-built trial-level table -- one row per trial, carrying the
-    ``regime`` column, as returned by :func:`attach_trial_level_fold_regimes` --
-    and each regime is taken as a slice of it instead of being rebuilt. Orders
-    of magnitude faster, and identical for per-trial features; note that a table
-    built over the whole dataset has its participant-level features computed
-    across regimes, so the leakage guarantee above no longer holds for those.
-    That table is the ``scope_df=<everything>`` case, and on KnowQA the
-    difference is measurable: estimating over the full set rather than the slice
-    flips ``breaks_pattern_no_q`` on 52 of 300 no-knowledge trials.
+    ``trial_fold_df`` skips the rebuild: pass this fold's slice of a
+    ready-made trial table (one row per trial, with a ``regime`` column, as
+    made by :func:`attach_trial_level_fold_regimes`), and each regime is a
+    slice of it. Much faster, and the same for per-trial features. But a table
+    built over the whole dataset has its per-participant features worked out
+    across regimes, so the no-leak guarantee does not hold for those. On Study
+    2 the difference is measurable: it changes ``breaks_pattern_no_q`` on 52 of
+    300 no-knowledge trials.
     """
 
     if eval_regimes is None:
@@ -224,12 +216,13 @@ def run_cross_validation_on_predefined_folds(
     trial_df: Optional[pd.DataFrame] = None,
 ) -> CrossValidationRunResult:
     """
-    Run cross-validation using predefined fold assignment CSVs.
-    Stores both accuracy and balanced_accuracy in the summary tables.
+    Cross-validate on the fold files in one folder (one group's folds).
+    The summary tables hold both accuracy and balanced accuracy.
 
-    ``trial_df`` is an optional prebuilt trial-level feature table (e.g.
-    ``load_model_ready()``) used instead of rebuilding features per fold and
-    regime -- see :func:`evaluate_one_fold_on_regimes` for the trade-off.
+    ``trial_df`` is an optional ready-made trial table (e.g.
+    ``load_model_ready()``) used instead of rebuilding the features for each
+    fold and regime -- see :func:`evaluate_one_fold_on_regimes` for the
+    trade-off.
     """
     fold_dir = Path(fold_dir)
 
@@ -298,8 +291,7 @@ def run_cross_validation_on_predefined_folds(
                     }
                 )
 
-    # One aggregator for both runners -- this block used to be a second,
-    # near-identical copy of _aggregate_cv_summary (T3.9).
+    # The same summary tables as the other runners.
     (
         summary_df,
         summary_by_regime_df,
@@ -342,20 +334,20 @@ def run_cross_validation_on_combined_folds(
     trial_df: Optional[pd.DataFrame] = None,
 ) -> CrossValidationRunResult:
     """
-    Cross-validate using predefined folds that are pooled across several fold
-    directories.
+    Cross-validate on folds pooled from several folders -- e.g. hunters and
+    gatherers together, as `notebooks/drivers/answer_corr_prediction.ipynb`
+    runs it.
 
-    For each ``fold_idx`` the fold-``fold_idx`` assignment CSV is loaded from
-    every directory in ``fold_dirs`` and concatenated, so the same fold index
-    is matched across groups (e.g. hunters fold_0 + gatherers fold_0). ``df``
-    should be the matching pooled dataframe (e.g. ``all_participants``).
+    For each fold number, that fold's file is read from every folder in
+    ``fold_dirs`` and the files are stacked (e.g. the hunters' fold 0 plus the
+    gatherers' fold 0). ``df`` should be the matching pooled table.
 
-    ``trial_df`` is an optional prebuilt trial-level feature table (e.g.
-    ``load_model_ready()``) used instead of rebuilding features per fold and
-    regime -- see :func:`evaluate_one_fold_on_regimes` for the trade-off.
+    ``trial_df`` is an optional ready-made trial table (e.g.
+    ``load_model_ready()``) used instead of rebuilding the features for each
+    fold and regime -- see :func:`evaluate_one_fold_on_regimes` for the
+    trade-off.
 
-    Mirrors :func:`run_cross_validation_on_predefined_folds`, including the
-    accuracy / balanced-accuracy summary tables.
+    Otherwise the same as :func:`run_cross_validation_on_predefined_folds`.
     """
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
         model_name: {} for model_name in model_builders
@@ -451,11 +443,11 @@ def save_cross_validation_run(
     verbose: bool = True,
 ) -> Dict[str, Path]:
     """
-    Save the summary tables of a cross-validation run as CSVs under ``out_dir``.
+    Save the summary tables of a cross-validation run as CSVs in ``out_dir``.
 
-    Writes ``{run_name}_summary.csv`` (one row per model/fold/regime),
+    Writes ``{run_name}_summary.csv`` (one row per model, fold and regime),
     ``{run_name}_summary_by_regime.csv``, ``{run_name}_summary_by_novelty.csv``
-    (the three reported generalization numbers) and
+    (the three numbers the paper reports) and
     ``{run_name}_summary_overall.csv``.
     """
     out_dir = Path(out_dir)
@@ -508,10 +500,10 @@ def update_combined_cv_run(
     verbose: bool = True,
 ) -> CrossValidationRunResult:
     """
-    Incrementally update a saved combined-folds CV run, one model at a time,
-    without recomputing the models you keep.
+    Add, replace or remove models in a saved pooled-folds run, without
+    re-running the models you keep.
 
-    Operates on the saved per-model/fold/regime summary rows:
+    Works on the saved summary rows (one per model, fold and regime):
 
     1. Load the existing ``{run_name}_summary.csv`` (empty if none yet).
     2. Drop rows for every model in ``remove_models`` *and* for every model in
@@ -524,20 +516,20 @@ def update_combined_cv_run(
 
         update_combined_cv_run(
             df=all_participants, out_dir=..., run_name="all_participants_six_models",
-            fold_dirs=[HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR],
+            fold_dirs=[HUNTERS_REFOLDED_DIR, GATHERERS_REFOLDED_DIR],
             target_col=Con.IS_CORRECT_COLUMN,
             remove_models=["total_answering_RT"],
             add_model_builders={"total_answering_RT_normalized": lambda: TrialLevelLogRegModel()},
             add_feature_cols_by_model={"total_answering_RT_normalized": cols},
         )
 
-    Note: the returned ``per_fold_results`` holds only the newly run models
-    (the kept models are restored from summary rows only) -- enough for the
-    metric/plot helpers, which read ``summary_df``.
+    The returned ``per_fold_results`` holds only the newly run models (the
+    kept ones come back as summary rows only) -- enough for the summary and
+    plotting helpers, which read ``summary_df``.
 
-    ``trial_df`` is forwarded to :func:`run_cross_validation_on_combined_folds`;
-    pass the same prebuilt table the kept models were run with, so the merged
-    rows stay comparable.
+    ``trial_df`` is passed on to :func:`run_cross_validation_on_combined_folds`.
+    Pass the same ready-made table the kept models were run with (or none, if
+    they were rebuilt), so the old and new rows are comparable.
     """
     out_dir = Path(out_dir)
     summary_path = out_dir / f"{run_name}_summary.csv"
@@ -617,14 +609,13 @@ def load_cross_validation_run(
     run_name: str = "all_participants",
 ) -> CrossValidationRunResult:
     """
-    Rebuild a :class:`CrossValidationRunResult` from a saved run so the metric /
-    plotting helpers can be used without re-running cross-validation.
+    Reload a saved run as a :class:`CrossValidationRunResult`, so the summary
+    and plotting helpers can be used without re-running cross-validation.
 
-    Reads ``{run_name}_summary.csv`` (written by :func:`save_cross_validation_run`)
-    and recomputes the by-regime and overall summary tables from it. The
-    ``per_fold_results`` field is left empty -- the saved run only stores the
-    summary rows, which is all that ``summarize_cv_results_by_regime``,
-    ``build_cv_model_comparison_df`` and ``show_cv_results`` need.
+    Reads ``{run_name}_summary.csv`` (written by
+    :func:`save_cross_validation_run`) and recomputes the other summary tables
+    from it. ``per_fold_results`` is left empty: a saved run keeps only the
+    summary rows, which is all the summary and plotting helpers need.
     """
     out_dir = Path(out_dir)
     summary_path = out_dir / f"{run_name}_summary.csv"
@@ -651,7 +642,7 @@ def load_cross_validation_run(
     )
 
 # ---------------------------------------------------------------------
-# Optional helper: pooled predictions table
+# All held-out predictions in one table
 # ---------------------------------------------------------------------
 
 def crossval_predictions_to_df(
@@ -660,7 +651,9 @@ def crossval_predictions_to_df(
     model_name: str,
 ) -> pd.DataFrame:
     """
-    Flatten fold/regime predictions into one table.
+    One row per held-out trial, fold and regime: the true label, the predicted
+    label and the predicted probability. Needs a run that was not reloaded from
+    disk, since a reloaded run has no per-fold results.
     """
     rows = []
 

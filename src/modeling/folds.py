@@ -1,18 +1,15 @@
-"""Train/test splits and predefined fold assignments.
+"""Which trials train a model and which are held out.
 
-Split out of `predictive_modeling/common/data_utils.py` in stage D step 7
-(2026-10-07). That module held two unrelated things -- how you partition the
-data, and how you put a confidence interval on a coefficient -- behind a name
-("data utils") that described neither. They are now two modules, each named
-after its job.
+Two kinds of split:
 
-The counterpart is `modeling/inference.py`.
-
-The second half of this module -- the regime vocabulary and the fold-assignment
-loaders -- arrived from `answer_correctness/cross_validation.py` in the same step
-(map §6.3). Both halves answer the same question, "which rows train and which
-rows are held out", so they belong together: one builds a split, the other reads
-a split someone already decided and stored.
+* **Stored folds.** Ten predefined folds per group, one file each, in
+  `data/cv_folds/HuntersRefolded/` and `GatherersRefolded/`. A fold file gives
+  each participant x paragraph pair a *regime*: whether that person and that
+  paragraph are in training, and if not, which held-out set they are in. The
+  two groups hold out the same paragraphs in each fold.
+  `group_vise_train_test_split` takes one fold; the loaders and
+  `attach_fold_regimes` below feed cross-validation (`crossval.py`).
+* **Leave one trial out**, for models fitted on a single participant.
 """
 
 import warnings
@@ -23,10 +20,10 @@ import numpy as np
 import pandas as pd
 
 from src.config import columns as Con
-from src.config.datasets import HUNTERS_FOLDS_DIR, GATHERERS_REFOLDED_DIR
+from src.config.datasets import HUNTERS_REFOLDED_DIR, GATHERERS_REFOLDED_DIR
 
 
-# user-facing regime name -> fold-file regime suffix
+# Short regime name -> how the fold files spell it (after "val_" / "test_").
 _REGIME_SUFFIX = {
     "new_item": "_seen_subject_unseen_item",
     "new_subject": "_unseen_subject_seen_item",
@@ -34,7 +31,7 @@ _REGIME_SUFFIX = {
     "new_item_and_subject": "_unseen_subject_unseen_item",  # alias for "both"
 }
 _FOLD_DIRS = {
-    "hunters": HUNTERS_FOLDS_DIR,
+    "hunters": HUNTERS_REFOLDED_DIR,
     "gatherers": GATHERERS_REFOLDED_DIR,
 }
 
@@ -53,15 +50,16 @@ def group_vise_train_test_split(
     fold_text_col: str = "unique_paragraph_id",
 ) -> Tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
-    Fold-based train/test split.
+    Take one stored fold and return its training and held-out trials.
 
-    Selects one fold (random unless `fold` is provided), then for that fold:
-      - train rows come from the `train_train` regime,
-      - test rows come from the requested (test_split, test_regime) combinations.
+    Picks one fold (at random unless `fold` is given). The training rows are
+    that fold's `train_train` regime; the held-out rows are the requested
+    regimes, in the requested split(s).
 
-    Trial-set membership is read from the precomputed fold files of the chosen
-    `sources` (hunters fold + gatherers-refolded fold by default), and matched
-    onto `df` via (participant_id, text_id).
+    The fold files of `sources` (both groups' refolded files, by default) are
+    matched onto `df` by participant and paragraph (text_id). Both are turned into text, stripped and lower-cased
+    first, and stay that way in the returned frames. Trials that are not in a
+    fold file are dropped, without a message.
 
     Parameters
     ----------
@@ -156,12 +154,11 @@ def leave_one_trial_out_for_participant(
     random_state: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    For a given participant:
-    - randomly select one trial as test
-    - all other trials are train
+    Hold out one randomly chosen trial of one participant; their other trials
+    are the training set.
 
-    ``random_state`` seeds the trial choice so the single held-out trial is
-    reproducible across runs (default: None -> non-deterministic).
+    ``random_state`` fixes which trial is chosen (default None: a different
+    one on each run).
     """
 
     df = df.copy()
@@ -202,33 +199,28 @@ def iter_leave_one_trial_out_for_participant(
         yield train_df, test_df, test_trial
 
 # ===========================================================================
-# Predefined fold assignments, and the regime vocabulary that names them
-#
-# From `answer_correctness/cross_validation.py`, stage D step 7. Nothing here is
-# specific to answer correctness -- it reads fold CSVs and attaches their regime
-# labels to a frame -- which is why it moved.
+# The stored folds, and the names of their regimes
 # ===========================================================================
 
 # ---------------------------------------------------------------------
-# Regime vocabulary
+# Regime names
 # ---------------------------------------------------------------------
-# A fold regime name encodes two independent things, and reading it as one
-# opaque string is what made the summary tables hard to interpret (T3.9):
+# A regime name holds two separate things:
 #
 #   test_unseen_subject_unseen_item
 #   ^^^^                               SPLIT   -- which held-out half
-#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^   NOVELTY -- what kind of generalization
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^   NOVELTY -- what is new to the model
 #
-# NOVELTY is the scientific question -- a new item, a new subject, or both --
-# and is the axis the paper reports on, under the short names below.
+# NOVELTY is the scientific question -- a new paragraph, a new person, or
+# both -- and is what the paper reports, under the short names below.
 #
-# SPLIT is an artifact of how the folds were built: each held-out novelty cell
-# was halved so one half could be used for tuning. Nothing here tunes (the
-# logreg has no searched hyperparameters), so `val` and `test` are two
-# interchangeable held-out samples of the same population. They are kept
-# separable rather than merged because that may stop being true; `eval_split`
-# is the choice. Pooling matters most for the `both` cell, which is by far the
-# smallest (~97 trials per fold) and is where the headline number comes from.
+# SPLIT comes from how the folds were built: each held-out set was halved so
+# that one half could be used for tuning. Nothing is tuned here (the logistic
+# regression has no searched settings), so `val` and `test` are two
+# interchangeable held-out samples. They are kept apart in case that changes;
+# `eval_split` chooses which to use. Pooling them matters most for `both`, the
+# smallest cell (about 97 hunter trials per fold, 194 with both groups), which
+# is where the headline number comes from.
 
 NOVELTY_BY_CELL: Dict[str, str] = {
     "seen_subject_unseen_item": "new_item",
@@ -257,7 +249,7 @@ def eval_regimes_for_split(eval_split: str = "both") -> List[str]:
     return [f"{s}_{cell}" for cell in NOVELTY_BY_CELL for s in splits]
 
 # ---------------------------------------------------------------------
-# Fold loading / assignment
+# Reading fold files, and adding the regimes to a table
 # ---------------------------------------------------------------------
 
 def load_fold_assignment_csv(
@@ -269,13 +261,11 @@ def load_fold_assignment_csv(
     regime_col_fold: str = "regime",
 ) -> pd.DataFrame:
     """
-    Load one fold CSV containing train/val/test regime assignments.
+    Read one fold file: one row per participant x paragraph, with its regime.
+
+    The `*_col_fold` arguments are not used.
     """
     fold_df = pd.read_csv(fold_csv_path)
-
-
-    #for col in [participant_col_fold, text_col_fold, trial_col_fold, regime_col_fold]:
-    #        fold_df[col] = fold_df[col].astype(str).str.strip()
 
     return fold_df
 
@@ -291,9 +281,17 @@ def attach_fold_regimes(
     fold_regime_col: str = "regime",
 ) -> pd.DataFrame:
     """
-    Attach regime labels using (participant_id, text_id) join ONLY.
-    Includes normalization (str, strip, lower).
-    Keeps only the fold columns needed for the join + regime.
+    Add each trial's regime for this fold, matching on participant and
+    paragraph (text_id) only.
+
+    Both sides' ids are turned into text, stripped and lower-cased before
+    matching, and stay that way in the result. Of the fold file, only the
+    matching columns and the regime are kept.
+
+    Trials that are not in the fold file are dropped, without a message. The
+    refolded files leave out the pairs that cross the two held-out sets (a
+    validation person on a test paragraph, or a test person on a validation
+    paragraph), so with them this drops 156-240 trials per group and fold.
     """
 
     out = df.copy()
@@ -338,7 +336,7 @@ def attach_fold_regimes(
     return out
 
 # ---------------------------------------------------------------------
-# Prebuilt trial-level features
+# Folds for a ready-made trial table
 # ---------------------------------------------------------------------
 
 REGIME_COL = "regime"
@@ -351,14 +349,13 @@ def attach_trial_level_fold_regimes(
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
-    Restrict a prebuilt trial-level feature table to one fold, tagging each row
-    with its regime.
+    Cut a ready-made trial table (one row per trial) down to one fold, adding
+    each row's regime.
 
-    ``df_fold`` is the word-level frame :func:`attach_fold_regimes` produced, so
-    the (participant, text) -> regime matching stays in one place and is only
-    collapsed to one row per trial here. Trials missing from the fold assignment
-    are dropped (inner join); any ``keep_cols`` the prebuilt table lacks are
-    carried over from ``df_fold``.
+    ``df_fold`` is the word-level frame :func:`attach_fold_regimes` made, so
+    the matching of trials to regimes is done in one place only. Trials that
+    are not in the fold are dropped; any ``keep_cols`` the trial table lacks
+    are taken from ``df_fold``.
     """
     keys = list(Con.TRIAL_ID_COLS)
 
@@ -385,13 +382,12 @@ def load_combined_fold_assignment_csv(
     fold_filename_template: str = "fold_{fold_idx}_trial_ids_by_regime.csv",
 ) -> pd.DataFrame:
     """
-    Load and vertically stack the fold-``fold_idx`` assignment CSVs from each
-    directory in ``fold_dirs``.
+    Read fold ``fold_idx`` from each folder in ``fold_dirs`` and stack them.
 
-    Used to build an "all participants" fold by combining, e.g., the hunters
-    fold_0 and the (refolded) gatherers fold_0 into a single regime-assignment
-    table. Participant ids are disjoint across the two groups, so stacking the
-    assignments is sufficient.
+    This makes an "all participants" fold, e.g. the hunters' fold 0 plus the
+    gatherers' fold 0. No participant is in both groups, and the refolded
+    files of both groups hold out the same paragraphs, so stacking the two
+    files is enough.
     """
     frames = []
     for fold_dir in fold_dirs:

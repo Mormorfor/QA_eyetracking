@@ -470,12 +470,19 @@ TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 # ---------------------------------------------------------------------------
 # Cross-validation folds (data/cv_folds)
 #
-# Precomputed splits of the trials into training and test sets.
+# Precomputed splits of the trials into training and test sets, ten folds per
+# group. The `*Folds` folders are the original assignments. The `*Refolded`
+# folders are what cross-validation uses: in them each trial's regime is
+# rebuilt from the group's participant split and the shared paragraph split,
+# and the pairs that cross the two held-out sets (a validation participant on
+# a test paragraph, or the reverse) are left out. Both are made in
+# notebooks/builders/create_merge_folds_csv.ipynb.
 # ---------------------------------------------------------------------------
 
 CV_FOLDS_DIR = DATA_DIR / "cv_folds"
 
 HUNTERS_FOLDS_DIR = CV_FOLDS_DIR / "HuntersFolds"
+HUNTERS_REFOLDED_DIR = CV_FOLDS_DIR / "HuntersRefolded"
 GATHERERS_FOLDS_DIR = CV_FOLDS_DIR / "GatherersFolds"
 GATHERERS_REFOLDED_DIR = CV_FOLDS_DIR / "GatherersRefolded"
 

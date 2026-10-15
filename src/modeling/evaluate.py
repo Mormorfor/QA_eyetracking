@@ -1,18 +1,10 @@
-"""Metrics, fold aggregation, and the prepared-dataset container.
+"""Fitting and scoring a model on one split, and the cross-validation summary tables.
 
-Moved here in stage D step 7 from `answer_correctness/evaluation_core.py` and
-`common/prepared_dataset.py`. `PreparedTrialDataset` joins it because it is the
-thing evaluation consumes -- a frame plus the three column roles (features,
-target, ids) -- and it was a 16-line module of its own.
-
-Original header follows.
-
-Fit and score models on an already-prepared train/test split.
-
-The split-agnostic half of the correctness modelling: callers hand it the two
-frames and the feature columns, and it returns a CorrectnessEvaluationResult
-carrying the held-out predictions, probabilities and metrics. Everything that
-decides *how* the split was made lives in cross_validation.py.
+`evaluate_single_model_on_prepared_split` fits one model on a training table
+and scores it on a test table; how the split was made is decided elsewhere
+(`folds.py`, `crossval.py`). `collect_logreg_coef_summaries` fits once on all
+the data, for the coefficients the paper reports. The second half of the file
+turns per-fold scores into the summary tables.
 """
 
 
@@ -31,13 +23,14 @@ from src.modeling.folds import parse_regime
 
 
 # ---------------------------------------------------------------------------
-# The container evaluation takes. Was `common/prepared_dataset.py`.
+# Results, and a container for a model-ready table
 # ---------------------------------------------------------------------------
 
 @dataclass
 class PreparedTrialDataset:
     """
-    Container for a ready-to-model trial-level dataset.
+    A trial table, with which of its columns are features, target and ids.
+    Used by the answer-reading-time exploration.
     """
     df: pd.DataFrame
     feature_cols: List[str]
@@ -47,6 +40,8 @@ class PreparedTrialDataset:
 
 @dataclass
 class CorrectnessEvaluationResult:
+    """What one fit-and-score returns: the held-out labels, predictions and
+    probabilities, the accuracy and counts, and the coefficient table."""
     train_df: pd.DataFrame
     test_df: pd.DataFrame
     y_true: np.ndarray
@@ -72,9 +67,9 @@ def evaluate_single_model_on_prepared_split(
     coef_kwargs: Optional[dict[str, Any]] = None,
 ) -> CorrectnessEvaluationResult:
     """
-    Fit one model on an already prepared train_df and evaluate on test_df.
+    Fit one model on ``train_df`` and score it on ``test_df``.
 
-    Assumes the model implements:
+    The model must have:
     - fit(train_df, target_col=..., feature_cols=..., **fit_kwargs)
     - predict(test_df, feature_cols=..., **predict_kwargs)
     - predict_proba(test_df, feature_cols=..., **predict_proba_kwargs)
@@ -143,7 +138,7 @@ def evaluate_models_on_prepared_split(
     coef_kwargs_by_model: Optional[Mapping[str, dict[str, Any]]] = None,
 ) -> Dict[str, CorrectnessEvaluationResult]:
     """
-    Evaluate one or more models on an already prepared train/test split.
+    Fit and score several models on the same train/test split.
 
     Use:
     - feature_cols for one shared feature set across all models, or
@@ -194,44 +189,32 @@ def collect_logreg_coef_summaries(
     ci: float = 0.95,
 ) -> Dict[str, pd.DataFrame]:
     """
-    Fit a logistic-regression model on the full ``trial_df`` once per feature
-    set and return its coefficient summary.
+    Fit the logistic regression once on all of ``trial_df`` for each feature
+    set, and return each fit's coefficient table. The paper's coefficient
+    figures come from here.
 
-    Intended for presentation/reporting: cross-validation runs do not retain the
-    per-fold coefficient tables once reloaded from disk, so coefficients are
-    obtained from a single full-data fit per model. Feature sets that are empty
-    (e.g. a dummy baseline) map to an empty DataFrame.
+    Cross-validation runs reloaded from disk keep no per-fold coefficient
+    tables, so coefficients for reporting come from this single fit. An empty
+    feature set (e.g. the dummy baseline) gives an empty table.
 
-    **Defaults are the participant-clustered bootstrap, not Wald** (`todo.md` T3.3,
-    changed 2026-09-27). This is the function the paper's coefficient figures come
-    from, and `wald_logreg_coef_cis` is wrong three ways for this model: it inverts
-    the unpenalised information matrix although the fit is L2-penalised, it ignores
-    `class_weight="balanced"`, and it ignores clustering by participant. The
-    bootstrap refits the *actual* estimator on each resample, so all three go away
-    at once.
+    **The intervals default to the bootstrap, clustered by participant.** Each
+    resample draws whole participants and refits the actual model, so the L2
+    penalty, the class weights and the grouping of trials within people are all
+    accounted for without approximation. (``ci_cluster="auto"`` would give a
+    row bootstrap instead, which is not what the name suggests.)
 
-    Measured on L1's 12-feature headline model (2026-09-27): clustered-bootstrap
-    intervals are **1.45x wider** than Wald on average, and **all 12 coefficients
-    stay significant** -- so this corrects the intervals without moving a
-    conclusion. Most of that widening is the penalty and the class weights, not the
-    clustering: a *row* bootstrap already gives 1.35x.
-
-    Note `ci_cluster="cluster"` has to be said explicitly -- `get_coef_summary`'s
-    own `"auto"` falls through to the row bootstrap, which is not what the name
-    suggests.
-
-    Cost: ~70 s per feature set on L1 at the default 5,000 resamples. Cross-
-    validation still defaults to Wald (`cross_validation.py`), because it would
-    otherwise bootstrap inside every fold; its coefficients are not what the paper
-    reports.
+    Cost: about 70 s per feature set on Study 1, at the default 5,000
+    resamples. Cross-validation uses the Wald intervals instead (`crossval.py`),
+    because it would otherwise bootstrap inside every fold; those coefficients
+    are not what the paper reports.
 
     Returns
     -------
     Dict[str, pd.DataFrame]
-        ``{model_name: coef_summary}`` where each summary is exactly what
+        ``{model_name: coef_summary}``, each exactly what
         ``TrialLevelLogRegModel.get_coef_summary`` produces (feature, coef,
-        odds_ratio, abs_coef, se, ci_low, ci_high, or_ci_low, or_ci_high,
-        sig_ci, ...).
+        odds_ratio, abs_coef, ci_low, ci_high, or_ci_low, or_ci_high, sig_ci,
+        n_boot_ok).
     """
     # Imported lazily to avoid a module-level import cycle.
     from src.modeling.models.logreg_model import (
@@ -272,26 +255,21 @@ def fit_julia_mixed_model_on_prepared_full_data(
     coef_kwargs: Optional[dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Fit the Julia GLMER model on an already prepared full dataframe (no split).
+    Fit a mixed-effects model on all of ``fit_df`` (no split), and return its
+    fixed-effect coefficients, its random effects per participant and per text,
+    and the variance summary -- how much of the correctness signal sits with
+    the person and how much with the item.
 
-    **This is a mixed-model-only helper, by design** -- it is not a generic
-    "fit any model on everything" entry point, and the name used to suggest it
-    was (`todo.md` T2.3). It unconditionally reads `get_random_effects()` and
-    `get_random_effect_variance_summary()`, which only
-    `models/julia_model.TrialLevelJuliaGLMERModel` implements; the live
-    `TrialLevelLogRegModel` has no random effects to report, so passing it here
-    raises `AttributeError`. That is the intended behaviour, not a gap to fill:
-    a model with no random effects has nothing to say in this return value.
+    Only for the Julia mixed-effects model
+    (`explorations/mixed_models/models.py::TrialLevelJuliaGLMERModel`): it
+    calls `get_random_effects()` and `get_random_effect_variance_summary()`,
+    which only that model has. Passing the logistic regression raises
+    `AttributeError`, on purpose -- a model with no random effects has nothing
+    to return here. For a full-data fit of the logistic regression, use
+    `collect_logreg_coef_summaries` above.
 
-    For a full-data fit of the *logistic* model, use
-    `collect_logreg_coef_summaries` above, which is what the paper's
-    coefficient figures go through.
-
-    Returns the fixed-effect coefficient summary alongside the per-participant
-    and per-text random-effect tables and the variance-covariance summary --
-    i.e. how much of the correctness signal sits with the person versus the
-    item. Mixed effects are out of scope for the current paper
-    (`research-context.md` §6), so this is future-directions code.
+    Mixed effects are not part of the current paper (`research-context.md` §6);
+    this is exploration code.
     """
     feat_cols = None if feature_cols is None else list(feature_cols)
     fit_kwargs = dict(fit_kwargs or {})
@@ -324,16 +302,12 @@ def fit_julia_mixed_model_on_prepared_full_data(
     }
 
 # ===========================================================================
-# Cross-validation result summarisation
+# Cross-validation summary tables
 #
-# From `answer_correctness/cross_validation.py`, stage D step 7 (map §6.3). These
-# turn per-fold, per-regime results into the reported tables. They are the
-# aggregation half of evaluation, so they join the metrics above rather than
-# staying with the loop that produced the rows.
-#
-# `_weighted_fold_means` is the T3.10 fix: fold eval sets differ in size by up to
-# 43% within a regime, so the reported mean is weighted by `n_eval`. The plain
-# average is kept beside it as `unweighted_mean_*` rather than discarded.
+# These turn per-fold, per-regime scores into the reported tables. Folds score
+# different numbers of trials, so means are weighted by how many trials each
+# fold scored (`n_eval`); the plain mean is kept beside it as
+# `unweighted_mean_*`.
 # ===========================================================================
 
 def _weighted_fold_means(
@@ -343,19 +317,18 @@ def _weighted_fold_means(
     weight_col: str = "n_eval",
 ) -> pd.DataFrame:
     """
-    Mean of a per-fold metric, weighted by how many trials each fold scored.
+    Mean of a per-fold score, weighted by how many trials each fold scored.
 
-    `todo.md` T3.10. Fold eval sets are not the same size -- on hunters the
-    `both` cell ranges 78-120 trials per fold, a 43% spread, and
-    `seen_subject_unseen_item` 702-1080 -- so a plain mean lets a fold that
-    scored 78 trials count as much as one that scored 120.
+    Fold sizes differ within a regime -- on hunters the `both` cell has 78-120
+    trials per fold, and `seen_subject_unseen_item` 702-1080 -- so a plain mean
+    would let a fold of 78 trials count as much as one of 120.
 
     **Exact for `accuracy`, an approximation for `balanced_accuracy`.** Pooling
-    accuracy over folds *is* the n-weighted mean. Balanced accuracy is the mean
-    of sensitivity and specificity, so pooling it properly needs the per-fold
-    confusion counts, which the summary rows do not carry. Weighting by
-    `n_eval` is the right direction -- bigger folds are better estimates -- but
-    it is not identical to scoring every held-out trial at once.
+    accuracy over folds is the weighted mean. Balanced accuracy is the mean of
+    sensitivity and specificity, so pooling it exactly needs each fold's
+    confusion counts, which the summary rows do not have. Weighting by `n_eval`
+    goes the right way -- bigger folds are better estimates -- but is not the
+    same as scoring all held-out trials at once.
     """
     rows = []
     for key_vals, g in frame.groupby(keys, sort=False):
@@ -375,9 +348,8 @@ def _weighted_fold_means(
 
 _SUMMARY_AGG = dict(
     folds=("fold", "nunique"),
-    # `mean_*` is overwritten below with the n_eval-weighted mean (T3.10); the
-    # plain average is kept beside it as `unweighted_mean_*` so the difference
-    # stays auditable rather than silently replaced.
+    # The `mean_*` columns come from `_weighted_fold_means`; the plain means
+    # are kept here as `unweighted_mean_*`, so the two can be compared.
     unweighted_mean_accuracy=("accuracy", "mean"),
     std_accuracy=("accuracy", "std"),
     unweighted_mean_balanced_accuracy=("balanced_accuracy", "mean"),
@@ -391,35 +363,30 @@ def _aggregate_cv_summary(
     rows_summary: List[Dict[str, Any]],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Build the four summary tables from the raw per-(model, fold, regime) rows.
+    Build the four summary tables from the per-(model, fold, regime) rows.
 
-    The split into four is the point (`todo.md` T3.9). The old pair collapsed
-    the two axes of a regime name into one opaque string, so the only "overall"
-    number averaged three different generalization questions together,
-    unweighted, with val and test mixed in.
+    Each regime name is split into its two parts, ``split`` and ``novelty``
+    (see `folds.py`), so results can be grouped by either:
 
     ========================  ===================================================
-    frame                     one row per / answers
+    table                     one row per / use
     ========================  ===================================================
-    ``summary_df``            model x fold x regime -- the raw material, now
-                              carrying ``split`` and ``novelty`` as columns
-    ``summary_by_regime_df``  model x regime -- the finest reported grain
+    ``summary_df``            model x fold x regime -- the raw rows, with
+                              ``split`` and ``novelty`` added
+    ``summary_by_regime_df``  model x regime -- the finest summary
     ``summary_by_novelty_df`` model x novelty -- **the three numbers the paper
                               reports**, pooling whichever splits were evaluated
-    ``summary_overall_df``    model x split -- one number per held-out half.
-                              Still averages across novelty regimes, so it is a
-                              run health-check, *not* a headline: read
-                              ``summary_by_novelty_df`` for that
+    ``summary_overall_df``    model x split. It averages over the three
+                              novelties, which ask different questions, so it is
+                              only a check that a run worked, not a result
     ========================  ===================================================
 
-    ``mean_accuracy`` / ``mean_balanced_accuracy`` are **weighted by**
-    ``n_eval`` (T3.10), so a fold that scored 78 trials no longer counts as
-    much as one that scored 120. The plain average is kept alongside as
-    ``unweighted_mean_*``. The *spread* columns (``std_*``) are untouched, and
-    so is the standard error in :func:`summarize_cv_results_by_regime`: folds
-    share ~80% of their training data, so no simple correction makes
-    ``std/sqrt(n_folds)`` honest, and Diana's call (2026-09-27) is to leave it
-    and say so rather than invent one.
+    ``mean_accuracy`` / ``mean_balanced_accuracy`` are weighted by ``n_eval``;
+    the plain means are kept as ``unweighted_mean_*``. The spread (``std_*``),
+    and the standard error in :func:`summarize_cv_results_by_regime`, are not
+    corrected for the folds sharing most of their training data, so they
+    understate the uncertainty. There is no agreed correction, so they are left
+    as they are and described as such.
     """
     summary_df = pd.DataFrame(rows_summary)
 
@@ -507,10 +474,9 @@ def summarize_cv_results_by_regime(
     if df.empty:
         raise ValueError("No rows found for the requested selection.")
 
-    # Only three levels are tabulated. Asking for any other used to fall back to
-    # z=1.96 while the caller -- and the plot title, which is built from `ci` --
-    # went on saying whatever was asked for, so a picture could be drawn at 95%
-    # and labelled "80% CI" (`todo.md` T3.10). Refuse instead.
+    # Only three levels are tabulated. Any other stops with an error, so a
+    # figure can never be drawn at one level and labelled with another (plot
+    # titles are built from `ci`).
     z_map = {
         0.90: 1.645,
         0.95: 1.96,
@@ -539,22 +505,22 @@ def summarize_cv_results_by_regime(
         .reset_index(drop=True)
     )
 
-    # Weighted by how many trials each fold actually scored (T3.10). Fold eval
-    # sets differ by up to 43% within a regime, so a plain mean lets a small
-    # fold count as much as a large one.
+    # Weighted by how many trials each fold scored (see _weighted_fold_means).
     weighted = _weighted_fold_means(df, ["regime"], value_cols=(metric_col,))
     out = out.merge(
         weighted.rename(columns={f"mean_{metric_col}": "mean_metric"}),
         on="regime", how="left", validate="one_to_one",
     )
 
+    # With a single fold the spread is undefined (NaN); it is set to 0, so the
+    # interval below shrinks to the mean.
     out["std_metric"] = out["std_metric"].fillna(0.0)
-    # NOT corrected for the overlap between folds -- see T3.10. Folds share
-    # ~80% of their training data, so this understates the true uncertainty and
-    # the bars are narrower than they should be. Left as-is by decision
-    # (Diana, 2026-09-27): there is no agreed estimator to switch to, so the
-    # honest move is to say what it is rather than dress it up.
+    # NOT corrected for the overlap between folds: they share most of their
+    # training data, so this understates the uncertainty and the bars are
+    # narrower than they should be. There is no agreed estimator to switch to,
+    # so it is left as it is and said so.
     out["se_metric"] = out["std_metric"] / np.sqrt(out["n_folds"])
+    # Scores are proportions, so the interval is cut to [0, 1].
     out["ci_low"] = (out["mean_metric"] - z * out["se_metric"]).clip(lower=0.0)
     out["ci_high"] = (out["mean_metric"] + z * out["se_metric"]).clip(upper=1.0)
     out["metric"] = metric_col
@@ -574,9 +540,10 @@ def build_cv_model_comparison_df(
     One row per model with the cross-fold mean of ``metric_col`` and its CI on a
     single regime.
 
-    Aggregates :func:`summarize_cv_results_by_regime` across every model in the
-    run (or just ``models`` if given) and keeps only ``regime`` (default: the
-    "both" test regime, unseen subject x unseen item).
+    Runs :func:`summarize_cv_results_by_regime` for every model in the run (or
+    just ``models`` if given) and keeps only ``regime`` (default: the "both"
+    test regime, new person and new paragraph). A model with no results for
+    that regime is left out.
 
     Returns
     -------

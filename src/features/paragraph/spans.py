@@ -8,7 +8,9 @@ code (`area_metrics.py`, `reading_times.py`):
     <metric>__<part>     e.g. area_dwell_proportion__critical
     RT_* / TFD_* / TimeSinceOffset_* per part
 
-The pupil baseline is each person's own, from their fixations on this screen.
+The paragraph fixation report is read once (`fixations.load_fixations`) and
+used for the pupil baseline -- each person's own, from their fixations on this
+screen -- the visit counts and the reading times.
 
 `save_paragraph_features` builds the table and saves it to
 `features/paragraph_spans.csv`. The answer-screen pipeline reads nothing from
@@ -19,7 +21,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from src.config import columns as C
@@ -32,37 +33,11 @@ from src.config.datasets import (
     PUPIL_BASELINE_PARAGRAPH_PATH,
 )
 from src.features import area_metrics as am
+from src.features.fixations import load_fixations, match_key_types
 from src.features.sequences import build_area_sequences
-from src.features.pupil import (
-    prepare_screen_pupil,
-    scale_pupil_area_to_mm,
-    zscore_pupil_by_participant,
-)
-from src.features.reading_times import (
-    PARAGRAPH_AREA_COL,
-    PARAGRAPH_REGIONS,
-    build_screen_rt_tfd,
-    compute_reading_times,
-    compute_run_based_rt_from_fixations,
-    load_paragraph_fixations,
-)
+from src.features.pupil import compute_participant_pupil_stats, prepare_screen_pupil
+from src.features.reading_times import build_screen_rt_tfd
 from src.features.build import build_area_metric_pivot
-
-def _key(pid, tid) -> tuple[str, str]:
-    """A (participant, trial) key as text that matches across the two reports.
-
-    The fixation report is read as text and the word report with guessed types,
-    so the same trial can be "5" on one side and 5 or 5.0 on the other. Without
-    this, nothing would match, the nearest-word lists would quietly come back
-    empty, and every missed fixation would be dropped. Both sides use this.
-    """
-    def one(v):
-        t = str(v).strip()
-        if t.endswith(".0") and t[:-2].lstrip("-").isdigit():
-            t = t[:-2]
-        return t
-
-    return (one(pid), one(tid))
 
 
 # The screen this module builds (see config/screens.py), and short names for
@@ -76,7 +51,7 @@ QUESTION_PREVIEW_COL = C.QUESTION_PREVIEW_COLUMN
 # The raw pupil columns both screens z-score (defined in config/screens.py).
 _PUPIL_RAW_COLS = PUPIL_RAW_COLS
 
-# The 15 columns of the paragraph word report this pipeline reads. The report is
+# The 14 columns of the paragraph word report this pipeline reads. The report is
 # 5.6 GB; reading all of it would need well over 12 GB of memory, so only these
 # columns are read.
 IA_USECOLS = [
@@ -87,106 +62,29 @@ IA_USECOLS = [
     C.IA_DWELL_TIME,
     C.IA_FIXATIONS_COUNT,
     C.IA_FIRST_FIXATION_DURATION,
-    C.INTEREST_AREA_FIXATION_SEQUENCE,
     QUESTION_PREVIEW_COL,
     *_PUPIL_RAW_COLS,
-    # needed by compute_reading_times for the span-based RT
-    "IA_FIRST_FIXATION_TIME",
-    "IA_LAST_FIXATION_TIME",
-    "IA_LAST_FIXATION_DURATION",
+    # needed by reading_times.compute_reading_times for the span-based RT
+    C.IA_FIRST_FIXATION_TIME,
+    C.IA_LAST_FIXATION_TIME,
+    C.IA_LAST_FIXATION_DURATION,
 ]
 
 PARAGRAPH_METRIC_COLUMNS = list(C.AREA_METRIC_COLUMNS_MODELING)
 
 
 # ---------------------------------------------------------------------------
-# One streaming pass over the fixation report
+# The paragraph fixation report
 # ---------------------------------------------------------------------------
 
-def scan_paragraph_fixations(
-    fixations_path: Path = FIX_PARAGRAPH_PATH,
-    chunksize: int = 2_000_000,
-    verbose: bool = True,
-) -> tuple[pd.DataFrame, dict]:
-    """Read the paragraph fixation report once, collecting two things.
-
-    The report is several GB, so both come from a single pass, read in chunks:
-
-    1. **the pupil baseline** -- each person's average and SD of pupil size
-       (mm), built up chunk by chunk. Gives the same result as
-       `pupil.compute_participant_pupil_stats` would on the whole file.
-    2. **the nearest-word lists** -- for each trial, the nearest word of every
-       fixation that missed all words, in order, used to place those
-       fixations. A `None` marks a fixation with no nearest word; it is kept so
-       the list stays in step with the fixations (see
-       `area_metrics.nearest_ia_queue`).
-
-    Returns (pupil baseline, {(participant_id, TRIAL_INDEX): [nearest ids]}).
-    """
-    usecols = [
-        C.PARTICIPANT_ID,
-        C.TRIAL_ID,
-        C.CURRENT_FIX_PUPIL_SIZE,
-        C.CURRENT_FIX_INTEREST_AREAS,
-        C.NEAREST_IA,
-    ]
-    acc: dict = {}
-    nearest: dict = {}
-
-    reader = pd.read_csv(
-        fixations_path, usecols=usecols, chunksize=chunksize, dtype=str
-    )
-    for chunk in reader:
-        # --- pupil accumulators ---
-        mm = scale_pupil_area_to_mm(chunk[C.CURRENT_FIX_PUPIL_SIZE])
-        ok = mm.notna()
-        if ok.any():
-            g = pd.DataFrame(
-                {C.PARTICIPANT_ID: chunk.loc[ok, C.PARTICIPANT_ID], "v": mm[ok]}
-            ).groupby(C.PARTICIPANT_ID)["v"]
-            part = pd.DataFrame(
-                {"n": g.size(), "s": g.sum(), "ss": g.apply(lambda x: (x**2).sum())}
-            )
-            for pid, row in part.iterrows():
-                cur = np.array([row["n"], row["s"], row["ss"]], dtype="float64")
-                prev = acc.get(pid)
-                acc[pid] = cur if prev is None else prev + cur
-
-        # --- off-area fixations, in order, per trial ---
-        areas = chunk[C.CURRENT_FIX_INTEREST_AREAS].apply(
-            am._parse_interest_area_list
-        )
-        off = chunk[areas.apply(len) == 0]
-        if len(off):
-            for (pid, tid), g2 in off.groupby(
-                [C.PARTICIPANT_ID, C.TRIAL_ID], sort=False
-            ):
-                # The same function the answer screen uses, so both build these
-                # lists the same way.
-                nearest.setdefault(_key(pid, tid), []).extend(
-                    am.nearest_ia_queue(g2)
-                )
-
-    if not acc:
-        raise ValueError(
-            f"No usable pupil values in {fixations_path} -- cannot build a "
-            "paragraph pupil baseline."
-        )
-
-    out = pd.DataFrame(
-        [(pid, n, s, ss) for pid, (n, s, ss) in acc.items()],
-        columns=[C.PARTICIPANT_ID, "n", "s", "ss"],
-    )
-    out["pupil_mean"] = out["s"] / out["n"]
-    var = (out["ss"] - out["n"] * out["pupil_mean"] ** 2) / (out["n"] - 1)
-    out["pupil_sd"] = np.sqrt(var.clip(lower=0))
-    if verbose:
-        print(
-            f"  paragraph baseline: {len(out)} participants, "
-            f"{int(out['n'].sum()):,} fixations; "
-            f"off-area fixations on {len(nearest):,} trials"
-        )
-    return out[[C.PARTICIPANT_ID, "pupil_mean", "pupil_sd"]], nearest
+# The columns of the paragraph fixation report this pipeline reads.
+FIXATION_COLUMNS = [
+    C.CURRENT_FIX_START,
+    C.CURRENT_FIX_DURATION,
+    C.CURRENT_FIX_INTEREST_AREA_ID,
+    C.NEAREST_IA,
+    C.CURRENT_FIX_PUPIL_SIZE,
+]
 
 
 # ---------------------------------------------------------------------------
@@ -204,19 +102,20 @@ def prepare_paragraph_ia(
 
 def span_visit_counts(
     df: pd.DataFrame,
-    nearest_by_trial: dict,
+    fixations: pd.DataFrame,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """How many times each paragraph part was entered, one row per trial and part.
 
-    Builds each trial's sequence of parts with the same function the answer
-    screen uses (`sequences.build_area_sequences`), merges repeats, and counts.
-    No opening-question fixation is dropped: this screen has no question.
+    Builds each trial's sequence of parts from the paragraph `fixations` with
+    the same function the answer screen uses (`sequences.build_area_sequences`),
+    merges repeats, and counts. No opening entry is dropped: this screen has no
+    question.
     """
     seqs = build_area_sequences(
         df,
         [SPAN_COL],
-        nearest_by_trial=nearest_by_trial,
+        fixations=fixations,
         drop_leading_question=False,
         verbose=verbose,
     )
@@ -233,16 +132,13 @@ def span_visit_counts(
                 }
             )
     if verbose:
-        print(
-            f"  span visits: {len(seqs):,} trial(s); off-area fixation queue covers "
-            f"{len(nearest_by_trial):,}"
-        )
+        print(f"  span visits: {len(seqs):,} trial(s)")
     return pd.DataFrame(rows)
 
 
 def build_span_metrics(
     df: pd.DataFrame,
-    nearest_by_trial: dict,
+    fixations: pd.DataFrame,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Every per-area measurement for the paragraph, one row per trial and part.
@@ -253,7 +149,7 @@ def build_span_metrics(
     return am.build_area_metrics(
         df,
         PARAGRAPH_SCREEN,
-        visit_counts=span_visit_counts(df, nearest_by_trial, verbose=verbose),
+        visit_counts=span_visit_counts(df, fixations, verbose=verbose),
         metric_cols=PARAGRAPH_METRIC_COLUMNS,
     )
 
@@ -264,20 +160,19 @@ def build_span_metrics(
 
 def build_paragraph_rt_tfd(
     paragraph_ia: pd.DataFrame,
-    fixations_path: Path = FIX_PARAGRAPH_PATH,
+    fixations: pd.DataFrame,
     include_run_based_rt: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """The three time measures for each paragraph part, one row per trial.
 
-    Uses `reading_times.build_screen_rt_tfd`, as the answer screen does.
+    `fixations` is the paragraph fixation table. Uses
+    `reading_times.build_screen_rt_tfd`, as the answer screen does.
     """
     return build_screen_rt_tfd(
         paragraph_ia,
         PARAGRAPH_SCREEN,
-        fixations=load_paragraph_fixations(fixations_path, verbose=verbose)
-        if include_run_based_rt
-        else None,
+        fixations=fixations,
         include_run_based_rt=include_run_based_rt,
         verbose=verbose,
     )
@@ -300,15 +195,16 @@ def build_paragraph_features(
     One row per trial: `<metric>__<part>` for every measurement, the reading
     times per part (unless `include_rt_tfd=False`), and `question_preview`.
 
-    The paragraph pupil baseline is computed here and saved to
-    `pupil_baseline_path` as a record of what was used (None skips saving). It
-    is never read back from that file.
+    The paragraph pupil baseline is computed here, from all of each person's
+    fixations in the paragraph report, with the same function as the answer
+    screen's (`pupil.compute_participant_pupil_stats`). It is saved to
+    `pupil_baseline_path` as a record of what was used (None skips saving), and
+    never read back from that file.
     """
     if verbose:
-        print("Scanning the paragraph fixation report...")
-    pupil_stats, nearest_by_trial = scan_paragraph_fixations(
-        fixations_path, verbose=verbose
-    )
+        print("Reading the paragraph fixation report...")
+    fixations = load_fixations(fixations_path, FIXATION_COLUMNS, verbose=verbose)
+    pupil_stats = compute_participant_pupil_stats(fixations)
 
     # Saved under its own name: this screen's baseline differs from the answer
     # screen's (different brightness, different task).
@@ -330,10 +226,11 @@ def build_paragraph_features(
         )
     if verbose:
         print(f"  {len(paragraph_ia):,} paragraph interest areas")
+    fixations = match_key_types(fixations, paragraph_ia)
 
     prepared = prepare_paragraph_ia(paragraph_ia, pupil_stats)
 
-    span_metrics = build_span_metrics(prepared, nearest_by_trial, verbose=verbose)
+    span_metrics = build_span_metrics(prepared, fixations, verbose=verbose)
     features = build_area_metric_pivot(
         df=span_metrics, area_col=SPAN_COL, metric_cols=PARAGRAPH_METRIC_COLUMNS
     )
@@ -349,9 +246,7 @@ def build_paragraph_features(
     features = features.merge(preview, on=list(TRIAL_ID_COLS), how="left")
 
     if include_rt_tfd:
-        rt = build_paragraph_rt_tfd(
-            prepared, fixations_path=fixations_path, verbose=verbose
-        )
+        rt = build_paragraph_rt_tfd(prepared, fixations, verbose=verbose)
         before = len(features)
         features = features.merge(rt, on=list(TRIAL_ID_COLS), how="left")
         assert len(features) == before, (

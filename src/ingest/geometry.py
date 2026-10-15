@@ -64,15 +64,15 @@ def assign_area_by_geometry(df: pd.DataFrame) -> np.ndarray:
     Returns one location per row: "question", "answer_0(top)",
     "answer_1(left)", "answer_2(right)" or "answer_3(bottom)".
     """
-    missing = [c for c in ("IA_TOP", "IA_LEFT") if c not in df.columns]
+    missing = [c for c in (C.IA_TOP, C.IA_LEFT) if c not in df.columns]
     if missing:
         raise KeyError(
             f"interest-area geometry {missing} is required to place words on the "
             "answer screen; it is present in every raw report this project reads"
         )
 
-    top = pd.to_numeric(df["IA_TOP"]).to_numpy()
-    left = pd.to_numeric(df["IA_LEFT"]).to_numpy()
+    top = pd.to_numeric(df[C.IA_TOP]).to_numpy()
+    left = pd.to_numeric(df[C.IA_LEFT]).to_numpy()
     question, top_ans, left_ans, right_ans, bottom_ans = C.LOC_CHOICES
     return np.select(
         [

@@ -962,10 +962,9 @@ def run_pipeline(
         # the area looked at before each press, and the reading times
         add_last=True,
         add_rts=True,
-        # The fixation report holds the messages too, so it is the only source
-        # for the button presses.
-        button_clicks_fix_csv_path=fix_path,
-        button_clicks_fix_tsv_path=None,  # single source
+        # The fixation report holds the message log too, so it is the only
+        # source for the button presses.
+        button_clicks_fix_tsv_path=None,
         button_clicks_msg_participant_col=Con.PARTICIPANT_ID,
         all_answers_is_cumulative=False,  # each trial's ALL_ANSWERS is its own
         base_function_names=base_function_names,

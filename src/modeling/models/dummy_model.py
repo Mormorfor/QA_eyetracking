@@ -1,4 +1,4 @@
-# dummy_model.py
+"""A baseline that ignores the features: it only knows how often answers are correct."""
 
 from dataclasses import dataclass, field
 from typing import Optional, Sequence

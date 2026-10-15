@@ -1,21 +1,22 @@
-# linreg_model.py
-#
-# Trial-level linear-regression model for answer reading times, mirroring the
-# structure of modeling/models/logreg_model.py (numeric coercion +
-# NaN fill + standardization, then a scikit-learn linear estimator).
-#
-# Regularization strength is either fixed (`model_kind="ridge"`, `alpha=...`) or
-# chosen by cross-validation on the training split (`"ridge_cv"`, `"lasso_cv"`,
-# `"elasticnet_cv"`). The CV variants fold by participant when `fit` is given
-# `groups`, matching the participant-grouped train/test split in run.py -- a
-# plain KFold would put the same reader on both sides of the inner split and
-# pick an alpha tuned to leakage.
-#
-# The default is fixed rather than searched: `alpha=None` resolves to the value
-# that search already settled on for a predictor set of that width (see the
-# pre-tuned penalties below), so an ordinary run does not pay for the search.
-# Use `"ridge_cv"` when the predictor set or target has changed enough that the
-# recorded value should not be trusted.
+"""Linear / ridge regression on one row per trial, for predicting answer reading
+times (the exploration in `explorations/answer_reading_times/`).
+
+Built like `logreg_model.py`: make the features numeric, fill missing values
+with 0, standardise, then fit a scikit-learn linear model.
+
+The penalty strength is either fixed (`model_kind="ridge"`, `alpha=...`) or
+chosen by cross-validation on the training split (`"ridge_cv"`, `"lasso_cv"`,
+`"elasticnet_cv"`). The cross-validated kinds split by participant when `fit`
+is given `groups`, matching the exploration's participant-grouped train/test
+split: a plain KFold would put the same reader on both sides of the inner split
+and pick a penalty tuned to that leak.
+
+By default the strength is fixed rather than searched: `alpha=None` takes the
+value the search settled on for a predictor set of that width (see the
+pre-tuned penalties below), so an ordinary run skips the search. Use
+`"ridge_cv"` when the predictors or the target have changed enough that the
+recorded value should not be trusted.
+"""
 
 from __future__ import annotations
 
@@ -52,7 +53,8 @@ CV_MODEL_KINDS = ("ridge_cv", "lasso_cv", "elasticnet_cv")
 # What "ridge_cv" (participant-grouped 5-fold) settled on for the answer-RT
 # task, recorded so ordinary runs can skip the search -- it costs 5 extra fits
 # per answer and lands in the same place. Reproduce with
-# `run.sweep_answer_rt_alphas`, and re-tune if the predictor set changes.
+# `explorations/answer_reading_times/run.py::sweep_answer_rt_alphas`, and
+# re-tune if the predictor set changes.
 #
 # The two predictor sets want penalties an order of magnitude apart, so the
 # default is resolved from the width of the feature matrix rather than fixed:

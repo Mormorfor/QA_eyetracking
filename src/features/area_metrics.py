@@ -31,14 +31,14 @@ Two things differ between the screens, and follow from the area column:
 * `area_dwell_proportion` is a share of the looking time on *that screen*, so
   it sums to 1 over the five answer-screen areas or over the three paragraph
   parts.
-* An isolated first fixation on the question is dropped as left over from the
-  previous screen. The paragraph screen has no question area, so this only
-  applies to the answer screen.
+* In the fixation sequence, a single opening entry on the question (one run of
+  fixations on one question word) is dropped as left over from the previous
+  screen. The paragraph screen has no question area, so this only applies to
+  the answer screen.
 """
 
 from __future__ import annotations
 
-import ast
 from collections import Counter
 from typing import Iterable, Sequence
 
@@ -291,98 +291,17 @@ def first_encounter_pupil_size(
 # Fixation sequences and visit counts
 # ---------------------------------------------------------------------------
 
-def parse_ia_sequence(raw) -> list:
-    """Read the tracker's word-sequence cell (`INTEREST_AREA_FIXATION_SEQUENCE`)
-    into a list of word ids.
-
-    A trial with no fixation on any word is written as "."; that is a real
-    situation, not an error, and gives an empty list.
-    """
-    if isinstance(raw, (list, tuple)):
-        return list(raw)
-    if isinstance(raw, str):
-        raw = raw.strip()
-        return ast.literal_eval(raw) if raw.startswith("[") else []
-    if raw is None or pd.isna(raw):
-        return []
-    return []
-
-
-def _parse_interest_area_list(x) -> list:
-    """Read a fixation row's list of interest areas; empty if there are none."""
-    if isinstance(x, list):
-        return x
-    if isinstance(x, str):
-        x = x.strip()
-        return ast.literal_eval(x) if x else []
-    if pd.isna(x):
-        return []
-    return []
-
-
-def resolve_fixation_sequence(
-    ia_ids: Sequence,
-    known_ids: set,
-    nearest_ids: Sequence,
-) -> tuple[list, int]:
-    """Turn a trial's fixation sequence into a sequence of word ids, placing
-    fixations that missed every word on the nearest word.
-
-    A fixation that landed between words shows up with an id the trial does not
-    have. Instead of being dropped, it is given the nearest word, taken in turn
-    from `nearest_ids` (see `nearest_ia_queue`).
-
-    A fixation with no nearest word either cannot be placed, and is dropped.
-    That is a normal limit of the recording, not a reason to stop. The number
-    dropped is returned, so the caller can report it.
-
-    Both screens use this, so their visit counts are made the same way.
-
-    Returns (word ids, number of fixations dropped).
-    """
-    pointer = 0
-    resolved = []
-    dropped = 0
-    for ia_id in ia_ids:
-        if ia_id in known_ids:
-            resolved.append(ia_id)
-        elif pointer < len(nearest_ids):
-            nearest = nearest_ids[pointer]
-            pointer += 1
-            # `None`: on no word and with no nearest word, so it cannot be
-            # placed. Dropped and counted. The pointer still moves on, because
-            # the queue is matched up by position.
-            if nearest is None:
-                dropped += 1
-            else:
-                resolved.append(nearest)
-        else:
-            dropped += 1
-    return resolved, dropped
-
-
-def nearest_ia_queue(fix_group: pd.DataFrame) -> list:
-    """For each fixation in the trial that missed every word, the nearest word.
-
-    Taken from the fixation report, in order. `None` marks a fixation with no
-    nearest word either (the report writes "."). It is kept in the list rather
-    than removed, because the list is matched to the fixations by position:
-    removing one would give every later fixation its neighbour's nearest word.
-    """
-    areas = fix_group[C.CURRENT_FIX_INTEREST_AREAS].apply(_parse_interest_area_list)
-    ids = pd.to_numeric(
-        fix_group.loc[areas.apply(len) == 0, C.NEAREST_IA], errors="coerce"
-    )
-    return [None if pd.isna(v) else int(v) for v in ids]
-
-
 def drop_leading_question_fixation(labels: list, *others: list) -> tuple[list, ...]:
-    """Drop a single opening fixation on the question.
+    """Drop a single opening entry on the question.
 
-    If the sequence starts with exactly one fixation on the question and then
-    moves elsewhere, that fixation is left over from the previous screen (which
-    showed the question), not part of looking at the answers. `others` are
-    parallel sequences trimmed the same way. Answer screen only.
+    If the sequence starts with exactly one entry on the question and then
+    moves elsewhere, that entry is taken to be left over from the previous
+    screen (which showed the question), not part of looking at the answers.
+    `others` are parallel sequences trimmed the same way. Answer screen only.
+
+    An entry is a run of fixations on one word (see
+    `sequences.build_area_sequences`), so the entry dropped can hold more than
+    one fixation.
     """
     if len(labels) >= 2 and labels[0] == "question" and labels[1] != "question":
         return (labels[1:], *[o[1:] for o in others])

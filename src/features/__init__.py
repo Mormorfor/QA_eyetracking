@@ -4,6 +4,7 @@ This folder decides what to measure: dwell time, skip rate, reading time,
 opening scan, pupil size. It does not know what the eye tracker's raw exports
 look like -- that is `ingest/` -- and it never imports from `ingest/`.
 
+    fixations.py      reads a fixation report and places each fixation on a word
     area_metrics.py   the per-area measurements, for both screens
     reading_times.py  how long each area was looked at, three ways
     sequences.py      the order areas were looked at, and statistics of it

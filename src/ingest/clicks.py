@@ -5,12 +5,11 @@ messages ("CHOOSE_ANSWER", "CONFIRM_ANSWER") attached to fixation rows. This
 module reads those messages back and builds one row per trial with:
 
 - the times of every selection press and of the confirming press,
-- the trial's fixations as (time, word) pairs,
-- the last fixation before each press,
+- the answers clicked, from the answer log,
 - the number of selection presses.
 
-The result is saved as `button_clicks_data.csv`, and is what "the area looked
-at before each press" (`features/last_visited.py`) is built from.
+The result is saved as `button_clicks_data.csv`. "The area looked at before
+each press" (`features/last_visited.py`) takes its press times from it.
 
 Participant ids are lower-cased and trimmed when the pieces are joined, so the
 same person matches across reports.
@@ -33,7 +32,7 @@ from typing import Tuple
 import pandas as pd
 
 import src.config.columns as Con
-from src.config.datasets import BUTTON_CLICKS_PATH, FIX_A_TSV_PATH, FIX_ANSWERS_PATH
+from src.config.datasets import BUTTON_CLICKS_PATH, FIX_A_TSV_PATH
 
 
 def truncate_recordings_at_first_malformed_trial(
@@ -244,41 +243,6 @@ def extract_click_timestamps(
     return grouped
 
 
-def extract_fixation_timestamps_with_ia(
-    df: pd.DataFrame,
-    participant_col: str = Con.PARTICIPANT_ID,
-    trial_col: str = Con.TRIAL_ID,
-    label_col: str = Con.CURRENT_FIX_LABEL,
-    ia_col: str = Con.NEAREST_IA,
-) -> pd.DataFrame:
-    """Each trial's fixations as a list of (time, word id) pairs.
-
-    The time is read out of the fixation's label ("Fixation: 1234 ms"); the
-    word is the nearest interest area. Rows whose label has no time are dropped.
-    """
-    out = df[[participant_col, trial_col, label_col, ia_col]].copy()
-
-    out[Con.FIXATION_TIMESTAMP] = (
-        out[label_col].astype(str).str.extract(r"Fixation:\s*(\d+)\s*ms", expand=False)
-    )
-    out[Con.FIXATION_TIMESTAMP] = pd.to_numeric(
-        out[Con.FIXATION_TIMESTAMP], errors="coerce"
-    )
-    out = out.dropna(subset=[Con.FIXATION_TIMESTAMP]).copy()
-    out[Con.FIXATION_TIMESTAMP] = out[Con.FIXATION_TIMESTAMP].astype(int)
-
-    out[Con.FIXATION_PAIR] = list(zip(out[Con.FIXATION_TIMESTAMP], out[ia_col]))
-
-    fixation_df = (
-        out.groupby([participant_col, trial_col])[Con.FIXATION_PAIR]
-        .apply(list)
-        .reset_index()
-        .rename(columns={Con.FIXATION_PAIR: Con.FIXATION_TIMESTAMPS_IA})
-    )
-
-    return fixation_df
-
-
 def join_on_participant_trial(
     dfs: list[pd.DataFrame],
     participant_col: str = Con.PARTICIPANT_ID,
@@ -335,70 +299,19 @@ def join_on_participant_trial(
     return merged
 
 
-def extract_last_fixations_before_clicks(
-    df: pd.DataFrame,
-    fixation_col: str = Con.FIXATION_TIMESTAMPS_IA,
-    click_col: str = Con.SELECT_ANS_TIMESTAMPS,
-    output_col: str = Con.LAST_FIXATIONS_BEFORE_SELECT,
-) -> pd.DataFrame:
-    """For each press on a trial, the last fixation (time, word id) at or before it.
-
-    Returns one fixation per press, in press order. A press with no fixation
-    before it is left out.
-    """
-
-    def last_fixations_for_row(fixations, clicks):
-        if not isinstance(fixations, list) or not isinstance(clicks, list):
-            return []
-
-        clean_fixations = []
-        for f in fixations:
-            if isinstance(f, tuple) and len(f) == 2:
-                t = int(f[0])
-                ia = f[1]
-                clean_fixations.append((t, ia))
-
-        clean_clicks = [int(c) for c in clicks if c is not None]
-
-        if not clean_fixations or not clean_clicks:
-            return []
-
-        clean_fixations = sorted(clean_fixations, key=lambda x: x[0])
-
-        result = []
-        i = 0
-        last_seen = None
-
-        for click in clean_clicks:
-            while i < len(clean_fixations) and clean_fixations[i][0] <= click:
-                last_seen = clean_fixations[i]
-                i += 1
-
-            if last_seen is not None:
-                result.append(last_seen)
-
-        return result
-
-    out = df.copy()
-    out[output_col] = out.apply(
-        lambda row: last_fixations_for_row(row[fixation_col], row[click_col]),
-        axis=1,
-    )
-    return out
-
-
 def build_trial_level_df(
     fix_tsv: pd.DataFrame,
-    fix_csv: pd.DataFrame,
+    fixations: pd.DataFrame,
     msg_participant_col: str = Con.RECORDING_SESSION_LABEL,
     all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     """Build the one-row-per-trial press table, plus the pieces it was made from.
 
-    `fix_tsv` supplies the messages and answer logs; `fix_csv` the fixations.
-    Study 1 keeps these in two exports. For a report that holds both (Study 2),
-    pass the same table for both.
+    `fix_tsv` supplies the messages and answer logs; `fixations` (the answer
+    screen's fixation table) the number of presses the tracker recorded. Study
+    1 keeps these in two exports. For a report that holds both (Study 2), pass
+    the same table for both.
 
     `msg_participant_col` is the participant column in `fix_tsv`:
     RECORDING_SESSION_LABEL in Study 1's TSV export, participant_id in Study 2.
@@ -432,29 +345,14 @@ def build_trial_level_df(
         output_col=Con.CONFIRM_TIMESTAMPS,
     )
 
-    fixation_df = extract_fixation_timestamps_with_ia(fix_csv)
-
     num_of_selects_df = (
-        fix_csv[[Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.NUM_OF_SELECTS]]
+        fixations[[Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.NUM_OF_SELECTS]]
         .drop_duplicates(subset=[Con.PARTICIPANT_ID, Con.TRIAL_ID])
         .reset_index(drop=True)
     )
 
     trial_level_df = join_on_participant_trial(
-        [trial_answers, click_df, fixation_df, confirm_df, num_of_selects_df]
-    )
-
-    trial_level_df = extract_last_fixations_before_clicks(
-        trial_level_df,
-        fixation_col=Con.FIXATION_TIMESTAMPS_IA,
-        click_col=Con.SELECT_ANS_TIMESTAMPS,
-        output_col=Con.LAST_FIXATIONS_BEFORE_SELECT,
-    )
-    trial_level_df = extract_last_fixations_before_clicks(
-        trial_level_df,
-        fixation_col=Con.FIXATION_TIMESTAMPS_IA,
-        click_col=Con.CONFIRM_TIMESTAMPS,
-        output_col=Con.LAST_FIXATIONS_BEFORE_CONFIRM,
+        [trial_answers, click_df, confirm_df, num_of_selects_df]
     )
 
     trial_level_df[Con.NUM_OF_SELECTS_DERIVED] = trial_level_df[
@@ -467,7 +365,6 @@ def build_trial_level_df(
         "trial_answers": trial_answers,
         "click_df": click_df,
         "confirm_df": confirm_df,
-        "fixation_df": fixation_df,
         "num_of_selects_df": num_of_selects_df,
     }
 
@@ -475,7 +372,7 @@ def build_trial_level_df(
 
 
 def run_trial_level_pipeline(
-    fix_csv_path: Path = FIX_ANSWERS_PATH,
+    fixations: pd.DataFrame,
     fix_tsv_path: Path | None = FIX_A_TSV_PATH,
     output_csv_path: Path = BUTTON_CLICKS_PATH,
     fix_tsv_sep: str = "\t",
@@ -484,23 +381,21 @@ def run_trial_level_pipeline(
     all_answers_is_cumulative: bool = True,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Load the reports, build the press table, save it to `output_csv_path`.
+    """Build the press table and save it to `output_csv_path`.
 
-    The defaults are Study 1's: messages from the separate TSV export
-    (`fix_tsv_path`), fixations from `fix_csv_path`. For a report that holds
-    both (Study 2), pass `fix_tsv_path=None` and set `msg_participant_col` and
-    `all_answers_is_cumulative` to match it.
+    `fixations` is the answer screen's fixation table, already read by the
+    pipeline (`features/fixations.py::load_fixations`). The defaults are Study
+    1's: the message log comes from the separate TSV export at `fix_tsv_path`.
+    For a report that holds the message log too (Study 2), pass
+    `fix_tsv_path=None` -- `fixations` must then include the message columns --
+    and set `msg_participant_col` and `all_answers_is_cumulative` to match it.
     """
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if verbose:
-        print(f"Loading fix_csv from: {fix_csv_path}")
-    fix_csv = pd.read_csv(fix_csv_path)
-
     if fix_tsv_path is None:
         if verbose:
-            print("No separate fix_tsv: using fix_csv as the single message source")
-        fix_tsv = fix_csv
+            print("No separate fix_tsv: the fixation report is the message source")
+        fix_tsv = fixations
     else:
         if verbose:
             print(f"Loading fix_tsv from: {fix_tsv_path}")
@@ -508,7 +403,7 @@ def run_trial_level_pipeline(
 
     trial_level_df, diagnostics = build_trial_level_df(
         fix_tsv=fix_tsv,
-        fix_csv=fix_csv,
+        fixations=fixations,
         msg_participant_col=msg_participant_col,
         all_answers_is_cumulative=all_answers_is_cumulative,
         verbose=verbose,
@@ -521,7 +416,3 @@ def run_trial_level_pipeline(
         print(f"Final shape: {trial_level_df.shape}")
 
     return trial_level_df
-
-
-if __name__ == "__main__":
-    run_trial_level_pipeline()

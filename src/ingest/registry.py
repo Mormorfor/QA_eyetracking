@@ -463,15 +463,8 @@ def _registry_name_for(func) -> str:
 #: leave a column out.
 ATTACH_PRODUCES: dict = {
     **{
-        f"{prefix}{region}": "trial"
-        for prefix in (
-            "RT_pure_",
-            "RT_normalized_",
-            "TFD_pure_",
-            "TFD_normalized_",
-            "TimeSinceOffset_pure_",
-            "TimeSinceOffset_normalized_",
-        )
+        f"{metric}_{region}": "trial"
+        for metric in C.RT_TFD_METRICS
         for region in ANSWERS.regions
     },
     C.LAST_LBL_BEFORE_SELECT: "trial",

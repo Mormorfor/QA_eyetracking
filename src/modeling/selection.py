@@ -1,3 +1,16 @@
+"""Three ways to choose features, used while picking feature sets
+(`explorations/feature_search/` and notebooks).
+
+* `correlation_prune_features`: of each pair correlated above a threshold,
+  drop one.
+* `aic_forward_select_logit`: add features one at a time while the AIC
+  improves.
+* `elasticnet_select_logit`: an elastic-net logistic regression; keep the
+  features whose coefficient is not shrunk to 0.
+
+All three skip requested columns that are not in the table, without a message.
+"""
+
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
@@ -23,6 +36,10 @@ def correlation_prune_features(
     - If target_col is provided, keep the feature with stronger absolute
       correlation to the target.
     - Otherwise, keep the one that appears first in feature_cols.
+
+    Each round removes one feature from the most correlated remaining pair, and
+    stops when no pair reaches the threshold. Correlations use the rows where
+    both values are present.
 
     Returns
     -------
@@ -124,7 +141,13 @@ def aic_forward_select_logit(
     verbose: bool = True,
 ) -> tuple[list[str], pd.DataFrame, Any]:
     """
-    Simple forward AIC selection for logistic regression.
+    Forward selection for logistic regression, by AIC.
+
+    Starts from the intercept alone; each step adds the feature that lowers the
+    AIC most, and it stops when no feature lowers it. Missing values are filled
+    with 0, and with `standardize` every column is z-scored first. A feature
+    whose fit fails at a step (for example, perfect separation) is skipped at
+    that step without a message.
 
     Returns
     -------
@@ -230,13 +253,12 @@ def elasticnet_select_logit(
     component keeps correlated features together rather than arbitrarily zeroing
     one of them.
 
-    Cross-validation is group-aware when `group_col` is present in `df` (folds
-    split by participant, so selection reflects generalisation to new subjects);
-    otherwise it falls back to stratified K-fold.
+    The cross-validation splits by participant when `group_col` is in `df`, so
+    the choice reflects how well features carry over to new people; otherwise
+    it uses stratified K-fold. Missing values are filled with 0 first.
 
-    Note: penalised coefficients are biased (shrunk) -- use this to SELECT, then
-    refit a plain model (e.g. via the correctness bundle / TrialLevelLogRegModel)
-    on `selected` for interpretation and CIs.
+    Penalised coefficients are shrunk, so use this to choose features, then fit
+    `TrialLevelLogRegModel` on `selected` for coefficients and intervals.
 
     Returns
     -------

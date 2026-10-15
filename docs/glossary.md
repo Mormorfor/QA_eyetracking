@@ -94,6 +94,10 @@ An area can be named two ways:
 are shuffled across the four positions on every trial, and the position is in the `*_loc`
 columns. Do not reorder either list; code relies on the order.
 
+Code that needs one of these areas by role takes it from `config/columns.py` rather than
+spelling it: `QUESTION_AREA` (`question`), `ANSWER_AREAS` (`answer_A`..`answer_D`),
+`CORRECT_ANSWER_AREA` (`answer_A`) and `WRONG_ANSWER_AREAS` (`answer_B`..`answer_D`).
+
 ### The letters are ranked, not arbitrary
 
 OneStopQA builds each answer from a set relationship to the paragraph:
@@ -222,14 +226,19 @@ A trial's fixations, in time order, written as a sequence of areas (`features/se
 
 | Constant | Column | Meaning |
 |---|---|---|
-| `FIX_SEQUENCE_BY_LABEL` | `fix_by_label` | one entry per fixation: which area, by meaning |
+| `FIX_SEQUENCE_BY_LABEL` | `fix_by_label` | one entry per run of fixations on one word: which area that word is in, by meaning |
 | `FIX_SEQUENCE_BY_LOCATION` | `fix_by_loc` | the same, by place |
 | `SIMPLIFIED_FIX_SEQ_BY_LABEL` | `simpl_fix_by_label` | repeats merged, so one entry per visit: `A A B A` → `A B A` |
 | `SIMPLIFIED_FIX_SEQ_BY_LOCATION` | `simpl_fix_by_loc` | the same, by place |
 
-Two clean-up steps come first: a fixation that landed on no word is given the nearest word, and a
-single fixation on the question at the very start of the trial is dropped, as left over from the
-previous screen.
+So reading three words of answer A and then one of B gives `fix_by_label` `A A A B` and
+`simpl_fix_by_label` `A B`.
+
+Each fixation is placed on a word by the same rule as everywhere else: the word it landed on,
+else the nearest word (`data-pipeline.md` §4). Then one clean-up step: if the sequence opens with
+a single entry on the question (one run of fixations on one question word) and then moves to
+another area, that entry is dropped, as left over from the previous screen, which showed the
+question.
 
 `IA_LABEL` is the word each interest area covers; read in order, they spell out the text on
 screen. Study 2's `check_text_alignment` uses it to find trials whose stored text does not match
@@ -320,8 +329,14 @@ Things to know:
 | `LAST_LBL_BEFORE_SELECT` | `last_lbl_before_select` | the area looked at just before the final selection press |
 | `LAST_LBL_BEFORE_CONFIRM` | `last_lbl_before_confirm` | the area looked at just before the confirming press |
 
-The last two are timed from the button presses, and go into the model as 0/1 columns, one per
-area. `last_answer_area_visited_lbl` is not in the model table.
+The last two are timed from the button presses: the area of the last fixation that started at or
+before the press, with fixations placed on words by the usual rule (§8). They go into the model as
+0/1 columns, one per area. `last_answer_area_visited_lbl` is not in the model table.
+
+The side file `interim/aux/all_participants_last.csv` keeps the word as well as the area for each
+press, under its own names: `LAST_IA_BEFORE_SELECT` / `AREA_LABEL_BEFORE_SELECT` and
+`LAST_IA_BEFORE_CONFIRM` / `AREA_LABEL_BEFORE_CONFIRM`. The two area columns are the ones that
+enter the trial table, renamed to `last_lbl_before_select` and `last_lbl_before_confirm`.
 
 Careful with `last_answer_area_visited_lbl`: in a trial where no answer word was looked at, it
 still names an answer, picked arbitrarily. That happens on 28 Study 1 trials and 1 Study 2 trial.
@@ -345,13 +360,14 @@ The participant selects an answer, can change it, and then confirms with a secon
 **Reading time per area**, for `question` and `answer_A`..`answer_D` (and on the paragraph screen,
 `critical`, `distractor` and `outside`):
 
-| Columns | Meaning |
-|---|---|
-| `TFD_pure_*` / `TFD_normalized_*` | total fixation duration: the looking time on the area's words, added up |
-| `RT_pure_*` / `RT_normalized_*` | time spent on visits to the area; a visit is a run of fixations in a row on it |
-| `TimeSinceOffset_pure_*` / `TimeSinceOffset_normalized_*` | from the start of the first look to the end of the last look, so time spent elsewhere in between counts too |
+| Constant (prefix) | Columns | Meaning |
+|---|---|---|
+| `TFD_PURE` / `TFD_NORMALIZED` | `TFD_pure_*` / `TFD_normalized_*` | total fixation duration: the looking time on the area's words, added up |
+| `RT_PURE` / `RT_NORMALIZED` | `RT_pure_*` / `RT_normalized_*` | time spent on visits to the area; a visit is a run of fixations in a row on it |
+| `TIME_SINCE_OFFSET_PURE` / `TIME_SINCE_OFFSET_NORMALIZED` | `TimeSinceOffset_pure_*` / `TimeSinceOffset_normalized_*` | from the start of the first look to the end of the last look, so time spent elsewhere in between counts too |
 
-`_normalized` divides by the area's number of words. An area nobody looked at gets 0.
+Each column is `f"{prefix}_{area}"`, e.g. `RT_normalized_answer_A`. `RT_TFD_METRICS` lists all six
+prefixes. `_normalized` divides by the area's number of words. An area nobody looked at gets 0.
 `data-pipeline.md` §7 has the details.
 
 ### The paragraph's three parts
@@ -364,9 +380,10 @@ The participant selects an answer, can change it, and then confirms with a secon
 
 ## 11. Cross-validation regimes
 
-Folds are worked out in advance and read from `data/cv_folds/`, one file per fold
-(`fold_{i}_trial_ids_by_regime.csv`). Each participant × paragraph pair is given one of seven
-regimes, crossing whether the participant and the item were seen in training:
+Folds are worked out in advance and read from `data/cv_folds/HuntersRefolded/` and
+`GatherersRefolded/`, one file per group and fold (`fold_{i}_trial_ids_by_regime.csv`). Each
+participant × paragraph pair in a fold file has one of seven regimes, crossing whether the
+participant and the item were seen in training:
 
 | Regime | Participant | Item |
 |---|---|---|
@@ -378,12 +395,21 @@ regimes, crossing whether the participant and the item were seen in training:
 The paper reports three, named in figures and folders `new_item`, `new_subject` and `both`.
 `both` (new participant *and* new item) is the strictest test of generalising.
 
+Held-out people and held-out paragraphs are each split into a validation and a test half. A
+validation person reading a test paragraph (or a test person reading a validation paragraph) is new
+on both counts but belongs to neither half, so these crossing pairs are left out of the fold
+files: 156–240 trials per group and fold are in no regime. The two groups hold out the same
+paragraphs in each fold, so their folds can be pooled. The original assignments, which file the
+crossing pairs under the test regimes, are kept in `HuntersFolds/` and `GatherersFolds/`; both
+refolded sets are made in `notebooks/builders/create_merge_folds_csv.ipynb`.
+
 Nothing in the model is tuned, so the `val_*` regimes do not choose anything: they are a second
-held-out sample, like `test_*`. `modeling/crossval.py` reads each regime name as a `split` (`val`
-or `test`) and a `novelty` (`new_item`, `new_subject` or `both`). `eval_split` picks which splits
-to evaluate — both by default — and `summary_by_novelty_df` gives one result per novelty: the
-paper's numbers. The three novelties ask different questions and differ a lot in size, so
-`summary_overall_df`, which averages over them, is only a quick check that a run worked.
+held-out sample, like `test_*`. The summary tables (`modeling/evaluate.py`) read each regime
+name as a `split` (`val` or `test`) and a `novelty` (`new_item`, `new_subject` or `both`).
+`eval_split` (`modeling/crossval.py`) picks which splits to evaluate — both by default — and
+`summary_by_novelty_df` gives one result per novelty: the paper's numbers. The three novelties
+ask different questions and differ a lot in size, so `summary_overall_df`, which averages over
+them, is only a quick check that a run worked.
 
 ---
 

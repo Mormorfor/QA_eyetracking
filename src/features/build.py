@@ -39,10 +39,7 @@ from src.config.datasets import (
     READY_ALL_FEATURES_PATH,
     dataset as _dataset,
 )
-from src.features.reading_times import (
-    ANSWER_REGIONS as RT_ANSWER_REGIONS,
-    PARAGRAPH_REGIONS as RT_PARAGRAPH_REGIONS,
-)
+from src.config.screens import screen
 from src.features.sequences import (
     DERIVED_COLS,
     compute_trial_mean_dwell_per_word,
@@ -56,49 +53,28 @@ from src.features.strategies import build_trial_level_pattern_features
 
 
 # ---------------------------------------------------------------------------
-# Names of the columns built here. Which of them a model uses is decided in
-# modeling/feature_sets.py, not here.
+# Columns made in other files that this file takes into the model table by
+# name. Which of them a model uses is decided in modeling/feature_sets.py.
 # ---------------------------------------------------------------------------
 
-# The reading-time column prefixes; the column is f"{metric}_{area}".
-ANSWER_RT_TFD_METRICS = (
-    "RT_pure",
-    "RT_normalized",
-    "TFD_pure",
-    "TFD_normalized",
-    "TimeSinceOffset_pure",
-    "TimeSinceOffset_normalized",
-)
+ANSWER_SCREEN = screen("answers")
+PARAGRAPH_SCREEN = screen("paragraph")
 
-# The three paragraph parts, and their share-of-looking-time columns. Built by
-# features/paragraph/spans.py and saved at PARAGRAPH_SPAN_FEATURES_PATH; the
-# trial table takes them as they are.
-PARAGRAPH_SPANS = ("critical", "distractor", "outside")
-
+# From the paragraph table (features/paragraph/spans.py, saved at
+# PARAGRAPH_SPAN_FEATURES_PATH), taken as they are: each part's share of the
+# looking time (area_dwell_proportion__critical, ...) and its reading times
+# (RT_normalized_critical, ...).
 PARAGRAPH_PROPORTION_COLS = tuple(
-    f"{Con.AREA_DWELL_PROPORTION}__{span}" for span in PARAGRAPH_SPANS
+    f"{Con.AREA_DWELL_PROPORTION}{Con.DERIVED_SEP}{span}"
+    for span in PARAGRAPH_SCREEN.regions
 )
-
-# The paragraph parts' reading-time columns. They come from the paragraph
-# table too, joined in by trial.
 PARAGRAPH_RT_TFD_COLS = tuple(
     f"{metric}_{span}"
-    for metric in ANSWER_RT_TFD_METRICS
-    for span in RT_PARAGRAPH_REGIONS
+    for metric in Con.RT_TFD_METRICS
+    for span in PARAGRAPH_SCREEN.regions
 )
 
 PARAGRAPH_MODEL_COLS = PARAGRAPH_PROPORTION_COLS + PARAGRAPH_RT_TFD_COLS
-
-
-def select_feature_columns(
-    df: pd.DataFrame,
-    feature_cols: Sequence[str],
-) -> pd.DataFrame:
-    """The columns of `feature_cols` that exist in `df`; missing ones are left
-    out without a warning. Not used by any code."""
-    df_cols = set(df.columns)
-    present_cols = [c for c in feature_cols if c in df_cols]
-    return df[present_cols].copy()
 
 
 def build_area_metric_pivot(
@@ -139,8 +115,8 @@ def add_answer_correct_wrong_contrast_columns(
     df_pivot: pd.DataFrame,
     metric_cols: Sequence[str],
     sep: str = "__",
-    correct_label: str = "answer_A",
-    wrong_labels: Sequence[str] = ("answer_B", "answer_C", "answer_D"),
+    correct_label: str = Con.CORRECT_ANSWER_AREA,
+    wrong_labels: Sequence[str] = tuple(Con.WRONG_ANSWER_AREAS),
     out_correct_suffix: str = Con.CORRECT_SUFFIX,
     out_wrong_mean_suffix: str = Con.WRONG_MEAN_SUFFIX,
     out_contrast_suffix: str = Con.CONTRAST_SUFFIX,
@@ -306,8 +282,8 @@ def build_trial_level_area_features(
             df_pivot=metrics_pivot,
             metric_cols=metric_cols,
             sep="__",
-            correct_label="answer_A",
-            wrong_labels=("answer_B", "answer_C", "answer_D"),
+            correct_label=Con.CORRECT_ANSWER_AREA,
+            wrong_labels=Con.WRONG_ANSWER_AREAS,
         )
 
     out = trial_core.merge(metrics_pivot, on=list(TRIAL_ID_COLS), how="left")
@@ -328,6 +304,8 @@ def build_trial_level_rt_tfd_features(
 
     Answer-screen areas only; the paragraph parts' reading times come with the
     paragraph features.
+
+    Stops with an error if any of these columns is missing from `df`.
     """
     keep_cols = _deduplicate_keep_cols(keep_cols)
 
@@ -335,11 +313,15 @@ def build_trial_level_rt_tfd_features(
     # paragraph join; taking them here too would give two columns of the same
     # name, which pandas would quietly rename to `_x` / `_y`.
     metric_cols = [
-        f"{m}_{r}"
-        for m in ANSWER_RT_TFD_METRICS
-        for r in tuple(RT_ANSWER_REGIONS)
-        if f"{m}_{r}" in df.columns
+        f"{m}_{r}" for m in Con.RT_TFD_METRICS for r in ANSWER_SCREEN.regions
     ]
+    missing = [c for c in metric_cols if c not in df.columns]
+    if missing:
+        raise KeyError(
+            f"reading-time columns missing: {missing}. They are made by "
+            "features/reading_times.py when the dataset is built with reading "
+            "times (ingest/build.py::main, add_rts=True)."
+        )
 
     cols = list(TRIAL_ID_COLS) + keep_cols + [target_col] + metric_cols
     cols = list(dict.fromkeys(cols))
@@ -357,21 +339,14 @@ def build_trial_level_rt_tfd_features(
         trial[c] = pd.to_numeric(trial[c], errors="coerce")
 
     # The comparisons of the correct answer with the wrong ones, for every
-    # measure that has all four answer columns. These names use a single "_".
-    contrast_answer_regions = ("answer_A", "answer_B", "answer_C", "answer_D")
-    contrast_metrics = [
-        m
-        for m in ANSWER_RT_TFD_METRICS
-        if all(f"{m}_{r}" in trial.columns for r in contrast_answer_regions)
-    ]
-    if contrast_metrics:
-        trial = add_answer_correct_wrong_contrast_columns(
-            df_pivot=trial,
-            metric_cols=contrast_metrics,
-            sep="_",
-            correct_label="answer_A",
-            wrong_labels=("answer_B", "answer_C", "answer_D"),
-        )
+    # measure. These names use a single "_".
+    trial = add_answer_correct_wrong_contrast_columns(
+        df_pivot=trial,
+        metric_cols=list(Con.RT_TFD_METRICS),
+        sep="_",
+        correct_label=Con.CORRECT_ANSWER_AREA,
+        wrong_labels=Con.WRONG_ANSWER_AREAS,
+    )
 
     return trial
 
@@ -503,11 +478,12 @@ def build_trial_level_last_visited_features(
             return out[col]
         return pd.Series(0, index=out.index, dtype=int)
 
-    out[f"{prefix}_correct"] = _dummy("answer_A")
-    out[f"{prefix}_wrong"] = (
-        _dummy("answer_B") | _dummy("answer_C") | _dummy("answer_D")
-    ).astype(int)
-    out[f"{prefix}_question"] = _dummy("question")
+    out[f"{prefix}_correct"] = _dummy(Con.CORRECT_ANSWER_AREA)
+    wrong = pd.Series(0, index=out.index, dtype=int)
+    for label in Con.WRONG_ANSWER_AREAS:
+        wrong = wrong | _dummy(label)
+    out[f"{prefix}_wrong"] = wrong.astype(int)
+    out[f"{prefix}_{Con.QUESTION_AREA}"] = _dummy(Con.QUESTION_AREA)
 
     return out
 

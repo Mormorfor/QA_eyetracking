@@ -1,15 +1,15 @@
-"""Coefficient confidence intervals and collinearity diagnostics.
+"""Confidence intervals for logistic-regression coefficients, and a collinearity check.
 
-Split out of `predictive_modeling/common/data_utils.py` in stage D step 7
-(2026-10-07) -- see `modeling/folds.py` for why.
+Two ways to get an interval, each with or without clustering by participant:
 
-Three CI methods live here and they are not interchangeable; `docs/findings.md`
-records when each was adopted and what it moved. The short version: the
-**clustered bootstrap** is the default for the paper's figures because it refits
-the actual estimator per resample (so the L2 penalty and class weights are
-respected), and the **cluster-robust Wald sandwich** is ~560x faster and used
-inside cross-validation. Wald warns when `n_clusters <= n_params`, which is the
-condition that made it untrustworthy on KnowQA's six participants.
+* **Bootstrap** (`bootstrap_logreg_coef_cis`): refit the model on thousands of
+  resamples -- of whole participants, when clustered. It needs no
+  approximation, so it is the default for the paper's coefficients.
+* **Wald** (`wald_logreg_coef_cis`): a sandwich formula, no refitting. Hundreds
+  of times faster, so it is used inside cross-validation. It warns when there
+  are no more participants than parameters, as on Study 2 (6 participants).
+
+`compute_vif` measures how much each feature is explained by the others.
 """
 
 import warnings
@@ -32,7 +32,8 @@ def get_coef_summary(model: LogisticRegression,
                      feature_cols: List[str],
                      top_k: int = None):
     """
-    Get a summary of coefficients from a fitted logistic regression model.
+    Coefficient table for a fitted LogisticRegression: coefficient, odds ratio
+    and absolute coefficient, largest first. ``top_k`` keeps only the largest.
     """
     coef = np.asarray(model.coef_).reshape(-1)
     out = pd.DataFrame(
@@ -65,46 +66,35 @@ def wald_logreg_coef_cis(
     cluster: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
     """
-    to read on this: https://www.jakemanderson.com/courses/econ_104/chapters/15c-cluster-robust-se
-        lmiratrix.github.io/MLM/cluster_demo.html
-        https://economictheoryblog.com/2016/09/25/clustered-standard-errors/
-        
+    Wald confidence intervals for a fitted sklearn LogisticRegression, from a
+    sandwich (robust) variance estimate.
 
+    ``cluster`` (e.g. participant ids) gives cluster-robust (CR1) intervals;
+    ``None`` treats each row as its own cluster (the HC0 robust form of the
+    same formula).
 
-    Wald CIs for sklearn LogisticRegression coefficients, as a sandwich estimator.
+    What the formula includes:
 
-    ``cluster`` (e.g. ``participant_id``) gives cluster-robust CR1 intervals;
-    ``None`` treats each row as its own cluster, which is the heteroskedasticity-
-    robust (HC0) limit of the same formula.
+    * **the L2 penalty** -- sklearn minimises ``0.5 b'b + C * sum_i s_i *
+      loss_i``, so the bread is ``H = P + C * X' S W X`` with
+      ``P = diag(0, 1, ..., 1)`` (the intercept is not penalised);
+    * **the class weights** ``s_i``, in both the bread and the scores;
+    * **clustering**, in the meat: scores are summed within each cluster before
+      the outer product, so trials of the same person are not treated as
+      independent.
 
-    **Rewritten 2026-09-27 (`todo.md` T3.3).** The previous version inverted the
-    plain information matrix ``pinv(X'WX)``, which was wrong three ways: it ignored
-    the L2 penalty although the fit is penalised, it ignored
-    ``class_weight="balanced"``, and it had no notion of clustering at all
-    (``n_clusters`` was hardcoded NaN). All three enter here:
+    The penalty is in the bread only -- it is not a sum over observations, so
+    it does not split by cluster. That is the usual sandwich for penalised
+    estimators, and it is an approximation. The bootstrap needs none, so use it
+    where time allows; this exists because cross-validation cannot afford
+    thousands of refits per fold.
 
-    * **penalty** -- sklearn minimises ``0.5 b'b + C * sum_i s_i * loss_i`` for
-      l2, so the bread is ``H = P + C * X' S W X`` with ``P = diag(0, 1, ..., 1)``
-      (the intercept is not penalised). Dropping ``P`` is what made the old SEs
-      unpenalised-MLE SEs for penalised estimates.
-    * **class weights** ``s_i`` enter both the bread and the score.
-    * **clustering** is the meat: scores are summed *within* cluster before the
-      outer product, so within-participant correlation stops being ignored.
-
-    The penalty is carried in the bread only -- it is not a sum over observations,
-    so it does not decompose per cluster. That is the conventional penalised-
-    M-estimator sandwich, and it is an approximation.
-
-    Validated against the clustered bootstrap on L1's 12-feature model: mean CI
-    width 1.44x Wald-old for both, agreeing to ~2% per feature. Use the bootstrap
-    where cost allows (it refits the real estimator and needs no approximation);
-    this exists because cross-validation cannot afford 5,000 refits per fold.
-
-    **Few clusters:** CR1's ``G/(G-1)`` correction is applied, but it does not
-    rescue very small ``G``. The cluster-robust variance estimator has rank at
-    most ``min(G, k)``, so with ``G <= k`` it is singular and ``pinv`` hides that
-    -- see the warning below. Check ``n_clusters`` in the output; KnowQA has 6
-    against 13 parameters, which is why it uses the bootstrap instead.
+    **Few clusters:** the CR1 correction ``G/(G-1)`` is applied, but it does not
+    rescue a very small ``G``. The meat has rank at most ``min(G, k)``, so with
+    ``G <= k`` it cannot support ``k`` parameters, and ``pinv`` hides that --
+    see the warning in the code. Check ``n_clusters`` in the output: Study 2
+    has only 6 participants, fewer than the parameters of the headline model
+    (11).
 
     Reading, in the order worth reading it:
 
@@ -122,6 +112,10 @@ def wald_logreg_coef_cis(
       standard errors", *The American Statistician* 60(4):299-302. Four pages
       arguing the sandwich is often the wrong thing to reach for -- worth reading
       precisely because it is the counter-case to everything above.
+    * Shorter introductions:
+      jakemanderson.com/courses/econ_104/chapters/15c-cluster-robust-se,
+      lmiratrix.github.io/MLM/cluster_demo.html,
+      economictheoryblog.com/2016/09/25/clustered-standard-errors/
     """
     Xn = np.asarray(X, dtype=float)
     yn = np.asarray(y, dtype=float).reshape(-1)
@@ -174,9 +168,9 @@ def wald_logreg_coef_cis(
         # The meat is a sum of G outer products, so its rank is at most G. With
         # G <= k it cannot support k parameters: pinv absorbs the deficiency
         # silently and returns intervals that look ordinary and are not -- on
-        # KnowQA (G = 6, k = 13) some come out 3x NARROWER than the clustered
-        # bootstrap. Warn rather than raise: the setting is deliberate for now
-        # (Diana, 2026-09-27), but it must not be invisible. See todo.md T3.3.
+        # Study 2 (G = 6) some come out about 3x narrower than the clustered
+        # bootstrap. This warns rather than stops: using it here is a
+        # deliberate choice, but it must never be invisible.
         if n_clusters <= k:
             warnings.warn(
                 f"Cluster-robust Wald CIs with {n_clusters} clusters for {k} "
@@ -228,14 +222,17 @@ def bootstrap_logreg_coef_cis(
     cluster: np.ndarray = None,
 ) -> pd.DataFrame:
     """
-    Bootstrap coefficient CIs for sklearn LogisticRegression.
+    Bootstrap confidence intervals for LogisticRegression coefficients: refit
+    on ``n_boot`` resamples and take the percentiles.
 
-    - If cluster is None: classic row bootstrap (resample rows).
-    - If cluster is provided: cluster bootstrap (resample clusters with replacement,
-      keep all rows for selected clusters).
+    - ``cluster`` None: resample rows.
+    - ``cluster`` given (e.g. participant ids): resample whole clusters with
+      replacement, keeping all rows of each.
 
-    Returns a DF with:
-      feature, ci_low, ci_high, or_ci_low, or_ci_high, n_boot_ok
+    A resample that contains only one class cannot be fitted and is skipped;
+    ``n_boot_ok`` says how many were used.
+
+    Returns feature, ci_low, ci_high, or_ci_low, or_ci_high, n_boot_ok, sig_ci.
     """
     rng = np.random.default_rng(seed)
     Xn = X.to_numpy()
@@ -312,6 +309,9 @@ def compute_vif(
       * VIF == inf   exactly redundant -- e.g. a complete one-hot dummy set,
                      which is collinear with the intercept (the "dummy trap")
 
+    Columns not in df are skipped, with a printed note. Values are made numeric
+    and missing ones filled with 0, as the model does. A constant column gets
+    VIF = inf, noted "constant".
     """
     
 
@@ -357,7 +357,8 @@ def vif_from_bundle(
     """
     VIF for the exact feature set a correctness bundle fit.
 
-    ``bundle`` is the dict returned by ``run_full_features_correctness_bundle``.
+    ``bundle`` is the dict returned by
+    ``analyses/correctness_prediction/run.py::run_full_features_correctness_bundle``.
     The feature list is read from the fitted model's ``coef_summary`` (so it is
     exactly what was modelled), and the design matrix is taken from the bundle's
     ``train_df`` (default), ``test_df``, or full ``trial_df`` via ``data=
@@ -376,6 +377,9 @@ def vif_from_bundle(
 
 
 def summarize_random_effects(re_df: pd.DataFrame) -> pd.DataFrame:
+    """For a random-effects table (first column: the level, e.g. the
+    participant), the number of levels, mean, SD, min and max of every other
+    column. Used by the mixed-model exploration."""
     value_cols = [c for c in re_df.columns if c != re_df.columns[0]]
     out = []
 

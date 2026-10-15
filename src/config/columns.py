@@ -124,7 +124,9 @@ SELECTED_ANSWER_COLUMN = "selected_answer"
 QUESTION_TEXT_COLUMN = "question"
 ANSWER_TEXT_COLUMNS = ["answer_1", "answer_2", "answer_3", "answer_4"]
 
-# The tracker's list of which words were looked at, in order.
+# The tracker's list of which words were looked at, in order. Kept in
+# trials.csv as the tracker's own record; nothing in the pipeline reads it. The
+# fixation sequences are built from the fixation report (features/sequences.py).
 INTEREST_AREA_FIXATION_SEQUENCE = "INTEREST_AREA_FIXATION_SEQUENCE"
 
 # Paragraph screen only: which part of the paragraph a word is in --
@@ -188,8 +190,17 @@ LAST_VISITED_LOCATION = "last_answer_area_visited_loc"
 LAST_LBL_BEFORE_CONFIRM = "last_lbl_before_confirm"
 LAST_LBL_BEFORE_SELECT = "last_lbl_before_select"
 
-# The order in which areas were looked at: one entry per fixation, named by
-# meaning (`fix_by_label`) or by place (`fix_by_loc`).
+# The same two looks as saved in the side file all_participants_last.csv
+# (features/last_visited.py): the word and its area, before the last selection
+# press and before the confirming press. The two area columns enter the trial
+# table under the names above.
+LAST_IA_BEFORE_SELECT = "last_ia_before_last_select"
+AREA_LABEL_BEFORE_SELECT = "area_label_before_last_select"
+LAST_IA_BEFORE_CONFIRM = "last_ia_before_confirm"
+AREA_LABEL_BEFORE_CONFIRM = "area_label_before_confirm"
+
+# The order in which areas were looked at: one entry per run of fixations on
+# one word, named by meaning (`fix_by_label`) or by place (`fix_by_loc`).
 FIX_SEQUENCE_BY_LABEL = "fix_by_label"
 FIX_SEQUENCE_BY_LOCATION = "fix_by_loc"
 
@@ -297,6 +308,13 @@ LOC_CHOICES = [
 # DO NOT CHANGE
 LABEL_CHOICES = ["question", "answer_A", "answer_B", "answer_C", "answer_D"]
 
+# The question's area ("question" under both namings), and the four answers by
+# meaning. answer_A is always the correct answer and B to D the wrong ones.
+QUESTION_AREA = LABEL_CHOICES[0]
+ANSWER_AREAS = LABEL_CHOICES[1:]
+CORRECT_ANSWER_AREA = ANSWER_AREAS[0]
+WRONG_ANSWER_AREAS = ANSWER_AREAS[1:]
+
 # How many separate times the participant entered an area, counted by meaning
 # or by place.
 NUM_LABEL_VISITS = "num_label_visits"
@@ -359,6 +377,36 @@ CONFIRM_FINAL_ANSWER_RT = "CONFIRM_FINAL_ANSWER_RT"
 TOTAL_ANSWERING_RT = "total_answering_RT"
 TOTAL_ANSWERING_RT_NORMALIZED = "total_answering_RT_normalized"
 
+# --- Reading times per area (made by features/reading_times.py) --------------
+#
+# Three measures, each in two versions. Each is one column per area, named
+# f"{prefix}_{area}" -- e.g. RT_normalized_answer_A. Note the single "_" before
+# the area, where the per-area measurements above use "__".
+#
+#   RT_*               time spent on visits to the area
+#   TFD_*              total fixation duration: the looking time on the area's
+#                      words, added up
+#   TimeSinceOffset_*  from the start of the first look at the area to the end
+#                      of the last look
+#   *_pure             in ms
+#   *_normalized       divided by the number of words in the area
+
+RT_PURE = "RT_pure"
+RT_NORMALIZED = "RT_normalized"
+TFD_PURE = "TFD_pure"
+TFD_NORMALIZED = "TFD_normalized"
+TIME_SINCE_OFFSET_PURE = "TimeSinceOffset_pure"
+TIME_SINCE_OFFSET_NORMALIZED = "TimeSinceOffset_normalized"
+
+RT_TFD_METRICS = (
+    RT_PURE,
+    RT_NORMALIZED,
+    TFD_PURE,
+    TFD_NORMALIZED,
+    TIME_SINCE_OFFSET_PURE,
+    TIME_SINCE_OFFSET_NORMALIZED,
+)
+
 
 # The ten per-area measurements, as two lists. The model's list uses the
 # z-scored pupil columns; the plots' list uses pupil size in mm, not z-scored.
@@ -405,11 +453,16 @@ PREF_SPECS = [
 ]
 
 # --- Columns of the fixation report (one row per fixation) -----------------
+#
+# Read through `features/fixations.py`. The start time and duration are in ms.
+# The fixation's word is CURRENT_FIX_INTEREST_AREA_ID ("." if it landed on no
+# word); NEAREST_IA is the word it landed nearest.
 
+CURRENT_FIX_START = "CURRENT_FIX_START"
+CURRENT_FIX_DURATION = "CURRENT_FIX_DURATION"
+CURRENT_FIX_INTEREST_AREA_ID = "CURRENT_FIX_INTEREST_AREA_ID"
 CURRENT_FIX_PUPIL_SIZE = "CURRENT_FIX_PUPIL"
 NEAREST_IA = "CURRENT_FIX_NEAREST_INTEREST_AREA"
-CURRENT_FIX_LABEL = "CURRENT_FIX_LABEL"  # text like "Fixation: 1234 ms"; the number is the fixation's time stamp
-CURRENT_FIX_INTEREST_AREAS = "CURRENT_FIX_INTEREST_AREAS"
 
 
 # --- Rebuilding the button presses -------------------------------------------
@@ -446,15 +499,10 @@ MATCH_TIMESTAMPS_2 = "MATCH_TIMESTAMPS_2"
 MATCH_TIMESTAMPS = "MATCH_TIMESTAMPS"
 MATCH_TIMESTAMP = "MATCH_TIMESTAMP"
 
+# Each trial's press times, in ms on the tracker's clock: every selection
+# press, and the confirming press.
 SELECT_ANS_TIMESTAMPS = "SELECT_ANS_TIMESTAMPS"
 CONFIRM_TIMESTAMPS = "CONFIRM_TIMESTAMPS"
-
-FIXATION_TIMESTAMP = "FIXATION_TIMESTAMP"
-FIXATION_PAIR = "FIXATION_PAIR"
-FIXATION_TIMESTAMPS_IA = "FIXATION_TIMESTAMPS_IA"
-
-LAST_FIXATIONS_BEFORE_SELECT = "LAST_FIXATIONS_BEFORE_SELECT"
-LAST_FIXATIONS_BEFORE_CONFIRM = "LAST_FIXATIONS_BEFORE_CONFIRM"
 
 # The number of selection presses, counted from the message log.
 NUM_OF_SELECTS_DERIVED = "NUM_OF_SELECTS_derived"
