@@ -142,7 +142,7 @@ AUXILIARY_SPAN_TYPE_COLUMN = "auxiliary_span_type"
 SAME_CRITICAL_SPAN_COLUMN = "same_critical_span"
 ONESTOPQA_QUESTION_ID = "onestopqa_question_id"
 
-# Which eye was recorded (left or right).
+# The participant's dominant eye (left or right): the eye the tracker recorded.
 DOMINANT_EYE_COLUMN = "EYE_TRACKED"
 
 # Pupil size during the fixations on a word. The report gives it in the
@@ -211,8 +211,9 @@ SIMPLIFIED_FIX_SEQ_BY_LOCATION = "simpl_fix_by_loc"
 
 # --- The opening scan ("starting strategy") ---------------------------------
 #
-# A trial's starting strategy is the order in which the participant first
-# visited the four answer positions, e.g. (top, right, bottom, left).
+# A trial's starting strategy is its first four visits to the answer positions,
+# repeats included, e.g. (top, right, bottom, left): long enough for a full
+# circuit of the four answers, if the participant makes one.
 
 # The name the scan-strategy analysis uses for a trial's opening scan.
 STRATEGY_COL = "strategy"

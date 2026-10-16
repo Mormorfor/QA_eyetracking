@@ -732,8 +732,8 @@ ATTACH_NEEDS = [
 ]
 
 #: Raw columns that later code reads from the output tables -- for example the
-#: number of selection presses (a model feature) and which eye was recorded
-#: (the scan-strategy analysis).
+#: number of selection presses (a model feature) and the dominant eye (the
+#: scan-strategy analysis).
 #:
 #: To check after any change that the whitelist drops nothing that matters:
 #: build `model_ready` once normally and once with

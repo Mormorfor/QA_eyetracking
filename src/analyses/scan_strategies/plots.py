@@ -1,5 +1,5 @@
-"""Figures for the opening scan: the order in which a participant first visits the
-four answers.
+"""Figures for the opening scan: the first four answers a participant visits,
+repeats included.
 
 Backs the paper's First-scan behavior subsection. `run_all_strategy_plots` gives,
 for each group, the share of participants with a dominant strategy (their most
@@ -63,6 +63,24 @@ def proportion_with_dominant_strategy(
 
 
 
+def _group_label(h_or_g: str) -> str:
+    """"all_participants" -> "all participants", for figure titles."""
+    return str(h_or_g).replace("_", " ")
+
+
+def _most_common_axes(ax, threshold: float) -> None:
+    """The shared x-axis of the most-common-strategy histograms: the share of a
+    participant's trials that use their most common scan, with a line where that
+    share makes it a dominant strategy."""
+    ax.axvline(threshold, color="black", linestyle="--", linewidth=1,
+               label=f"dominant strategy (≥ {threshold:.0%})")
+    ax.set_xlim(0, 1)
+    ticks = np.linspace(0, 1, 11)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([f"{t:.0%}" for t in ticks])
+    ax.set_xlabel("Share of the participant's trials that use their most common scan")
+
+
 def plot_dominant_strategy_hist(
     df: pd.DataFrame,
     id_col: str = Con.PARTICIPANT_ID,
@@ -95,13 +113,12 @@ def plot_dominant_strategy_hist(
         bin_edges = np.asarray(bins)
 
     fig, ax = plt.subplots(figsize=figsize)
-    ax.hist(dominant_prop, bins=bin_edges)
-    ax.set_xlabel("Proportion of trials in dominant strategy")
+    ax.hist(dominant_prop, bins=bin_edges, edgecolor="k")
+    _most_common_axes(ax, DEFAULT_DOMINANCE_THRESHOLD)
     ax.set_ylabel("Number of participants")
-    ax.set_title(f"Distribution of Dominant-Strategy Usage ({h_or_g}) - {strat_col}")
-    ticks = bin_edges
-    ax.set_xticks(ticks)
-    ax.set_xticklabels([f"{int(x*100)}%" for x in ticks], rotation=45)
+    scans = "completed" if str(strat_col).endswith("_completed") else "raw"
+    ax.set_title(f"Most common strategy proportion ({_group_label(h_or_g)}, {scans} scans)")
+    ax.legend()
 
     fig.tight_layout()
     save_output(
@@ -331,24 +348,20 @@ def summarize_before_after(
         both["raw"],
         bins=bin_edges,
         density=density,
-        label="Raw",
+        label="Raw scans",
         **hist_kwargs,
     )
     ax.hist(
         both["comp"],
         bins=bin_edges,
         density=density,
-        label="Completed",
+        label="Completed scans",
         **hist_kwargs,
     )
-    ax.set_xlabel("Proportion of trials in dominant strategy")
+    _most_common_axes(ax, threshold)
     ax.set_ylabel("Density" if density else "Number of participants")
     ax.set_title(
-        f"Dominant-Strategy Proportion: Raw vs Completed ({h_or_g})"
-    )
-    ax.set_xticks(bin_edges)
-    ax.set_xticklabels(
-        [f"{int(x*100)}%" for x in bin_edges], rotation=45
+        f"Most common strategy proportion, raw vs completed ({_group_label(h_or_g)})"
     )
     ax.legend()
     fig.tight_layout()
@@ -623,8 +636,11 @@ def matrix_plot_simplified_visits(
     `drop_question` is set, and keep the first or last 4 entries (5 when the
     question is kept), as `which` says. The matrix counts, over trials, how
     often each area is at each position: rows are positions 0-3 (or 0-4),
-    columns are areas. Removing the question does not merge the entries on
-    either side of it, so (A, question, A) becomes (A, A).
+    columns are areas. First visits count from the start, so row 0 is the
+    first visit; last visits count back from the end, so the bottom row is the
+    final visit, also in a trial with fewer visits than the window. Removing the
+    question does not merge the entries on either side of it, so
+    (A, question, A) becomes (A, A).
 
     `df` may have several rows per trial (e.g. the word table); it is reduced to
     one row per trial. The caller filters it to one group and one chosen
@@ -694,15 +710,21 @@ def matrix_plot_simplified_visits(
         )
         return
 
+    # The row a trial's window starts on: row 0 for first visits. For last visits
+    # the window ends on the last row, so the final visit is always the bottom row,
+    # even in a trial with fewer than `window_len` visits.
+    def _start(lst):
+        return 0 if which == "first" else window_len - len(lst)
+
     df_sel["position"] = df_sel["window"].apply(
-        lambda lst: list(range(len(lst)))
+        lambda lst: list(range(_start(lst), _start(lst) + len(lst)))
     )
 
     df_expl = df_sel.explode("position")
     df_expl = df_expl[df_expl["position"].notna()].copy()
 
     df_expl["area"] = df_expl.apply(
-        lambda row: row["window"][int(row["position"])],
+        lambda row: row["window"][int(row["position"]) - _start(row["window"])],
         axis=1,
     )
 

@@ -79,7 +79,6 @@ def collect_and_plot_correctness_runs(
         save=save,
         subdir=subdir,
         plot=plot,
-        tables={"run_summaries": summary_df},
         to_paper=to_paper,
         dpi=dpi,
         close=close,

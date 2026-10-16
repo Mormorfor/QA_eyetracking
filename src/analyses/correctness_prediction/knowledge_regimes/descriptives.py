@@ -58,9 +58,10 @@ CONFIDENCE_COL = "confidence_rating"
 # and `session_id` but not the confidence rating; all three are read from the one place.
 _META_COLS = (REGIME_COL, SESSION_COL, CONFIDENCE_COL)
 
-# The paper's best cross-validated feature set: the ten hand-picked features of
-# `SELECT_1_COLS`, plus two last-look features -- whether the last area looked at before
-# the confirming press was the correct answer, and whether it was the question.
+# The Study 1 model's features, used throughout the Study 2 analysis (here and in
+# `comparison_runs`): the ten hand-picked features of `SELECT_1_COLS`, plus two last-look
+# features -- whether the last area looked at before the confirming press was the correct
+# answer, and whether it was the question. To try other features, change this list.
 SHOWCASE_FEATURE_COLS: List[str] = list(fg.SELECT_1_COLS) + list(fg.LAST_CONFIRM_COMPACT)
 
 PROB_COL = "pred_prob"
@@ -629,10 +630,9 @@ def to_prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
     One block of rows per regime, after a pooled `all` block that repeats them all: that
     module treats the pooled run as a group of its own.
 
-    `comparison_runs.run_regime_split_comparison` gives the same predictions when run
-    with the same features (`feature_cols=SHOWCASE_FEATURE_COLS`): each of its runs fits
-    the same model on the same L1 data, and the model never sees the regime. With its
-    default, L1's full feature set, the predictions differ.
+    `comparison_runs.run_regime_split_comparison` gives the same predictions: by default
+    it uses the same features (`SHOWCASE_FEATURE_COLS`), each of its runs fits the same
+    model on the same L1 data, and the model never sees the regime.
     """
     cols = [Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.IS_CORRECT_COLUMN,
             CONFIDENCE_COL, PROB_COL, PRED_COL, SESSION_COL, REGIME_COL]

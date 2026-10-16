@@ -1,11 +1,15 @@
-"""The opening scan ("starting strategy"): the order in which a participant
-first visits the four answers.
+"""The opening scan ("starting strategy"): the first four areas a participant
+visits on the answer screen.
 
 A trial's starting strategy is the first four entries of its merged location
-sequence, e.g. (top, right, bottom, left). Usually visits to the question are
-removed first, so it is the order of the answers alone; the model features come
-in both versions, with the question kept (`_with_q`) and removed (`_no_q`). A
-scan that reached fewer than four answers stays shorter -- it is not padded.
+sequence, repeats included: e.g. (top, right, bottom, left), but also
+(top, right, top, left). Four visits are enough for a full circuit of the four
+answers, if the participant makes one; nothing requires four different answers.
+Usually visits to the question are removed first, so the scan is of the answers
+alone (a question visit between two visits to the same answer leaves both); the
+model features come in both versions, with the question kept (`_with_q`) and
+removed (`_no_q`). A scan with fewer than four visits stays shorter -- it is not
+padded.
 
 From the per-trial strategies:
 
@@ -532,7 +536,7 @@ def attach_dominant_eye(
     id_col: str = C.PARTICIPANT_ID,
     eye_col: str = C.DOMINANT_EYE_COLUMN,
 ) -> pd.DataFrame:
-    """Add each participant's recorded eye (left/right) to a per-participant frame.
+    """Add each participant's dominant eye (left/right) to a per-participant frame.
 
     The first non-missing value per participant is used; the eye does not
     change within a participant.
@@ -558,7 +562,7 @@ def dominant_strategy_by_eye_crosstab(
     strat_col: str = C.DOMINANT_STARTING_STRATEGY,
     min_count: int = 1,
 ) -> pd.DataFrame:
-    """A count table: dominant strategy against recorded eye.
+    """A count table: dominant strategy against dominant eye.
 
     Strategies held by fewer than ``min_count`` participants are grouped as
     "OTHER". Strategies are written as "a → b → c", as in the figures.

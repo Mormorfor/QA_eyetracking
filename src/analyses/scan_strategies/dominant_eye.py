@@ -1,8 +1,8 @@
-"""Each participant's dominant opening scan, set against the eye that was recorded.
+"""Each participant's dominant opening scan, set against their dominant eye.
 
-For every participant: their most common opening scan (by default, the order of
-their first four answer visits), how often they used it, and the eye the tracker
-recorded for them (`EYE_TRACKED`, left or right). Draws one bar chart per eye,
+For every participant: their most common opening scan (by default, their first
+four answer visits), how often they used it, and their dominant eye
+(`EYE_TRACKED`, left or right: the tracker records the dominant eye). Draws one bar chart per eye,
 counting how many participants have each dominant scan, and saves a scan-by-eye
 count table.
 
@@ -40,8 +40,8 @@ def build_dominant_strategy_by_eye(
     eye_col: str = Con.DOMINANT_EYE_COLUMN,
 ) -> pd.DataFrame:
     """
-    Each participant's dominant opening scan, how often they used it, and the
-    eye that was recorded for them.
+    Each participant's dominant opening scan, how often they used it, and their
+    dominant eye.
 
     The scan is the first `window_len` entries of the merged sequence, by place
     (`kind="location"`) or by meaning (`kind="label"`), with the question's
@@ -104,7 +104,7 @@ def plot_dominant_strategies_by_eye_sorted(
     to_paper=None,
 ):
     """
-    One horizontal bar chart per recorded eye: how many participants have each
+    One horizontal bar chart per dominant eye: how many participants have each
     dominant scan, most common at the top.
 
     `dom_df` is the table from `build_dominant_strategy_by_eye`. With

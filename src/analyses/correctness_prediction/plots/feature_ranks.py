@@ -205,9 +205,6 @@ def plot_top_abs_coef_feature_frequency_across_participants(
 
     plt.tight_layout()
 
-    if filename is None:
-        filename = f"topcoef_freq_{model_name}_top{top_k_features}_k{top_k_within_participant}"
-
     saved_paths = save_output(
         fig,
         analysis="correctness_prediction",
@@ -347,9 +344,6 @@ def plot_top_features_by_best_avg_rank(
 
     plt.tight_layout()
 
-    if filename is None:
-        filename = f"best_avg_rank_top{top_k}_min{min_participants}"
-
     saved_paths = save_output(
         fig,
         analysis="correctness_prediction",
@@ -460,10 +454,6 @@ def plot_feature_correlation_heatmap(
     cbar.set_label(f"{method.title()} correlation")
 
     plt.tight_layout()
-
-    if filename is None:
-        ord_tag = "clustered" if cluster_order else "plain"
-        filename = f"feature_corr_{method}_{ord_tag}_n{n}"
 
     saved_paths = save_output(
         fig,

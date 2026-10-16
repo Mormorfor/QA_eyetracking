@@ -143,8 +143,11 @@ def characterize_accuracy(
             f"over {len(cols)} features"
         )
 
+    # Both tables have `n_trials`: here it counts the trials the model scored, in
+    # the feature means all of the person's trials (`n_trials_all`).
     merged = desc.merge(
-        per_person_feature_means(trial_df, cols), on=Con.PARTICIPANT_ID, how="inner"
+        per_person_feature_means(trial_df, cols), on=Con.PARTICIPANT_ID, how="inner",
+        suffixes=("", "_all"),
     )
 
     figs: Dict[str, Any] = {}

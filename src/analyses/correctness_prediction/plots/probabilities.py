@@ -134,9 +134,6 @@ def plot_predicted_probability_hist(
         ]
     )
 
-    if filename is None:
-        filename = "predicted_probability_hist"
-
     saved_paths = save_output(
         fig,
         analysis="correctness_prediction",

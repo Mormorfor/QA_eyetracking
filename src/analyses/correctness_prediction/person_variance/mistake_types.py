@@ -145,7 +145,7 @@ def plot_confusion_quadrants(
         analysis="correctness_prediction/person_variance",
         save=save,
         subdir=subdir, plot=plot,
-        tables={"counts": counts.rename("n_trials").reset_index(names="quadrant")},
+        tables={"counts": counts.rename("n_trials").rename_axis("quadrant").reset_index()},
         to_paper=to_paper, dpi=dpi, close=close,
     )
     return fig, saved

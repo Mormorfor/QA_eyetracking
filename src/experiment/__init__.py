@@ -1,17 +1,18 @@
-"""The experiment source: how the Study 2 materials and design were generated.
+"""How Study 2's materials were made: the texts and the counterbalanced trial lists.
 
-This is the one package that produces *stimuli and designs* rather than consuming
-recordings. Its sibling `ingest/` reads what came back; this is what went out.
+Unlike the rest of `src/`, this package makes what participants saw instead of analysing
+what they looked at. `ingest/` reads the recordings that came back; this is what went out.
 
-Lifted out of `experiment_builder/` in stage F (Diana, 2026-10-07: *"i want to put it
-somewhere where it is clear that this is the experiment source, in case i ever design
-another one... lets put it where it would have to go to begin with in a good repo"*).
+    lists.py   the 54 ordered trial lists: which texts, questions and regime order each
+               participant gets
+    texts.py   the spelling check of the rephrased correct answers
 
-The notebooks that *ran* it are `notebooks/experiment/`. They have run, their outputs are
-committed, and they will probably not run again -- what moved here is the reusable half, so
-a second experiment would start from functions rather than from someone else's cells.
+The notebooks that built the materials are in `notebooks/experiment/`. They keep their own
+copies of these functions, and nothing else in `src/` imports this package: it is here so
+that a new experiment can start from functions rather than from notebook cells. The
+materials themselves, and the lists that went to the presentation software (which is not
+in this repo), are in `data/stimuli/`.
 
-**Determinism:** `lists.py` seeds its RNG (42) at module level. The batch output is
-reproducible only while the source CSV's row set is unchanged -- reordering or adding rows
-changes the assignment even with the same seed.
+Both random draws in `lists.py` are seeded (42), but the same lists come out again only
+from the same input rows in the same order; `lists.py` explains why.
 """

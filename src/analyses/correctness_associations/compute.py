@@ -198,9 +198,11 @@ def compute_seq_len_threshold_summary(
         trial_df["group"], categories=order, ordered=True
     )
 
+    # Sort into bar order explicitly: as text, "> N" would come before "≤ N", and
+    # the error bars and n labels are placed by row.
     summary_df = summarize_binary_by_group(
         trial_df, group_col="group", outcome_col="is_correct"
-    ).sort_values("group")
+    ).sort_values("group", key=lambda s: s.map({g: i for i, g in enumerate(order)}))
 
     test_res = None
     if add_significance:
@@ -236,7 +238,7 @@ def compute_back_and_forth_pattern_summary(
     )
 
     summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values(
-        "group"
+        "group", key=lambda s: s.map({g: i for i, g in enumerate(order)})
     )
 
     test_res = None
@@ -269,7 +271,7 @@ def compute_trial_mean_dwell_threshold_summary(
     )
 
     summary_df = summarize_binary_by_group(trial_df, "group", "is_correct").sort_values(
-        "group"
+        "group", key=lambda s: s.map({g: i for i, g in enumerate(order)})
     )
 
     test_res = None

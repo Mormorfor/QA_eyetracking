@@ -186,12 +186,6 @@ def plot_coef_summary_barh(
 
     plt.tight_layout()
 
-    if filename is None:
-        mn = model_name or "model"
-        hg = h_or_g or "group"
-        suffix = "_sigonly" if significant_only else ""
-        filename = f"{mn}_{hg}_top{top_k}_{value_col}{suffix}"
-
     saved_paths = save_output(
         fig,
         analysis="correctness_prediction",

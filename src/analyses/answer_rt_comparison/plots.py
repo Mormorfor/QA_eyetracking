@@ -7,10 +7,12 @@ number of words (`data-pipeline.md` §7) -- not the per-word area measurements t
 `correctness_associations` uses. On Study 1, accuracy hardly changes with time on the correct
 answer, and falls steeply with time on the wrong ones.
 
-The binning, the intervals and the drawing are all in the one function below.
+A second figure, `plot_correctness_by_each_answer_rt`, draws one curve per answer (A, B, C
+and D) instead of averaging the three wrong ones. Each function does its own binning,
+intervals and drawing.
 """
 
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -220,6 +222,140 @@ def plot_correctness_by_answer_a_vs_bcd_mean(
         fig,
         analysis="answer_rt_comparison",
         plot="corr_by_answer_rt",
+        tables={"summary": out},
+        save=save,
+        to_paper=to_paper,
+        **facets,
+    )
+
+    return fig, out
+
+
+def plot_correctness_by_each_answer_rt(
+    all_participants: pd.DataFrame,
+    answer_cols: Optional[Dict[str, str]] = None,
+    correct_col: str = "is_correct",
+    participant_col: str = "participant_id",
+    trial_col: str = "TRIAL_INDEX",
+    n_bins: int = 10,
+    min_n_per_bin: int = 5,
+    rt_divisor: float = 1000.0,
+    figsize: Tuple[int, int] = (7, 4),
+    title: Optional[str] = "Correctness by normalized RT to each answer option",
+    x_label: Optional[str] = "Normalized RT (s)",
+    y_label: Optional[str] = "Proportion correct across trials",
+    show_ci: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
+    **facets,
+) -> Tuple[plt.Figure, pd.DataFrame]:
+    """
+    The same question as `plot_correctness_by_answer_a_vs_bcd_mean`, with one curve
+    per answer: the share of correct answers against the reading time on A (the
+    correct answer), B, C and D separately, rather than on A against the mean of
+    the three wrong ones.
+
+    `answer_cols` maps each curve's label to its column (by default the four
+    `RT_normalized_answer_*` columns). The times are divided by `rt_divisor` (ms to
+    seconds, by default). Unlike the two-curve figure, all four curves share one
+    set of `n_bins` equal-width bins, cut over the range of all four columns
+    together, so a bin means the same time on every curve.
+
+    Things to know when reading the figure:
+    - Bins with fewer than `min_n_per_bin` trials are left out of the figure and
+      the table.
+    - The bins span the longest time on any answer, so the earliest bins hold
+      most trials, and the later points rest on few.
+    - The intervals treat trials as independent, though each participant
+      contributes many trials.
+    - A trial missing any of the four times or the correctness value stops the
+      run: the four curves must rest on the same trials. On Study 1 there are none.
+
+    `**facets` only go into the file name (e.g. `group="hunters"`): filter the
+    frame to a group before calling. Saves the figure and its table under
+    `reports/answer_rt_comparison/`. Returns `(fig, table)`: one row per curve and
+    bin, with the same columns as the two-curve figure's table.
+    """
+    if answer_cols is None:
+        answer_cols = {
+            "Answer A (correct)": "RT_normalized_answer_A",
+            "Answer B": "RT_normalized_answer_B",
+            "Answer C": "RT_normalized_answer_C",
+            "Answer D": "RT_normalized_answer_D",
+        }
+    colors = ["green", "gold", "orange", "red"]
+
+    rt_cols = list(answer_cols.values())
+    d = (
+        all_participants[[participant_col, trial_col, correct_col, *rt_cols]]
+        .drop_duplicates(subset=[participant_col, trial_col])
+        .copy()
+    )
+    n_missing = int(d[[correct_col, *rt_cols]].isna().any(axis=1).sum())
+    assert n_missing == 0, (
+        f"{n_missing} trials are missing a reading time or the correctness value; "
+        "the four curves would rest on different trials"
+    )
+
+    # Convert RT columns from ms to seconds
+    d[rt_cols] = d[rt_cols] / rt_divisor
+    d[correct_col] = d[correct_col].astype(int)
+
+    # One set of edges for all four answers, so the curves can be read against each other.
+    edges = np.linspace(float(d[rt_cols].min().min()), float(d[rt_cols].max().max()), n_bins + 1)
+
+    summaries = []
+    for label, col in answer_cols.items():
+        bin_idx = np.digitize(d[col].to_numpy(), edges, right=False) - 1
+        # The longest time sits exactly on the last edge; it belongs to the last bin.
+        bin_idx[bin_idx == len(edges) - 1] = len(edges) - 2
+
+        summary = (
+            d.assign(_bin=bin_idx)
+            .groupby("_bin", as_index=False)
+            .agg(n=(correct_col, "size"), k_correct=(correct_col, "sum"))
+            .sort_values("_bin")
+            .reset_index(drop=True)
+        )
+        summary["bin_left"] = edges[summary["_bin"]]
+        summary["bin_right"] = edges[summary["_bin"] + 1]
+        summary["bin_center"] = (summary["bin_left"] + summary["bin_right"]) / 2
+        summary["accuracy"] = summary["k_correct"] / summary["n"]
+        summary = summary[summary["n"] >= min_n_per_bin].copy()
+
+        cis = [wilson_ci(int(k), int(n)) for k, n in zip(summary["k_correct"], summary["n"])]
+        summary["ci_low"] = [c[0] for c in cis]
+        summary["ci_high"] = [c[1] for c in cis]
+        summary["metric"] = label
+        summaries.append(summary)
+
+    summary = pd.concat(summaries, ignore_index=True)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    for (label, _), color in zip(answer_cols.items(), colors):
+        group = summary[summary["metric"] == label]
+        ax.plot(group["bin_center"], group["accuracy"], marker="o", label=label, color=color)
+        if show_ci:
+            ax.fill_between(group["bin_center"], group["ci_low"], group["ci_high"],
+                            alpha=0.12, color=color)
+
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+
+    out = summary[
+        ["metric", "bin_left", "bin_right", "bin_center", "n", "k_correct",
+         "accuracy", "ci_low", "ci_high"]
+    ].reset_index(drop=True)
+
+    save_output(
+        fig,
+        analysis="answer_rt_comparison",
+        plot="corr_by_each_answer_rt",
         tables={"summary": out},
         save=save,
         to_paper=to_paper,

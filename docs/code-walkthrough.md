@@ -57,7 +57,7 @@ Nine stops. Line counts are there so you can budget — they're the real sizes.
 
 **Start here. It's the dictionary.**
 
-- `columns.py` (509) — every column name in the project, with comments explaining the ones that
+- `columns.py` (510) — every column name in the project, with comments explaining the ones that
   aren't obvious. Read it like a glossary, not like code. Nothing happens in this file.
 - `datasets.py` (554) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
   described once.
@@ -126,7 +126,7 @@ sees is made here.
    are easy to mix up.
 4. `sequences.py` (485) — turns fixations into a sequence of areas, like "A, B, A, C", and a few
    statistics of it.
-5. `strategies.py` (709) — the opening scan: which order they first visited the four options.
+5. `strategies.py` (713) — the opening scan: the first four answers they look at, repeats included.
    Backs a whole section of the paper.
 6. `pupil.py` (295), `last_visited.py` (145), `preference.py` (133), `scope.py` (74) — smaller,
    each does one thing.
@@ -178,6 +178,10 @@ folders do both in `plots.py`; `attention_allocation/` and
 modules, each listed at the top of the folder's `__init__.py`. `python scripts/run_analysis.py
 --list` says which folders run without a notebook; the others are run from `notebooks/drivers/`.
 
+**Each folder has an `overview.ipynb`** that shows what the analysis does on the current data: its
+question, its input, and its main figures and tables, with saving switched off. It is the quickest
+way into a folder; read it before the code.
+
 Read them in the order the paper makes its argument:
 
 | folder | what it shows | lines |
@@ -198,11 +202,19 @@ coefficients from one fit on all the data (`modeling/evaluate.py`).
 
 ---
 
-### Stop 7 — Study 2's materials · `src/experiment/` (530 lines)
+### Stop 7 — Study 2's materials · `src/experiment/` (550 lines)
 
-How the second experiment was built — the counterbalanced lists and the text preparation. Short,
-and unlike everything else it *produces* something for people to look at rather than analysing
-what they looked at.
+How the second experiment's materials were made. Short, and unlike everything else it *makes*
+something for people to look at rather than analysing what they looked at.
+
+- `lists.py` (472) — the 54 trial lists: which texts, which question about each paragraph, and
+  in what order the three knowledge regimes come. Its module docstring explains the whole design
+  in four short points; read that and you have it.
+- `texts.py` (63) — the spelling check of the rephrased correct answers.
+
+Nothing else in `src/` uses this package: the notebooks that built the materials
+(`notebooks/experiment/`) keep their own copies of the functions. The materials are in
+`data/stimuli/`.
 
 ---
 

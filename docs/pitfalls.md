@@ -175,8 +175,8 @@ fixations. Strategy features pool across sittings unless you pass
 ## 4. "Starting strategy" comes in two flavours
 
 The concept is one thing: take the collapsed sequence of screen locations, drop the question,
-keep the first four — that is the order in which the person first visited the four answer
-positions.
+keep the first four, repeats included. Four visits are enough for a full circuit of the four
+answer positions if the person makes one, but a position can come up twice.
 
 What varies is whether short scans get repaired. If someone's opening pass only reached two
 positions, **prefix completion** fills the rest in from the most common way that prefix gets

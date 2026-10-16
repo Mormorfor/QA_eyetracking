@@ -266,10 +266,12 @@ would disappear if scans were written by letter.
 
 ### The opening scan (starting strategy)
 
-The opening scan is the order in which a participant first visits the four answer positions: the
-first four entries of the merged *place* sequence, e.g. (top, right, bottom, left). It comes in
-two versions, with visits to the question kept (`_with_q`) or removed first (`_no_q`). A scan
-that reached fewer than four answers stays shorter. Everything is in `features/strategies.py`.
+The opening scan is the first four areas a participant visits: the first four entries of the
+merged *place* sequence, repeats included — e.g. (top, right, bottom, left), but also (top, right,
+top, left). Four visits are enough for a full circuit of the four answers, if the person makes
+one; nothing requires four different answers. It comes in two versions, with visits to the
+question kept (`_with_q`) or removed first (`_no_q`). A scan with fewer than four visits stays
+shorter. Everything is in `features/strategies.py`.
 
 Terms used in the paper:
 

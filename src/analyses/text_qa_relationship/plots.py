@@ -286,6 +286,10 @@ def plot_contrasts(
     figsize: tuple[float, float] = (8, 4.5),
     xlabel: str | None = None,
     show: bool = True,
+    save: Optional[bool] = None,
+    to_paper=None,
+    plot: str = "text_qa_contrasts",
+    **facets,
 ):
     """Forest plot of a comparison table: each contrast's estimate with its interval.
 
@@ -301,6 +305,10 @@ def plot_contrasts(
     `cell_a`, else "cell_a vs cell_b", else "row ~ col". `group_col` draws one
     series per value of that column (e.g. "label"), offset vertically so they
     can be read against each other.
+
+    Saved through `save_output` with the table behind it, named from `plot`,
+    `value` and the `facets`: give each figure its own facet (e.g.
+    `contrast="crit_vs_rest"`), or one will overwrite another. Returns the axes.
     """
     t = table.copy()
     if {"ci_low", "ci_high"} - set(t.columns):
@@ -378,6 +386,7 @@ def plot_contrasts(
         save=save,
         to_paper=to_paper,
         value=value,
+        **facets,
     )
 
     if show:

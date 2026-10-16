@@ -25,7 +25,6 @@ from src.analyses.attention_allocation.plots import plot_pairwise_significance_h
 from src.config import columns as Con
 from typing import Dict
 from scipy.stats import fisher_exact
-from src.config import columns as C
 
 
 # ---------------------------------------------------------------------------

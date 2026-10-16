@@ -39,6 +39,9 @@ from src.features.build import load_model_ready
 from src.analyses.correctness_prediction.run import (
     run_cross_dataset_correctness_bundle,
 )
+from src.analyses.correctness_prediction.knowledge_regimes.descriptives import (
+    SHOWCASE_FEATURE_COLS,
+)
 from src.analyses.correctness_prediction.plots.results import correctness_results_to_summary_df
 
 # The regime column, in both the IA report and the feature table.
@@ -207,7 +210,7 @@ def run_regime_split_comparison(
     regime_col: str = REGIME_COL,
     excluded_regimes: frozenset = EXCLUDED_REGIMES,
     include_pooled: bool = True,
-    feature_cols: Optional[Sequence[str]] = None,
+    feature_cols: Optional[Sequence[str]] = SHOWCASE_FEATURE_COLS,
     save: Optional[bool] = None,
     close: bool = False,
     verbose: bool = True,
@@ -225,8 +228,11 @@ def run_regime_split_comparison(
     docstring. `regime_source` is read only when `new_features` has no `regime` column.
     `regimes` sets which regimes run, and in what order; by default they are taken from
     the data, minus `excluded_regimes`, in the order `_regime_sort_key` gives.
-    `feature_cols=None` uses L1's full feature set (`get_full_feature_cols`), and the
-    bundle drops any feature the Study 2 table lacks, printing which. `save`, `close` and
+    `feature_cols` defaults to the Study 1 model's features
+    (`descriptives.SHOWCASE_FEATURE_COLS`), the same as `descriptives.fit_l1_model`, so
+    both parts of the Study 2 analysis use one model. `None` uses every L1 feature
+    (`get_full_feature_cols`); the bundle drops any feature the Study 2 table lacks,
+    printing which. `save`, `close` and
     `bundle_kwargs` go to the bundle, which saves each run's figures and summary under
     `reports/correctness_prediction/`.
 
