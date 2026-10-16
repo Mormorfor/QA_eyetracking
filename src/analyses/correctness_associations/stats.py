@@ -1,4 +1,26 @@
-# src/stats/correctness_measures_tests.py
+"""Fisher exact tests behind the correctness-association bar charts.
+
+Each test splits trials into two groups and asks whether accuracy differs:
+
+    correctness_by_seq_len_threshold_test           at most N visits vs more
+    correctness_by_sequence_pattern_test            ends in a back-and-forth vs not
+    correctness_by_trial_mean_dwell_threshold_test  mean dwell per word: at most N ms vs more
+    correctness_by_pref_group_test                  chose the gaze-preferred answer vs not
+
+Each returns a dict with the 2x2 table of counts, the odds ratio (the odds of a
+correct answer in the first group over the odds in the second) and the two-sided
+p-value. Trials missing either value are left out of the table.
+
+The tests need one row per trial (`pitfalls.md` §1). The first three check this
+and stop otherwise; the preference test does not check.
+
+The p-values are too small. Fisher's test treats every trial as an independent
+draw, but trials come in clusters: by participant (360 on Study 1, 54 trials
+each) and by item (972, about 20 trials each). The intraclass correlation of
+correctness -- how alike two trials from the same cluster are -- is 0.041 by
+participant and 0.126 by item, so the effective sample size is nearer 6,000 than
+the 19,436 trials.
+"""
 
 from __future__ import annotations
 
@@ -11,38 +33,24 @@ from scipy.stats import fisher_exact
 from src.config import columns as C
 
 
-# One assumption remains after the grain fix, and it is a known, accepted one:
-# Fisher treats the rows of its 2x2 as independent draws, and trials are not --
-# they are nested in 360 participants (54 each) and 972 items (20 each). Measured
-# 2026-09-26: ICC 0.041 by participant, 0.126 by item, so the effective n is
-# nearer 6,000 than 19,436 and every p below is too small. A participant-clustered
-# bootstrap moves no conclusion (todo.md T3.22 carries the numbers). Deliberately
-# PUSHED past the restructure, which gives clustered inference a single home in
-# modeling/inference.py rather than four copies.
-
-
 def _check_trial_frame(trial_df: pd.DataFrame, name: str) -> None:
-    """Refuse anything that is not one row per trial.
-
-    These tests build a 2x2 of counts, so the grain *is* the sample size. Handed
-    an IA-level frame, each trial is counted once per word on screen (~39x on
-    L1), which collapses the p-value and -- because word counts differ by trial
-    -- silently makes the odds ratio word-weighted. The table still looks
-    entirely plausible, which is the failure mode conventions.md asks to assert
-    against rather than absorb.
-    """
+    """Stop unless `trial_df` has at least one row, and one row per trial."""
     if trial_df.empty:
         raise ValueError(
             f"{name} got zero trials. Fisher on an all-zero table returns "
             "p = 1.0 rather than failing, so an empty group would be reported "
             "as a result."
         )
+    # The 2x2 counts rows, so the number of rows is the sample size. The word-level
+    # table would count each trial once per word on screen (about 39 times): the
+    # p-value collapses, and since trials have different numbers of words the odds
+    # ratio becomes word-weighted, while the table still looks plausible.
     n_dup = int(trial_df.duplicated(subset=[C.PARTICIPANT_ID, C.TRIAL_ID]).sum())
     if n_dup:
         raise ValueError(
             f"{name} expects one row per (participant, trial); found {n_dup} "
             f"duplicated keys across {len(trial_df)} rows. Pass the trial-level "
-            "frame built by derived.correctness_measures.build_trial_df_for_*, "
+            "frame built by correctness_associations.compute.build_trial_df_for_*, "
             "not the IA-level frame."
         )
 
@@ -53,24 +61,16 @@ def correctness_by_seq_len_threshold_test(
     seq_len_col: str = "seq_len",
     correct_col: str = C.IS_CORRECT_COLUMN,
 ) -> Dict:
-    """
-    Fisher exact test comparing correctness between:
-      - seq_len <= threshold
-      - seq_len > threshold
+    """Fisher test: accuracy of trials with at most `threshold` visits vs more.
 
-    Takes the TRIAL-level frame from
-    ``derived.correctness_measures.build_trial_df_for_seq_len_threshold``, which
-    has already parsed the sequence and collapsed to one row per trial. The
-    split is read off the same ``seq_len`` column the bars are drawn from, so
-    the test and the figure cannot describe different partitions.
+    Takes the one-row-per-trial frame from
+    `compute.build_trial_df_for_seq_len_threshold` and splits it on the same
+    `seq_len` column the bars are drawn from, so the test and the figure use the
+    same two groups.
 
-    Returns dict with:
-      - contingency_table (2x2)
-      - odds_ratio
-      - p_value
-      - counts
-      - accuracies
-      - delta_accuracy (long - short)
+    Returns the 2x2 table (rows: short, long; columns: correct, incorrect), the
+    odds ratio (short over long), the p-value, counts and accuracy per group, and
+    `delta_accuracy` (long minus short).
     """
     _check_trial_frame(trial_df, "correctness_by_seq_len_threshold_test")
 
@@ -118,25 +118,23 @@ def correctness_by_sequence_pattern_test(
     has_pattern_col: str = "has_pattern",
     correct_col: str = C.IS_CORRECT_COLUMN,
 ) -> Dict:
-    """
-    Fisher exact test comparing correctness between:
-      - pattern present
-      - pattern absent
+    """Fisher test: accuracy of trials whose sequence ends in a back-and-forth vs not.
 
-    Takes the TRIAL-level frame from
-    ``derived.correctness_measures.build_trial_df_for_back_and_forth_pattern``,
-    which has already applied the XYX / XYXY predicate. ``pattern_fn`` is
-    therefore no longer a parameter -- the test reads the same ``has_pattern``
-    column the bars are drawn from, so the two cannot disagree about which
-    pattern was tested.
+    Takes the one-row-per-trial frame from
+    `compute.build_trial_df_for_back_and_forth_pattern`, which has already decided
+    XYX or XYXY, and reads the same `has_pattern` column the bars are drawn from,
+    so the test and the figure cannot disagree about the pattern.
+
+    Returns the 2x2 table (rows: present, absent), the odds ratio (present over
+    absent), the p-value, counts and accuracy per group, and `delta_accuracy`
+    (present minus absent).
     """
     _check_trial_frame(trial_df, "correctness_by_sequence_pattern_test")
 
     sub = trial_df[[has_pattern_col, correct_col]].dropna().copy()
     sub[correct_col] = sub[correct_col].astype(int)
-    # astype(bool) is load-bearing under pandas 3: the builder's .apply() over an
-    # object column infers the result dtype, and `&` against a boolean mask then
-    # raises unless this is a real boolean column.
+    # A real boolean column, so that `~` below means "not". On an object column it
+    # would invert integers instead (~True is -2).
     sub["_has_pattern"] = sub[has_pattern_col].astype(bool)
 
     a = int(((sub["_has_pattern"]) & (sub[correct_col] == 1)).sum())   # pattern present correct
@@ -179,16 +177,15 @@ def correctness_by_trial_mean_dwell_threshold_test(
     mean_dwell_col: str = "trial_mean_dwell",
     correct_col: str = C.IS_CORRECT_COLUMN,
 ) -> Dict:
-    """
-    Fisher exact test comparing correctness between trials with
-    low vs high mean dwell time per word across the entire trial.
+    """Fisher test: accuracy of trials with mean dwell per word at most `threshold`
+    vs more.
 
-    Takes the TRIAL-level frame from
-    ``derived.correctness_measures.build_trial_df_for_mean_dwell_threshold``,
-    where ``trial_mean_dwell`` is already sum(IA_DWELL_TIME) / n_words per
-    trial. Recomputing it here is what used to keep this test IA-level:
-    ``transform`` broadcasts the per-trial mean back onto every word, so the
-    frame read as collapsed while still carrying ~39 rows per trial.
+    Takes the one-row-per-trial frame from
+    `compute.build_trial_df_for_mean_dwell_threshold`, where `trial_mean_dwell` is
+    the trial's total dwell time divided by its number of words on screen.
+
+    Returns the 2x2 table (rows: low, high), the odds ratio (low over high), the
+    p-value and the counts per group; no accuracies.
     """
     _check_trial_frame(trial_df, "correctness_by_trial_mean_dwell_threshold_test")
 
@@ -220,23 +217,24 @@ def correctness_by_trial_mean_dwell_threshold_test(
 
 
 
-# ==========================================================================
-# from src/stats/preference_correctness_tests.py
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Preference matching
+# ---------------------------------------------------------------------------
 
 def correctness_by_pref_group_test(
     df: pd.DataFrame,
     pref_col: str = "pref_group",
     correct_col: str = C.IS_CORRECT_COLUMN,
 ) -> Dict:
-    """
-    Fisher exact test comparing correctness between matching and not_matching.
+    """Fisher test: accuracy of trials where the chosen answer was the gaze-preferred
+    one ("matching") vs not ("not_matching").
 
-    Returns dict with:
-      - contingency_table (2x2)
-      - odds_ratio
-      - p_value
-      - counts
+    Expects one row per trial, as `features.preference.compute_trial_matching`
+    returns it; unlike the other tests here, it does not check. Rows with any other
+    value in `pref_col` are not counted.
+
+    Returns the 2x2 table (rows: matching, not matching), the odds ratio (matching
+    over not matching), the p-value and the counts per group.
     """
     sub = df[[pref_col, correct_col]].dropna().copy()
     sub[correct_col] = sub[correct_col].astype(int)

@@ -1,31 +1,33 @@
-"""Mistake types -- decomposing the feature/accuracy association.
+"""Which kind of mistake the model makes, and what goes with each kind.
 
-:mod:`accuracy_characterization` relates features to a single balanced accuracy
-per person. Here that is broken down by *what kind of mistake* the model makes,
-using the confusion matrix (``is_correct = 1`` means the human answered
-correctly):
+`accuracy_characterization` relates features to one balanced accuracy per person.
+This module splits that by the kind of mistake, using the confusion matrix of the
+per-participant models' predictions (each trial predicted by a model trained on
+the same person's other trials; see `loo_runs`). `is_correct = 1` means the
+participant answered correctly:
 
                    | model says correct    | model says wrong
     human correct  | TP - correct on right | FN - miss
     human wrong    | FP - false alarm      | TN - correct on wrong
 
-Two complementary views:
+Two views:
 
-1. **Trial-level** (:func:`trial_feature_profile_by_quadrant`) -- pool all
-   held-out trials, label each quadrant, and compare feature profiles between
-   mistakes and hits *of the same true label*. Each contrast holds the human's
-   answer fixed and varies only whether the model got it right:
+1. **Per trial** (`trial_feature_profile_by_quadrant`): pool every scored trial and
+   compare the features of mistakes with those of hits *on the same kind of
+   answer*. Each comparison holds the participant's answer fixed and varies only
+   whether the model got it right:
 
-   * ``FN - TP | human correct``: among trials the human answered **correctly**,
-     how a **missed** trial's features differ from a **caught** one.
-   * ``FP - TN | human wrong``: among trials the human answered **wrong**, how a
-     **false alarm** differs from a correctly-flagged wrong answer.
+   * `FN - TP | human correct`: among correctly answered trials, how a trial the
+     model **missed** differs from one it **caught**.
+   * `FP - TN | human wrong`: among wrongly answered trials, how a **false alarm**
+     differs from a wrong answer the model flagged.
 
-2. **Per-person** (:func:`characterize_accuracy_by_error_type`) -- split balanced
-   accuracy into sensitivity ("correct on right") and specificity ("correct on
-   wrong") and rerun the per-feature correlation for each half. A feature whose
-   bars point the same way for both helps everywhere; one that splits only
-   tracks the model's skill at one kind of trial.
+2. **Per person** (`characterize_accuracy_by_error_type`): split balanced accuracy
+   into its two halves -- how often the model is right on correct answers
+   (sensitivity) and on wrong ones (specificity) -- and correlate each feature
+   with each half. A feature whose bars point the same way for both goes with
+   better predictions overall; one that splits goes with the model's skill on one
+   kind of answer only.
 """
 
 from __future__ import annotations
@@ -60,18 +62,19 @@ QUAD_LABELS = {
 
 
 def build_trial_prediction_table(results_by_pid: Mapping[str, Any]) -> pd.DataFrame:
-    """Pool every held-out trial across participants with its confusion quadrant.
+    """Every scored trial of every participant in one table, with its quadrant.
 
-    Each result's ``test_df`` is row-aligned with ``y_true``/``y_pred``/``y_prob``
-    and already carries the feature columns + participant id, so no re-merge with
-    the feature table is needed (which also guarantees exact row alignment).
+    Each result's `test_df` holds the scored trials, with all their feature
+    columns, in the same order as its `y_true` / `y_pred` / `y_prob`, so no join
+    with the feature table is needed. Adds `y_true`, `y_pred`, `y_prob`,
+    `quadrant` and `model_correct`.
     """
     frames = []
     for pid, res in results_by_pid.items():
         td = res.test_df.reset_index(drop=True).copy()
         assert len(td) == len(res.y_true), f"{pid}: test_df / y_true length mismatch"
         prob = np.asarray(res.y_prob, dtype=float)
-        if prob.ndim > 1:                       # (n, 2) -> positive-class column
+        if prob.ndim > 1:                       # (n, 2): keep P(correct)
             prob = prob[:, -1]
         td[Con.PARTICIPANT_ID] = pid
         td["y_true"] = np.asarray(res.y_true).astype(int)
@@ -95,8 +98,8 @@ def summarize_confusion_quadrants(
     *,
     verbose: bool = True,
 ) -> pd.Series:
-    """Count the pooled held-out trials per confusion quadrant, and (optionally)
-    print the shares plus the false-alarm / miss split of the errors."""
+    """Count the pooled trials in each quadrant. With `verbose`, also print the
+    shares, and how the errors split between false alarms and misses."""
     counts = (
         trials["quadrant"].value_counts().reindex(QUAD_ORDER).fillna(0).astype(int)
     )
@@ -124,7 +127,10 @@ def plot_confusion_quadrants(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Bar chart of the quadrant counts from :func:`summarize_confusion_quadrants`."""
+    """Bar chart of `summarize_confusion_quadrants`'s counts, saved with them.
+
+    Returns `(fig, saved)`, `saved` being what `save_output` wrote.
+    """
     fig, ax = plt.subplots(figsize=(6.5, 3.6))
     ax.bar([QUAD_LABELS[q] for q in QUAD_ORDER],
            [counts[q] for q in QUAD_ORDER],
@@ -163,15 +169,16 @@ def trial_feature_profile_by_quadrant(
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
-    """Standardized mean feature value per confusion quadrant, plus the two
-    label-fixed error contrasts.
+    """Each feature's average in each quadrant, and the two mistake-vs-hit contrasts.
 
-    Standardization is over *all pooled trials*, so a quadrant's mean-z reads as
-    "how far this group sits from the typical trial", and each contrast bar as
-    "what a mistake trial looks like versus a hit of the same kind".
+    Features are standardised over all pooled trials (a feature with no spread gets
+    0), so a quadrant's average reads as how far its trials sit from the typical
+    trial, in standard deviations, and each contrast as how a mistake differs from a
+    hit on the same kind of answer. One bar chart per contrast, strongest
+    `top_n_bars` shown.
 
-    Returns a dict with ``mean_z`` (quadrant columns + the two contrast columns),
-    ``figs`` and ``saved_paths``.
+    Returns a dict: `mean_z` (features x quadrants, plus the two contrasts), `figs`
+    and `saved_paths` (what `save_output` wrote, per figure).
     """
     cols = list(characterize_cols)
     X = trials[cols].apply(pd.to_numeric, errors="coerce")
@@ -220,11 +227,15 @@ def trial_feature_profile_by_quadrant(
 
 
 def per_person_confusion(results_by_pid: Mapping[str, Any]) -> pd.DataFrame:
-    """Per-person confusion counts + the two halves of balanced accuracy.
+    """Each participant's confusion counts, and the two halves of balanced accuracy.
 
-    ``sensitivity`` ("correct on right")  = TP / (TP + FN)  over human-correct trials
-    ``specificity`` ("correct on wrong")  = TN / (TN + FP)  over human-wrong trials
-    ``balanced_accuracy`` = (sensitivity + specificity) / 2
+        sensitivity ("correct on right") = TP / (TP + FN), over correctly answered trials
+        specificity ("correct on wrong") = TN / (TN + FP), over wrongly answered trials
+        balanced_accuracy                = the average of the two
+
+    A half with no trials behind it is NaN, and `balanced_accuracy` is then the
+    other half alone, because the average skips NaN. `per_person_summary` gives NaN
+    in that case instead.
     """
     rows = []
     for pid, res in results_by_pid.items():
@@ -262,15 +273,18 @@ def characterize_accuracy_by_error_type(
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
-    """Spearman corr of each per-person mean feature with sensitivity vs
-    specificity, side by side (plus balanced accuracy for reference).
+    """Correlate each feature's per-person average with sensitivity and with specificity.
 
-    Each metric gets its OWN estimability filter: sensitivity needs enough
-    human-correct trials, specificity enough human-wrong trials -- the same
-    ``MIN_WRONG_TRIALS`` guard :mod:`accuracy_characterization` uses, applied per
-    class. ``n`` therefore differs between the halves.
+    `conf_df` is `per_person_confusion`'s table. Each half has its own minimum:
+    sensitivity needs at least `min_class_trials` correctly answered trials, and
+    specificity as many wrongly answered ones -- the `MIN_WRONG_TRIALS` threshold of
+    `accuracy_characterization`, applied to each outcome. So the two halves rest on
+    different numbers of participants. `r_balacc`, the Spearman correlation with
+    balanced accuracy, is there for reference and uses the wrong-answer minimum.
+    Draws paired bars for the strongest `top_n_bars` features, saved with the table.
 
-    Returns a dict with ``merged``, ``corr``, ``fig`` and ``saved_paths``.
+    Returns a dict: `merged`, `corr`, `fig` and `saved_paths` (what `save_output`
+    wrote).
     """
     cols = list(characterize_cols)
     merged = conf_df.merge(

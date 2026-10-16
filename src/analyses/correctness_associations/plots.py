@@ -1,8 +1,22 @@
-"""Figures: correctness against scan effort, dwell, response time and preference matching.
+"""Figures: accuracy against simple measures of how a trial's answers were read.
 
-Seven `corr_by_*` families, which is how `reports/correctness_associations/` already
-groups them -- `corr_by_matching` is a peer of the other six, not a separate analysis,
-which is why the preference-matching plots merged in here rather than standing alone."""
+Seven families of figures, each saved with the numbers behind it under
+reports/correctness_associations/, one subfolder per family:
+
+    correctness_by_seq_len_threshold            bars: at most N visits vs more
+    correctness_by_seq_len_continuous           line: accuracy at each number of visits
+    correctness_by_back_and_forth               bars: ends in a back-and-forth vs not
+    correctness_by_trial_mean_dwell_threshold   bars: mean dwell per word, low vs high
+    correctness_by_trial_mean_dwell_continuous  line: accuracy by mean dwell per word
+    correctness_by_total_answering_rt           line: accuracy by time to answer
+    correctness_by_matching                     bars: chose the gaze-preferred answer vs not
+
+Each has a `run_all_*` function that draws it for hunters, gatherers and all
+participants. Every figure takes the word-level table and collapses it to one row
+per trial before counting. Intervals are 95% Wilson intervals. The bar charts
+carry a Fisher test from `stats.py`; its p-values are too small, because it
+treats trials as independent (see that module).
+"""
 
 from __future__ import annotations
 
@@ -38,10 +52,6 @@ from src.lib.plotting.annotate import (
 from src.analyses.correctness_associations.compute import summarize_binary_by_group
 
 
-# ==========================================================================
-# from src/viz/visualisations_correctness_measures.py
-# ==========================================================================
-
 ANALYSIS = "correctness_associations"
 
 # ------------------------------------------
@@ -61,11 +71,11 @@ def plot_correctness_by_sequence_len_threshold(
     title: Optional[str] = None,
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
-    """
-    Plot correctness split by sequence length <=threshold vs >threshold,
-    with Wilson 95% CI and optional Fisher exact significance annotation.
+    """Bar chart: accuracy of trials with at most `threshold` visits vs more.
 
-    Returns (fig, summary_df, test_result_dict_or_None).
+    Bars show 95% Wilson intervals and n; with `add_significance`, a bracket
+    carries the Fisher test's stars. Saves the figure, the summary and the Fisher
+    result. Returns (fig, summary, Fisher result or None).
     """
     summary_df, test_res = compute_seq_len_threshold_summary(
         df=df,
@@ -116,16 +126,11 @@ def run_all_correctness_seq_len_threshold_plots(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Dict[str, Dict[int, Dict[str, object]]]:
-    """
-    For each threshold, plot correctness split by sequence length bin
-    (<=threshold vs >threshold) for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_sequence_len_threshold` for each threshold and each
+    group: hunters, gatherers and all participants, or only all participants if
+    `split_groups=False`.
 
-    Returns
-    -------
-    results[group][threshold] = {"fig": fig, "summary": summary_df, "test": test_dict}
+    Returns results[group][threshold] = {"fig", "summary", "test"}.
     """
 
     def _run_for_group(
@@ -175,19 +180,16 @@ def plot_correctness_by_sequence_len_continuous(
     min_n_per_len: int = 5,
     show_ci: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame]:
-    """
-    Continuous version:
-    Plot correctness rate as a function of sequence length.
+    """Line plot: accuracy at each number of visits, with a 95% Wilson band.
 
-    - Aggregates trials by seq_len: accuracy + Wilson 95% CI
-    - Optionally filters to seq_len <= max_len
-    - Optionally drops lengths with n < min_n_per_len
-
-    Returns (fig, summary_df) where summary_df has:
-      seq_len, n, k_correct, accuracy, ci_low, ci_high
+    Two exclusions, both set by the caller: trials with more than `max_len` visits
+    are left out, and so is any number of visits with fewer than `min_n_per_len`
+    trials, from the figure and the saved table alike. Saves the figure and the
+    summary (seq_len, n, k_correct, accuracy, ci_low, ci_high). Returns
+    (fig, summary).
     """
-    # We reuse the derived logic indirectly by calling the threshold builder repeatedly would be slow,
-    # so we just compute seq_len per trial here (same logic as derived.sequence_len_literal_eval).
+    # Visits per trial, by the same rule as `features.sequences.sequence_len_literal_eval`:
+    # a missing or unreadable sequence counts as 0.
     import ast
     import numpy as np
 
@@ -224,11 +226,11 @@ def plot_correctness_by_sequence_len_continuous(
         .reset_index(drop=True)
     )
 
-    # Drop sparse lengths (optional)
+    # Leave out lengths with too few trials.
     if min_n_per_len is not None and min_n_per_len > 1:
         agg = agg[agg["n"] >= int(min_n_per_len)].copy()
 
-    # Accuracy + Wilson CI
+    # Accuracy and its Wilson interval
     agg["accuracy"] = agg["k_correct"] / agg["n"]
     cis = agg.apply(lambda r: wilson_ci(int(r["k_correct"]), int(r["n"])), axis=1)
     agg["ci_low"] = [c[0] for c in cis]
@@ -237,10 +239,9 @@ def plot_correctness_by_sequence_len_continuous(
     # ---- Plot ----
     fig, ax = plt.subplots(figsize=figsize)
 
-    # line
     ax.plot(agg["seq_len"], agg["accuracy"], marker="o")
 
-    # CI as ribbon (optional)
+    # The Wilson interval as a band
     if show_ci and len(agg) > 0 and agg["ci_low"].notna().any():
         ax.fill_between(
             agg["seq_len"].to_numpy(),
@@ -292,13 +293,11 @@ def run_all_correctness_seq_len_continuous_plots(
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
 ) -> Dict[str, Dict[str, object]]:
-    """
-    Continuous seq-length plots for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_sequence_len_continuous` for each group: hunters,
+    gatherers and all participants, or only all participants if
+    `split_groups=False`.
 
-    Returns results[group] = {"fig": fig, "summary": df}
+    Returns results[group] = {"fig", "summary"}.
     """
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[str, object]:
@@ -347,15 +346,15 @@ def plot_correctness_by_back_and_forth_pattern(
     use_xyxy: bool = False,
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
-    """
-    Compare correctness for trials with vs without a back-and-forth pattern
-    at the end of the fixation sequence.
+    """Bar chart: accuracy of trials whose sequence of visits ends in a back-and-forth
+    vs not.
 
-    Patterns:
-      - XYX (default): last 3 entries form A B A
-      - XYXY (use_xyxy=True): last 4 entries form A B A B
-
-    Returns (fig, summary_df, test_res_or_None).
+    XYX (default): the last three visits are x, y, x. XYXY (`use_xyxy=True`): the
+    last four are x, y, x, y. Any area counts, the question included, and a
+    sequence that will not parse counts as "absent". Bars show 95% Wilson intervals
+    and n; with `add_significance`, a bracket carries the Fisher test's stars.
+    Saves the figure, the summary and the Fisher result. Returns
+    (fig, summary, Fisher result or None).
     """
     summary_df, test_res, pattern_name = compute_back_and_forth_pattern_summary(
         df=df,
@@ -406,13 +405,11 @@ def run_all_back_and_forth_pattern_plots(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Dict[str, Dict[str, object]]:
-    """
-    Run pattern-based correctness plots for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_back_and_forth_pattern` for each group: hunters,
+    gatherers and all participants, or only all participants if
+    `split_groups=False`.
 
-    Returns results[group] = {"fig": fig, "summary": df, "test": dict}
+    Returns results[group] = {"fig", "summary", "test"}.
     """
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[str, object]:
@@ -443,7 +440,7 @@ def run_all_back_and_forth_pattern_plots(
 
 
 # ------------------------------------------
-# Mean Dwell per word
+# Mean dwell per word
 # ------------------------------------------
 
 
@@ -459,11 +456,12 @@ def plot_correctness_by_trial_mean_dwell_threshold(
     title: Optional[str] = None,
     add_significance: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame, Optional[Dict]]:
-    """
-    Compare correctness for trials with low vs high
-    mean dwell time per word across the entire trial.
+    """Bar chart: accuracy of trials whose mean dwell time per word, over the whole
+    answer screen, is at most `threshold` ms vs more.
 
-    Returns (fig, summary_df, test_res_or_None).
+    Bars show 95% Wilson intervals and n; with `add_significance`, a bracket
+    carries the Fisher test's stars. Saves the figure, the summary and the Fisher
+    result. Returns (fig, summary, Fisher result or None).
     """
     summary_df, test_res = compute_trial_mean_dwell_threshold_summary(
         df=df,
@@ -517,16 +515,11 @@ def run_all_trial_mean_dwell_threshold_plots(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Dict[str, Dict[float, Dict[str, object]]]:
-    """
-    For each threshold, compare correctness by whole-trial
-    mean dwell time per word for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_trial_mean_dwell_threshold` for each threshold (in
+    ms) and each group: hunters, gatherers and all participants, or only all
+    participants if `split_groups=False`.
 
-    Returns
-    -------
-    results[group][threshold] = {"fig": fig, "summary": summary_df, "test": test_dict}
+    Returns results[group][threshold] = {"fig", "summary", "test"}.
     """
 
     def _run_for_group(
@@ -576,21 +569,29 @@ def plot_correctness_by_trial_mean_dwell_continuous(
     x_max: Optional[float] = None,
     show_ci: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame]:
-    """
-    Continuous version:
-    Plot correctness rate as a function of whole-trial mean dwell per word.
+    """Line plot: accuracy against whole-trial mean dwell time per word, in bins,
+    with a 95% Wilson band.
 
-    Since dwell is continuous, we bin it:
-      - either fixed-width bins (bin_width)
-      - or a fixed number of bins (n_bins)
+    The bins are `n_bins` equal bins from the lowest value to the highest if
+    `n_bins` is 2 or more, otherwise bins `bin_width` ms wide (default 10). Trials
+    above `x_max` are left out first, and bins with fewer than `min_n_per_bin`
+    trials are left out of the figure and the saved table.
 
-    Returns (fig, summary_df) where summary_df has:
-      bin_left, bin_right, bin_center, n, k_correct, accuracy, ci_low, ci_high
+    A bin holds its left edge but not its right one, so a trial exactly on the last
+    edge is in no bin and is dropped without a message. With `n_bins` that is
+    always the trial (or trials) with the highest value; with `bin_width`, only
+    when the highest value is a multiple of the width.
+
+    Saves the figure and the summary (bin_left, bin_right, bin_center, n,
+    k_correct, accuracy, ci_low, ci_high). If no trials are left, returns an empty
+    figure and table and saves nothing. Returns (fig, summary).
     """
 
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, dwell_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
 
+    # Mean dwell per word over the trial, as in
+    # `features.sequences.compute_trial_mean_dwell_per_word`.
     total_dwell = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID])[dwell_col].transform(
         "sum"
     )
@@ -646,12 +647,12 @@ def plot_correctness_by_trial_mean_dwell_continuous(
         if len(edges) < 3:
             edges = np.array([start, start + bw, start + 2 * bw], dtype=float)
 
-    # assign each trial into a bin index
-    # right=False means [left, right)
+    # Each trial's bin; a bin holds its left edge, not its right one.
     bin_idx = (
         np.digitize(trial_df["trial_mean_dwell"].to_numpy(), edges, right=False) - 1
     )
-    # keep only valid bins
+    # A trial outside every bin -- including one exactly on the last edge -- is
+    # dropped here.
     valid = (bin_idx >= 0) & (bin_idx < len(edges) - 1)
     trial_df = trial_df.loc[valid].copy()
     trial_df["_bin"] = bin_idx[valid]
@@ -730,13 +731,11 @@ def run_all_trial_mean_dwell_continuous_plots(
     x_max: Optional[float] = None,
     show_ci: bool = True,
 ) -> Dict[str, Dict[str, object]]:
-    """
-    Continuous mean-dwell plots for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_trial_mean_dwell_continuous` for each group:
+    hunters, gatherers and all participants, or only all participants if
+    `split_groups=False`.
 
-    Returns results[group] = {"fig": fig, "summary": df}
+    Returns results[group] = {"fig", "summary"}.
     """
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[str, object]:
@@ -768,16 +767,12 @@ def run_all_trial_mean_dwell_continuous_plots(
 
 
 # ------------------------------------------
-# Total answering reading time
+# Time to answer
 # ------------------------------------------
 
 
 def plot_correctness_by_total_answering_rt_continuous(
     df: pd.DataFrame,
-    # CONFIRM_FINAL_ANSWER_RT is the canonical column here (Diana, 2026-09-20).
-    # It used to default to "total_answering_RT", which disagreed with the
-    # run_all_* wrapper below AND does not exist in all_participants.csv at all --
-    # that friendlier name is minted later, in features/build.py.
     rt_col: str = Con.CONFIRM_FINAL_ANSWER_RT,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     figsize: Tuple[int, int] = (7, 4),
@@ -793,17 +788,22 @@ def plot_correctness_by_total_answering_rt_continuous(
     x_max: Optional[float] = None,
     show_ci: bool = True,
 ) -> Tuple[plt.Figure, pd.DataFrame]:
-    """
-    Plot correctness rate as a function of total answering reading time.
+    """Line plot: accuracy against the time taken to answer, in bins, with a 95%
+    Wilson band.
 
-    Since total_answering_RT is continuous, the function bins trials by RT and
-    computes correctness rate within each bin.
+    The time is `rt_col`, by default the tracker's time from the answers appearing
+    to the confirming press, in ms. It is divided by 1000 and shown in seconds, so
+    the column should be in ms. The bins are `bin_width` seconds wide if that is
+    given, otherwise `n_bins` equal bins (default 10) from the shortest time to the
+    longest; a time exactly on the last edge goes in the last bin. Trials above
+    `x_max` seconds are left out first, and bins with fewer than `min_n_per_bin`
+    trials are left out of the figure and the saved table. Trials whose time or
+    correctness is missing or not a number are dropped without a message.
 
-    Returns
-    -------
-    fig, summary_df
-        summary_df contains:
-        bin_left, bin_right, bin_center, n, k_correct, accuracy, ci_low, ci_high
+    Saves the figure and the summary (bin_left, bin_right, bin_center, n,
+    k_correct, accuracy, ci_low, ci_high), with the RT column in the file name. If
+    no trials are left, returns an empty figure and table and saves nothing.
+    Returns (fig, summary).
     """
     required_cols = [Con.TRIAL_ID, Con.PARTICIPANT_ID, rt_col, correct_col]
     missing_cols = [col for col in required_cols if col not in df.columns]
@@ -816,8 +816,8 @@ def plot_correctness_by_total_answering_rt_continuous(
     d = d.dropna(subset=[rt_col, correct_col]).copy()
     d[correct_col] = d[correct_col].astype(int)
 
-    # If the dataframe is word-/IA-level, the same trial can appear in multiple rows.
-    # We collapse to one row per participant-trial before calculating accuracy.
+    # The word-level table repeats each trial's time on every word row, so collapse
+    # to one row per trial before counting.
     trial_df = d.groupby([Con.TRIAL_ID, Con.PARTICIPANT_ID], as_index=False).agg(
         total_answering_rt=(rt_col, "first"),
         is_correct=(correct_col, "first"),
@@ -953,10 +953,9 @@ def plot_correctness_by_total_answering_rt_continuous(
         to_paper=to_paper,
         subdir="correctness_by_total_answering_rt",
         group=h_or_g,
-        # Which RT column is in the filename on purpose: raw confirm-press RT and
-        # the length-normalized variant are different measures on different scales
-        # (ms vs a 0-1 ratio), and without this tag a rerun under the other one
-        # would silently overwrite the first under an identical name.
+        # The RT column is in the file name on purpose: the raw time (ms) and the
+        # length-normalized one (ms per word on screen) are different measures, and
+        # without this tag a run with one would silently overwrite the other's files.
         rt=rt_col,
         bw=bin_width,
         nbins=(int(n_bins) if n_bins is not None else 10) if bin_width is None else None,
@@ -998,13 +997,11 @@ def run_all_total_answering_rt_continuous_plots(
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
 ) -> Dict[str, Dict[str, object]]:
-    """
-    Continuous total-answering-RT plots for:
-      - hunters
-      - gatherers
-      - all_participants
+    """Draw `plot_correctness_by_total_answering_rt_continuous` for each group:
+    hunters, gatherers and all participants, or only all participants if
+    `split_groups=False`.
 
-    Returns results[group] = {"fig": fig, "summary": df}
+    Returns results[group] = {"fig", "summary"}.
     """
 
     def _run_for_group(df: pd.DataFrame, group_name: str) -> Dict[str, object]:
@@ -1042,9 +1039,9 @@ def run_all_total_answering_rt_continuous_plots(
     return {name: _run_for_group(df, name) for name, df in groups.items()}
 
 
-# ==========================================================================
-# from src/viz/visualisations_preference_correctness.py
-# ==========================================================================
+# ------------------------------------------
+# Preference matching
+# ------------------------------------------
 
 def summarize_correctness_by_pref_group(
     df: pd.DataFrame,
@@ -1052,20 +1049,18 @@ def summarize_correctness_by_pref_group(
     correct_col: str = C.IS_CORRECT_COLUMN,
     group_order: Sequence[str] = ("matching", "not_matching"),
 ) -> pd.DataFrame:
-    """
-    Return a tidy summary table:
-      pref_group, n_trials, n_correct, acc, ci_low, ci_high
+    """Accuracy of matching vs not-matching trials, with 95% Wilson intervals.
 
-    Notes
-    -----
-    - Expects trial-level df (one row per trial x participant).
-    - Uses Wilson CI via shared derived utilities.
+    Expects one row per trial, as `features.preference.compute_trial_matching`
+    returns it. Trials with no group or no correctness value are left out, and so
+    are groups not in `group_order`. Returns pref_group, n_trials, n_correct, acc,
+    ci_low, ci_high.
     """
     sub = df[[pref_col, correct_col]].copy()
     sub = sub.dropna(subset=[pref_col, correct_col])
     sub[correct_col] = sub[correct_col].astype(int)
 
-    # enforce stable plotting order
+    # Fixed order, matching first.
     sub[pref_col] = pd.Categorical(sub[pref_col], categories=list(group_order), ordered=True)
 
     tmp = summarize_binary_by_group(
@@ -1074,7 +1069,7 @@ def summarize_correctness_by_pref_group(
         outcome_col="is_correct",
     ).sort_values("group")
 
-    # match legacy column names used elsewhere in your pipeline
+    # The column names of the saved preference tables.
     out = tmp.rename(
         columns={
             "group": "pref_group",
@@ -1101,14 +1096,17 @@ def plot_correctness_by_matching(
     h_or_g: str = "all_participants",
     mode: str = "polarity",
 ) -> pd.DataFrame:
-    """
-    Plot correctness rate (mean) ± 95% CI for matching vs not_matching.
-    Optionally annotates Fisher exact test (p-value + odds ratio).
+    """Bar chart: accuracy of trials where the chosen answer was the gaze-preferred
+    one vs not, with 95% Wilson intervals.
 
-    Returns
-    -------
-    summary : pd.DataFrame
-        Columns: pref_group, n_trials, n_correct, acc, ci_low, ci_high
+    `df` is one row per trial with `pref_group` already set (from
+    `features.preference.compute_trial_matching`); `metric_name` and `mode` only
+    label the figure and its file name. With `show_test`, the Fisher p-value and
+    odds ratio are written at the top of the plot.
+
+    Saves the figure and the summary. The Fisher result is only written on the
+    figure, not saved. Returns the summary (pref_group, n_trials, n_correct, acc,
+    ci_low, ci_high).
     """
     summary = summarize_correctness_by_pref_group(
         df=df,
@@ -1117,7 +1115,7 @@ def plot_correctness_by_matching(
         group_order=group_order,
     )
 
-    # Build the standardized summary table expected by viz_helpers
+    # The plotting helpers expect the columns `group` and `accuracy`.
     plot_df = summary.rename(columns={"pref_group": "group", "acc": "accuracy"}).copy()
 
     fig, ax = barplot_accuracy(plot_df, order=list(group_order), figsize=(7, 4))
@@ -1129,7 +1127,7 @@ def plot_correctness_by_matching(
         title = f"Correctness by matching group ({metric_name})"
     ax.set_title(title)
 
-    # error bars + n labels (centralized)
+    # Error bars and n labels.
     if show_n:
         add_wilson_errorbars_and_ns(
             ax,
@@ -1138,8 +1136,7 @@ def plot_correctness_by_matching(
             n_col="n_trials",
         )
     else:
-        # still draw error bars (CI), but skip n labels
-        # (small local tweak to avoid proliferating variants in viz_helpers yet)
+        # Error bars only, without the n labels.
         for i, r in plot_df.reset_index(drop=True).iterrows():
             acc = float(r["accuracy"])
             if np.isfinite(r["ci_low"]) and np.isfinite(r["ci_high"]) and np.isfinite(acc):
@@ -1153,14 +1150,13 @@ def plot_correctness_by_matching(
                     elinewidth=1.5,
                 )
 
-    # ---- Statistical test annotation (Fisher exact) ----
+    # ---- Fisher test, written at the top of the plot ----
     if show_test:
         test_res = correctness_by_pref_group_test(df=df, pref_col=pref_col, correct_col=correct_col)
         p = test_res.get("p_value", np.nan)
         or_ = test_res.get("odds_ratio", np.nan)
         stars = p_to_stars(p)
 
-        # keep style consistent with your other plots: small text in the top area
         txt = f"Fisher p={p:.3g} {stars}  (OR={or_:.2f})"
         ax.text(
             0.5,
@@ -1191,6 +1187,10 @@ def plot_correctness_by_matching(
     return summary
 
 
+# For the polarity mode: whether the preferred answer is the one with the highest
+# value on a measurement or the lowest. Keyed by the plots' columns (pupil size in
+# mm); any other column, such as `num_label_visits` or a z-scored pupil column,
+# counts as "high".
 _DEFAULT_DIRECTION_BY_METRIC = {
     C.MEAN_DWELL_TIME: "high",
     C.MEAN_FIXATIONS_COUNT: "high",
@@ -1212,26 +1212,19 @@ def run_all_matching_correctness_plots(
     to_paper=None,
     print_summaries: bool = False,
 ) -> Dict:
-    """
-    For each metric in AREA_METRIC_COLUMNS_VIZES, compute trial-level matching labels
-    and plot correctness by matching group, for both:
-      - extreme_mode="polarity" (direction chosen per metric)
-      - extreme_mode="relative" (direction ignored)
+    """Draw `plot_correctness_by_matching` for every measurement, both ways of
+    picking the preferred answer, and each group.
 
-    Runs for:
-      - hunters
-      - gatherers
-      - all_participants
+    The two ways (`features.preference.compute_trial_matching`):
+      polarity  the answer with the highest value, or the lowest for skip rate and
+                smallest pupil size (`_DEFAULT_DIRECTION_BY_METRIC`)
+      relative  the answer furthest from the trial's average, in either direction
 
-    Folder structure:
-      reports/correctness_associations/figures/correctness_by_matching/
+    `metrics` defaults to the plots' list of per-area measurements (pupil size in
+    mm). Groups are hunters, gatherers and all participants, or only all
+    participants if `split_groups=False`.
 
-    Returns
-    -------
-    results[mode][group][metric] = {
-        "trial_df": DataFrame,
-        "summary": DataFrame,
-    }
+    Returns results[mode][group][metric] = {"trial_df", "summary"}.
     """
     if metrics is None:
         metrics = list(C.AREA_METRIC_COLUMNS_VIZES)

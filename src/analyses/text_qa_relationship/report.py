@@ -1,5 +1,10 @@
 """
-One-call helpers, so the notebook is calls and displays and nothing else.
+One-call helpers for the reading-time maps, so the notebook is calls and
+displays and nothing else.
+
+Each helper runs one step of `correlations`, `comparisons`, `bootstrap` or
+`plots` for every metric (RT and TFD) of one table, or for every group. The
+dwell-proportion maps have their own helpers in `proportions`.
 
 Typical use::
 
@@ -58,10 +63,10 @@ def metric_map_stats(
     method: str = DEFAULT_METHOD,
     **kwargs,
 ) -> dict[str, dict]:
-    """Participant-level correlation-map stats for each metric of one frame.
+    """`corr_map_stats` for each metric of one table.
 
-    Returns `{"RT": corr_map_stats(...), "TFD": corr_map_stats(...)}`; extra
-    kwargs go through to `corr_map_stats` (`adjust`, `alpha`, `min_trials`, ...).
+    Returns `{"RT": corr_map_stats(...), "TFD": corr_map_stats(...)}`; other
+    keyword arguments go to `corr_map_stats` (`adjust`, `alpha`, `min_trials`, ...).
     """
     return {
         metric: corr_map_stats(
@@ -97,12 +102,12 @@ def plot_maps(
     scaling: str = "normalized",
     **kwargs,
 ):
-    """Side-by-side annotated maps for the metrics of one group.
+    """The annotated maps for one group, one panel per metric, drawn and saved by
+    `plot_corr_map_pair`.
 
-    The saved name carries ``measure-reading_times`` as well as the scaling,
-    because ``scaling`` alone does not distinguish these maps from the dwell
-    *proportion* maps in ``proportions.py`` -- a different quantity over the
-    same rows and columns, which would otherwise land on an identical filename.
+    The file name is built from ``measure="reading_times"``, the scaling and the
+    group. The dwell-proportion maps (``proportions.py``) have the same plot
+    name, rows and columns, and are saved with ``measure="dwell_proportions"``.
     """
     method = next(iter(stats_by_metric.values())).get("method", DEFAULT_METHOD)
     return plot_corr_map_pair(
@@ -127,10 +132,10 @@ def bootstrap_maps(
     n_boot: int = 1000,
     **kwargs,
 ) -> dict[str, dict]:
-    """Cluster-bootstrapped pooled maps for each metric of one frame.
+    """`cluster_bootstrap_corr_map` for each metric of one table.
 
-    About 30 s for both metrics at `n_boot=1000`; drop `n_boot` for a quick look,
-    at the cost of p-value resolution (see `cluster_bootstrap_corr_map`).
+    About 30 s for both metrics at `n_boot=1000`; lower `n_boot` for a quick
+    look, at the cost of p-value resolution (see `cluster_bootstrap_corr_map`).
     """
     return {
         metric: cluster_bootstrap_corr_map(
@@ -156,9 +161,9 @@ def group_bootstrap_maps(
     """`bootstrap_maps` for each group, e.g. hunters and gatherers.
 
     Each group has half the participants, so its intervals are roughly sqrt(2)
-    wider than the all-participants ones. For testing whether a cell *differs*
-    between the groups, use `group_contrast` rather than comparing these
-    intervals by eye.
+    wider than the all-participants ones. To test whether a cell *differs*
+    between the groups, use `group_contrast` (which compares the
+    within-participant r) rather than comparing these intervals by eye.
     """
     return {
         name: bootstrap_maps(
@@ -175,10 +180,12 @@ def plot_bootstrap_maps(
     scaling: str = "normalized",
     **kwargs,
 ):
-    """Side-by-side bootstrap maps, labelled for the pooled estimand.
+    """The bootstrap maps for one group, one panel per metric, saved as
+    `corr_map_cluster_bootstrap`.
 
-    Same layout as `plot_maps`, but the cells are pooled r with percentile CIs,
-    not within-participant r -- hence the separate footnote.
+    Same layout as `plot_maps`, but each cell is the pooled r with its
+    bootstrap interval (shown by default), not the within-participant r --
+    hence the separate footnote.
     """
     first = next(iter(boot_by_metric.values()))
     method = first.get("method", DEFAULT_METHOD)
@@ -209,7 +216,7 @@ def region_contrasts(
     scaling: str = "normalized",
     **kwargs,
 ) -> pd.DataFrame:
-    """Region-vs-region comparisons within each answer column, for one metric."""
+    """Part-vs-part comparisons within each column of one metric's map."""
     return compare_rows_within_column(
         stats_by_metric[metric]["z"],
         region_cols(metric, scaling),
@@ -227,9 +234,9 @@ def group_contrast(
     scaling: str = "normalized",
     **kwargs,
 ) -> pd.DataFrame:
-    """Between-group comparison of the cells of one metric's map.
+    """Compare the two groups on the cells of one metric's map (`compare_groups`).
 
-    `region` restricts the comparison to one row (e.g. `"critical"`), which also
+    `region` limits the comparison to one row (e.g. `"critical"`), which also
     makes that row the multiple-comparison family: 5 tests instead of 15. Do
     that when the row is the question you came with, not after seeing which
     cells looked interesting.
@@ -256,19 +263,18 @@ def reference_contrasts(
     others: Sequence[str] | None = None,
     **kwargs,
 ) -> pd.DataFrame:
-    """One cell of the map against the other answers in its own row.
+    """One cell of the map against the other cells in its own row.
 
-    Answers "is `region` -> `answer` stronger than `region` -> anything else?",
-    for each labelled set of stats -- e.g. `{"all": ..., "hunters": ...,
-    "gatherers": ...}`. Paired t-test on the within-participant z differences,
-    exactly as `compare_cells`.
+    Asks "does `region` -> `answer` differ from `region` -> each other column?"
+    for each labelled set of stats, e.g. `{"all": ..., "hunters": ...,
+    "gatherers": ...}`, with the paired test of `compare_cells`.
 
-    `others` defaults to every answer column except `answer`. Correction is
-    applied within each label separately: each is an independent sample asked
-    the same question, so they are separate families.
+    `others` names the columns to compare against; by default every other
+    column of the map, the question included. The correction is applied within
+    each label separately, so each label is its own family.
 
-    Returns one long table with a `label` column, sorted by label then by the
-    size of the difference.
+    Returns one long table with a `label` column, sorted by label and then by
+    `delta_z`, largest first.
     """
     reference = (
         region_col(region, metric, scaling),

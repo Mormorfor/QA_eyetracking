@@ -1,4 +1,25 @@
-# src/derived/correctness_measures.py
+"""Accuracy in two groups of trials, for three ways of splitting them.
+
+The numbers behind three of the bar charts in `plots.py`:
+
+    by number of visits   at most N visits vs more (visits to any area, the
+                          question included)
+    by back-and-forth     whether the sequence of visits ends in x-y-x (or x-y-x-y)
+    by mean dwell         whole-trial mean dwell time per word, at most N ms vs more
+
+Each `build_trial_df_for_*` takes the word-level table and collapses it to one
+row per trial, the grain any test on these groups needs (`pitfalls.md` §1). Each
+`compute_*_summary` then gives accuracy per group with a 95% Wilson interval, and
+the Fisher test from `stats.py`.
+
+The sequence used is the one by meaning (`simpl_fix_by_label`), because a
+back-and-forth is about which answers a reader moves between. Within a trial,
+meaning and screen position correspond one to one, so on Study 1's 19,436 trials
+the sequence by position gives the same lengths and the same XYX and XYXY
+results. The opening-scan features use the sequence by position instead, because
+the clockwise finding is about screen positions.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -8,9 +29,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import columns as Con
-from src.lib.stats.proportions import wilson_ci  # moved to lib (T1.5)
-# The feature half of this module moved to features/sequences.py (stage C).
-# What is left is the analysis half; it still builds on those features.
+from src.lib.stats.proportions import wilson_ci
 from src.features.sequences import (
     compute_trial_mean_dwell_per_word,
     has_back_and_forth_xyx,
@@ -26,15 +45,19 @@ from src.analyses.correctness_associations.stats import (
 
 
 # -----------------------------
-# Small reusable primitives
+# Accuracy per group
 # -----------------------------
 
 
 def summarize_binary_by_group(
     trial_df: pd.DataFrame, group_col: str, outcome_col: str
 ) -> pd.DataFrame:
-    """
-    Expects one row per trial. Produces n/k/accuracy/Wilson CI per group.
+    """Accuracy per group, with a 95% Wilson interval.
+
+    Expects one row per trial; it does not check. Returns one row per group, with
+    `group`, `n`, `k_correct`, `accuracy`, `ci_low` and `ci_high`. Trials with no
+    group are left out; with a categorical `group_col`, an empty category still
+    gets a row, with n = 0.
     """
     rows = []
     for group_label, dd in trial_df.groupby(group_col, sort=False, observed=False):
@@ -56,7 +79,7 @@ def summarize_binary_by_group(
 
 
 # -----------------------------
-# Trial-level feature builders
+# One row per trial, in two groups
 # -----------------------------
 
 
@@ -66,10 +89,11 @@ def build_trial_df_for_seq_len_threshold(
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL,
     correct_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
-    """Collapse an IA-level frame to one row per trial, split by scan length.
+    """Collapse the word-level table to one row per trial, with its number of visits
+    (`seq_len`) and its group: at most `threshold` ("≤ N") or more ("> N").
 
-    Takes an IA-level frame and returns a TRIAL-level one -- the grain any test
-    on these groups must run at.
+    A trial whose sequence is missing or will not parse counts as 0 visits, so it
+    lands in the short group.
     """
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, seq_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
@@ -85,24 +109,20 @@ def build_trial_df_for_seq_len_threshold(
     return trial_df
 
 
-# Label sequence, not location, throughout this module and its callers: XYX is
-# about which *answers* a reader flips between, so the answer letter is the
-# meaningful token. Switched from SIMPLIFIED_FIX_SEQ_BY_LOCATION 2026-10-06
-# (Diana). Verified free before changing: label and location are a per-trial
-# bijection, so across all 19,436 L1 trials the two give identical has_xyx,
-# has_xyxy, longest_alternating_answer_run and sequence length -- 0 trials
-# differ. The strategy features stay on LOCATION, because the clockwise /
-# counter-clockwise finding is about screen geometry, not about which answer.
 def build_trial_df_for_back_and_forth_pattern(
     df: pd.DataFrame,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL,
     correct_col: str = Con.IS_CORRECT_COLUMN,
     use_xyxy: bool = False,
 ) -> pd.DataFrame:
-    """Collapse an IA-level frame to one row per trial, split by XYX / XYXY presence.
+    """Collapse the word-level table to one row per trial, with whether its sequence
+    ends in a back-and-forth (`has_pattern`) and its group ("XYX present" or
+    "XYX absent"; XYXY with `use_xyxy`).
 
-    Returns a TRIAL-level frame. Note a trial whose sequence will not parse is
-    grouped with "pattern absent" rather than flagged.
+    XYX means the last three visits are x, y, x; XYXY that the last four are
+    x, y, x, y. Only the end of the sequence is checked, and any area can be x or
+    y, the question included. A trial whose sequence is missing or will not parse
+    is counted as "absent", without a flag.
     """
     pattern_name = "XYXY" if use_xyxy else "XYX"
     pattern_fn = has_back_and_forth_xyxy if use_xyxy else has_back_and_forth_xyx
@@ -130,9 +150,12 @@ def build_trial_df_for_mean_dwell_threshold(
     dwell_col: str = Con.IA_DWELL_TIME,
     correct_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
-    """Collapse an IA-level frame to one row per trial, split by mean dwell per word.
+    """Collapse the word-level table to one row per trial, with its mean dwell time
+    per word (`trial_mean_dwell`) and its group: at most `threshold` ("≤ N") or
+    more ("> N").
 
-    Returns a TRIAL-level frame.
+    The mean is over every word on the answer screen, the question included, and
+    words nobody looked at count as 0 ms.
     """
     d = df[[Con.TRIAL_ID, Con.PARTICIPANT_ID, dwell_col, correct_col]].copy()
     d[correct_col] = d[correct_col].astype(int)
@@ -150,7 +173,7 @@ def build_trial_df_for_mean_dwell_threshold(
 
 
 # -----------------------------
-# Public "compute summaries + tests"
+# Summaries and tests, as the plots use them
 # -----------------------------
 
 
@@ -161,14 +184,15 @@ def compute_seq_len_threshold_summary(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict]]:
-    """Accuracy above vs. below a scan-length threshold, with Wilson CIs and a Fisher test.
+    """Accuracy of trials with at most `threshold` visits vs more, with 95% Wilson
+    intervals and, if `add_significance`, the Fisher test.
 
-    Returns (summary_df, fisher_result). Both are computed on the trial-level
-    frame this builds internally.
+    Returns (summary, Fisher result or None), both from the one-row-per-trial
+    frame built here. The summary's rows are in bar order: "≤ N", then "> N".
     """
     trial_df = build_trial_df_for_seq_len_threshold(df, threshold, seq_col, correct_col)
 
-    # enforce plotting order (stable)
+    # Bar order: short, then long.
     order = [f"≤ {threshold}", f"> {threshold}"]
     trial_df["group"] = pd.Categorical(
         trial_df["group"], categories=order, ordered=True
@@ -194,9 +218,11 @@ def compute_back_and_forth_pattern_summary(
     use_xyxy: bool = False,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict], str]:
-    """Accuracy with vs. without a back-and-forth pattern, with Wilson CIs and a Fisher test.
+    """Accuracy of trials whose sequence ends in a back-and-forth vs not, with 95%
+    Wilson intervals and, if `add_significance`, the Fisher test.
 
-    Returns (summary_df, fisher_result, pattern_name).
+    Returns (summary, Fisher result or None, "XYX" or "XYXY"). The summary's rows
+    are in bar order: absent, then present.
     """
     pattern_name = "XYXY" if use_xyxy else "XYX"
 
@@ -227,9 +253,11 @@ def compute_trial_mean_dwell_threshold_summary(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     add_significance: bool = True,
 ) -> Tuple[pd.DataFrame, Optional[Dict]]:
-    """Accuracy above vs. below a mean-dwell threshold, with Wilson CIs and a Fisher test.
+    """Accuracy of trials with mean dwell per word at most `threshold` vs more, with
+    95% Wilson intervals and, if `add_significance`, the Fisher test.
 
-    Returns (summary_df, fisher_result).
+    Returns (summary, Fisher result or None). The summary's rows are in bar order:
+    "≤ N", then "> N".
     """
     trial_df = build_trial_df_for_mean_dwell_threshold(
         df, threshold, dwell_col, correct_col

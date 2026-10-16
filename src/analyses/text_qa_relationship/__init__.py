@@ -1,37 +1,44 @@
 """
-RT_correlations
-===============
+text_qa_relationship
+====================
 
-Associations between normalized reading times on the **text regions**
-(distractor / critical / outside) and on the **answers / question**
-(A / B / C / D / question), for both RT and TFD.
+How time on the parts of the paragraph relates to time on the answers and the
+question: the paper's Text Associations results (Study 1).
 
-Everything the `notebooks/text_associations.ipynb` correlation-map section
-needs lives here.
+Each paragraph has three parts: `critical` (holds the answer), `distractor`
+(supports a wrong answer) and `outside` (the rest). A correlation map has these
+three parts as rows and the four answers and the question as columns. Each cell
+is the correlation, over trials, between time on that part of the paragraph and
+time on that answer. The maps are made for two reading-time measures, RT and
+TFD (total fixation duration; `docs/glossary.md` §10), and for dwell
+proportions (each area's share of its screen's looking time).
+
+The notebook that runs them is `notebooks/drivers/text_associations.ipynb`.
+Figures and their tables are saved under `reports/text_qa_relationship/`.
 
 Layout
 ------
-`columns`      which columns form the rows/cols of a map, and how to label them
-`data`         loading the all-participants and per-group feature frames
+`columns`      which columns form the rows and columns of a map, and their labels
+`data`         loading the trial tables: all participants, hunters, gatherers
 `correlations` the maps themselves: pooled r, and per-participant r tested vs 0
-`comparisons`  testing map cells against each other, and groups against groups
-`bootstrap`    cluster bootstrap of the pooled r (robustness check)
-`proportions`  the same maps for dwell *proportions* (share of the screen's
-               dwell time) instead of reading times
-`plots`        annotated heatmaps and tidy summary tables
+`comparisons`  testing map cells against each other, and one group against the other
+`bootstrap`    the pooled r with a bootstrap over participants (a robustness check)
+`proportions`  the same maps for dwell proportions instead of reading times
+`plots`        annotated heatmaps, forest plots and summary tables
 `report`       one-call helpers the notebook uses
 
-Why the tests are not `scipy.stats.pearsonr` on the pooled frame
----------------------------------------------------------------
-Trials are nested in participants (360 x 54) and in texts, so a p-value that
-assumes ~19k independent rows would call r = 0.014 significant. The tests here
-use the participant as the unit of analysis:
+Why the tests are not `scipy.stats.pearsonr` on the pooled trials
+-----------------------------------------------------------------
+Trials are nested in participants (360, about 54 trials each) and in texts. A
+p-value that treated the ~19k trials as independent would call any |r| above
+0.014 significant. The tests here take the participant as the unit (the nesting
+in texts is not modelled):
 
     per participant p:  r_p = corr(x, y) over that participant's trials
                         z_p = arctanh(r_p)                      (Fisher z)
     vs. 0:              one-sample t-test on z_p
     cell vs. cell:      paired t-test on z_p(cell_a) - z_p(cell_b)
-    group vs. group:    two-sample t-test on z_p (disjoint participants)
+    group vs. group:    two-sample t-test on z_p (different people in each group)
 
 See `correlations` and `comparisons` for the details and caveats.
 """

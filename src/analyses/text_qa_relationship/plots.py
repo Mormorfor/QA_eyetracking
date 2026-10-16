@@ -1,18 +1,22 @@
 """
-Heatmaps and summary tables for the correlation maps.
+Heatmaps, forest plots and summary tables for the correlation maps.
 
-`plot_corr_map` / `plot_corr_map_pair` take the dict returned by
-`correlations.corr_map_stats` (or `bootstrap.cluster_bootstrap_corr_map`) and
-render it with the significance annotation. Differences from a plain `imshow`:
+`plot_corr_map` / `plot_corr_map_pair` draw the dict returned by
+`correlations.corr_map_stats` (or `bootstrap.cluster_bootstrap_corr_map`) with
+its significance marked:
 
-- the colour scale defaults to the observed |r| range instead of a fixed
-  [-1, 1], where a map whose largest |r| is 0.1 renders as uniformly white
-- cells that do not survive multiple-comparison correction are hatched and
-  greyed, so a reader cannot mistake noise for structure
-- each cell prints r, its stars, and optionally the 95% CI
+- by default the colour scale runs to the largest |r| in the map instead of a
+  fixed [-1, 1], on which a map whose largest |r| is 0.1 looks uniformly white
+- cells that do not survive the multiple-comparison correction are hatched and
+  greyed, so noise is not mistaken for structure
+- each cell prints r, its stars, and optionally its 95% interval
 
-`plot_pooled_maps` is the original, uncorrected view -- plain pooled r on a
-fixed [-1, 1] scale -- kept for comparison.
+`plot_pooled_maps` is the plain view: pooled r on a fixed [-1, 1] scale, with
+no tests. `plot_contrasts` draws a table from `comparisons` as a forest plot.
+`summarise_map` turns a map into a readable table.
+
+Figures and their tables are saved through `save_output`, under
+`reports/text_qa_relationship/`.
 """
 
 from __future__ import annotations
@@ -51,10 +55,10 @@ def _round_up(vmax: float, step: float = 0.05) -> float:
 def shared_vmax(*stats, step: float = 0.05) -> float:
     """One colour limit covering several maps, so they can be read against each other.
 
-    Each figure otherwise auto-scales to its own range, which makes the same
-    colour mean different things in two figures side by side. Accepts stats
-    dicts at any nesting -- a single map, `{metric: stats}`, or
-    `{group: {metric: stats}}`.
+    Each figure otherwise scales to its own range, so the same colour would mean
+    different things in two figures side by side. Takes stats dicts at any
+    nesting -- a single map, `{metric: stats}`, or `{group: {metric: stats}}` --
+    and returns the largest |r| rounded up to the next `step`.
 
     >>> vmax = shared_vmax(*boot_by_group.values())
     """
@@ -84,19 +88,14 @@ def plot_corr_map(
     cmap: str = "RdBu_r",
     annotate_ns: bool = True,
 ):
-    """Heatmap of one correlation map with significance annotation.
+    """Draw one correlation map as an annotated heatmap; returns `(ax, im)`.
 
-    Parameters
-    ----------
-    stats : dict from `corr_map_stats` or `cluster_bootstrap_corr_map`.
-    vmax : symmetric colour limit. Default: the largest |r| in the map rounded
-        up to the next 0.05, so small-but-real structure stays visible.
-    show_ci : print the 95% CI under each r.
-    annotate_ns : hatch and grey the cells that fail the correction.
-
-    Returns
-    -------
-    (ax, im)
+    `stats` is a dict from `corr_map_stats` or `cluster_bootstrap_corr_map`;
+    only "r" is required. Stars come from "p_adj". Cells whose "sig" is False
+    print in grey and, with `annotate_ns` (the default), are hatched; a dict
+    without "sig" marks no cell. `vmax` is the symmetric colour limit, by
+    default the largest |r| in the map rounded up to the next 0.05, so small
+    but real structure stays visible. `show_ci` prints the interval under each r.
     """
     r = stats["r"]
     p_adj = stats.get("p_adj")
@@ -164,12 +163,14 @@ def plot_corr_map_pair(
     show: bool = True,
     **facets,
 ):
-    """Several maps side by side (typically RT and TFD) on a shared colour scale.
+    """Several maps side by side (typically RT and TFD) on one colour scale,
+    saved with their numbers; returns `(fig, axes)`.
 
-    T4.1: this used to write only when a caller supplied ``save_path``, and the
-    notebook driving it never did -- so the project's current text<->QA results
-    existed only as cell outputs. It now routes through ``save_output`` like
-    everything else, and carries its correlation matrices with it.
+    `stats_by_metric` maps each panel's title to a stats dict. The colour limit
+    is the largest |r| across the panels unless `vmax` is given. The figure is
+    saved through `save_output` (name from `plot` and the `facets`), with each
+    panel's "r", "p_adj" and "n" as tables (`<panel>__r`, ...). A bootstrap
+    dict has no "n", so only its first two are saved.
     """
     keys = list(stats_by_metric)
     if vmax is None:
@@ -191,8 +192,8 @@ def plot_corr_map_pair(
     if footnote:
         fig.text(0.5, -0.12, footnote, ha="center", fontsize=8, color="dimgrey")
 
-    # Every panel's matrices travel with the figure: r, the BH-adjusted p and
-    # the participant counts are what the Results subsection actually quotes.
+    # The numbers behind each panel are saved next to the figure, so they can be
+    # quoted without reading them off the image.
     tables = {}
     for key, st in stats_by_metric.items():
         for field in ("r", "p_adj", "n"):
@@ -228,10 +229,11 @@ def plot_pooled_maps(
     save: Optional[bool] = None,
     to_paper=None,
 ):
-    """The original, uncorrected view: pooled r, one panel per metric.
+    """The plain view: pooled r for each metric, one panel each, with no tests.
 
-    `vmax=1.0` reproduces the fixed [-1, 1] scale of the first version of these
-    maps; pass `None` to auto-scale to the observed range instead.
+    `vmax=1.0` (the default) fixes the colour scale at [-1, 1]; `None` scales it
+    to the largest |r|. Saved through `save_output` as `corr_map_pooled`, with
+    each panel's map as a table.
     """
     fig, axes = plt.subplots(1, len(metrics), figsize=figsize)
     axes = np.atleast_1d(axes)
@@ -249,7 +251,7 @@ def plot_pooled_maps(
     im = None
     for ax, metric in zip(axes, metrics):
         # No p-values here on purpose: a pooled p-value would treat every trial
-        # as independent. Use corr_map_stats for inference.
+        # as independent. The tests are in corr_map_stats.
         _, im = plot_corr_map(
             {"r": maps[metric]}, ax=ax, title=f"{scaling} {metric}", vmax=vmax
         )
@@ -285,22 +287,20 @@ def plot_contrasts(
     xlabel: str | None = None,
     show: bool = True,
 ):
-    """Forest plot of a comparison table: estimate with CI, one row per contrast.
+    """Forest plot of a comparison table: each contrast's estimate with its interval.
 
     Takes the output of `comparisons.compare_cells`, `compare_rows_within_column`
-    or `compare_groups` -- anything with `ci_low` / `ci_high` alongside `value`.
+    or `compare_groups` -- anything with `ci_low` / `ci_high` next to `value`.
 
-    A contrast that survives the multiple-comparison correction is filled, one
-    that does not is hollow. The intervals themselves are unadjusted, so a
-    hollow marker whose interval just clears 0 is the correction at work, not a
+    A contrast that survives the multiple-comparison correction is drawn filled,
+    one that does not hollow. The intervals are not corrected, so a hollow
+    marker whose interval just clears 0 is the correction at work, not a
     contradiction.
 
-    Parameters
-    ----------
-    label_col : which column names the rows. Default: `cell_b` when the table
-        shares one reference cell, else the pair, else `row ~ col`.
-    group_col : draw one series per value of this column (e.g. "label"),
-        offset vertically so they can be read against each other.
+    `label_col` names the rows; by default `cell_b` when every row shares one
+    `cell_a`, else "cell_a vs cell_b", else "row ~ col". `group_col` draws one
+    series per value of that column (e.g. "label"), offset vertically so they
+    can be read against each other.
     """
     t = table.copy()
     if {"ci_low", "ci_high"} - set(t.columns):
@@ -326,7 +326,7 @@ def plot_contrasts(
     else:
         t["_label"] = pretty_labels(t[label_col])
 
-    # Consistent row order across series: strongest effect at the top.
+    # One row order for every series: the largest mean `value` at the top.
     order = (
         t.groupby("_label")[value].mean().sort_values(ascending=True).index.tolist()
     )
@@ -343,7 +343,8 @@ def plot_contrasts(
         y = [pos[lab] + off for lab in sub["_label"]]
         est = sub[value].values
         err = np.vstack([est - sub["ci_low"].values, sub["ci_high"].values - est])
-        # Prefer the adjusted verdict; fall back to the raw interval.
+        # Filled = significant after correction (`sig`). A table without `sig`
+        # falls back to whether the uncorrected interval excludes 0.
         clears = (
             sub["sig"].astype(bool)
             if "sig" in sub.columns
@@ -385,7 +386,11 @@ def plot_contrasts(
 
 
 def summarise_map(stats: dict) -> pd.DataFrame:
-    """Tidy per-cell table (r, CI, t, p, p_adj, stars) with readable labels."""
+    """A map as a readable table: one row per cell, sorted by p_adj.
+
+    Keeps whichever of n, r, the interval, d, t, p, p_adj, stars and the pooled
+    r the dict has.
+    """
     t = stats["table"].copy()
     t["row"] = pretty_labels(t["row"])
     t["col"] = pretty_labels(t["col"])

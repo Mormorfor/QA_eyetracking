@@ -56,8 +56,6 @@ FIGURES: list[Figure] = [
            "analysis:last_visitation", True),
     Figure("Results - Attention allocation", "attention_allocation",
            "analysis:attention_allocation", True),
-    Figure("Results - Attention allocation (time course)", "time_course",
-           "analysis:time_course", True),
     Figure("Results - Correctness associations", "correctness_associations",
            "analysis:correctness_associations", True),
     Figure("Results - Text Associations", "text_qa_relationship",

@@ -1,29 +1,31 @@
-"""KnowQA data showcase — what the collected Study 2 data looks like, and how the
-L1-trained correctness model transfers to it, split by knowledge regime.
+"""Study 2 (KnowQA) described by knowledge regime, and the L1-trained correctness model
+applied to it. The functions behind `notebooks/drivers/knowqa_data_showcase.ipynb`.
 
-Descriptive counterpart to :mod:`comparison_runs`. That module runs the standard
-train-L1 / test-new bundle once *per regime*; this one fits the model **once** and
-attaches per-trial predictions, because the questions here — mean predicted
-probability per regime, error composition per regime, what the model says about
-lucky guesses — are all group-bys over per-trial probabilities rather than separate
-evaluations.
+* **The data.** Who took part (`cohort_summary`), how often they were right
+  (`correctness_by_regime`), how fast they went (`reading_speed_by_regime`) and how
+  confident they said they were (`confidence_by_regime`), per regime; then the items,
+  the sittings and the participants' English proficiency (LexTALE) behind those numbers.
+* **The model.** The correctness model is fitted once on every L1 trial (`fit_l1_model`)
+  and its prediction added to every KnowQA trial (`attach_predictions`). The rest are
+  group-bys over those per-trial probabilities: how well the model does in each regime,
+  what it says about lucky guesses, and whether it tells right from wrong better than the
+  confidence rating. (`comparison_runs` instead scores the model on each regime as a
+  separate run.)
 
-``regime``, ``session_id`` and ``confidence_rating`` live in the raw IA report and
-are dropped during feature building, so they are re-attached on
-``(participant_id, TRIAL_INDEX)``. Practice trials are already absent from the
-model-ready table; the merge is left-from-features, so they drop out on their own.
+Start from `load_showcase_frame`: the KnowQA feature table, with `regime`, `session_id`
+and `confidence_rating` taken from the cleaned IA report.
 
-Two transfer caveats that the numbers here do not show on their own:
+Two things about the transfer that the numbers do not show on their own:
 
-* **Pupil z-scores are baselined differently on the two sides.** L1 z-scores per
-  participant; KnowQA per ``session_id`` (``know_qa_dataprep``), because one person
-  sits for several sessions. ``mean_max_fix_pupil_size_z__correct`` is in the
-  headline feature set, so that feature is not strictly the same quantity across
-  the two datasets.
-* **The scaler is L1's.** ``TrialLevelLogRegModel`` fits its ``StandardScaler`` on
-  the training frame and only ``transform``s the test frame, so KnowQA features are
-  standardized against L1's means and SDs. That is what transfer means here, but it
-  does mean a KnowQA-specific shift shows up as a shifted feature, not a rescaled one.
+* **The scaler is L1's.** Every feature is standardised with L1's mean and SD, so a
+  feature that runs higher in KnowQA shows up as shifted rather than rescaled.
+* **Pupil baselines.** Pupil size is z-scored against each person's own baseline in both
+  studies, but in KnowQA that baseline pools the person's three sessions. One of the
+  model's features, `mean_max_fix_pupil_size_z__correct`, is such a z-score.
+
+Each plot function returns its figure and, when `save` is on, also writes it, with the
+table behind it, to `reports/correctness_prediction/knowledge_regimes/`. `plot_lextale`
+only returns its figure.
 """
 
 from __future__ import annotations
@@ -44,19 +46,21 @@ from src.modeling.models.logreg_model import (
 )
 import src.modeling.feature_sets as fg
 
-# Explicit regime order, no -> partial -> full (increasing knowledge). Stated rather
-# than discovered, so figures and tables keep this order regardless of the data.
+# The regimes in order of increasing knowledge. Written out rather than read from the
+# data, so every figure and table uses the same order.
 REGIME_ORDER: tuple[str, ...] = ("no knowledge", "partial knowledge", "full knowledge")
 
 REGIME_COL = "regime"
 SESSION_COL = Con.SESSION_ID
 CONFIDENCE_COL = "confidence_rating"
 
-# Trial-level metadata carried by the IA report but dropped during feature building.
+# Trial-level columns taken from the cleaned IA report. The feature table has `regime`
+# and `session_id` but not the confidence rating; all three are read from the one place.
 _META_COLS = (REGIME_COL, SESSION_COL, CONFIDENCE_COL)
 
-# The paper's best cross-validated feature set: the ten hand-picked attention
-# features plus the two last-fixation-before-confirm indicators.
+# The paper's best cross-validated feature set: the ten hand-picked features of
+# `SELECT_1_COLS`, plus two last-look features -- whether the last area looked at before
+# the confirming press was the correct answer, and whether it was the question.
 SHOWCASE_FEATURE_COLS: List[str] = list(fg.SELECT_1_COLS) + list(fg.LAST_CONFIRM_COMPACT)
 
 PROB_COL = "pred_prob"
@@ -66,6 +70,7 @@ DataFrameOrPath = Union[pd.DataFrame, str, Path]
 
 
 def _resolve(frame_or_path: DataFrameOrPath) -> pd.DataFrame:
+    """`frame_or_path` itself if it is a DataFrame, else the model-ready table at that path."""
     if isinstance(frame_or_path, pd.DataFrame):
         return frame_or_path
     return load_model_ready(frame_or_path)
@@ -77,11 +82,15 @@ def load_showcase_frame(
     *,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Model-ready KnowQA features with regime, session and confidence re-attached.
+    """The KnowQA feature table, with `regime`, `session_id` and `confidence_rating` from
+    the IA report.
 
-    Asserts that every feature-table trial picks up a regime: an unmatched trial
-    would otherwise sit in the frame with a NaN regime, silently vanish from every
-    per-regime group-by, and still be counted in the pooled totals.
+    The three are matched on `(participant_id, TRIAL_INDEX)`, and any copies already in
+    the feature table are replaced. The IA report also holds the practice trials; the
+    feature table does not, so they drop out of the join.
+
+    Stops if a trial gets no regime: it would otherwise drop out of every per-regime
+    table while still counting in the pooled ones.
     """
     feats = _resolve(features)
 
@@ -95,16 +104,15 @@ def load_showcase_frame(
             dtype={Con.PARTICIPANT_ID: str},
         )
 
-    # Same normalization comparison_runs.attach_regime applies, so regime labels are
-    # interchangeable between the two modules.
+    # Stripped and lower-cased as in `comparison_runs.attach_regime`, so the two modules'
+    # regime labels match.
     ia[Con.PARTICIPANT_ID] = ia[Con.PARTICIPANT_ID].astype(str).str.strip().str.lower()
     ia[REGIME_COL] = ia[REGIME_COL].astype(str).str.strip().str.lower()
 
     meta = ia.drop_duplicates(subset=[Con.PARTICIPANT_ID, Con.TRIAL_ID])
 
-    # Drop any existing copies first, for the same reason as attach_item_difficulty:
-    # re-merging a column that is already present suffixes both copies to _x / _y
-    # instead of replacing it, and every lookup of the plain name then fails.
+    # Drop the feature table's own copies first: merging a column that is already there
+    # would leave two copies, `_x` and `_y`, and no column under the plain name.
     feats = feats.drop(columns=list(_META_COLS), errors="ignore")
 
     out = feats.merge(meta, on=[Con.PARTICIPANT_ID, Con.TRIAL_ID], how="left")
@@ -129,14 +137,14 @@ def load_showcase_frame(
 
 
 def _ordered_regimes(df: pd.DataFrame) -> List[str]:
-    """Regimes present in `df`, in REGIME_ORDER; anything unexpected is appended."""
+    """Regimes present in `df`, in `REGIME_ORDER`, then any other label alphabetically."""
     present = list(df[REGIME_COL].dropna().unique())
     known = [r for r in REGIME_ORDER if r in present]
     return known + sorted(r for r in present if r not in REGIME_ORDER)
 
 
 def cohort_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per participant: sessions, trials, and trials in each regime."""
+    """One row per participant: number of sessions, number of trials, and trials per regime."""
     counts = (
         df.pivot_table(
             index=Con.PARTICIPANT_ID,
@@ -159,7 +167,8 @@ def _proportion_rows(
     group_cols: Sequence[str],
     value_col: str,
 ) -> pd.DataFrame:
-    """n / k / proportion with a Wilson interval, for a binary `value_col`."""
+    """Per group: n, k (trials where `value_col` is 1), the proportion and its 95% Wilson
+    interval."""
     rows = []
     for keys, sub in df.groupby(list(group_cols), dropna=False):
         keys = keys if isinstance(keys, tuple) else (keys,)
@@ -177,9 +186,10 @@ def correctness_by_regime(
     *,
     by: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """Accuracy with Wilson intervals, per regime (optionally split further by `by`).
+    """Participant accuracy with 95% Wilson intervals: a pooled `all` row, then each regime.
 
-    A pooled ``all`` row is prepended so the overall rate sits beside the regimes.
+    `by` splits every row further (e.g. `["participant_id"]`); the `all` rows are split
+    the same way.
     """
     group_cols = [REGIME_COL] + list(by or [])
 
@@ -197,8 +207,8 @@ def correctness_by_regime(
     )
 
 
-# Answer-screen pace measures. KnowQA has no paragraph screen, so every reading-speed
-# quantity here is about the question + four answer options.
+# Pace measures, with the labels the tables and figures use. KnowQA has no paragraph
+# screen, so all of them are about the answer screen: the question and the four answers.
 SPEED_COLS: Dict[str, str] = {
     "total_answering_RT": "total answering time (ms)",
     "total_answering_RT_normalized": "ms per word on screen",
@@ -215,7 +225,10 @@ def reading_speed_by_regime(
     *,
     cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
-    """Mean / SD / median of each pace measure, per regime, plus a pooled row."""
+    """Mean, SD and median of each pace measure, for a pooled `all` row and each regime.
+
+    `cols` defaults to the measures in `SPEED_COLS`; any not in `df` are left out.
+    """
     use = [c for c in (cols or SPEED_COLS) if c in df.columns]
 
     frames = []
@@ -231,7 +244,8 @@ def reading_speed_by_regime(
 
 
 def confidence_by_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Mean confidence per regime, split by whether the answer was actually correct."""
+    """Mean confidence (1-5) for a pooled `all` row and each regime, overall and split by
+    whether the answer was correct."""
     frames = []
     for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
         row: Dict[str, Any] = {REGIME_COL: label, "n": len(sub),
@@ -245,7 +259,7 @@ def confidence_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def confidence_distribution(df: pd.DataFrame) -> pd.DataFrame:
-    """Share of trials at each 1-5 confidence rating, per regime (rows sum to 1)."""
+    """Share of trials at each confidence rating, one row per regime (each row sums to 1)."""
     tab = pd.crosstab(df[REGIME_COL], df[CONFIDENCE_COL], normalize="index")
     return tab.reindex(_ordered_regimes(df)).reset_index()
 
@@ -261,8 +275,8 @@ def fit_l1_model(
     *,
     verbose: bool = True,
 ) -> TrialLevelLogRegModel:
-    """Fit the correctness model on the whole of L1 — no split, this is the trained
-    model the paper transfers to Study 2."""
+    """Fit the correctness model on every L1 trial, with nothing held out: the model that
+    is then applied to Study 2."""
     l1 = _resolve(train_df)
     model = TrialLevelLogRegModel()
     model.fit(l1, target_col=Con.IS_CORRECT_COLUMN, feature_cols=list(feature_cols))
@@ -281,18 +295,18 @@ def attach_predictions(
     *,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Add `pred_prob` and `pred_is_correct` to a KnowQA frame.
+    """Add the model's predicted probability (`pred_prob`) and predicted label
+    (`pred_is_correct`) to a KnowQA frame.
 
-    Reports how many feature cells the model's ``fill_value`` imputes on this side.
-    That fill is a stated modelling choice (``todo.md`` T3.14), not a measurement, so
-    the count belongs with the numbers it produced rather than in the model's
-    internals.
+    With `verbose`, first prints how many feature cells the model fills with
+    `fill_value`, in total and per column. The fill is a modelling choice, not a
+    measurement, so its size is reported beside the predictions it went into.
     """
     cols = list(feature_cols)
 
     if verbose:
-        # Counting lives with the fill, in logreg_model, so the Methods number and
-        # the model's own record cannot drift apart (T3.14).
+        # Counted with `imputed_cell_counts`, the function the model counts its own
+        # fills with, so the two counts are made the same way.
         na = imputed_cell_counts(df, cols)
         total = int(na.sum())
         print(
@@ -309,15 +323,15 @@ def attach_predictions(
 
 
 def _confusion_row(sub: pd.DataFrame) -> Dict[str, Any]:
+    """Confusion counts for one group of trials, and the rates built from them."""
     y, p = sub[Con.IS_CORRECT_COLUMN].astype(int), sub[PRED_COL].astype(int)
     tp = int(((y == 1) & (p == 1)).sum())
     tn = int(((y == 0) & (p == 0)).sum())
     fp = int(((y == 0) & (p == 1)).sum())
     fn = int(((y == 1) & (p == 0)).sum())
-    # Balanced accuracy is the mean of sensitivity and specificity, so it needs BOTH
-    # outcome classes present. With one class the missing half is not zero and not the
-    # other half -- it is undefined, and averaging over the one that exists would
-    # report sensitivity under a name that means something else. Stay NaN.
+    # Balanced accuracy is the mean of sensitivity and specificity, so it needs both
+    # outcomes present. With only one, the other half is undefined, and averaging the
+    # half that exists would report it under a name that means something else. NaN.
     sens = tp / (tp + fn) if (tp + fn) else np.nan
     spec = tn / (tn + fp) if (tn + fp) else np.nan
     balanced = (sens + spec) / 2 if np.isfinite(sens) and np.isfinite(spec) else np.nan
@@ -332,7 +346,9 @@ def _confusion_row(sub: pd.DataFrame) -> Dict[str, Any]:
 
 
 def prediction_metrics_by_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Transfer performance and error composition per regime, plus a pooled row."""
+    """How well the model's predicted labels match the outcomes, for a pooled `all` row
+    and each regime: accuracy, balanced accuracy, sensitivity, specificity, the four
+    confusion counts and FN / FP."""
     rows = []
     for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
         rows.append({REGIME_COL: label, **_confusion_row(sub)})
@@ -340,11 +356,12 @@ def prediction_metrics_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Predicted P(correct) per regime, split by the actual outcome.
+    """Predicted P(correct) for a pooled `all` row and each regime: mean, median and SD,
+    and the mean on correct and on wrong answers separately.
 
-    ``mean_prob_correct`` on the **no knowledge** regime is the key dissociation:
-    those trials were answered correctly, but without any context to answer from, so
-    a model reading behaviour rather than outcome should not be confident about them.
+    The key number is `mean_prob_correct` under **no knowledge**. Those answers were
+    right, but there was nothing to answer from, so a model that reads behaviour rather
+    than outcome should not be confident about them.
     """
     rows = []
     for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
@@ -363,14 +380,16 @@ def probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Split each regime's mean predicted probability into composition vs. level.
+    """Split each regime's mean predicted probability into a part due to its mix of right
+    and wrong answers and a part due to how the model scores them.
 
-    The regimes differ in mean P(correct) for two quite different reasons: the model
-    may read behaviour in a regime differently (a *level* effect), or the regime may
-    simply contain more wrong trials, which the model scores low in every regime (a
-    *composition* effect). ``counterfactual_mean`` re-mixes this regime's own
-    correct/wrong probability levels at the **pooled** accuracy, so the remaining gap
-    from the pooled mean is the part composition does not explain.
+    A regime can have a lower mean P(correct) because the model scores its trials lower
+    (a *level* effect), or simply because it has more wrong answers, which the model
+    scores low in every regime (a *composition* effect). `counterfactual_mean` mixes the
+    regime's own mean probabilities on correct and on wrong answers at the **pooled**
+    accuracy instead of its own. `explained_by_composition` (observed minus
+    counterfactual) is the part due to the mix; what remains between
+    `counterfactual_mean` and the pooled mean is the level effect.
     """
     pooled_acc = df[Con.IS_CORRECT_COLUMN].mean()
     rows = []
@@ -391,7 +410,7 @@ def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# Figures. Each returns the Figure so the caller decides whether to persist it.
+# Figures. Each returns its Figure; `save` decides whether it is also written to disk.
 # ---------------------------------------------------------------------------
 
 import matplotlib.pyplot as plt
@@ -411,11 +430,12 @@ def _colours(labels: Sequence[str]) -> List[str]:
 
 
 def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Bar chart of participant accuracy with Wilson intervals, from `correctness_by_regime`.
+    """Participant accuracy per regime: bars with 95% Wilson intervals, and a dotted line
+    at chance (1 in 4).
 
-    "Participant accuracy" throughout: how often the person answered correctly, which is
-    a different quantity from the model's accuracy at predicting that, and the two appear
-    within a few figures of each other.
+    Takes the output of `correctness_by_regime`; its pooled `all` row is not drawn.
+    "Participant accuracy" is how often the people answered correctly, not how well the
+    model predicted it; this module's figures show both, so the names keep them apart.
     """
     s = summary[summary[REGIME_COL] != "all"] if "all" in set(summary[REGIME_COL]) else summary
     fig, ax = plt.subplots(figsize=figsize)
@@ -423,11 +443,11 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Op
     err = [s["accuracy"] - s["ci_low"], s["ci_high"] - s["accuracy"]]
     ax.bar(x, s["accuracy"], color=_colours(s[REGIME_COL]), yerr=err, capsize=5)
     ax.axhline(0.25, ls=":", c="grey", lw=1)
-    # Left edge, above the line: at the right edge it collided with the tallest bar's
-    # interval and ran off the axes.
+    # Left edge, above the line: at the right edge the label would hit the tallest bar's
+    # interval and run off the axes.
     ax.text(-0.45, 0.27, "chance (1 of 4)", fontsize=8, color="grey", ha="left")
     for i, (_, r) in enumerate(s.iterrows()):
-        # Clear of the whisker, not of the bar — otherwise the CI runs through the label.
+        # Above the whisker, not just the bar, so the interval does not run through the label.
         ax.text(i, r["ci_high"] + 0.025, f"{r['accuracy']:.3f}\nn={r['n']}",
                 ha="center", va="bottom", fontsize=9)
     ax.set_xticks(list(x)); ax.set_xticklabels(s[REGIME_COL])
@@ -447,7 +467,7 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Op
 
 def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
                         *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Box plot of one pace measure across regimes."""
+    """Box plot of one pace measure (a key of `SPEED_COLS`) per regime, outliers not drawn."""
     regimes = _ordered_regimes(df)
     data = [df.loc[df[REGIME_COL] == r, measure].dropna() for r in regimes]
     fig, ax = plt.subplots(figsize=figsize)
@@ -469,7 +489,7 @@ def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
 
 
 def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Grouped bars: share of trials at each 1-5 confidence rating, per regime."""
+    """Grouped bars: the share of trials at each confidence rating, one colour per regime."""
     tab = confidence_distribution(df).set_index(REGIME_COL)
     ratings = list(tab.columns)
     fig, ax = plt.subplots(figsize=figsize)
@@ -496,11 +516,12 @@ def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2), save: Op
 
 def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = True,
                                figsize=(8, 4.5), save: Optional[bool] = None, to_paper=None):
-    """Predicted P(correct) distribution per regime, optionally split by outcome.
+    """Box plots of predicted P(correct) per regime, by default split into correct and
+    wrong answers.
 
-    With ``split_by_outcome`` the point of the figure is the comparison *within* a
-    column: if the model read knowledge rather than outcome, no-knowledge correct
-    trials (lucky guesses) should sit lower than full-knowledge correct trials.
+    Split, the comparison to make is between the correct boxes: if the model reads
+    knowledge rather than outcome, correct answers under no knowledge (lucky guesses)
+    should sit lower than correct answers under full knowledge.
     """
     regimes = _ordered_regimes(df)
     fig, ax = plt.subplots(figsize=figsize)
@@ -544,10 +565,12 @@ def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = Tru
 
 
 def item_correctness(df: pd.DataFrame, *, regime: Optional[str] = None) -> pd.DataFrame:
-    """Per-item accuracy, confidence and model probability, hardest first.
+    """Per item, hardest first: trials, accuracy, mean confidence and, if predictions are
+    attached, the mean predicted probability.
 
-    ``text_id_with_q`` is the item key (paragraph + question). With six participants
-    an item is seen by at most a handful of people, so ``n`` belongs beside every rate.
+    An item is a paragraph and one of its questions (`text_id_with_q`). With six
+    participants an item is seen by a handful of people at most, so read every rate
+    beside its `n`. `regime` limits the table to one regime.
     """
     sub = df if regime is None else df[df[REGIME_COL] == regime]
     agg = sub.groupby(Con.TEXT_ID_WITH_Q_COLUMN).agg(
@@ -562,15 +585,14 @@ def item_correctness(df: pd.DataFrame, *, regime: Optional[str] = None) -> pd.Da
 
 
 def shared_item_structure(df: pd.DataFrame, regime: str) -> pd.DataFrame:
-    """How much item overlap each pair of participants has in one regime, and how
-    often they answered the shared items the same way.
+    """For each pair of participants in one regime: how many items they share, and on
+    how many of those both were right or both were wrong.
 
-    The counterbalancing assigns whole item sets to regimes, so two participants can
-    receive *identical* item sets. When they do, their accuracies are no longer
-    independent draws — shared item difficulty removes a large part of the between-
-    participant variance, which is what makes matching totals much less surprising
-    than they look. ``same_outcome`` separates that from outright duplicated data:
-    genuinely distinct participants agree on most items but not all.
+    The counterbalancing assigns whole item sets to regimes, so two participants can get
+    *identical* item sets. Their accuracies are then not independent: the same items,
+    of the same difficulty, which makes matching totals much less surprising than they
+    look. `same_outcome` tells this apart from duplicated data: different people agree
+    on most shared items, but not on all of them.
     """
     sub = df[df[REGIME_COL] == regime]
     by_pid = {
@@ -601,17 +623,16 @@ def shared_item_structure(df: pd.DataFrame, regime: str) -> pd.DataFrame:
 
 
 def to_prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Reshape the showcase frame into the tidy per-(run, trial) frame that
-    :mod:`confidence_correlation` consumes.
+    """Reshape the showcase frame into the per-(run, trial) frame that
+    `confidence_correlation` reads, so its tables and figures all work on it.
 
-    That module was written against ``comparison_runs.run_regime_split_comparison``,
-    which fits once per regime; this frame comes from a single fit. The predictions are
-    identical either way — the model never sees the regime — so the whole of
-    ``correlations_by_run`` / ``correlations_by_participant`` /
-    ``summarize_by_confidence_level`` and its figures apply unchanged.
+    One block of rows per regime, after a pooled `all` block that repeats them all: that
+    module treats the pooled run as a group of its own.
 
-    The pooled ``all`` block duplicates the per-regime rows by design: that module
-    treats the pooled run as its own group.
+    `comparison_runs.run_regime_split_comparison` gives the same predictions when run
+    with the same features (`feature_cols=SHOWCASE_FEATURE_COLS`): each of its runs fits
+    the same model on the same L1 data, and the model never sees the regime. With its
+    default, L1's full feature set, the predictions differ.
     """
     cols = [Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.IS_CORRECT_COLUMN,
             CONFIDENCE_COL, PROB_COL, PRED_COL, SESSION_COL, REGIME_COL]
@@ -627,7 +648,7 @@ def to_prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _auc(score: pd.Series, target: pd.Series) -> float:
-    """ROC AUC, or NaN when the outcome has a single class (undefined, not 0.5)."""
+    """ROC AUC over complete pairs; NaN when only one outcome occurs (undefined, not 0.5)."""
     from sklearn.metrics import roc_auc_score
 
     ok = score.notna() & target.notna()
@@ -638,13 +659,14 @@ def _auc(score: pd.Series, target: pd.Series) -> float:
 
 
 def discrimination_comparison(df: pd.DataFrame) -> pd.DataFrame:
-    """Does the model separate correct from wrong better than the self-report does?
+    """Does the model tell correct from wrong answers apart better than the confidence
+    rating does?
 
     The paper's claim is that P(correct) can stand in for an unreliable confidence
-    rating. That is a statement about *discrimination*, so both are scored the same
-    way: AUC for predicting ``is_correct``. ``auc_model`` and ``auc_confidence`` are
-    then directly comparable, and ``auc_combined`` (their mean rank) says whether they
-    carry the same information or add to each other.
+    rating. That is a claim about telling the two apart, so both are scored the same way:
+    the AUC for predicting `is_correct`, for a pooled `all` row and each regime.
+    `auc_combined` scores the average of the two ranks, which says whether they carry the
+    same information or add to each other.
     """
     rows = []
     for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
@@ -671,18 +693,21 @@ def participant_profile(
     *,
     by: Sequence[str] = (REGIME_COL,),
 ) -> pd.DataFrame:
-    """One row per participant x `by` (regime by default, or SESSION_COL).
+    """One row per participant and regime, or per participant and session with
+    `by=(SESSION_COL,)`.
 
-    ``model_accuracy`` is how often the model's predicted label matched the outcome;
-    ``mean_pred_prob`` is what it believed on average. They answer different questions
-    and can move in opposite directions.
+    The participant's side: trials, wrong answers, `participant_accuracy` (how often
+    they were right), mean confidence, median answering time and mean `seq_len`. With
+    predictions attached, the model's side too: `model_accuracy` is how often its
+    predicted label matched the outcome, `mean_pred_prob` what it believed on average.
+    They answer different questions and can move in opposite directions.
 
-    Prefer ``model_balanced_accuracy`` over ``model_accuracy`` when comparing cells:
-    the base rate here runs from ~0.3 to 1.0, so plain accuracy mostly reports how
-    often that participant was right rather than how well the model read them. Balanced
-    accuracy needs both outcome classes, so it is NaN where a participant made no
-    errors in a regime — ``n_wrong`` is carried alongside because in the full-knowledge
-    cells it is 0-3 trials, and a metric resting on three trials should be read as such.
+    Compare cells on `model_balanced_accuracy`, not `model_accuracy`: participant
+    accuracy runs from about 0.3 to 1.0 across these cells, so plain accuracy mostly
+    reports how often the participant was right rather than how well the model read
+    them. Balanced accuracy needs both outcomes, so it is NaN where a participant made
+    no errors. `n_wrong` is there because under full knowledge it is 0 to 3 trials, and
+    a rate resting on three trials should be read as such.
     """
     keys = [Con.PARTICIPANT_ID, *by]
     rows = []
@@ -714,16 +739,16 @@ def participant_profile(
 
 def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
                              figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
-    """One confusion matrix per regime, counts annotated.
+    """One confusion matrix per regime, with the counts printed in each cell.
 
-    ``normalize="true"`` shades by row (share of each *actual* class), which is what
-    makes the panels comparable: the regimes have base rates from 0.42 to 0.97, so raw
-    counts alone would say more about the manipulation than about the model. Raw counts
-    stay in the annotation.
+    `normalize="true"` (the default) shades each row by its share of the actual outcome,
+    which makes the panels comparable: participant accuracy runs from 0.42 to 0.97
+    across the regimes, so raw counts would say more about the manipulation than about
+    the model. `normalize="all"` shades by the share of all trials.
 
-    Under row normalisation the two diagonal fractions **are** specificity and
-    sensitivity, so the panel's balanced accuracy is simply their mean — it is printed
-    in the title rather than left for the reader to average.
+    With rows normalised, the two diagonal shares are the specificity (top left) and the
+    sensitivity (bottom right), so each title gives their mean, the balanced accuracy,
+    beside plain accuracy and the base rate.
     """
     regimes = _ordered_regimes(df)
     fig, axes = plt.subplots(1, len(regimes), figsize=figsize)
@@ -752,8 +777,7 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
         ax.set_xticks([0, 1]); ax.set_xticklabels(["pred wrong", "pred correct"])
         ax.set_yticks([0, 1]); ax.set_yticklabels(["was wrong", "was correct"])
 
-        # Recomputed from this panel's own cells rather than passed in, so the title
-        # can never drift from the matrix it sits above.
+        # Worked out from this panel's own cells, so the title always matches its matrix.
         tn, fp, fn, tp = cm[0, 0], cm[0, 1], cm[1, 0], cm[1, 1]
         spec = tn / (tn + fp) if (tn + fp) else np.nan
         sens = tp / (tp + fn) if (tp + fn) else np.nan
@@ -783,11 +807,12 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
 
 def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
                                 split_by_outcome: bool = True, figsize=(13, 3.8), save: Optional[bool] = None, to_paper=None):
-    """Predicted P(correct) histogram per regime.
+    """Histogram of predicted P(correct) per regime, by default split into correct and
+    wrong answers; the dashed line is the regime's mean.
 
-    Split by outcome, the question each panel answers is whether the two humps are in
-    different places — i.e. whether the model separates correct from wrong *within*
-    that regime, rather than just inheriting the regime's base rate.
+    Split, each panel asks whether the two humps sit in different places: whether the
+    model separates correct from wrong answers *within* that regime, rather than only
+    following the regime's base rate.
     """
     regimes = _ordered_regimes(df)
     edges = np.linspace(0, 1, bins + 1)
@@ -827,10 +852,11 @@ def plot_participant_profiles(df: pd.DataFrame, *,
                               measures: Sequence[str] = ("participant_accuracy", "mean_confidence",
                                                          "mean_pred_prob", "median_RT_ms"),
                               figsize=(12, 7), save: Optional[bool] = None, to_paper=None):
-    """Small multiples: one panel per measure, participants on x, a line per regime.
+    """One panel per measure of `participant_profile`: participants along x, one line
+    per regime.
 
-    Six participants is too few to test anything, so this is for spotting *shape* —
-    whether a person is uniformly low, or low only in one regime, and whether their
+    Six participants is too few to test anything, so this is for seeing *shape*:
+    whether a person is low everywhere or in one regime only, and whether their
     confidence and the model's probability move together.
     """
     prof = participant_profile(df)
@@ -874,7 +900,7 @@ from src.lib.stats.proportions import p_to_stars  # noqa: E402
 
 
 def _run_order_local(runs: Sequence[str]) -> List[str]:
-    """Pooled 'all' first, then REGIME_ORDER, then anything unexpected."""
+    """The pooled `all` run first, then `REGIME_ORDER`, then any other label alphabetically."""
     out = [r for r in runs if r == "all"]
     out += [r for r in REGIME_ORDER if r in runs]
     return out + sorted(r for r in runs if r != "all" and r not in REGIME_ORDER)
@@ -882,12 +908,13 @@ def _run_order_local(runs: Sequence[str]) -> List[str]:
 
 def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
                              figsize=(9, 4.6), save: Optional[bool] = None, to_paper=None):
-    """Grouped bars of `correlations_by_run` - one cluster per run, one bar per comparison.
+    """Grouped bars of `confidence_correlation.correlations_by_run`: one cluster per run,
+    one bar per comparison, with significance stars.
 
-    The two comparisons have to be read together. ``is_correct ~ confidence`` is the
-    reference - how calibrated the self-report is in that condition - and
-    ``pred_prob ~ confidence`` is only interpretable against it. A regime where both are
-    near zero says the self-report carried no signal there, not that the model failed.
+    Read the two comparisons together. `is_correct ~ confidence` is the reference, how
+    well the rating tracks correctness in that run, and `pred_prob ~ confidence` only
+    means something against it. Where both are near zero, the rating carried no signal
+    there; that is not a failure of the model.
     """
     r_col, p_col = f"{method}_r", f"{method}_p"
     runs = _run_order_local(corr_df["run"].unique().tolist())
@@ -941,12 +968,15 @@ def plot_participant_correlation_forest(
     save: Optional[bool] = None,
     to_paper=None,
 ):
-    """Per-participant correlation dot plot - the within-subject version of the bars.
+    """Within-participant correlations as a dot plot, one row per participant.
 
-    Confidence scales are personal, so the pooled r mixes a within-subject effect with
-    between-subject scale use. One row per participant isolates the former; plotting
-    both series together shows whether a participant whose self-report tracks their own
-    correctness is also one the model agrees with.
+    `by_model` and `by_correct` come from `confidence_correlation.correlations_by_participant`:
+    `pred_prob ~ confidence`, and the same with `prob_col="is_correct"`. Confidence
+    scales are personal, so the pooled correlation mixes the effect within each person
+    with how differently people use the scale; one row per person keeps only the first.
+    Drawing both series shows whether a participant whose rating tracks their own
+    correctness is also one the model agrees with. Only `by_model` is saved as the
+    figure's table.
     """
     r_col, p_col = f"{method}_r", f"{method}_p"
     pids = list(by_model[Con.PARTICIPANT_ID])
@@ -969,9 +999,9 @@ def plot_participant_correlation_forest(
     else:
         correct_r = None
 
-    # Stars on BOTH series, offset in opposite directions: the two markers can sit
-    # almost on top of each other (4004: 0.607 against 0.583), and marking only one
-    # series reads as the other being non-significant when it is not.
+    # Stars on both series, offset in opposite directions: the two markers can sit almost
+    # on top of each other (participant 4004: 0.60 and 0.58), and starring only one would
+    # make the other look non-significant when it is not.
     for frame, colour, dy, va in [(model_r, "#4c72b0", 0.20, "bottom"),
                                   (correct_r, "#dd8452", -0.20, "top")]:
         if frame is None:
@@ -1005,11 +1035,13 @@ def plot_participant_correlation_forest(
 
 
 def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
-    """ROC curves per regime: the model's P(correct) against the self-report.
+    """ROC curves per regime for predicting a correct answer: the model's P(correct)
+    against the confidence rating.
 
-    The AUC table says which discriminates better; the curves say *where*. A
-    self-report that hugs the diagonal near the origin is one that never assigns low
-    confidence to the trials it gets wrong.
+    The AUC table (`discrimination_comparison`) says which separates correct from wrong
+    answers better; the curves show where. Near the origin are the highest scores: a
+    rating whose curve follows the diagonal there gives its top value as often to wrong
+    answers as to correct ones.
     """
     from sklearn.metrics import roc_curve
 
@@ -1050,15 +1082,16 @@ def plot_transfer_metrics(metrics: pd.DataFrame, *,
                           measures: Sequence[str] = ("accuracy", "balanced_accuracy",
                                                      "sensitivity", "specificity"),
                           figsize=(9.5, 4.4), save: Optional[bool] = None, to_paper=None):
-    """Grouped bars of the transfer metrics, with each regime's base rate marked.
+    """Grouped bars of the transfer metrics from `prediction_metrics_by_regime`, with
+    each regime's base rate marked.
 
-    The dashed line is the regime's own accuracy (``n_correct / n``) — i.e. the score a
-    trivial "always predict correct" classifier would get there. It is drawn because
-    raw accuracy is not interpretable without it: base rates run from 0.42 to 0.97, and
-    under ``class_weight="balanced"`` the model deliberately gives up majority-class
-    accuracy to catch the minority class, so in the high-base-rate regimes its accuracy
-    sits *below* the line while its specificity stays ~0.91. Balanced accuracy is the
-    bar to read; the marker is there to stop the accuracy bar being read as performance.
+    The dashed line is the run's own participant accuracy (`n_correct / n`): the score
+    of always predicting "correct". Plain accuracy cannot be read without it. Base rates
+    run from 0.42 to 0.97, and the model is trained with balanced class weights, so it
+    gives up accuracy on the common outcome to catch the rare one: in the high-base-rate
+    regimes its accuracy sits *below* the line while its specificity stays near 0.91.
+    Read balanced accuracy; the line is there so the accuracy bar is not read as
+    performance.
     """
     fig, ax = plt.subplots(figsize=figsize)
     runs = list(metrics[REGIME_COL])
@@ -1096,10 +1129,12 @@ def plot_transfer_metrics(metrics: pd.DataFrame, *,
 
 
 def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Dumbbell: observed mean P(correct) vs the same regime re-mixed at pooled accuracy.
+    """Per regime, two dots from `decompose_probability_by_regime`: the observed mean
+    P(correct), and the same regime re-mixed at the pooled accuracy.
 
-    The distance between the two dots is the part composition explains. A regime whose
-    dots coincide is one where the model genuinely reads that condition differently.
+    The gap between the dots is the part of the regime's mean that its mix of right and
+    wrong answers explains. Where they coincide, any difference from the other regimes
+    comes from how the model scores that regime's trials.
     """
     fig, ax = plt.subplots(figsize=figsize)
     y = np.arange(len(dec))
@@ -1137,16 +1172,14 @@ def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), sav
 def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
                        cmap: str = "RdYlBu", vmin=None, vmax=None, cbar_label="",
                        marks: Optional[pd.DataFrame] = None):
-    """Shared heatmap body: shade `mat`, print every cell, label both axes.
+    """Draw `mat` as a heatmap with every value printed, and label both axes. Missing
+    cells show "-".
 
-    ``marks`` is an optional same-shaped frame of per-cell suffixes (e.g. ``"*"``),
-    for flagging a cell whose value came from somewhere other than the panel's headline
-    measure. The suffix rides with the number so the two cannot be separated.
-
-    Label colour is chosen from the cell's actual rendered luminance rather than from
-    the value's distance to the midpoint. The distance rule only works for a colormap
-    that is dark at *both* ends (RdYlBu); on a sequential one the low end is near-white,
-    and a value far below the midpoint would be printed in white on white.
+    `marks` is an optional frame of the same shape holding a suffix per cell (e.g.
+    "*"), to flag a value that is not the panel's main measure; the suffix is printed
+    with the number, so the two stay together. Each label is white or black according
+    to how dark its cell is actually drawn, so it stays readable on any colour map,
+    including ones that are near-white at one end.
     """
     im = ax.imshow(mat.values.astype(float), cmap=cmap, vmin=vmin, vmax=vmax,
                    aspect="auto")
@@ -1181,24 +1214,22 @@ def plot_participant_regime_heatmap(
     save: Optional[bool] = None,
     to_paper=None,
 ):
-    """Participant x regime heatmap, one panel per measure.
+    """Participant x regime heatmaps, one panel per measure of `participant_profile`.
 
-    The table version of this is easy to read row-wise and hard to read column-wise;
-    the shading makes a participant who is out of line in one regime only - rather than
-    uniformly - visible at a glance.
+    The shading shows at a glance a participant who is out of line in one regime only,
+    rather than everywhere, which is hard to see in the table.
 
-    The model panel is **balanced** accuracy, because the first panel shows that the
-    base rate ranges from 0.32 to 1.00 across these cells: plain accuracy there would
-    largely restate panel one. Where a participant made no errors in a regime, balanced
-    accuracy is undefined (no wrong trials, so no specificity) and the cell falls back to
-    the model's plain accuracy, marked with a star.
+    The model panel shows **balanced** accuracy, because participant accuracy (the
+    first panel) runs from 0.32 to 1.00 across these cells, and plain accuracy would
+    largely repeat it. Where a participant made no errors in a regime, balanced accuracy
+    is undefined (no wrong answers, so no specificity); that cell shows the model's plain
+    accuracy instead, marked with a star and explained under the figure.
 
-    ``side_column`` adds a participant-level column (``"lextale"``) as a narrow panel on
-    the left. It gets its **own** colour scale, spanning only the observed range, for two
-    reasons: LexTALE is 0-100 against the measures' 0-1, so a shared scale would be
-    meaningless; and on 0-100 the six scores (75-95) would all shade nearly alike. So
-    read its colours *within that column only* — they rank these participants against
-    each other, not against any external standard. The printed numbers are the real ones.
+    `side_column` adds a participant-level column (`"lextale"`, after `attach_lextale`)
+    as a narrow panel on the left, with its **own** colour scale spanning only the
+    observed range: LexTALE is 0-100 where the other measures are 0-1, and the six scores
+    (75-95) would otherwise all look alike. Its colours rank these participants against
+    each other only; the printed numbers are the real scores.
     """
     prof = participant_profile(df)
     use = [m for m in measures if m in prof.columns]
@@ -1231,12 +1262,11 @@ def plot_participant_regime_heatmap(
                    .reindex(columns=regimes))
         marks = None
 
-        # Balanced accuracy needs both outcome classes, and a participant who made no
-        # errors in a regime supplies only one. Leaving the cell blank reads as "no
-        # result for the model here", when in fact the model has a perfectly good plain
-        # accuracy — it is *specificity* that is undefined, because there are no wrong
-        # trials to measure it on. So show plain accuracy and star it: a different
-        # measure, which has to say so. Display-only; participant_profile keeps the NaN.
+        # Balanced accuracy is undefined where a participant made no errors in a regime:
+        # there are no wrong answers to measure specificity on. A blank cell would read
+        # as "no result for the model", yet its plain accuracy is well defined, so the
+        # cell shows that instead, starred because it is a different measure. Only the
+        # figure changes; participant_profile keeps the NaN.
         if m == "model_balanced_accuracy" and "model_accuracy" in prof.columns:
             fallback = (prof.pivot(index=Con.PARTICIPANT_ID, columns=REGIME_COL,
                                    values="model_accuracy")
@@ -1277,11 +1307,11 @@ def plot_participant_regime_heatmap(
 
 
 def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
-    """Two heatmaps over participant pairs: how many items they shared, and how often
-    they answered the shared ones the same way.
+    """Two heatmaps over pairs of participants, from `shared_item_structure`: how many
+    items they shared, and how often they answered the shared ones the same way.
 
-    The left panel is the design (counterbalancing pairs participants onto identical
-    item sets); the right is the check that they are still different people - a pair
+    The left panel shows the design (the counterbalancing gives some pairs identical
+    item sets); the right is the check that they are still different people. A pair
     agreeing on every shared item would mean duplicated data, not a shared list.
     """
     pids = sorted(set(pairs["participant_a"]) | set(pairs["participant_b"]))
@@ -1313,11 +1343,14 @@ def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: 
 
 
 def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
-    """Item accuracy: its distribution, and whether the model knew which were hard.
+    """Item accuracy, from `item_correctness`: its distribution, and whether the model
+    knew which items were hard.
 
-    The scatter is the interesting panel. Items on the diagonal are ones the model
-    read the way the participants performed; items low-accuracy but high-probability
-    are where it was confidently wrong, and those are worth reading individually.
+    The scatter, drawn only when predictions were attached, is the panel to read: one dot
+    per item, sized by its number of trials and coloured by mean confidence. Items on the
+    diagonal are ones the model read the way the participants performed; low-accuracy,
+    high-probability items are where it was confidently wrong, and are worth reading one
+    by one.
     """
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
@@ -1360,12 +1393,13 @@ def plot_session_trajectories(
     save: Optional[bool] = None,
     to_paper=None,
 ):
-    """One line per participant across their three sittings, one panel per measure.
+    """One line per participant across their sittings, one panel per measure of
+    `participant_profile`.
 
-    Practice and fatigue are confounds for every pace measure, so a participant whose
-    time falls monotonically across sessions is learning the interface rather than
-    responding to the manipulation. Sessions are ordered by their id, which encodes
-    the sitting.
+    Practice and fatigue affect every pace measure: a participant whose time falls
+    steadily across sessions is learning the interface, not responding to the regimes.
+    Sessions are put in order by their id, which gives the sitting order (see
+    `add_session_order`).
     """
     prof = participant_profile(df, by=(SESSION_COL,))
     use = [m for m in measures if m in prof.columns]
@@ -1399,11 +1433,11 @@ def plot_session_trajectories(
 
 
 def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool] = None, to_paper=None):
-    """Every pace measure at once, one panel each, regimes on the x axis.
+    """Every pace measure in `SPEED_COLS`, one panel each, regimes along x: means with
+    standard-error whiskers.
 
-    Bars are means with a standard-error whisker. These measures live on wildly
-    different scales (milliseconds against a count of transitions), which is why this
-    is small multiples rather than one grouped chart.
+    The measures are on very different scales (milliseconds against counts), hence one
+    panel each rather than one chart.
     """
     regimes = _ordered_regimes(df)
     use = [c for c in SPEED_COLS if c in df.columns]
@@ -1441,10 +1475,11 @@ def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool]
 
 
 def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
-    """Mean confidence per regime, split by whether the answer was actually right.
+    """Mean confidence per regime, side by side for correct and wrong answers, from
+    `confidence_by_regime`.
 
-    The vertical gap inside a regime is that condition's calibration: a participant who
-    can tell when they are wrong shows two clearly separated bars.
+    The gap between a regime's two bars is how well the participants could tell, in
+    that regime, when they were wrong: those who can show two clearly separated bars.
     """
     rows = conf[conf[REGIME_COL] != "all"] if "all" in set(conf[REGIME_COL]) else conf
     fig, ax = plt.subplots(figsize=figsize)
@@ -1487,29 +1522,29 @@ def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2), save: O
 #
 # READ THIS BEFORE INTERPRETING ANYTHING BELOW.
 #
-# Session order is **perfectly confounded with article batch** in the data as
-# collected: every participant took batch 1 in sitting 1, batch 2 in sitting 2 and
-# batch 3 in sitting 3, and the three batches share no items at all. So a decline
-# across sittings has two indistinguishable explanations -- the participant tiring, or
-# the later batches simply being harder -- and no number of additional participants
-# separates them while the batch order stays fixed. Counterbalancing batch order is the
-# only thing that would.
+# Session order is **perfectly confounded with article batch**: every participant took
+# batch 1 in their first sitting, batch 2 in their second and batch 3 in their third,
+# and the three batches share no items. So a decline across sittings has two
+# explanations that cannot be told apart -- the participants tiring, or the later
+# batches being harder -- and more participants will not separate them while the batch
+# order stays fixed. Only counterbalancing the batch order would.
 #
-# What *can* be done without that is to ask how hard these items are for somebody with
-# no sittings at all. Every KnowQA item also appears in L1, where it was seen under a
-# completely different design, so L1's accuracy on the same items is an item-difficulty
-# baseline that carries no session effect by construction. That is what
-# `attach_item_difficulty` supplies and what the tests below control for.
+# What can be done is to ask how hard the same items are for people with no sittings at
+# all. Every KnowQA item also appears in L1, where it was seen under a different design,
+# so L1's accuracy on an item is a difficulty baseline with no session effect in it.
+# `attach_item_difficulty` adds it, and the tests below control for it.
 
 SESS_ORDER_COL = "sess_order"
 ITEM_DIFFICULTY_COL = "l1_item_acc"
 
 
 def add_session_order(df: pd.DataFrame) -> pd.DataFrame:
-    """Add `sess_order` — 1, 2, 3 — ranking each participant's sittings.
+    """Add `sess_order`: 1, 2, 3 for each participant's sittings, in order.
 
-    Ranked on ``session_id``, whose suffix encodes the (batch, list) of the sitting, so
-    the ordering is the order they were run in.
+    It ranks each participant's `session_id`s (`4000_21` is batch 2, list 1). The batch
+    digit comes first, so this is the batch order, which is also the order of the
+    sittings because every participant took the batches in order 1, 2, 3 (see the note
+    above).
     """
     out = df.copy()
     out[SESS_ORDER_COL] = (
@@ -1522,16 +1557,16 @@ def attach_item_difficulty(
     df: pd.DataFrame,
     l1_source: DataFrameOrPath = READY_ALL_FEATURES_PATH,
 ) -> pd.DataFrame:
-    """Attach each item's **L1** accuracy as a session-free difficulty baseline.
+    """Add each item's **L1** accuracy (`l1_item_acc`): a difficulty baseline with no
+    session effect in it.
 
-    Asserts full coverage: a KnowQA item with no L1 counterpart would arrive as NaN and
-    then be dropped from any model that conditions on difficulty, quietly changing which
-    trials the session estimate is computed over.
+    Stops if a KnowQA item has no L1 counterpart: its trials would get NaN and then drop
+    out of any model that adjusts for difficulty, quietly changing which trials the
+    session estimate rests on.
 
-    Safe to call twice. A notebook cell gets re-run constantly, and merging a column
-    that is already there would suffix both copies to ``_x`` / ``_y`` rather than
-    replace it — so the existing column is dropped first and recomputed, which also
-    means a changed ``l1_source`` actually takes effect.
+    Safe to call twice: an existing `l1_item_acc` is dropped and recomputed rather than
+    merged again (which would leave two copies, `_x` and `_y`), so a changed `l1_source`
+    takes effect.
     """
     l1 = _resolve(l1_source)
     diff = l1.groupby(Con.TEXT_ID_WITH_Q_COLUMN)[Con.IS_CORRECT_COLUMN].mean()
@@ -1553,11 +1588,13 @@ def attach_item_difficulty(
 
 
 def session_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """Per sitting: what the participants did, and what the model made of it.
+    """One row per sitting: what the participants did and, if predictions are attached,
+    what the model made of it.
 
-    `l1_item_acc` is the session-free item-difficulty baseline — how the *same items*
-    were answered in L1. Read the participant column against it: a drop that the L1
-    column matches is the items getting harder, not the participants.
+    `l1_item_acc` is how the *same items* were answered in L1, a baseline with no
+    sittings in it. Read participant accuracy against it: a drop the L1 column shares is
+    the items getting harder, not the participants. Adds `sess_order` and `l1_item_acc`
+    first if they are missing.
     """
     work = df if SESS_ORDER_COL in df.columns else add_session_order(df)
     if ITEM_DIFFICULTY_COL not in work.columns:
@@ -1586,20 +1623,21 @@ def session_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
-    """Is the decline across sittings real? Three tests, none of them conclusive at n=6.
+    """Is the decline across sittings real? Three tests, none of which can be conclusive
+    with six participants.
 
-    All three respect the clustering — trials are nested in six participants, so a test
-    treating 870 trials as independent would be badly anti-conservative.
+    All three respect that the trials are grouped within six people: a test treating the
+    870 trials as independent would give far too small p-values.
 
-    * **Wilcoxon, sitting 1 vs 3** on the six per-participant accuracies. With six pairs
-      the smallest attainable p is 0.031, so this cannot reach 0.01 however large the
-      effect.
-    * **Per-participant trend** — one Spearman rho per person between sitting and
-      outcome, then a one-sample test on those six values.
-    * **Clustered logistic regression**, with and without the L1 item-difficulty
-      covariate. The comparison between the two rows is the point: if the session
-      coefficient shrinks once difficulty is controlled, the decline was mostly the
-      items.
+    * **Wilcoxon, first vs last sitting**, on the six per-participant accuracies. With
+      six pairs the smallest possible p is 0.031, so this row cannot reach 0.01 however
+      large the effect.
+    * **Per-participant trend**: one Spearman rho per person between sitting and
+      outcome, then a one-sample t-test of the six values against 0.
+    * **Logistic regression with standard errors clustered by participant**, on sitting
+      and regime, then again with L1 item difficulty added. The pair is the point: if
+      the sitting coefficient shrinks once difficulty is in, the decline was mostly the
+      items. `statistic` is the odds ratio per sitting.
     """
     from scipy import stats
     import statsmodels.api as sm
@@ -1627,8 +1665,8 @@ def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
                  "p_value": float(t.pvalue), "effect": float(np.mean(rhos)),
                  "effect_is": "mean within-participant rho"})
 
-    # Explicit design matrix rather than a formula: `regime` is a pandas StringDtype
-    # column and patsy cannot interpret that dtype.
+    # The design matrix is built by hand rather than from a formula: `regime` has pandas'
+    # string dtype, which patsy cannot read.
     y = work[Con.IS_CORRECT_COLUMN].astype(int).to_numpy()
     groups = pd.factorize(np.asarray(work[Con.PARTICIPANT_ID], dtype=object))[0]
     reg = np.asarray(work[REGIME_COL], dtype=object)
@@ -1651,15 +1689,16 @@ def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bool] = None, to_paper=None):
-    """Two panels: what the participants did, and what the model did, across sittings.
+    """Two panels across sittings, from `session_summary`: what the participants did,
+    and what the model and the confidence rating did.
 
-    Left, the participant's accuracy is drawn against the L1 item-difficulty baseline —
-    how the same items were answered by a sample with no sittings at all. The gap
-    between the two lines is the part a session effect would have to explain; the slope
-    they share is the items getting harder.
+    Left, participant accuracy against how the same items were answered in L1, by people
+    with no sittings at all. The slope the two lines share is the items getting harder;
+    the gap between them is what a session effect would have to explain.
 
-    Right, the model's own numbers. If its discrimination holds while accuracy falls,
-    the behaviour stayed legible and only the items changed.
+    Right, the model's balanced accuracy and AUC, the rating's AUC and the mean
+    predicted probability. If the model's discrimination holds while accuracy falls, the
+    behaviour stayed readable and only the items changed.
     """
     s = session_summary(df)
     fig, axes = plt.subplots(1, 2, figsize=figsize)
@@ -1707,15 +1746,13 @@ def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bo
 # LexTALE — English proficiency
 # ---------------------------------------------------------------------------
 
-# Reported by Diana on 2026-09-23, in numeric participant order. The demographics
-# questionnaire is administered alongside the experiment rather than by this pipeline
-# (`research-context.md` §4), so there is no export to read and these six values are
-# the only copy. When a questionnaire export does exist they belong in a data file and
-# this constant should be replaced by a read of it, not kept in parallel with one.
+# Each participant's LexTALE score, entered by hand from a list in participant-id order.
+# The demographics questionnaire runs alongside the experiment, not through this
+# pipeline, so there is no export to read: these six values are the only copy.
 #
-# LexTALE is scored 0-100; Lemhofer & Broersma (2012) read >=80 as upper-intermediate
-# to advanced. Study 2 recruits mixed linguistic backgrounds, which is a stated
-# limitation of that study relative to L1's native-speaker sample.
+# LexTALE is scored 0-100; Lemhofer & Broersma (2012) read 80 and above as
+# upper-intermediate to advanced. Study 2's participants have mixed language
+# backgrounds, a stated limitation of that study next to L1's native-speaker sample.
 LEXTALE_SCORES: Dict[str, float] = {
     "4000": 93.75,
     "4001": 88.75,
@@ -1732,12 +1769,11 @@ def attach_lextale(
     df: pd.DataFrame,
     scores: Mapping[str, float] = LEXTALE_SCORES,
 ) -> pd.DataFrame:
-    """Attach each participant's LexTALE score.
+    """Add each participant's LexTALE score (`lextale`).
 
-    Asserts every participant has one: an unscored participant would arrive as NaN and
-    then drop out of any correlation against proficiency, shrinking n without saying so.
-
-    Safe to call twice — the column is assigned, not merged.
+    Stops if a participant has no score: they would get NaN and then drop out of any
+    correlation with proficiency, shrinking n without a word. Safe to call twice: the
+    column is assigned, not merged.
     """
     out = df.copy()
     out[LEXTALE_COL] = out[Con.PARTICIPANT_ID].map(dict(scores))
@@ -1751,15 +1787,14 @@ def attach_lextale(
 
 
 def lextale_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per participant: LexTALE beside their correctness rates.
+    """One row per participant: LexTALE score beside their accuracy, overall and per
+    regime, then a group-mean row.
 
-    Accuracy is given overall and per regime, because proficiency has no reason to act
-    equally across them — under full knowledge the answer has just been handed to the
-    participant, so there is little room for reading skill to matter, while under no
-    knowledge the options are all they have to work from.
-
-    The last row is the group mean; `n_participants` marks it so it cannot be mistaken
-    for a seventh person.
+    Accuracy is split by regime because proficiency has no reason to act equally across
+    them: under full knowledge the participant has just been shown the answer's content,
+    leaving little for reading skill to do, while under no knowledge the answers are all
+    they have. The mean row is marked by `n_participants`, so it cannot be mistaken for a
+    seventh person.
     """
     work = df if LEXTALE_COL in df.columns else attach_lextale(df)
 
@@ -1782,11 +1817,13 @@ def lextale_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def lextale_correlations(df: pd.DataFrame, *, method: str = "spearman") -> pd.DataFrame:
-    """LexTALE against accuracy, overall and per regime — six points per row.
+    """LexTALE against accuracy across participants, overall and per regime: six points
+    per row.
 
-    Six participants is far too few to test this; the rows exist so the question is
-    asked in the same place every time the data grows. Read the coefficients as
-    descriptive and the p-values as uninformative at this n.
+    Six participants is far too few to test this. The rows exist so the question is
+    asked in the same place as the data grows; read the coefficients as description and
+    the p-values as meaningless at this n. `method="spearman"` gives Spearman; any other
+    value gives Pearson.
     """
     from scipy import stats
 
@@ -1805,12 +1842,12 @@ def lextale_correlations(df: pd.DataFrame, *, method: str = "spearman") -> pd.Da
 
 
 def plot_lextale(df: pd.DataFrame, *, figsize=(12, 4.4)):
-    """LexTALE beside the personal correctness rates.
+    """LexTALE beside the participants' accuracy. Returns the figure; does not save it.
 
-    Left: each participant's score against the group mean, so who is high or low is
-    readable without doing arithmetic. Right: score against accuracy, one series per
-    regime — the question being whether the people who read English better are the
-    people who answer correctly, and whether that depends on how much they were told.
+    Left: each participant's score against the group mean, so who is high or low reads at
+    a glance. Right: score against accuracy, one series per regime plus all trials:
+    whether the people who read English better are the ones who answer correctly, and
+    whether that depends on how much they were told.
     """
     s = lextale_summary(df)
     people = s[s[Con.PARTICIPANT_ID] != "mean"]

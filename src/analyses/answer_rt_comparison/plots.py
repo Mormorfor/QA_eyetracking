@@ -1,24 +1,13 @@
-"""Correct-vs-distractor reading-time asymmetry.
+"""Accuracy against reading time on the correct answer, and on the wrong answers.
 
-Lifted out of `presentation_prep.ipynb` cell 22 in stage F (the notebook is now
-`notebooks/exploration/presentation_prep.ipynb`).
-It had no home in `src/` and no saved numbers -- `findings.md` section 9.1 calls it *"one of
-the most interpretable results in the project"* and notes it "lives in one cell of a
-presentation notebook". This is that cell, with its numbers now persisted.
+One figure with two curves: the share of correct answers as a function of the time spent on
+the correct answer, and as a function of the average time spent on the three wrong answers.
+The times are `RT_normalized_*`: the time spent on visits to each answer, divided by its
+number of words (`data-pipeline.md` §7) -- not the per-word area measurements that
+`correctness_associations` uses. On Study 1, accuracy hardly changes with time on the correct
+answer, and falls steeply with time on the wrong ones.
 
-**The result:** accuracy is flat against time spent on the *correct* answer (.81-.85 across
-the whole range) and collapses against time spent on the *distractors* (.87 -> ~.36). So the
-signal is distractor engagement, not correct-answer engagement.
-
-**Why its own analysis rather than `correctness_associations`** (map section 5.3, settled
-2026-09-05): a per-area quantity is a feature, a contrast between per-area quantities is an
-analysis. `correctness_associations` is built from the IA metric families; this is built from
-the **RT family**, which is run-based and derived from click timestamps. Different input,
-different folder.
-
-Compute and plot are **not** separated here. The binning, the Wilson intervals and the drawing
-are one function with an inner helper, as written; splitting them would be a rewrite rather
-than a move, and the move is what stage F is for.
+The binning, the intervals and the drawing are all in the one function below.
 """
 
 from typing import Optional, Tuple
@@ -55,11 +44,32 @@ def plot_correctness_by_answer_a_vs_bcd_mean(
     **facets,
 ) -> Tuple[plt.Figure, pd.DataFrame]:
     """
-    Plot correctness rate as a function of:
-    1. RT_normalized_answer_A
-    2. mean(RT_normalized_answer_B, C, D)
+    Plot the share of correct answers against the reading time on the correct
+    answer, and against the mean reading time on the three wrong answers.
 
-    Deduplicates to one row per participant-trial pair.
+    `all_participants` can be the trial table or the word table; it is reduced to
+    one row per trial. The times are divided by `rt_divisor` (ms to seconds, by
+    default). Each of the two measures is cut into `n_bins` bins of equal width
+    over its own range, and each bin gets its accuracy and a 95% Wilson interval.
+    `**facets` only go into the file name (e.g. `group="hunters"`): filter the
+    frame to a group before calling.
+
+    Things to know when reading the figure:
+    - Bins with fewer than `min_n_per_bin` trials are left out of the figure and
+      the table.
+    - The times are strongly skewed, so most trials fall in the first bin (on
+      Study 1, 86% for the correct answer and 97% for the wrong ones) and the
+      later points rest on few trials.
+    - The intervals treat trials as independent, though each participant
+      contributes many trials.
+    - Trials missing the correct answer's time, all three wrong answers' times,
+      or the correctness value are dropped without a message (values that are
+      not numbers count as missing). On Study 1 there are none.
+
+    Saves the figure and its table under `reports/answer_rt_comparison/`.
+    Returns `(fig, table)`: one row per curve and bin, with the bin edges and
+    centre, the number of trials, how many were correct, the accuracy and the
+    interval.
     """
 
     b_col, c_col, d_col = answer_b_cols
@@ -206,9 +216,6 @@ def plot_correctness_by_answer_a_vs_bcd_mean(
         ]
     ]
 
-    # The notebook version returned this frame and dropped it on the floor -- which is the
-    # failure `findings.md` exists to document. One row per (metric, bin): the bin edges,
-    # how many trials fell in it, and the accuracy with its Wilson interval.
     save_output(
         fig,
         analysis="answer_rt_comparison",

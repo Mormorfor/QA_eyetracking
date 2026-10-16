@@ -1,8 +1,10 @@
 """
 Which columns make up a correlation map, and how to label them.
 
-A map has text regions on the rows and answers / question on the columns, for
-one metric (`RT` or `TFD`) and one scaling (`normalized` = per word, or `pure`).
+A map has the paragraph's three parts on the rows and the four answers and the
+question on the columns, for one metric (`RT` or `TFD`) and one scaling
+(`normalized` = divided by the area's number of words, `pure` = not divided).
+The column names follow `{metric}_{scaling}_{area}`, e.g. `RT_normalized_critical`.
 """
 
 from __future__ import annotations
@@ -50,19 +52,19 @@ def answer_col(answer: str, metric: str = "RT", scaling: str = "normalized") -> 
 
 
 def region_cols(metric: str = "RT", scaling: str = "normalized") -> list[str]:
-    """Row columns of a map, e.g. `RT_normalized_distractor`, ..."""
+    """The rows of a map: the three paragraph parts, e.g. `RT_normalized_distractor`."""
     return [_col(metric, r, scaling) for r in REGIONS]
 
 
 def answer_cols(metric: str = "RT", scaling: str = "normalized") -> list[str]:
-    """Column columns of a map, e.g. `RT_normalized_answer_A`, ..."""
+    """The columns of a map: four answers and the question, e.g. `RT_normalized_answer_A`."""
     return [_col(metric, a, scaling) for a in ANSWERS]
 
 
 def map_cell(
     region: str, answer: str, metric: str = "RT", scaling: str = "normalized"
 ) -> tuple[str, str]:
-    """A single cell key, for `compare_cells`.
+    """The key of one cell of a map, as `compare_cells` takes it.
 
     >>> map_cell("critical", "answer_A")
     ('RT_normalized_critical', 'RT_normalized_answer_A')
@@ -71,7 +73,7 @@ def map_cell(
 
 
 def pretty_labels(cols: Sequence[str]) -> list[str]:
-    """Strip the metric prefix and shorten `answer_X` -> `ans X` for axis labels."""
+    """Axis labels: drop the metric prefix, write `answer_A` as `ans A`, `_` as a space."""
     out = []
     for c in cols:
         s = str(c)

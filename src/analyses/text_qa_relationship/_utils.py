@@ -8,7 +8,8 @@ from statsmodels.stats.multitest import multipletests
 
 __all__ = ["fisher_z", "inv_fisher_z", "adjust_pvalues", "significance_stars"]
 
-# Fisher z is undefined at |r| = 1; clip just inside.
+# Fisher z is infinite at |r| = 1, so r is clipped just inside it: a perfect
+# correlation becomes z = +-10.7 rather than infinity.
 _R_CLIP = 1 - 1e-9
 
 
@@ -23,10 +24,12 @@ def inv_fisher_z(z):
 
 
 def adjust_pvalues(pvals, method: str | None = "fdr_bh") -> np.ndarray:
-    """Multiple-comparison adjustment tolerant of NaNs. `method=None` -> unchanged.
+    """Correct p-values for multiple comparisons.
 
     `method` is any name `statsmodels.stats.multitest.multipletests` accepts
-    ("fdr_bh", "holm", "bonferroni", ...).
+    ("fdr_bh" = Benjamini-Hochberg, "holm", "bonferroni", ...); None returns the
+    p-values unchanged. A missing p-value stays missing and is not counted in
+    the family.
     """
     pvals = np.asarray(pvals, dtype=float)
     if method is None:
@@ -39,7 +42,7 @@ def adjust_pvalues(pvals, method: str | None = "fdr_bh") -> np.ndarray:
 
 
 def significance_stars(p: float) -> str:
-    """Star notation matching `src.explorations.text_answer_effects.mixed_text_answer_effects`."""
+    """Stars for a p-value: *** < .001, ** < .01, * < .05, "." < .1, else none."""
     if pd.isna(p):
         return ""
     if p < 1e-3:

@@ -1,11 +1,16 @@
-"""The paper's headline model: predicting answer correctness from gaze.
+"""The paper's headline model: predicting from eye movements whether a participant
+picks the correct answer.
 
-The only analysis with subfolders. `person_variance/` is the per-participant
-leave-one-trial-out work; `knowledge_regimes/` is Study 2. Diana, 2026-10-07:
-*"Lets keep it all together for now, can separate later if needed"* -- so Study 2 is a
-child here rather than a sibling analysis, which is also what
-`lib/plotting/output.py::ANALYSES` already commits to.
+* `run.py` -- fit the logistic regression on one train/test split, score it, and
+  draw its figures.
+* `plots/` -- those figures, the cross-validation figures, and the comparisons of
+  runs and models.
+* `report.py` -- collect saved runs and compare them.
+* `participant_level.py` -- the same model fitted on one participant at a time.
+* `person_variance/` -- what those per-participant models show.
+* `knowledge_regimes/` -- Study 2 (KnowQA).
 
-The generic machinery this drives -- cross-validation, folds, metrics, the model
-wrappers -- is `modeling/`, not here. What lives here is the choices.
+The general machinery -- folds, cross-validation, the model, coefficient intervals --
+is in `modeling/`. What is here is how this analysis uses it. Outputs go to
+`reports/correctness_prediction/`.
 """

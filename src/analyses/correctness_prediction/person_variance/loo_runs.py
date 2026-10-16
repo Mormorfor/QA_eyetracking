@@ -1,21 +1,22 @@
-"""Run (or reload) the per-person full leave-one-trial-out correctness runs.
+"""Fit the correctness model separately for each participant, or reload a saved run.
 
-For **each participant**, every trial is held out once as the test set while the
-model trains on that participant's remaining trials; the held-out predictions are
-pooled into one :class:`CorrectnessEvaluationResult` per participant, so
-``accuracy`` is the participant's leave-one-out accuracy.
+For each participant, every trial is predicted once by a model trained on that
+person's other trials only -- one trial left out at a time, "LOO" in the names
+here. What is left out is a trial, never a person. The predictions are pooled into
+one `CorrectnessEvaluationResult` per participant, so its `accuracy` is the share
+of that person's trials their own model got right. Their coefficients come from one
+more fit, on all of their trials.
 
-Feature handling is intentionally identical to the regular
-``run_full_features_correctness_bundle`` pipeline: the feature table is the
-cached ``READY_ALL_FEATURES_PATH`` (``load_model_ready()``), and the feature set
-is passed through exactly as ``feature_cols=`` in a bundle run. Per-participant
-coefficients come from a single full-data fit on that participant's trials (the
-pipeline's coefficients-from-a-full-fit convention).
+The model is the headline model's (`TrialLevelLogRegModel`), and it should be given
+the headline model's feature table, `load_model_ready()`. The fitting is done by
+`participant_level.py::evaluate_logreg_on_answer_correctness_full_loo`. A
+participant whose answers are all correct (or all wrong) gets no model, and a trial
+whose removal leaves only one outcome to train on is never scored. On Study 1, 356
+of the 360 participants get a result.
 
-The run is expensive (one logistic regression per trial per participant), so the
-resulting ``results_by_pid`` dict is pickled under
-:data:`~src.config.datasets.PER_PERSON_LOO_RESULTS_DIR`, keyed by the feature-set tag
-so different feature sets get their own cache file.
+One model per trial per participant makes the run slow, so the result is saved to
+`reports/_cache/per_person_corr_loo_results/results_by_pid__<tag>.pkl`, one file
+per feature-set tag.
 """
 
 from __future__ import annotations
@@ -35,19 +36,18 @@ from src.analyses.correctness_prediction.participant_level import (
 )
 from src.config.outputs import PER_PERSON_LOO_RESULTS_DIR
 
-# Key the per-participant results are stored under in the nested
-# ``{pid: {model_name: result}}`` shape the shared coefficient / clustering
-# utilities expect.
+# The key each participant's result sits under in the nested shape that the shared
+# per-participant helpers take (see `to_nested_results`).
 MODEL_NAME = "trial_level_log_reg"
 
-# The pinned feature set: the "selection" group plus the compact
-# last-label-before-confirm features (12 features).
+# The headline model's ten features, plus whether the area looked at just before
+# the confirming press was the correct answer or the question: 12 in all.
 DEFAULT_FEATURE_COLS = FG.SELECT_1_COLS + FG.LAST_CONFIRM_COMPACT
 DEFAULT_FEATURE_SET_TAG = "select_1_plus_last_confirm_compact"
 
 
 def results_cache_path(feature_set_tag: str = DEFAULT_FEATURE_SET_TAG) -> Path:
-    """Cache file for one feature set's per-person leave-one-out results."""
+    """Where the per-participant run for this feature-set tag is saved."""
     return Path(PER_PERSON_LOO_RESULTS_DIR) / f"results_by_pid__{feature_set_tag}.pkl"
 
 
@@ -62,26 +62,20 @@ def run_or_load_per_person_loo(
     coef_ci_cluster: str = "row",
     verbose: bool = True,
 ) -> Dict[str, Any]:
-    """Full leave-one-trial-out per participant, cached on disk.
+    """Run the per-participant models, or reload them if this tag was run before.
 
-    Parameters
-    ----------
-    trial_df
-        Prepared trial-level feature table (e.g. ``load_model_ready()``). Only
-        needed when the run is actually computed; on a cache hit it is ignored.
-    feature_cols
-        Feature set to train on; defaults to :data:`DEFAULT_FEATURE_COLS`.
-    feature_set_tag
-        Names the cache file (and, downstream, saved figures). Change it
-        whenever ``feature_cols`` changes, or a stale cache will be reused.
-    force_recompute
-        Re-run even when a cache file exists (and overwrite it).
+    `trial_df` is the trial-level feature table, normally `load_model_ready()`. It
+    is needed only when the run is computed. `feature_cols` defaults to
+    `DEFAULT_FEATURE_COLS`.
 
-    Returns
-    -------
-    dict
-        ``results[participant_id] = CorrectnessEvaluationResult`` (pooled
-        held-out predictions + a full-fit ``coef_summary``).
+    The saved file is found by `feature_set_tag` alone. If it exists it is loaded
+    and returned, whatever the other arguments say -- so give a new tag whenever the
+    features, the model or the interval settings change, or the old run comes back.
+    `force_recompute` runs again and overwrites the file.
+
+    Returns `{participant_id: CorrectnessEvaluationResult}`: the pooled predictions
+    for that person's scored trials, and the coefficient table of the fit on all of
+    their trials (95% Wald intervals by default).
     """
     feat_cols = list(feature_cols) if feature_cols is not None else list(DEFAULT_FEATURE_COLS)
 
@@ -124,6 +118,7 @@ def to_nested_results(
     results_by_pid: Mapping[str, Any],
     model_name: str = MODEL_NAME,
 ) -> Dict[str, Dict[str, Any]]:
-    """Wrap ``{pid: result}`` into the ``{pid: {model_name: result}}`` shape the
-    shared per-participant coefficient / clustering utilities expect."""
+    """Put each result one level down, under `model_name`: the
+    `{pid: {model_name: result}}` shape that the shared per-participant helpers in
+    `plots/feature_ranks.py` take."""
     return {pid: {model_name: res} for pid, res in results_by_pid.items()}

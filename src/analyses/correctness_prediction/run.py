@@ -1,22 +1,21 @@
-"""Running a model bundle: build the split, fit, score, save, plot.
+"""The headline model on one train/test split: fit, score, save, and draw its figures.
 
-Was `answer_correctness/run_model_bundles.py`.
+`run_full_features_correctness_bundle` takes one stored fold (`modeling/folds.py`),
+fits the logistic regression on the fold's training trials, scores it on the held-out
+regimes asked for, prints the scores, and draws the model's figures: the confusion
+matrix, the predicted probabilities, the coefficients and the correlations between
+the features. `run_cross_dataset_correctness_bundle` does the same with a training
+table and a separate test table, e.g. trained on Study 1 and tested on Study 2.
 
-**It tried to live in `modeling/` during stage E and came back.** The run half is generic --
-build the split, fit, score, save -- but the plot half draws *this* analysis's figures
-(`plots/coefficients`, `plots/feature_ranks`, `plots/probabilities`, `plots/results`), so
-putting the whole module below `analyses/` only moved the layering violation into
-`modeling/`. It belongs with the figures it draws.
+This is one split, not cross-validation. The accuracy the paper reports comes from
+all ten folds (`modeling/crossval.py`), and its coefficients from one fit on all the
+data (`modeling/evaluate.py::collect_logreg_coef_summaries`).
 
-⚠️ **Two parked modules still import from here**, which is `explorations/` -> `analyses/`
-and the one direction the layering rule does not allow:
-`explorations/feature_search/column_options.py` (sweeping column sets) and
-`explorations/mixed_models/run.py` (the Julia/R bundles). Both want the *run* half and get
-the *plot* half with it.
+Everything is saved under `reports/correctness_prediction/{figures,tables}/`, in
+`<held-out regimes>/logreg/<subdir>/`.
 
-**The fix is to split run from plot** -- `modeling/bundles.py` runs and saves numbers, the
-plot orchestration stays here and is passed in or called after. That is a signature change
-on the paper's main run path, so it is flagged rather than done (stage E, 2026-10-07).
+Two modules in `explorations/` import from this one: `feature_search/column_options.py`
+and `mixed_models/run.py`.
 """
 
 from __future__ import annotations
@@ -52,6 +51,7 @@ from src.lib.plotting.output import save_output
 
 
 def _split_tag(test_regimes: Sequence[str]) -> str:
+    """The output folder's name: the held-out regimes joined by "+" ("new_item+both")."""
     return "+".join(test_regimes)
 
 
@@ -59,6 +59,7 @@ def _build_full_trial_df(
     df: pd.DataFrame,
     keep_cols: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
+    """Build the trial table from the word-level `df`, with `is_correct` as the target."""
     return build_trial_level_model_df(
         df=df,
         keep_cols=keep_cols,
@@ -73,12 +74,12 @@ def _load_or_build_full_trial_df(
     verbose: bool = True,
 ) -> pd.DataFrame:
     """
-    Return the full trial-level feature DataFrame.
+    The trial table: the saved model-ready table (`load_model_ready`) if it exists,
+    otherwise built from `df`.
 
-    Loads from READY_ALL_FEATURES_PATH if it exists; otherwise builds via
-    `_build_full_trial_df`. — re-run
-    `save_model_ready` to refresh the cache). Any `keep_cols` not already
-    present in the cached frame are merged from `df` on (participant, trial).
+    The saved table is used as it is, whatever `df` holds; rebuild it with
+    `features/build.py::save_model_ready` when the data change. Any `keep_cols` it
+    lacks are joined in from `df` by participant and trial.
     """
     cache_path = Path(READY_ALL_FEATURES_PATH)
     if cache_path.exists():
@@ -114,6 +115,23 @@ def build_train_test_trial_dfs(
     keep_cols: Optional[Sequence[str]] = None,
     random_state: int = 42,
 ) -> tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+    """
+    Split `df` by one stored fold and return the training and test trial tables,
+    plus the split's details.
+
+    `df` is the word-level frame (`features/build.py::load_model_input`). The split is
+    `modeling/folds.py::group_vise_train_test_split`, reading the fold files of the
+    groups in `sources`: training is the fold's `train_train` trials, test is the
+    trials of `test_regimes` in `test_split` ("test", "val" or "both"). The fold is
+    `fold`, or else one drawn with `random_state` -- fold 0 with the default 42.
+
+    If the saved model-ready table exists, both tables are cut from it by
+    participant and trial. Its per-participant opening-scan features were worked
+    out from all of a person's trials, so under `new_item`, where the same people
+    are in training and test, the training rows carry information from the test
+    trials (`pitfalls.md` §3). Without the saved table, each side's features are
+    built from its own trials only.
+    """
     train_raw, test_raw, split_info = group_vise_train_test_split(
         df,
         test_regimes=test_regimes,
@@ -154,6 +172,7 @@ def _resolve_feature_cols(
     train_df: pd.DataFrame,
     feature_cols: Optional[Sequence[str]],
 ) -> List[str]:
+    """`feature_cols` if given, else every feature `train_df` has."""
     if feature_cols is not None:
         return list(feature_cols)
     return list(get_full_feature_cols(train_df))
@@ -169,6 +188,7 @@ def _save_summary_csv(
     to_paper,
     formula: Optional[str] = None,
 ):
+    """Save the summary table as `model_summary`; always writes, so callers check `save`."""
     summary_df = correctness_results_to_summary_df(
         results,
         run_identifier=run_identifier,
@@ -208,6 +228,7 @@ def _plot_confusions(
     close: bool,
     title_prefix: str = "",
 ):
+    """The confusion matrix twice: as shares of each true outcome, and as counts."""
     _, _, cm_paths = plot_confusion_heatmap(
         y_true=y_true,
         y_pred=y_pred,
@@ -251,6 +272,7 @@ def _plot_prob_hist(
     close: bool,
     title_prefix: str = "",
 ):
+    """The histogram of predicted probabilities; nothing if there are none."""
     if y_prob is None:
         return []
     _, _, prob_paths = plot_predicted_probability_hist(
@@ -282,6 +304,7 @@ def _plot_coef_summaries(
     figsize: Optional[Tuple[int, int]] = None,
     title_prefix: str = "",
 ):
+    """Coefficient bars twice: every feature, and those whose interval excludes 0."""
     coef_paths = []
     coef_sig_paths = []
 
@@ -334,6 +357,7 @@ def _plot_feature_corr(
     close: bool,
     title_prefix: str = "",
 ):
+    """Pearson correlations between `corr_feature_cols` over `trial_df`, cluster-ordered."""
     _, _, corr_paths = plot_feature_correlation_heatmap(
         trial_df,
         feature_cols=list(corr_feature_cols),
@@ -373,13 +397,40 @@ def run_full_features_correctness_bundle(
     coef_figsize: Optional[Tuple[int, int]] = None,
     title_prefix: str = "",
 ) -> Dict[str, Any]:
+    """
+    Fit the logistic regression on one fold's training trials, score it on the
+    `test_regimes` trials, and save the scores and figures.
+
+    The split is made by `build_train_test_trial_dfs` (see there for which fold,
+    and where the features come from). `feature_cols` defaults to every feature
+    the training table has (`get_full_feature_cols`).
+
+    The scores are printed. The figures: the confusion matrix (as shares and as
+    counts), a histogram of the predicted probabilities on the test trials, the
+    coefficients (all, and those whose interval excludes 0), and the correlations
+    between the model's features over all trials. Only the summary table's file
+    name carries `run_identifier`, so a second run with the same regimes and
+    `subdir` overwrites the first one's figures.
+
+    The summary table is written only when `save=True` is passed; the figures
+    follow `save`, or the session default (`set_output_defaults`) when it is None.
+
+    The coefficient intervals come from the fit on the training trials and are, by
+    default, Wald intervals with each trial counted on its own
+    (`coef_ci_method="wald"`, `coef_ci_cluster="row"`): quick, and not the paper's
+    coefficients.
+
+    `title_prefix` goes in front of every figure title. Returns a dict with the
+    results, the training, test and full trial tables, the split's details, the
+    output folder and the saved paths.
+    """
     model = TrialLevelLogRegModel()
     model_name = model.name
     model_family = "logreg"
 
     split_tag = _split_tag(test_regimes)
-    # Browsable folder under reports/correctness_prediction/; the filename still
-    # carries every facet, so the folder is navigation, not identity.
+    # The output folder under reports/correctness_prediction/. The held-out regimes
+    # are named only here, not in the file names.
     base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
 
     train_df, test_df, split_info = build_train_test_trial_dfs(
@@ -512,30 +563,28 @@ def run_cross_dataset_correctness_bundle(
     title_prefix: str = "",
 ) -> Dict[str, Any]:
     """
-    Train a logistic-regression correctness model on the ENTIRE ``train_df``
-    (no train/test split) and evaluate it on a separate ``test_df``.
+    Fit the logistic regression on all of `train_df` and score it on a separate
+    `test_df` -- e.g. trained on Study 1 and tested on Study 2.
 
-    ``train_df`` and ``test_df`` are already-prepared trial-level feature tables
-    (e.g. produced by ``save_model_ready`` / ``build_trial_level_model_df``).
-    Intended for train-on-L1 / test-on-new-data: the model is fit on all of
-    ``train_df`` and its accuracy/coefficients/confusion are reported on
-    ``test_df``.
+    Both are trial tables, one row per trial, as `features/build.py::save_model_ready`
+    makes them. `feature_cols` defaults to every feature `train_df` has. Those that
+    `test_df` lacks are dropped, with a printed note, because the model needs every
+    feature in both tables (Study 2 has no paragraph screen, so no paragraph
+    features).
 
-    ``feature_cols`` selects the features to use (default: the full feature set of
-    ``train_df``). Any feature not present in ``test_df`` is dropped with a notice,
-    since the model requires every feature column to exist in both frames (e.g.
-    paragraph-region RT/TFD, which a no-paragraph experiment lacks).
+    Scores, figures and saving as in `run_full_features_correctness_bundle`, in
+    `<split_tag>/logreg/<subdir>/`; the feature correlations are over `train_df`.
     """
     model = TrialLevelLogRegModel()
     model_name = model.name
     model_family = "logreg"
 
-    # Browsable folder under reports/correctness_prediction/; the filename still
-    # carries every facet, so the folder is navigation, not identity.
+    # The output folder under reports/correctness_prediction/. `split_tag` is named
+    # only here, not in the file names.
     base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
 
-    # Resolve features from the training frame, then keep only those the test
-    # frame also has (the model validates that every feature column is present).
+    # Keep only the features the test table also has: the model stops if one is
+    # missing.
     feat_cols = _resolve_feature_cols(train_df, feature_cols)
     missing_in_test = [c for c in feat_cols if c not in test_df.columns]
     if missing_in_test:
@@ -609,8 +658,7 @@ def run_cross_dataset_correctness_bundle(
         title_prefix=title_prefix,
     )
 
-    # Correlation heatmap over the features the model was actually trained on,
-    # computed on the training (L1) frame.
+    # The correlations of the features the model used, over the training table.
     corr_paths = _plot_feature_corr(
         trial_df=train_df,
         corr_feature_cols=model.feature_cols_,

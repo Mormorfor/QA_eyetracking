@@ -1,22 +1,27 @@
-"""How do the *trained* per-person coefficients vary from person to person?
+"""How much the per-participant coefficients differ from one person to the next.
 
-Every participant's ``coef_summary`` comes from a single logistic-regression fit
-on all of that participant's trials, so for a small pinned feature set the
-coefficients are directly comparable across people. This module asks two
-questions of them:
+Each participant has a model of their own, trained on their trials alone
+(`loo_runs`; "LOO" there means leaving one of that person's trials out at a time,
+to score it). The coefficients used here come from one more fit, on all of that
+person's trials. Everyone's model has the same few features, so a feature's
+coefficient can be compared across people. This module asks three questions:
 
-* **What does the feature set look like on average?** -- mean coefficient per
-  feature across participants (:func:`mean_coef_across_participants`), plus the
-  two existing cross-participant views (top-|coef| presence and average rank).
+* **What does the model rely on, on average?** Each feature's mean coefficient
+  across participants (`mean_coef_across_participants`), how often it is among a
+  person's largest coefficients, and its average rank.
 * **Which features mean the same thing for everyone?**
-  (:func:`per_feature_coef_consistency`) -- the share of participants whose
-  coefficient is negative / ~zero / positive, and how far the per-person
-  coefficients spread relative to that feature's own typical magnitude.
+  (`per_feature_coef_consistency`) The share of participants whose coefficient is
+  negative, zero or positive, and how widely the coefficients spread compared with
+  their typical size.
+* **How does one feature's coefficient vary?** (`plot_participant_coef_effect`)
+  Every participant's coefficient for it, with its interval.
 
-**Caveat:** each per-person coefficient is fit on only ~50 trials, so part of
-the spread is estimation noise rather than true between-person variation --
-read the consistency numbers as an *upper bound* on inconsistency. This is a
-descriptive read, not a significance test.
+Two caveats. Each fit standardises its own features, so a coefficient is per
+standard deviation of the feature over that person's trials. And each rests on
+that person's trials alone (54 on Study 1), so part of the spread is estimation
+noise rather than a real difference between people: read the consistency numbers
+as an upper bound on how inconsistent a feature is. None of this is a
+significance test.
 """
 
 from __future__ import annotations
@@ -50,9 +55,12 @@ def coef_long_frame(
     results_by_pid: Mapping[str, Any],
     coef_col: str = "coef",
 ) -> pd.DataFrame:
-    """Stack every participant's ``coef_summary`` into one long
-    ``feature / <coef_col> / participant_id`` frame (non-numeric coefficients
-    dropped). Participants without a coefficient table are skipped."""
+    """Every participant's coefficient table stacked into one long frame:
+    `feature`, `<coef_col>`, `participant_id`.
+
+    Participants without a coefficient table are skipped, and coefficients that are
+    not numbers are dropped.
+    """
     frames = []
     for pid, res in results_by_pid.items():
         cs = getattr(res, "coef_summary", None)
@@ -87,12 +95,16 @@ def plot_feature_presence_across_participants(
     dpi: int = 300,
     close: bool = False,
 ):
-    """How often does each feature land in a participant's top-K |coef|?
+    """How many participants have each feature among their K largest |coef|.
 
-    With a small curated feature set, ``top_k_within_participant=3`` keeps the
-    chart from collapsing onto a single dominant feature. ``top_k_features``
-    defaults to every feature that appears at all. Returns
-    ``(fig, freq_df, saved_paths)``.
+    K is `top_k_within_participant`; with only a dozen features, 3 keeps the chart
+    from collapsing onto one dominant feature. Bars are coloured by the sign most of
+    those participants share, and `!n` marks a feature where n of them have the
+    other sign. `top_k_features` defaults to every feature.
+
+    Drawn and saved by `plots/feature_ranks.py`, so the files go under
+    `reports/correctness_prediction/`, not `.../person_variance/`. Returns
+    `(fig, freq_df, saved_paths)`.
     """
     nested = to_nested_results(results_by_pid, model_name=model_name)
     if top_k_features is None:
@@ -132,10 +144,15 @@ def plot_feature_avg_rank_across_participants(
     dpi: int = 300,
     close: bool = False,
 ) -> Tuple[Any, pd.DataFrame, List[str]]:
-    """Features ordered by their best average within-participant |coef| rank.
+    """Features ordered by their average rank within each participant's model.
 
-    Returns ``(fig, avg_rank_df, saved_paths)`` -- ``avg_rank_df`` is the full
-    ranking table, not just the plotted rows.
+    Rank 1 is that person's largest |coef|, so a low average means the feature is
+    consistently among the most important. Drawn and saved by
+    `plots/feature_ranks.py`, so the files go under
+    `reports/correctness_prediction/`, not `.../person_variance/`.
+
+    Returns `(fig, avg_rank_df, saved_paths)`; `avg_rank_df` is the full ranking
+    table, not only the plotted rows.
     """
     nested = to_nested_results(results_by_pid, model_name=model_name)
     avg_rank_df = compute_feature_avg_rank_across_participants(
@@ -171,12 +188,13 @@ def mean_coef_across_participants(
     results_by_pid: Mapping[str, Any],
     coef_col: str = "coef",
 ) -> pd.DataFrame:
-    """Average each feature's coefficient across all participants' full fits.
+    """Each feature's coefficient averaged over all participants.
 
-    The returned frame is shaped like a ``coef_summary`` so it can be handed
-    straight to :func:`plot_coef_summary_barh`: ``coef`` is the cross-participant
-    mean and ``ci_low``/``ci_high`` span mean +/- 1 SD (a quick read on how
-    stable each effect is from person to person -- *not* a confidence interval).
+    Shaped like a coefficient table, so `plot_coef_summary_barh` can draw it: `coef`
+    is the mean, and `ci_low` / `ci_high` are the mean minus and plus one SD across
+    participants -- a quick read on how much the effect changes from person to
+    person, not a confidence interval. Also has `std` and `n_participants`. Largest
+    |mean| first.
     """
     long_df = coef_long_frame(results_by_pid, coef_col=coef_col)
 
@@ -204,8 +222,12 @@ def plot_mean_coef_across_participants(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Bar plot of :func:`mean_coef_across_participants`; whiskers are +/- 1 SD
-    across participants."""
+    """Bar chart of `mean_coef_across_participants`, with whiskers one SD either side.
+
+    Drawn and saved by `plots/coefficients.py::plot_coef_summary_barh`, so the files
+    go under `reports/correctness_prediction/`, not `.../person_variance/`. Returns
+    `(fig, plotted_rows, saved_paths)`.
+    """
     return plot_coef_summary_barh(
         coef_summary=mean_coef_df,
         value_col="coef",
@@ -234,19 +256,22 @@ def per_feature_coef_consistency(
     coef_col: str = "coef",
     zero_tol: float = 1e-9,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Per-feature consistency of the per-person coefficients.
+    """How consistent each feature's coefficient is across participants.
 
-    Returns ``(long_df, summary_df)`` where ``long_df`` is one row per
-    (participant, feature) and ``summary_df`` has one row per feature, sorted
-    most- to least-consistent:
+    Returns `(long_df, summary_df)`: `long_df` has one row per participant and
+    feature, `summary_df` one row per feature, most consistent first. In
+    `summary_df`:
 
-    - ``share_negative`` / ``share_zero`` / ``share_positive`` -- direction split
-      across participants (a ~zero coefficient means the feature is inactive for
-      that person, e.g. it never fires in their trials).
-    - ``dominant_share`` = ``max(share_positive, share_negative)`` (sort key).
-    - ``dispersion_index`` = ``SD(beta_p) / mean(|beta_p|)`` -- spread relative to
-      the feature's own typical magnitude, so it is comparable across features
-      (0 = identical for everyone, >1 = spread exceeds the typical size).
+    - `share_negative` / `share_zero` / `share_positive`: how the participants split
+      by sign. A zero coefficient (within `zero_tol`) means the feature had the same
+      value on all of that person's trials -- a yes/no feature that never fired,
+      say -- so their model could not use it.
+    - `dominant_share`: the larger of `share_positive` and `share_negative`. The
+      main sort key.
+    - `dispersion_index`: the SD of the coefficients divided by their mean absolute
+      value. Spread relative to the feature's own typical size, so it compares
+      across features: 0 = the same for everyone, above 1 = the spread is larger
+      than the typical size. Breaks ties in `dominant_share`, smallest first.
     """
     long_df = coef_long_frame(results_by_pid, coef_col=coef_col)
 
@@ -267,6 +292,7 @@ def per_feature_coef_consistency(
     return long_df, summ.reset_index()
 
 
+# The columns of `per_feature_coef_consistency`'s summary worth printing.
 CONSISTENCY_DISPLAY_COLS = [
     "feature", "n_participants", "mean", "share_negative", "share_zero",
     "share_positive", "dominant_share", "dispersion_index",
@@ -275,7 +301,6 @@ CONSISTENCY_DISPLAY_COLS = [
 
 # ---------------------------------------------------------------------------
 # Per-participant coefficient, one feature at a time
-# (mirrors mixed_text_answer_effects.plot_participant_effects' per-term plot)
 # ---------------------------------------------------------------------------
 
 
@@ -284,9 +309,11 @@ def participant_coef_table(
     feature: str,
     coef_col: str = "coef",
 ) -> pd.DataFrame:
-    """One row per participant with a coefficient for ``feature``: their
-    ``coef`` plus ``se`` / ``ci_low`` / ``ci_high`` when the full-data fit's
-    ``coef_summary`` carries them (Wald or bootstrap CI), sorted by ``coef``.
+    """Every participant's coefficient for one feature, smallest first.
+
+    Also carries `se`, `ci_low` and `ci_high` where the coefficient table has them:
+    Wald intervals give all three, bootstrap intervals only the bounds, and a run
+    without intervals none (NaN). Participants without the feature are left out.
     """
     rows = []
     for pid, res in results_by_pid.items():
@@ -325,16 +352,16 @@ def plot_participant_coef_effect(
     dpi: int = 300,
     close: bool = False,
 ) -> Tuple[Any, pd.DataFrame, List[str]]:
-    """Per-participant coefficient for one feature, sorted, with 95% CI whiskers.
+    """Every participant's coefficient for one feature, sorted, with its interval.
 
-    Same layout as the mixed-effects ``plot_participant_effects`` slope plots
-    (dots + whiskers sorted low to high, mean/median reference lines), but each
-    whisker here is that *participant's own* Wald 95% CI from their full-data
-    logistic fit -- not a shared random-effect SD, so widths vary participant to
-    participant (and are 0 where no CI was computed, e.g. ``ci_method="none"``).
+    One dot per participant, smallest to largest, with lines at the mean and the
+    median. Each whisker is that person's own interval from their full-data fit
+    (95% Wald by default), so widths differ from person to person. If anyone lacks
+    an interval, every whisker is +/- 1.96 SE instead, and if anyone lacks an SE
+    too, none is drawn. The colour follows the sign of the mean.
 
-    Returns ``(fig, table, saved_paths)`` -- ``table`` is
-    :func:`participant_coef_table`'s output for this feature.
+    Saves `participant_coef_table`'s rows with the figure. Returns
+    `(fig, table, saved)`, `saved` being what `save_output` wrote.
     """
     d = participant_coef_table(results_by_pid, feature, coef_col=coef_col)
 
@@ -401,22 +428,22 @@ def plot_coef_consistency(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Two aligned views of :func:`per_feature_coef_consistency`, most
-    consistent feature on top.
+    """Draw `per_feature_coef_consistency`'s result, most consistent feature on top.
 
-    *Left* -- direction split: the share of participants whose coefficient is
-    negative / ~zero / positive. A near-solid bar means everyone agrees on
-    direction; a two-colour split means the effect **flips sign** between people;
-    a wide grey band means the feature is **inactive** for many people.
+    *Left*, the sign split: the share of participants whose coefficient is
+    negative, zero or positive, with the share of the more common sign printed
+    beside each bar. A nearly solid bar means everyone agrees on the direction; two
+    colours mean the effect **changes sign** between people; a wide grey band means
+    the feature went unused for many of them.
 
-    *Right* -- magnitude spread: each participant's coefficient divided by that
-    feature's own ``mean|coef|``, so magnitudes are comparable across features
-    while sign and zero-crossing are preserved. Tight around +/-1 = consistent
-    magnitude; a cloud straddling 0 = the effect varies person to person.
-    ``xlim`` clips a few noisy per-person fits that would otherwise squash the
-    bulk of the distribution.
+    *Right*, the spread: each participant's coefficient divided by the feature's
+    mean |coef|, so features of different size can be compared and the sign is
+    kept. Tight around +/-1 = a similar size for everyone; spread across 0 = it
+    varies from person to person. `xlim` keeps a few extreme fits from squashing
+    the rest: points beyond it are off the plot, though the boxes still count them.
 
-    Returns ``(fig, saved_paths)``.
+    Saves the summary table. Returns `(fig, saved)`, `saved` being what
+    `save_output` wrote.
     """
     feats = summ["feature"].tolist()[::-1]  # most consistent on top
     y = np.arange(len(feats))

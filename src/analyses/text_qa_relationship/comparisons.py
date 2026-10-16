@@ -3,17 +3,18 @@ Testing correlations against each other rather than against 0.
 
 `compare_cells` / `compare_rows_within_column`
     Two cells of the same map are measured on the same participants, so this is
-    a paired t-test on the within-participant difference of Fisher z. The
-    pairing absorbs the dependence between the two correlations -- including the
-    case where they share a variable, which under i.i.d. assumptions would need
-    Steiger's or Williams' test.
+    a paired t-test on each participant's difference in Fisher z. The pairing
+    takes care of the dependence between the two correlations, including when
+    they share a variable (which, with independent trials, would need a
+    dedicated test such as Steiger's or Williams').
 
 `compare_groups`
-    Hunters and gatherers are disjoint sets of 180 participants, so their z
+    Hunters and gatherers are different people, 180 in each group, so their z
     values are independent: a Welch two-sample t-test per cell.
 
-All of these take the per-participant z frame produced by
-`correlations.corr_map_stats(...)["z"]`.
+All of these take the per-participant z values, `corr_map_stats(...)["z"]`.
+The intervals they report are on the difference in Fisher z, not in r, and
+are not corrected for multiple comparisons; the p-values are.
 """
 
 from __future__ import annotations
@@ -39,18 +40,16 @@ def compare_cells(
     adjust: str | None = "fdr_bh",
     alpha: float = 0.05,
 ) -> pd.DataFrame:
-    """Paired test of H0: two map cells have the same correlation.
+    """Paired test of whether two cells of a map have the same correlation.
 
-    Parameters
-    ----------
-    z : per-participant Fisher z, from `corr_map_stats(...)["z"]`.
-    pairs : iterable of ((row_a, col_a), (row_b, col_b)); build the cell keys
-        with `columns.map_cell`.
+    `pairs` holds `((row_a, col_a), (row_b, col_b))` cell keys, which
+    `columns.map_cell` builds. Each pair uses the participants with a value in
+    both cells; a pair with fewer than 3 gets NaN.
 
-    Returns
-    -------
-    DataFrame with r_a, r_b, their difference, the CI on the *z* difference,
-    t, p, adjusted p and stars, sorted by adjusted p.
+    Returns one row per pair: `r_a` and `r_b` (each cell's mean z turned back
+    into r) and their difference `delta_r`; `delta_z`, the mean difference in z,
+    with its interval (`ci_low`, `ci_high`); t, p, Cohen's d; and p corrected
+    across the pairs (`p_adj`), `sig` and stars. Sorted by `p_adj`.
     """
     rows = []
     for cell_a, cell_b in pairs:
@@ -103,10 +102,11 @@ def compare_rows_within_column(
     adjust: str | None = "fdr_bh",
     alpha: float = 0.05,
 ) -> pd.DataFrame:
-    """All row-vs-row comparisons within each column of the map.
+    """Every pair of rows compared within each column of the map.
 
-    E.g. "is critical -> answer_A stronger than distractor -> answer_A?", for
-    every answer column: 3 regions x 5 columns = 15 tests. 
+    E.g. "does critical -> answer_A differ from distractor -> answer_A?", for
+    every column. With 3 rows and 5 columns that is 3 pairs x 5 columns = 15
+    tests, corrected together.
     """
     pairs = [
         ((row_cols[i], c), (row_cols[j], c))
@@ -126,14 +126,18 @@ def compare_groups(
     alpha: float = 0.05,
     equal_var: bool = False,
 ) -> pd.DataFrame:
-    """Between-subjects test of H0: a map cell is equal in both groups.
+    """Test whether each cell of the map differs between two groups of people.
 
-    Welch two-sample t-test on the per-participant z per cell, adjusted across
-    the cells of the map. Pass `z_a`/`z_b` already restricted to a subset of
-    cells to make that subset the correction family (see
-    `report.group_contrast(region=...)`).
+    Per cell, a two-sample t-test on the participants' z values (Welch's, unless
+    `equal_var=True`), with p corrected across the cells compared; a cell with
+    fewer than 3 participants in either group gets NaN. Only cells in both
+    `z_a` and `z_b` are compared, so passing frames cut down to some cells
+    makes those cells the correction family (as `report.group_contrast(region=...)`
+    does).
 
-    `ci_low`/`ci_high` bound the *z* difference, not the r difference.
+    Returns one row per cell, with each group's `n_<label>` and `r_<label>`.
+    `delta_z` is group a minus group b, and `ci_low` / `ci_high` bound it, in
+    Fisher z, not in r. Cohen's d uses the pooled SD of z.
     """
     cells = [c for c in z_a.columns if c in set(z_b.columns)]
     rows = []

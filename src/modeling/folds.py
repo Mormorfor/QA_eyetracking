@@ -219,8 +219,8 @@ def iter_leave_one_trial_out_for_participant(
 # regression has no searched settings), so `val` and `test` are two
 # interchangeable held-out samples. They are kept apart in case that changes;
 # `eval_split` chooses which to use. Pooling them matters most for `both`, the
-# smallest cell (about 97 hunter trials per fold, 194 with both groups), which
-# is where the headline number comes from.
+# smallest novelty (per fold and group, 78-120 validation trials and 234-360
+# test trials; the test half also holds the pairs that cross the two halves).
 
 NOVELTY_BY_CELL: Dict[str, str] = {
     "seen_subject_unseen_item": "new_item",
@@ -289,9 +289,8 @@ def attach_fold_regimes(
     matching columns and the regime are kept.
 
     Trials that are not in the fold file are dropped, without a message. The
-    refolded files leave out the pairs that cross the two held-out sets (a
-    validation person on a test paragraph, or a test person on a validation
-    paragraph), so with them this drops 156-240 trials per group and fold.
+    refolded files give every trial of their group a regime, so with them
+    nothing is dropped.
     """
 
     out = df.copy()

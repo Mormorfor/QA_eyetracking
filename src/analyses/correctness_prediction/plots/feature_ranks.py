@@ -1,10 +1,20 @@
-"""Which features matter, across participants: frequency in the top-|coef| set, average
-rank, and the feature correlation heatmap.
+"""Which features the per-participant models lean on, and how the features correlate.
 
-Split out of the 1,717-line `answer_correctness_viz.py` in stage E (map section 6.4).
+The first three functions read the models fitted one participant at a time
+(`participant_level.py`, run from `person_variance/`), passed as
+`{participant_id: {model_name: result}}`, each result with a `coef_summary`:
+
+* `plot_top_abs_coef_feature_frequency_across_participants` -- in how many
+  participants each feature is among the largest coefficients;
+* `compute_feature_avg_rank_across_participants` and
+  `plot_top_features_by_best_avg_rank` -- each feature's average rank by size.
+
+The coefficients are per standard deviation of each feature, so their sizes can be
+compared across features.
+
+`plot_feature_correlation_heatmap` draws the correlations between features; every
+`run.py` bundle draws it for its model's features.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -53,14 +63,19 @@ def plot_top_abs_coef_feature_frequency_across_participants(
     **facets,
 ):
     """
-    For a given model, compute how often each feature appears in the TOP-K
-    absolute coefficients per participant.
+    Bar chart: for each feature, the number of participants in whose model it is
+    among the `top_k_within_participant` largest coefficients by size.
 
-    Color encodes the majority sign (positive/negative) among the participant-occurrences.
-    If sign varies (both + and - occur), draw an "!" next to the bar.
+    Size is `abs_col` where the coefficient table has it, else |`coef_col`|. Each
+    bar is coloured by the sign most of those participants' coefficients have (a
+    tie counts as positive), and "!n" beside a bar says that n of them had the
+    other sign. Only features in at least `min_count` participants are drawn, the
+    `top_k_features` most frequent. `figsize` sets the width; the height grows with
+    the number of bars.
 
-    Returns (fig, summary_df).
-    summary_df columns include: feature, count, prop, n_pos, n_neg, n_zero, majority_sign, sign_varies
+    The figure and the per-feature table are saved as `plot`, named by `**facets`.
+    Returns the figure, the table (feature, count, prop, n_pos, n_neg, n_zero,
+    majority_sign, sign_varies, minority_count, ...) and the saved paths.
     """
     occurrences = []
 
@@ -218,11 +233,13 @@ def compute_feature_avg_rank_across_participants(
     rank_method: str = "average",
 ) -> pd.DataFrame:
     """
-    For each participant, rank features by descending |coef| (rank 1 = largest |coef|).
-    Aggregate across participants: mean_rank / median_rank / count_participants.
+    Each feature's rank by coefficient size, summarised over participants.
 
-    Returns a DataFrame with:
-      feature, count_participants, mean_rank, median_rank, std_rank, min_rank, max_rank
+    Within each participant, features are ranked by |coefficient|, 1 = largest
+    (`abs_col` where the table has it, else |`coef_col`|; ties by `rank_method`). A
+    participant whose table lacks `feature_col` or `coef_col` is skipped. Returns one
+    row per feature -- count_participants, mean_rank, median_rank, std_rank,
+    min_rank, max_rank -- sorted by mean rank, then by more participants first.
     """
     rows = []
 
@@ -237,7 +254,6 @@ def compute_feature_avg_rank_across_participants(
         df[coef_col] = pd.to_numeric(df[coef_col], errors="coerce")
         df = df.dropna(subset=[coef_col, feature_col])
 
-        # compute abs
         if abs_col is not None and abs_col in coef_df.columns:
             df["_abs"] = pd.to_numeric(coef_df.loc[df.index, abs_col], errors="coerce")
             df["_abs"] = df["_abs"].fillna(df[coef_col].abs())
@@ -307,7 +323,12 @@ def plot_top_features_by_best_avg_rank(
     **facets,
 ):
     """
-    Barh plot of the features with the *lowest* mean_rank (best, most consistently high-ranked).
+    Bar chart of the `top_k` features with the lowest (best) mean rank, among those
+    ranked in at least `min_participants` participants.
+
+    `avg_rank_df` comes from `compute_feature_avg_rank_across_participants`. The
+    figure and the plotted rows are saved as `plot`, named by `**facets`. Returns
+    the figure, the plotted rows and the saved paths.
     """
     df = avg_rank_df.copy()
     df = df[df["count_participants"] >= int(min_participants)].copy()
@@ -362,7 +383,19 @@ def plot_feature_correlation_heatmap(
     **facets,
 ):
     """
-    Correlation heatmap for modeling features.
+    Heatmap of the correlations between features, one row and column per feature.
+
+    `feature_cols` are the features; those `trial_df` lacks are left out without a
+    message. Without it, every column but the participant, the trial and
+    `is_correct` is used. Values are made numeric and missing ones set to 0 first,
+    as the model does, so these are the correlations of what the model sees.
+    `method` is a pandas correlation method ("spearman" by default; `run.py` uses
+    "pearson"). With `cluster_order`, features that correlate positively are placed
+    together (average-linkage clustering on 1 - correlation).
+
+    The figure and the matrix are saved as `plot`, named by `**facets`. The saved
+    table has no row names: its rows are in the same order as its columns. Returns
+    the figure, the matrix and the saved paths.
     """
     if feature_cols is None:
         exclude = {

@@ -1,9 +1,11 @@
 """
-Cluster bootstrap of the pooled correlation map.
+The pooled correlation map, with a bootstrap over participants.
 
-This is the robustness check next to `correlations.corr_map_stats`: it keeps the
-*pooled* r that the plain heatmaps show as the estimand, and fixes only its
-standard error, by resampling participants (not trials) with replacement.
+A robustness check next to `correlations.corr_map_stats`. It keeps the pooled
+r (all trials together, as `plots.plot_pooled_maps` shows it) as the estimate,
+and changes only how its uncertainty is worked out: by resampling whole
+participants, with replacement, instead of single trials, so each person's
+trials stay together.
 """
 
 from __future__ import annotations
@@ -31,17 +33,25 @@ def cluster_bootstrap_corr_map(
     adjust: str | None = "fdr_bh",
     random_state: int | None = 0,
 ) -> dict:
-    """Percentile CIs for the pooled r, resampling participants.
+    """Intervals and p-values for the pooled r, resampling participants.
 
-    The two-sided p is the bootstrap-percentile p: 2 * min(share of resamples
-    below 0, share above 0), floored at 1 / n_boot. Its resolution is therefore
-    capped by `n_boot` -- at n_boot = 1000 no cell can go below p = 0.001, so
-    the strongest cells all report the same p no matter how strong they are.
+    Each of the `n_boot` resamples draws as many participants as there are,
+    with replacement, takes all their trials and recomputes the map. The
+    interval is the middle (1 - alpha) of the resampled values. The two-sided p
+    is 2 x the smaller of the shares of resamples at or below 0 and at or above
+    0, floored at 1 / n_boot. Its resolution is therefore capped by `n_boot`: at
+    n_boot = 1000 no cell can go below p = 0.001, so the strongest cells all
+    report the same p no matter how strong they are. `adjust` corrects the
+    p-values over the cells of the map.
 
-    Returns a dict shaped like `corr_map_stats` where they overlap ("r",
+    Trials with a missing value in any of the map's columns are dropped first,
+    without a message. The reading-time columns have no missing values, so for
+    those maps nothing is dropped.
+
+    Returns a dict with the keys of `corr_map_stats` where they overlap ("r",
     "ci_low", "ci_high", "p", "p_adj", "sig", "table"), so `plots.plot_corr_map`
-    and `plots.summarise_map` accept it directly. Also returns the raw `boots`
-    array (n_boot x rows x cols).
+    and `plots.summarise_map` take it directly; plus every resampled map
+    (`boots`, n_boot x rows x cols), `n_clusters`, `n_boot`, `method` and `alpha`.
     """
     rng = np.random.default_rng(random_state)
     cols = list(dict.fromkeys([*row_cols, *col_cols]))

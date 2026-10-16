@@ -397,11 +397,12 @@ The paper reports three, named in figures and folders `new_item`, `new_subject` 
 
 Held-out people and held-out paragraphs are each split into a validation and a test half. A
 validation person reading a test paragraph (or a test person reading a validation paragraph) is new
-on both counts but belongs to neither half, so these crossing pairs are left out of the fold
-files: 156–240 trials per group and fold are in no regime. The two groups hold out the same
-paragraphs in each fold, so their folds can be pooled. The original assignments, which file the
-crossing pairs under the test regimes, are kept in `HuntersFolds/` and `GatherersFolds/`; both
-refolded sets are made in `notebooks/builders/create_merge_folds_csv.ipynb`.
+on both counts, so these crossing pairs are filed under `test_unseen_subject_unseen_item`: 156–240
+trials per group and fold, which makes the test "both new" regime about three times the size of
+the validation one. The two groups hold out the same paragraphs in each fold, so their folds can
+be pooled. The original assignments, which file the crossing pairs under test "new item" and test
+"new participant", are kept in `HuntersFolds/` and `GatherersFolds/`; both refolded sets are made
+in `notebooks/builders/create_merge_folds_csv.ipynb`.
 
 Nothing in the model is tuned, so the `val_*` regimes do not choose anything: they are a second
 held-out sample, like `test_*`. The summary tables (`modeling/evaluate.py`) read each regime

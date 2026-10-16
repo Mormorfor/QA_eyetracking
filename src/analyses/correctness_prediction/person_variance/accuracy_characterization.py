@@ -1,24 +1,24 @@
-"""What characterizes the participants the model reads well (or badly)?
+"""What sets apart the participants the model predicts well from those it predicts badly?
 
-Relate each participant's *mean* feature value to how well their person-specific
-model scores them, then contrast the low- against the high-accuracy tercile.
+Each participant's average of each feature is set against how well their own model
+scores them (balanced accuracy by default; see `person_accuracy`), and the
+lowest-scoring third of participants is compared with the highest-scoring third.
 
-Two guards keep the comparison honest:
+Two things keep the comparison fair:
 
-* :data:`MIN_WRONG_TRIALS` filters out participants with too few wrong
-  (minority-class) trials, where balanced accuracy is essentially unestimable and
-  collapses toward chance. This also drops the single-class participants that
-  have no balanced accuracy at all.
-* The analysis is meant to be run **twice** -- once on only the features the
-  model was trained on, once on all available features. Comparing the two
-  separates *"the model struggles where its own inputs are weak"* from *"a
-  characteristic sits in features the model never sees"* (a potential confound).
+* Participants with fewer than `MIN_WRONG_TRIALS` wrong answers are left out. With
+  so few wrong answers, balanced accuracy can hardly be estimated and drifts
+  toward chance. This also drops those with no scored wrong answer, who have no
+  balanced accuracy at all.
+* The analysis is meant to be run twice: once on the features the model uses, and
+  once on every feature. A difference that shows up only in the second points to
+  something the model never sees -- a possible confound -- rather than to a
+  weakness in the model's own inputs.
 
-How to read the two figures: a **positive** bar in the feature/accuracy
-correlation means people who do more of this are people the model predicts
-*better* (a model-friendly trait); a negative bar marks a model-hostile trait.
-In the low-vs-high profile the sign flips meaning: **positive** = the trait is
-elevated in the people the model does *worst* on.
+Reading the figures: in the correlation bars, a **positive** bar means people with
+more of this are predicted *better* (a model-friendly trait), and a negative bar
+the reverse. In the low-vs-high profile the sign means something else: **positive**
+means the trait is higher in the people the model does *worst* on.
 """
 
 from __future__ import annotations
@@ -35,8 +35,8 @@ from src.analyses.correctness_prediction.person_variance.plot_style import (
 )
 from src.lib.plotting.output import save_output
 
-# Keep participants with at least this many wrong trials, so their score is
-# actually estimable.
+# Fewest wrong answers a participant needs to be kept: with fewer, their balanced
+# accuracy rests on too few wrong answers to mean much.
 MIN_WRONG_TRIALS = 8
 
 # Which per-person score to characterize; "accuracy" for raw accuracy instead.
@@ -49,14 +49,14 @@ def per_person_feature_means(
     *,
     participant_col: str = Con.PARTICIPANT_ID,
 ) -> pd.DataFrame:
-    """Mean value of each feature per participant (non-numeric values coerced to
-    NaN and skipped).
+    """Each participant's average of each feature, over their trials in `trial_df`.
 
-    SCOPE: computed over whatever trials are in ``trial_df`` -- the driver
-    notebook passes the global feature table, so today these are a participant's
-    full trial set. ``n_trials`` is returned alongside so a narrowed frame is
-    visible rather than silent: a mean over 12 trials and a mean over 54 look
-    identical otherwise (`todo.md` T3.21 row 8).
+    Values that are not numbers count as missing, and missing values are left out
+    of the average. Like any per-person summary, the result depends on which trials
+    `trial_df` holds (`docs/pitfalls.md` §3); the full table describes each person
+    by all of their trials. `n_trials`, how many trials each person has in
+    `trial_df`, is returned beside the averages so a filtered table does not go
+    unnoticed: an average over 12 trials looks just like one over 54.
     """
     feat_numeric = trial_df[list(characterize_cols)].apply(pd.to_numeric, errors="coerce")
     out = feat_numeric.groupby(trial_df[participant_col]).mean().reset_index()
@@ -109,22 +109,26 @@ def characterize_accuracy(
     dpi: int = 300,
     close: bool = False,
 ) -> Dict[str, Any]:
-    """Relate per-person mean feature values to per-person model accuracy.
+    """Set each participant's feature averages against their model's score.
 
-    Filters to participants with >= ``min_wrong_trials`` wrong trials (so the
-    score is actually estimable), then draws three things and returns the
-    intermediate tables:
+    `summary_df` is `person_accuracy.per_person_summary`'s table. Keeps the
+    participants with at least `min_wrong_trials` wrong answers, then draws three
+    figures, each saved with its numbers:
 
-    1. accuracy vs class-balance scatters,
-    2. per-feature Spearman correlation with accuracy,
-    3. low- vs high-accuracy (tercile) standardized feature-profile contrast.
+    1. `class_balance`: the score against the share of answers that were correct,
+       and against the share of the rarer outcome;
+    2. `feature_corr`: the Spearman correlation of each feature's average with the
+       score, strongest `top_n_bars` shown;
+    3. `group_profile`: the lowest-scoring third minus the highest-scoring third,
+       in standard deviations of each feature across the kept participants (a
+       feature that is the same for all of them gets 0).
 
-    Returns a dict with ``merged`` (per-person scores + feature means),
-    ``feat_corr``, ``group_cmp``, ``figs`` and ``saved_paths``.
+    Returns a dict: `merged` (scores and feature averages per participant),
+    `feat_corr`, `group_cmp`, `figs` and `saved_paths`.
     """
     cols = list(characterize_cols)
 
-    # --- per-person descriptors + minority-class filter -----------------------
+    # --- class balance per participant, and the minimum-wrong-answers filter ---
     desc = summary_df.copy()
     desc["base_rate_correct"] = desc["n_correct_trials"] / desc["n_trials"]
     desc["minority_rate"] = (

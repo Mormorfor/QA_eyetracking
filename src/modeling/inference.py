@@ -54,6 +54,9 @@ def get_coef_summary(model: LogisticRegression,
 
 
 # https://stats.stackexchange.com/questions/89484/how-to-compute-the-standard-errors-of-a-logistic-regressions-coefficients
+#      jakemanderson.com/courses/econ_104/chapters/15c-cluster-robust-se
+#      lmiratrix.github.io/MLM/cluster_demo.html
+#      economictheoryblog.com/2016/09/25/clustered-standard-errors/
 def wald_logreg_coef_cis(
     model: LogisticRegression,
     X: pd.DataFrame,

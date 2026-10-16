@@ -255,10 +255,11 @@ N_STRATEGY_TRIALS_NO_Q = "n_strategy_trials_no_q"
 SELECTED_DWELL_DURATION = "selected_a_dwell_duration"
 SELECTED_SCREEN_LOCATION = "selected_a_screen_loc"
 
-# Used only by the time-course analysis, which splits each trial into before,
-# during and after the first look at the answer the participant went on to
-# choose: the segment, how many word rows fall in it, and whether a word was
-# never looked at.
+# Used only by the unfinished time-course exploration, which splits each trial's
+# words into before, during and after the answer the participant went on to
+# choose -- by their order in the word table (screen order), not by time; see
+# explorations/time_course/plots.py. The segment, how many word rows fall in it,
+# and whether a word was never looked at.
 SEGMENT_COLUMN = "time_segment"
 SEGMENT_IA_ROW_COUNT = "segment_ia_row_count"
 SKIPPED_COLUMN = "skipped"

@@ -1,18 +1,18 @@
 """
-Loading the frames the correlation maps run on.
+Loading the trial tables the correlation maps run on.
 
-Three frames, built the same way from the same code path: all participants,
-hunters only, gatherers only. Each is a cached model-ready feature CSV derived
-from the corresponding processed CSV by
-`features.build.save_model_ready`:
+Three tables, one row per trial, all built the same way: all participants,
+hunters only, gatherers only. They are Study 1's model-ready tables, the same
+files `scripts/build_dataset.py` writes (under `data/datasets/l1_onestop/`):
 
-    interim/all_participants.csv  ->  features/model_ready.csv
-    hunters.csv           ->  L1_model_ready_hunters_features.csv
-    gatherers.csv         ->  L1_model_ready_gatherers_features.csv
+    all        features/model_ready.csv
+    hunters    features/model_ready_hunters.csv
+    gatherers  features/model_ready_gatherers.csv
 
-`load_features` builds a cache that is missing and rebuilds one on request, for
-any of the three. Rebuilding is not cheap -- the processed CSVs are 1.5-3 GB --
-so it only happens when the cache is absent or `rebuild=True`.
+`load_features` reads one. If it is missing, or on `rebuild=True`, it first
+builds it from that group's word, area and trial tables
+(`features.build.load_model_input`, then `save_model_ready`) and saves it in
+place. Building takes seconds.
 """
 
 from __future__ import annotations
@@ -34,34 +34,20 @@ __all__ = [
 
 
 class FeatureSource(NamedTuple):
-    """Where a frame is cached, and what it is built from if the cache is gone."""
+    """Which group a table holds, and where it is saved."""
 
-    processed: "str | None"  # the group facet to load, or None for all
-    features: Path  # the cached model-ready CSV
+    processed: "str | None"  # the group whose tables it is built from; None = everyone
+    features: Path  # the saved model-ready CSV
 
 
 def _features_path(name: str) -> Path:
-    """Where the cached model-ready table for one group lives.
-
-    **Corrected 2026-10-13.** This returned
-    `L1_model_ready_{name}_features.csv` at the dataset root -- the
-    pre-restructure name, which stage G renamed to `features/model_ready_*.csv`.
-    Nothing noticed because the miss is silent: `load_features` treats an absent
-    cache as "build it", so every call to `load_features("hunters")` was
-    rebuilding the group table from the 1.5 GB `hunters.csv` instead of reading a
-    20 MB cache that was sitting right there under a different name.
-    """
+    """Where the model-ready table for `name` ("all", "hunters", "gatherers") is saved."""
     ds = _dataset("l1")
     return ds.model_ready if name == "all" else ds.features / f"model_ready_{name}.csv"
 
 
-#: What each frame is built from, and where it is cached.
-#:
-#: The sources are the **grain tables**, not the broadcast ones. `load_model_input`
-#: reads `interest_areas` + `areas_answers` + `trials` and rejoins them, which is
-#: the same frame `all_participants.csv` held -- verified equivalent on all 121
-#: shared columns, 0 value / null / dtype differences -- at 4 s instead of 64 s,
-#: and without the 5.8 GB those three files took.
+#: The three tables `load_features` can load: which group each holds, and where
+#: it is saved.
 FEATURE_SOURCES: dict[str, FeatureSource] = {
     "all": FeatureSource(None, _features_path("all")),
     "hunters": FeatureSource("hunters", _features_path("hunters")),
@@ -74,17 +60,14 @@ GROUP_NAMES = ["hunters", "gatherers"]
 def load_features(
     name: str = "all", rebuild: bool = False, verbose: bool = True
 ) -> pd.DataFrame:
-    """Trial-level model-ready features for one of `FEATURE_SOURCES`.
+    """The model-ready table for `name` ("all", "hunters" or "gatherers"): one
+    row per trial, with every feature.
 
-    Parameters
-    ----------
-    name : "all", "hunters" or "gatherers".
-    rebuild : regenerate the cached CSV from the processed one even if it
-        exists. Reads a 1.5-3 GB CSV and takes a while.
-
-    Returns
-    -------
-    DataFrame, one row per (participant_id, TRIAL_INDEX).
+    A missing table is built and saved first; `rebuild=True` rebuilds and saves
+    it even if it exists. It is built with the same call as in
+    `scripts/build_dataset.py` and saved over the same file, and the "all" table
+    is the one the rest of the project reads, so a rebuild here replaces it for
+    every other analysis too.
     """
     if name not in FEATURE_SOURCES:
         raise KeyError(
@@ -93,7 +76,8 @@ def load_features(
     source = FEATURE_SOURCES[name]
 
     if rebuild or not source.features.exists():
-        # Imported lazily: building is rare and pulls in the modelling stack.
+        # Imported only when needed: building is rare and pulls in the
+        # feature-building code.
         from src.features.build import save_model_ready
 
         from src.features.build import load_model_input
@@ -114,12 +98,10 @@ def load_features(
 def load_all_participants_features(
     rebuild: bool = False, verbose: bool = True
 ) -> pd.DataFrame:
-    """The pooled frame -- every participant, both groups.
+    """The table for every participant, both groups: `load_features("all")`.
 
-    Named in full to pair with `load_group_features` and to stop colliding with
-    `features.build.load_model_ready`, which reads a different artifact: this one
-    is one of three group-scoped caches, that one is a dataset's model-ready
-    table. Renamed 2026-10-07 (stage D step 7).
+    This is `features/model_ready.csv`, the same file
+    `features.build.load_model_ready` reads by default.
     """
     return load_features("all", rebuild=rebuild, verbose=verbose)
 
@@ -127,12 +109,7 @@ def load_all_participants_features(
 def load_group_features(
     rebuild: bool = False, verbose: bool = True
 ) -> dict[str, pd.DataFrame]:
-    """Features per reading regime.
-
-    Returns
-    -------
-    {"hunters": DataFrame, "gatherers": DataFrame}
-    """
+    """The two groups' tables: `{"hunters": DataFrame, "gatherers": DataFrame}`."""
     return {
         name: load_features(name, rebuild=rebuild, verbose=verbose)
         for name in GROUP_NAMES

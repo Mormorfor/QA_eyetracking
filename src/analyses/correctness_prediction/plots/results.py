@@ -1,9 +1,9 @@
-"""Model-result tables and the one-call display helper.
+"""The scores of a fitted model, printed or as a table.
 
-Split out of the 1,717-line `answer_correctness_viz.py` in stage E (map section 6.4).
+`show_correctness_model_results` prints them. `correctness_results_to_summary_df` puts
+them in a table, one row per model, which `run.py` saves as `model_summary` and
+`report.py` collects to compare runs.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -38,13 +38,12 @@ def show_correctness_model_results(
     labels: Iterable[int] = (0, 1),
 ) -> None:
     """
-    Print per-model summary statistics for correctness prediction (is_correct = 0/1),
-    including:
-      - accuracy
-      - balanced accuracy
-      - precision / recall / F1 per class
-      - macro and weighted averages
-      - ROC-AUC / average precision if predicted probabilities are available
+    Print each model's scores on its test trials: the counts, accuracy, balanced
+    accuracy, precision / recall / F1 for each outcome with their macro and weighted
+    averages, and, when there are probabilities, ROC-AUC and average precision.
+
+    ROC-AUC and average precision are skipped without a message if computing them
+    fails, e.g. ROC-AUC when the test trials are all one outcome.
     """
     labels = list(labels)
 
@@ -130,6 +129,15 @@ def correctness_results_to_summary_df(
     run_identifier: str = "",
     trained_feature_cols_by_model: Optional[Mapping[str, Sequence[str]]] = None,
 ) -> pd.DataFrame:
+    """
+    The same scores as a table, one row per model, best balanced accuracy first.
+
+    Besides the scores, each row has `run_identifier`, the number of test trials,
+    precision / recall / F1 / support for each outcome, and the features the model
+    was trained on: `n_features`, and `trained_feature_cols` joined by " | ". Those
+    two are filled only for models named in `trained_feature_cols_by_model`.
+    ROC-AUC and average precision are left empty if computing them fails.
+    """
     labels = list(labels)
     trained_feature_cols_by_model = trained_feature_cols_by_model or {}
 
@@ -143,7 +151,6 @@ def correctness_results_to_summary_df(
             y_true, y_pred, labels=labels, average=None, zero_division=0
         )
 
-        # macro / weighted
         macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(
             y_true, y_pred, labels=labels, average="macro", zero_division=0
         )

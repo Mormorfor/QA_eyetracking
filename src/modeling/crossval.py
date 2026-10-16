@@ -5,15 +5,20 @@ trials and scored on each held-out regime. `evaluate.py` turns the per-fold
 scores into summary tables, and the tables can be saved and reloaded, so a run
 does not have to be repeated to look at it again.
 
-**Where the trial table comes from matters.** `evaluate_one_fold_on_regimes`
-either rebuilds the trial-level features separately for each regime's trials,
-or takes slices of a ready-made table (`trial_df`). Rebuilding is the safe
-one: the per-participant opening-scan features are then worked out only from
-the trials in that slice. A ready-made table built over the whole dataset has
-them worked out from all of a person's trials, held-out ones included, so the
-training rows carry information from the held-out ones. Passing `trial_df` is
-faster and leaks, so pass it on purpose or not at all. `pitfalls.md` §3 has
-more.
+**Where the features come from.** Each fold and regime is a slice of one
+ready-made trial table, `trial_df` (normally `load_model_ready()`).
+
+`rebuild_features=True` instead rebuilds the features from the word-level `df`,
+separately for each regime's trials. That changes only the features that
+summarise a participant over several trials: the opening-scan features
+(`breaks_pattern_*`, `dominance_score_*`, `strategy_distance_*`). In the
+ready-made table they are worked out from all of a person's trials; rebuilt,
+from that regime's trials only. The feature sets saved in
+`configs/feature_sets/` do not use them; `GENERAL_FEATURES` and `ALL_FEATURES`
+do. Every other feature describes one trial and comes out the same either way.
+
+Rebuilding is slower (one build per fold, regime and model) and uses Study 1's
+settings, so it is for Study 1 only.
 """
 
 from __future__ import annotations
@@ -80,9 +85,7 @@ class CrossValidationRunResult:
 # participant (`inference.wald_logreg_coef_cis`, which accounts for the L2
 # penalty and the class weights). They are used here because they need no
 # refitting: this runs once per fold and regime, where thousands of bootstrap
-# refits each time would be far too slow. The paper's coefficients do not come
-# from here; they come from one fit on all the data, with the clustered
-# bootstrap (`evaluate.collect_logreg_coef_summaries`).
+# refits each time would be far too slow. 
 def evaluate_one_fold_on_regimes(
     df: pd.DataFrame,
     *,
@@ -105,26 +108,14 @@ def evaluate_one_fold_on_regimes(
     """
     Fit on ``train_regime`` and score on each regime in ``eval_regimes``.
 
-    By default the trial-level features are rebuilt from ``df`` separately for
-    each regime, so the per-participant features (opening scan, dominance) are
-    worked out only from that regime's trials, and nothing leaks from the
-    held-out regimes into training. The rebuild uses Study 1's settings (it
-    joins Study 1's paragraph features), so it is for Study 1 only.
+    Each regime's trials are a slice of ``trial_fold_df``: this fold's part of
+    a ready-made trial table, one row per trial, with a ``regime`` column (as
+    made by :func:`attach_trial_level_fold_regimes`).
 
-    Per regime is not a preference, it is forced. The alternative -- work the
-    per-participant values out on the training rows and score held-out trials
-    against them -- cannot work for the new-person regimes, where the person
-    has no training trials at all. So the only options are "within the slice"
-    and "over the whole dataset", and the second leaks.
-
-    ``trial_fold_df`` skips the rebuild: pass this fold's slice of a
-    ready-made trial table (one row per trial, with a ``regime`` column, as
-    made by :func:`attach_trial_level_fold_regimes`), and each regime is a
-    slice of it. Much faster, and the same for per-trial features. But a table
-    built over the whole dataset has its per-participant features worked out
-    across regimes, so the no-leak guarantee does not hold for those. On Study
-    2 the difference is measurable: it changes ``breaks_pattern_no_q`` on 52 of
-    300 no-knowledge trials.
+    With ``trial_fold_df=None`` the trial-level features are instead rebuilt
+    from ``df`` (this fold's word-level frame, with a ``regime`` column)
+    separately for each regime. See the top of this module for when that
+    matters.
     """
 
     if eval_regimes is None:
@@ -189,6 +180,21 @@ def evaluate_one_fold_on_regimes(
     return results
 
 
+def _check_feature_source(trial_df: Optional[pd.DataFrame], rebuild_features: bool) -> None:
+    """The features come from exactly one place: `trial_df`, or the rebuild."""
+    if rebuild_features and trial_df is not None:
+        raise ValueError(
+            "rebuild_features=True rebuilds the features from `df`; do not also "
+            "pass `trial_df`."
+        )
+    if not rebuild_features and trial_df is None:
+        raise ValueError(
+            "Pass the ready-made trial table as `trial_df` (e.g. "
+            "load_model_ready()), or rebuild_features=True to rebuild the "
+            "features for each fold and regime."
+        )
+
+
 # ---------------------------------------------------------------------
 # 10-fold CV runner
 # ---------------------------------------------------------------------
@@ -214,16 +220,22 @@ def run_cross_validation_on_predefined_folds(
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
     trial_df: Optional[pd.DataFrame] = None,
+    rebuild_features: bool = False,
 ) -> CrossValidationRunResult:
     """
     Cross-validate on the fold files in one folder (one group's folds).
     The summary tables hold both accuracy and balanced accuracy.
 
-    ``trial_df`` is an optional ready-made trial table (e.g.
-    ``load_model_ready()``) used instead of rebuilding the features for each
-    fold and regime -- see :func:`evaluate_one_fold_on_regimes` for the
-    trade-off.
+    ``trial_df`` is the ready-made trial table each fold and regime is cut
+    from (e.g. ``load_model_ready()``). ``df`` is used to match trials to the
+    fold files' regimes, so it needs ``participant_id``, ``TRIAL_INDEX`` and
+    ``text_id``; the word-level table has them.
+
+    ``rebuild_features=True`` rebuilds the features from ``df`` for each fold
+    and regime instead; ``df`` must then be the word-level table, and
+    ``trial_df`` is left out. See the top of this module for when that matters.
     """
+    _check_feature_source(trial_df, rebuild_features)
     fold_dir = Path(fold_dir)
 
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
@@ -247,7 +259,7 @@ def run_cross_validation_on_predefined_folds(
         # which model consumes them.
         trial_fold_df = (
             None
-            if trial_df is None
+            if rebuild_features
             else attach_trial_level_fold_regimes(trial_df, df_fold, keep_cols=keep_cols)
         )
 
@@ -332,6 +344,7 @@ def run_cross_validation_on_combined_folds(
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
     trial_df: Optional[pd.DataFrame] = None,
+    rebuild_features: bool = False,
 ) -> CrossValidationRunResult:
     """
     Cross-validate on folds pooled from several folders -- e.g. hunters and
@@ -340,15 +353,13 @@ def run_cross_validation_on_combined_folds(
 
     For each fold number, that fold's file is read from every folder in
     ``fold_dirs`` and the files are stacked (e.g. the hunters' fold 0 plus the
-    gatherers' fold 0). ``df`` should be the matching pooled table.
+    gatherers' fold 0). ``df`` and ``trial_df`` should cover the same pooled
+    trials.
 
-    ``trial_df`` is an optional ready-made trial table (e.g.
-    ``load_model_ready()``) used instead of rebuilding the features for each
-    fold and regime -- see :func:`evaluate_one_fold_on_regimes` for the
-    trade-off.
-
-    Otherwise the same as :func:`run_cross_validation_on_predefined_folds`.
+    Otherwise the same as :func:`run_cross_validation_on_predefined_folds`,
+    including what ``df``, ``trial_df`` and ``rebuild_features`` are.
     """
+    _check_feature_source(trial_df, rebuild_features)
     per_fold_results: Dict[str, Dict[int, Dict[str, FoldRegimeEvaluationResult]]] = {
         model_name: {} for model_name in model_builders
     }
@@ -373,7 +384,7 @@ def run_cross_validation_on_combined_folds(
         # which model consumes them.
         trial_fold_df = (
             None
-            if trial_df is None
+            if rebuild_features
             else attach_trial_level_fold_regimes(trial_df, df_fold, keep_cols=keep_cols)
         )
 
@@ -496,6 +507,7 @@ def update_combined_cv_run(
     coef_seed: int = 42,
     coef_top_k: Optional[int] = None,
     trial_df: Optional[pd.DataFrame] = None,
+    rebuild_features: bool = False,
     save: bool = True,
     verbose: bool = True,
 ) -> CrossValidationRunResult:
@@ -518,6 +530,7 @@ def update_combined_cv_run(
             df=all_participants, out_dir=..., run_name="all_participants_six_models",
             fold_dirs=[HUNTERS_REFOLDED_DIR, GATHERERS_REFOLDED_DIR],
             target_col=Con.IS_CORRECT_COLUMN,
+            trial_df=load_model_ready(),
             remove_models=["total_answering_RT"],
             add_model_builders={"total_answering_RT_normalized": lambda: TrialLevelLogRegModel()},
             add_feature_cols_by_model={"total_answering_RT_normalized": cols},
@@ -527,9 +540,9 @@ def update_combined_cv_run(
     kept ones come back as summary rows only) -- enough for the summary and
     plotting helpers, which read ``summary_df``.
 
-    ``trial_df`` is passed on to :func:`run_cross_validation_on_combined_folds`.
-    Pass the same ready-made table the kept models were run with (or none, if
-    they were rebuilt), so the old and new rows are comparable.
+    ``trial_df`` and ``rebuild_features`` are passed on to
+    :func:`run_cross_validation_on_combined_folds`. Use the same ones the kept
+    models were run with, so the old and new rows are comparable.
     """
     out_dir = Path(out_dir)
     summary_path = out_dir / f"{run_name}_summary.csv"
@@ -566,6 +579,7 @@ def update_combined_cv_run(
             coef_seed=coef_seed,
             coef_top_k=coef_top_k,
             trial_df=trial_df,
+            rebuild_features=rebuild_features,
         )
         new_rows = cv_new.summary_df
 

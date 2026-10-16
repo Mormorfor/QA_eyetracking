@@ -275,7 +275,6 @@ QA_eyetracking_workspace/
 │   │   ├── scan_strategies/          + dominant_eye.py
 │   │   ├── answer_rt_comparison/     correct vs distractor asymmetry
 │   │   ├── last_visitation/
-│   │   ├── time_course/
 │   │   ├── correctness_associations/ thresholds + Fisher
 │   │   ├── correctness_prediction/
 │   │   │   ├── run.py · report.py
@@ -290,6 +289,7 @@ QA_eyetracking_workspace/
 │   │   ├── participant_clustering/   was answer_correctness/clusters/
 │   │   ├── feature_search/           column options, feature selection
 │   │   ├── text_answer_effects/      was mixed_text_answer_effects
+│   │   ├── time_course/              unfinished; moved from analyses/
 │   │   └── unlikely_analysis/
 │   │
 │   ├── experiment/       study-2 material generation
@@ -389,7 +389,7 @@ honest — `explorations/` ships, clearly labelled as not backing the paper.
 | `viz/visualisations_strategies.py`, `sequence_visualisations.py`, `visualisations_simplified_visits.py` | `analyses/scan_strategies/plots.py` |
 | `viz/visualisations_dominant_eye.py` | `analyses/scan_strategies/dominant_eye.py` |
 | `viz/visualisations_last_label.py` | `analyses/last_visitation/plots.py` |
-| `viz/visualisations_time_segments.py` | `analyses/time_course/plots.py` |
+| `viz/visualisations_time_segments.py` | `explorations/time_course/plots.py` |
 | `viz/visualisations_correctness_measures.py` | `analyses/correctness_associations/plots.py` |
 | `external/EyeBench/**` | `vendor/eyebench/**` — ✅ **done 2026-10-06** |
 | ~~`derived/external/EyeBench/runner.py`~~ → ~~`features/paragraph/eyebench.py`~~ | **superseded by Diana's ruling (2026-10-06): `vendor/eyebench/runner.py`.** Everything EyeBench in one place — see the note below |
@@ -899,7 +899,7 @@ Current topic → new home:
 | `correctness_measures` (+ the five `correctness_by_*` data folders), `matching_correctness`, `total_answering_RT_normalized` | `correctness_associations/` |
 | `answer_correctness` | `correctness_prediction/` |
 | `last_label_before_confirm` | `last_visitation/` |
-| `time_segments` | `time_course/` |
+| `time_segments` | `explorations/time_course/` |
 | `texts_to_answers` | `explorations/text_answer_effects/` |
 | `feature_selection` | `explorations/feature_search/` |
 | `participant_similarity` | `explorations/participant_clustering/` |

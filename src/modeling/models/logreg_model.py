@@ -34,9 +34,7 @@ from src.modeling.inference import get_coef_summary, bootstrap_logreg_coef_cis, 
 #
 # The markers below do not decide what is filled. They separate the NaN we can
 # EXPLAIN (an area nobody looked at) from any we cannot: a NaN anywhere else
-# still becomes 0, but with a warning. Background: docs/pitfalls.md section 2.
-# Revisit this if a question-area feature enters the model: the question goes
-# unread on about 30% of trials.
+# still becomes 0, but with a warning. 
 EXCLUDE_CONVENTION_MARKERS: tuple[str, ...] = (
     "pupil_size",
     "first_fixation_duration",

@@ -1,3 +1,25 @@
+"""Does behaviour change once the chosen answer has been encountered? Unfinished.
+
+The idea: split each trial at the participant's first encounter with the answer
+they went on to choose, and compare the parts before, during and after it. Four
+measurements are compared across the parts -- mean dwell time per word, mean
+fixation count per word, skip rate (the share of words never looked at) and the
+number of word rows -- as one bar chart per measurement and group, each saved
+with a summary table under `reports/explorations/time_course/`. Run from
+`notebooks/exploration/time_course.ipynb`.
+
+Not part of the paper, and not finished: **the split does not yet follow time.**
+It goes by the order of the rows, and the word table lists a trial's words by
+`IA_ID`: the question first, then the answers at the top, left, right and bottom
+(on Study 1, in all but 10 trials). So "before" is the question and the answers
+that come before the chosen one in that order, "during" the chosen answer's own
+words, and "after" the answers that come after it (none, when the chosen answer
+is at the bottom). On
+Study 1, in 24% of trials a word counted as "after" was first looked at before
+the chosen answer was. Splitting by time would need each trial's fixations in
+time order, from the fixation report.
+"""
+
 import os
 from typing import Optional
 
@@ -12,7 +34,7 @@ from src.features.scope import split_participant_groups
 
 
 # ---------------------------------------------------------------------------
-# Time-Segment Analyses (before / during / after selected answer first encountered)
+# Segments: before / during / after the chosen answer
 # ---------------------------------------------------------------------------
 
 def _assign_time_segment(
@@ -22,18 +44,8 @@ def _assign_time_segment(
     segment_col: str = Con.SEGMENT_COLUMN,
 ) -> pd.Series:
     """
-    Helper: given all rows for one (participant, trial), assign a time segment
-    ('before', 'during', 'after') based on when the selected answer is fixated.
-
-    Logic:
-      - area_col contains e.g. 'question', 'answer_A', 'answer_B', ...
-      - selected_col contains 'A' / 'B' / 'C' / 'D'
-      - 'before': all rows before first fixation on the selected answer
-      - 'during': all fixations on the selected answer from its first
-                  occurrence onwards
-      - 'after' : only NON-selected areas from the first non-selected
-                  fixation after the selected answer onwards
-                  (later revisits to the selected answer stay 'during')
+    Label one trial's rows "before", "during" or "after", by their order (the
+    rule is in `add_time_segment_column`).
     """
     area = group[area_col].astype(str).str.lower().to_numpy()
     selected = str(group[selected_col].iloc[0]).lower()
@@ -43,7 +55,7 @@ def _assign_time_segment(
     n = len(group)
     out = np.full(n, "before", dtype=object)
 
-    # No fixation on the selected answer at all -> everything 'before'
+    # The chosen answer has no rows: the whole trial is "before".
     if not mask.any():
         return pd.Series(out, index=group.index, name=segment_col)
 
@@ -51,15 +63,15 @@ def _assign_time_segment(
 
     out[first_pos:] = "during"
 
-    # Look for the first NON-target after that
+    # The first row after that which is not on the chosen answer
     after_first = mask[first_pos + 1:]
     non_target_rel = np.flatnonzero(~after_first)
 
     if non_target_rel.size > 0:
         interruption = first_pos + 1 + non_target_rel[0]
 
-        # From interruption onwards, mark ONLY non-selected areas as "after".
-        # Any later visits to the selected answer remain "during".
+        # From there on, rows not on the chosen answer are "after"; rows on the
+        # chosen answer stay "during".
         after_range = np.arange(interruption, n)
         non_target_after = after_range[~mask[interruption:]]
         out[non_target_after] = "after"
@@ -77,27 +89,20 @@ def add_time_segment_column(
     segment_col: str = Con.SEGMENT_COLUMN,
 ) -> pd.DataFrame:
     """
-    Add a SEGMENT_COLUMN column to a row-level DF with IA features.
+    Add a `time_segment` column ("before", "during", "after") to a table with
+    several rows per trial, such as the word table.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Row-level data (one row per IA).
-    group_cols : tuple[str]
-        Columns that uniquely identify a trial, e.g.
-        (PARTICIPANT_ID, TRIAL_ID).
-    area_col : str
-        Column with area labels such as 'question', 'answer_A', ...
-    selected_col : str
-        Column with the selected answer label ('A','B','C','D').
-    segment_col : str
-        Name of the resulting time-segment column.
+    Within each trial (`group_cols`), the rows are taken in the order they come
+    in: rows before the chosen answer's first row are "before", every row of the
+    chosen answer is "during", and every other row after that first one is
+    "after". The chosen answer is `answer_<letter>` in `area_col`, with the
+    letter from `selected_col`; a trial whose chosen answer has no rows is all
+    "before". The split follows row order, not time -- see the module
+    docstring.
 
-    Returns
-    -------
-    df_out : DataFrame
-        Copy of df with an added categorical column `segment_col`
-        taking values in ['before', 'during', 'after'].
+    Returns a copy with the column added, as an ordered category. Stops with
+    an error on an empty frame. A frame holding a single trial fails too, with
+    a KeyError (see the comment in the code).
     """
     df_out = df.copy()
 
@@ -108,9 +113,9 @@ def add_time_segment_column(
             "for an empty frame."
         )
 
-    # groupby(...).apply returns a DataFrame under pandas 3 when the callback
-    # hands back a frame, so take the segment column off it explicitly rather
-    # than assigning the whole thing to one column.
+    # With several trials, pandas returns one Series covering every row. With a
+    # single trial it returns a one-row DataFrame whose columns are the row
+    # labels, so the column lookup below fails with a KeyError.
     segments = (
         df_out
         .groupby(list(group_cols), group_keys=False)
@@ -153,45 +158,19 @@ def _plot_time_segment_bar(
     title: Optional[str] = None,
 ):
     """
-    Generic helper to make time-segment barplots.
+    Bar chart of one measurement across the three segments, for one group.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Row-level data with a time-segment column (SEGMENT_COLUMN).
-    value_col : str or None
-        If not None, we aggregate the mean of this column per
-        (participant, trial, segment). If None, we use the group size
-        (.size()) as the metric.
-    metric_col_name : str
-        Name of the metric column in the aggregated DataFrame.
-    metric_label : str
-        Label to show on the y-axis and in the title.
-    id_col : str
-        Participant ID column.
-    trial_index_col : str
-        Trial ID column.
-    segment_col : str
-        Column indicating the time segment (e.g. SEGMENT_COLUMN).
-    transform : callable or None
-        Optional function applied to df before aggregation
-        (e.g., to add a 'skipped' column).
-    subdir : str
-        Folder under reports/time_course/{figures,tables}/ for this metric.
-    figsize : tuple
-        Figure size.
-    h_or_g : str
-        Group label for titles/filenames ('hunters' / 'gatherers').
-    save : bool
-        If True, save the figure as PNG.
-    title : str or None
-        Custom title; if None, a default is used.
+    For each trial and segment, takes the mean of `value_col` over the
+    segment's rows, or the number of rows when `value_col` is None. Each bar is
+    the mean over trials, with a 95% bootstrap interval that treats trials as
+    independent. A trial with no rows in a segment counts as 0 in the row count,
+    and is left out of that segment's bar for the other measurements.
 
-    Returns
-    -------
-    fig : Figure
-    summary : DataFrame
-        Mean, SD, and N per segment.
+    `transform` is applied to a copy of `df` first (e.g. to add a column). Saves
+    the figure and a summary table (mean, SD and number of trials per segment)
+    under `reports/explorations/time_course/`, in `subdir` (default: the metric
+    name).
+    Returns `(fig, summary)`.
     """
     order = ["before", "during", "after"]
 
@@ -240,7 +219,7 @@ def _plot_time_segment_bar(
 
     save_output(
         fig,
-        analysis="time_course",
+        analysis="explorations/time_course",
         plot="time_segment_bar",
         tables={"summary": summary},
         save=save,
@@ -268,7 +247,8 @@ def plot_time_segment_mean_dwell(
     title: Optional[str] = None,
 ):
     """
-    Mean dwell time (per trial) by time segment ('before', 'during', 'after').
+    Mean dwell time per word in each segment, averaged over trials. Words never
+    looked at count as 0.
     """
     return _plot_time_segment_bar(
         df=df,
@@ -300,13 +280,11 @@ def plot_time_segment_ia_row_count(
     title: Optional[str] = None,
 ):
     """
-    Average number of interest-area rows per time segment.
+    Number of word rows in each segment, averaged over trials.
 
-    **Not the collapsed-sequence length.** This counts IA rows -- one per word, per
-    area, per trial -- falling in each segment. `seq_len` in the model-ready table is
-    the number of *area transitions* in a trial, a different quantity from a different
-    builder. Named `sequence_length` until 2026-10-13, which abbreviated to `seq_len`
-    in the output path and invited exactly that confusion.
+    This counts the words in the segment, looked at or not, so on the word table
+    it depends only on the text on screen and on which answer was chosen. It is
+    not `seq_len`, the number of visits in the trial table.
     """
     return _plot_time_segment_bar(
         df=df,
@@ -340,7 +318,7 @@ def plot_time_segment_fixation_count(
     title: Optional[str] = None,
 ):
     """
-    Mean fixation count (per trial) by time segment.
+    Mean fixation count per word in each segment, averaged over trials.
     """
     return _plot_time_segment_bar(
         df=df,
@@ -373,18 +351,19 @@ def plot_time_segment_skip_rate(
     title: Optional[str] = None,
 ):
     """
-    Mean skip rate (proportion of IA rows with dwell == 0) by time segment.
+    Skip rate in each segment: the share of the segment's words with a dwell
+    time of 0, averaged over trials.
     """
     def _add_skipped(d: pd.DataFrame) -> pd.DataFrame:
         d = d.copy()
-        # IA-level flag for time-segment computation
+        # 1 if the word was never looked at
         d[Con.SKIPPED_COLUMN] = (d[dwell_col] == 0).astype(int)
         return d
 
     return _plot_time_segment_bar(
         df=df,
         value_col=Con.SKIPPED_COLUMN,
-        metric_col_name=Con.SKIP_RATE,          # <- existing "skip_rate"
+        metric_col_name=Con.SKIP_RATE,
         metric_label="Skip rate (proportion)",
         id_col=id_col,
         trial_index_col=trial_index_col,
@@ -414,25 +393,13 @@ def run_all_time_segment_plots(
     to_paper=None,
 ) -> dict:
     """
-    Convenience wrapper:
-    - add SEGMENT_COLUMN to hunters, gatherers, and all participants
-    - plot:
-        * mean dwell time by segment
-        * average sequence length by segment
-        * mean fixation count by segment
-        * mean skip rate by segment
+    Add the segments and draw the four charts (mean dwell time, word-row count,
+    mean fixation count, skip rate), for hunters, gatherers and all participants
+    together (only the last with `split_groups=False`).
 
-    Returns
-    -------
-    results : dict
-        results["hunters"] / results["gatherers"] / results["all_participants"] each contain:
-            {
-              "df": df_with_segment,
-              "mean_dwell": (fig, summary_df),
-              "segment_ia_row_count": (fig, summary_df),
-              "fixation_count": (fig, summary_df),
-              "skip_rate": (fig, summary_df),
-            }
+    Returns `{group: {...}}`, each with `df` (the frame with the segment column)
+    and a `(fig, summary)` pair under "mean_dwell", "segment_ia_row_count",
+    "fixation_count" and "skip_rate".
     """
     results = {}
 
@@ -449,8 +416,6 @@ def run_all_time_segment_plots(
             selected_col=selected_col,
             segment_col=segment_col,
         )
-
-        # Put each group in its own folder to prevent overwrites
 
         md_fig, md_summary = plot_time_segment_mean_dwell(
             df_seg,

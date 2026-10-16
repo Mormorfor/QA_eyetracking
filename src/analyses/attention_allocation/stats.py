@@ -1,15 +1,16 @@
-"""Tests behind the attention-allocation figures.
+"""Mixed models behind the attention-allocation significance heatmaps.
 
-`mixed_area_comparisons` is the pairwise area contrast (statsmodels MixedLM,
-participant as a random effect) -- **paper code**, settled 2026-09-05. Note this is
-mixed-effects *difference statistics*, not mixed-effects *modeling*: the Julia and R
-backends that fit the outcome live in `explorations/mixed_models/` and are a
-different thing with a colliding name.
+Among trials where the participant chose a given answer, do the four answers
+differ on a per-area measurement (dwell time, skip rate, pupil size, ...)?
+`mixed_area_analysis` answers this for one measurement and one set of trials: a
+mixed model (a regression with random intercepts for participant and trial) gives
+each answer's mean, and every pair of answers is tested, Holm-corrected.
+`run_all_area_mixed_models` repeats it for every measurement, chosen answer and
+group, and saves a significance heatmap (drawn in `plots.py`) with its tables.
 
-`preference_correctness_tests` briefly landed here and moved on to
-`correctness_associations/stats.py`: its one caller is that analysis's
-`corr_by_matching` figure, and leaving it here would have made one analysis import
-another."""
+This only compares the answers with each other. Predicting correctness with a
+mixed model is a separate thing, kept in `explorations/mixed_models/`.
+"""
 
 from __future__ import annotations
 
@@ -27,13 +28,10 @@ from scipy.stats import fisher_exact
 from src.config import columns as C
 
 
-# ==========================================================================
-# from src/stats/mixed_area_comparisons.py
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# One measurement, one set of trials
+# ---------------------------------------------------------------------------
 
-## Would be ideal to transition to LMER, but I struggle with pairwise comparisons there.
-## So for now we keep using statsmodels MixedLM, even thought text ids are not treated exactly correctly
-## (or maybe its even better this way?)
 def mixed_area_analysis(
     df: pd.DataFrame,
     stat_col: str = Con.MEAN_DWELL_TIME,
@@ -41,23 +39,30 @@ def mixed_area_analysis(
     area_col: str = Con.AREA_LABEL_COLUMN,
     alpha: float = 0.05,
 ) -> Tuple[object, pd.DataFrame, pd.DataFrame]:
-    """
-    Mixed-effects model: area effect on a given metric, with random intercepts
-    for participants and texts.
+    """Fit one measurement on the four answer areas, and test every pair of answers.
 
-    Model:
-        stat_col ~ 0 + C(area_col)
-        random intercept for participant_id
-        variance component for text_id
-        (≈ stat ~ 0 + area + (1|participant) + (1|text))
+    `df` holds the trials to compare (usually those where one answer was chosen).
+    It may be the word-level table: it is reduced to one row per trial and area
+    first, since the measurement is the same on every word of an area. The model:
 
-    Returns
-    -------
-    result : statsmodels MixedLMResults
-    fe_table : DataFrame
-        Per-area fixed effect estimates and CIs.
-    pairwise : DataFrame
-        Pairwise comparisons (Holm-adjusted p-values).
+        stat_col ~ 0 + area,  with a random intercept per participant
+                              and one per text within each participant
+
+    statsmodels cannot cross random effects, so the text intercept is estimated
+    separately inside each participant. A participant reads each text once, so in
+    effect it is an intercept per trial: it allows for a trial's four answers being
+    alike, but it is not a text effect shared across participants.
+
+    Only the four answers are compared: a question row, if present, is dropped, and
+    so is any area with no value on `stat_col` (an answer nobody looked at has no
+    first-fixation duration or pupil size), without a message.
+
+    Returns (result, fe_table, pairwise):
+      result    the fitted statsmodels model
+      fe_table  each answer's estimate, with a (1 - alpha) confidence interval
+      pairwise  one row per pair of answers: the difference (first minus second),
+                its standard error, t and p, the Holm-adjusted p over this fit's
+                pairs (`p_adj_holm`), and "★" in `sig` where that is below `alpha`
     """
 
     dedup = (
@@ -83,13 +88,9 @@ def mixed_area_analysis(
     dedup = dedup.dropna(subset=[stat_col, area_col, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN]).copy()
     dedup = dedup.reset_index(drop=True)
 
-    # pandas 3 reads text columns as StringDtype, and patsy cannot interpret that
-    # as a dtype -- `C(area_label)` raises
-    # `TypeError: Cannot interpret '<StringDtype(na_value=nan)>' as a data type`
-    # before any model is fitted. Under pandas 2 these arrived as `object`, which
-    # is what patsy wants, so this restores the dtype the formula was written
-    # against rather than changing the model. Cast the three columns the formula
-    # and the grouping actually use, not the whole frame.
+    # patsy cannot read pandas' string dtype: `C(area_label)` raises a TypeError
+    # before any model is fitted. So the three columns the formula and the grouping
+    # use are cast to `object`. This changes the dtype only, not the model.
     for _col in (area_col, Con.PARTICIPANT_ID, Con.TEXT_ID_COLUMN):
         dedup[_col] = dedup[_col].astype(object)
 
@@ -189,11 +190,17 @@ def run_models_for_group(
     to_paper=None,
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
 ) -> Dict[str, Dict[str, dict]]:
-    """Fit the per-area mixed models and write figure + both tables together.
+    """Fit `mixed_area_analysis` for every measurement and chosen answer in one
+    group, and save a significance heatmap with its two tables for each fit.
 
-    Before T1.3 the figure and the tables were on separate flags
-    (``save_heatmaps=True`` but ``save_tables=False``), which is how the 108
-    heatmaps came to have backing CSVs only when someone remembered to ask.
+    The question's rows are removed first, and each fit uses only the trials where
+    that answer (A, B, C or D) was chosen. `metrics` defaults to the model's list
+    of per-area measurements (pupil size z-scored). Each fit's tables are printed,
+    and its heatmap is saved with `fixed_effects` and `pairwise` through
+    `save_output`, under reports/attention_allocation/ in a subfolder per
+    measurement.
+
+    Returns results[metric][answer] = {"model", "fe_table", "pairwise"}.
     """
 
     if metrics is None:
@@ -282,17 +289,16 @@ def run_all_area_mixed_models(
     to_paper=None,
     trial_cols=("participant_id", "text_id", "TRIAL_INDEX"),
 ) -> Dict[str, Dict[str, Dict[str, dict]]]:
-    """
-    Convenience wrapper to run models for both hunters and gatherers.
+    """Run `run_models_for_group` for hunters, for gatherers, and for both together.
 
-    Returns:
-      {
-        "hunters":   <results dict from run_models_for_group>,
-        "gatherers": <results dict from run_models_for_group>,
-      }
+    Unlike the other runners, this takes the two groups' frames separately. The
+    tables of all the fits are pooled into one long table each (fixed effects,
+    pairwise), with the group, measurement and chosen answer as columns.
+
+    Returns {"hunters": ..., "gatherers": ..., "all_participants": ...}, each as
+    `run_models_for_group` returns it.
     """
-    # A sweep over group x metric x selected: up to 120 figures. Their pairwise
-    # tables pool into one long table -- see plot_output.collect_tables.
+    # Up to 120 figures: 3 groups x 10 measurements x 4 chosen answers.
     with collect_tables("attention_allocation", plots=["area_pairwise_significance"]):
         hunters_res = run_models_for_group(
             hunters,
@@ -316,10 +322,6 @@ def run_all_area_mixed_models(
         all_participants = pd.concat([hunters, gatherers], ignore_index=True)
         all_participants_res = run_models_for_group(
             all_participants,
-            # Underscored, like every other group name in the project. This was
-            # "all participants" until 2026-09-27 and was the only call site
-            # spelling it with a space, which split one group across two names in
-            # manifest.json (the filenames agreed, because slug() normalises).
             group_name="all_participants",
             metrics=metrics,
             alpha=alpha,

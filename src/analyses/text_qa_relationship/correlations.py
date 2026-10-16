@@ -1,20 +1,21 @@
 """
 The correlation maps, and the test of each cell against 0.
 
-Two estimands, and they are not the same number:
+Two different quantities, which give different numbers:
 
 `pooled_corr_map`
-    plain `df.corr()` over all trials. Mixes within- and between-participant
-    variance -- part of it is just "some people read slowly everywhere" -- and
-    its textbook p-value assumes ~19k independent rows when there are only 360
-    participants.
+    plain `df.corr()` over all trials. It mixes differences within a person
+    with differences between people -- part of it is just "some people read
+    slowly everywhere" -- and its textbook p-value would treat ~19k trials as
+    independent when there are only 360 participants.
 
 `corr_map_stats`
-    correlate within each participant, Fisher-z the result, and test the 360 z
-    values against 0 with a one-sample t-test. This is the within-participant
-    association, and here it runs roughly half the pooled value.
+    correlate within each participant, turn each r into a Fisher z, and test
+    the 360 z values against 0 with a one-sample t-test. This is the
+    association within a person. On Study 1 it is about a third of the pooled
+    value.
 
-Reading times are per-word RTs with skew up to ~40, so `method="spearman"` is
+Reading times are strongly right-skewed, so Spearman (`method="spearman"`) is
 the default; Pearson on these columns is driven by a handful of outlier trials.
 """
 
@@ -45,11 +46,12 @@ def pooled_corr_map(
     col_cols: Sequence[str],
     method: str = DEFAULT_METHOD,
 ) -> pd.DataFrame:
-    """Cross-correlation block (rows x cols) pooled over all trials."""
+    """The map over all trials together: `row_cols` against `col_cols`."""
     cols = list(dict.fromkeys([*row_cols, *col_cols]))
     return df[cols].corr(method=method).loc[list(row_cols), list(col_cols)]
 
 
+# Fisher's z-transformation of a correlation, explained:
 # https://blogs.sas.com/content/iml/2017/09/20/fishers-transformation-correlation.html
 def fisher_z_by_cluster(
     df: pd.DataFrame,
@@ -59,18 +61,16 @@ def fisher_z_by_cluster(
     method: str = DEFAULT_METHOD,
     min_trials: int = 20,
 ) -> pd.DataFrame:
-    """Fisher-z transformed within-participant correlation for every map cell.
+    """Each participant's correlation in every cell of the map, as a Fisher z.
 
-    Returns
-    -------
-    DataFrame
-        index   = cluster id (participant)
-        columns = MultiIndex (row_col, col_col), one per heatmap cell
-        values  = arctanh(r) computed within that participant's trials
+    Returns one row per participant (`cluster_col`) and one column per cell,
+    keyed `(row_col, col_col)`; each value is arctanh(r) over that participant's
+    trials.
 
-    Participants with fewer than `min_trials` trials, or with no variance in one
-    of the two columns, get NaN for the affected cells; the tests downstream drop
-    them pairwise.
+    Participants with fewer than `min_trials` trials are left out. A participant
+    with no variation in one of a cell's two columns (e.g. one who never looked
+    at that answer) gets NaN in that cell, and the tests leave them out of that
+    cell only.
     """
     cols = list(dict.fromkeys([*row_cols, *col_cols]))
     sub = df[[cluster_col, *cols]].copy()
@@ -78,7 +78,7 @@ def fisher_z_by_cluster(
     sizes = sub.groupby(cluster_col)[cols[0]].size()
     sub = sub[sub[cluster_col].isin(sizes.index[sizes >= min_trials])]
 
-    # One correlation matrix per participant, then slice out the cross-block.
+    # One correlation matrix per participant; only its rows-by-columns part is kept.
     per_cluster = sub.groupby(cluster_col)[cols].corr(method=method)
 
     records = {}
@@ -104,27 +104,29 @@ def corr_map_stats(
     alpha: float = 0.05,
     add_wilcoxon: bool = True,
 ) -> dict:
-    """Per-cell test of H0: correlation = 0, with the participant as the unit.
+    """Test every cell of the map against 0, with the participant as the unit.
 
-    Parameters
-    ----------
-    row_cols, col_cols : columns forming the rows / columns of the map.
-    method : "spearman" (default, robust to the RT skew) or "pearson".
-    adjust : any `statsmodels.stats.multitest.multipletests` method, or None.
-        Applied across all `len(row_cols) * len(col_cols)` cells of the map.
-    add_wilcoxon : also run a signed-rank test on the z values, as a check that
-        the t-test is not being carried by a skewed z distribution.
+    Per cell: each participant's Fisher z (`fisher_z_by_cluster`), then a
+    one-sample t-test of those z values against 0. A cell with fewer than 3
+    participants gets NaN throughout. `adjust` corrects the p-values over all
+    cells of the map together (Benjamini-Hochberg by default; None for no
+    correction). `add_wilcoxon` also runs a signed-rank test on the same z
+    values, to check that the t-test is not carried by a skewed z distribution.
 
-    Returns
-    -------
-    dict with
-        "r"           : DataFrame, tanh(mean z) -- the participant-level estimate
-        "r_pooled"    : DataFrame, the pooled r for comparison
-        "ci_low/high" : DataFrame, 95% CI on r (t-based on z, back-transformed)
-        "t","p","p_adj","n","d" : DataFrames
-        "sig"         : boolean DataFrame, p_adj < alpha
-        "table"       : tidy long-format DataFrame of all of the above
-        "z"           : per-participant z values, to feed `comparisons`
+    Returns a dict. These are frames shaped like the map:
+        "r"                 tanh(mean z): the participant-level correlation
+        "r_pooled"          the pooled r, for comparison (`pooled_corr_map`)
+        "ci_low", "ci_high" the (1 - alpha) interval: a t-interval on the mean z,
+                            turned back into r
+        "t", "p", "p_adj"   the t-test, and p after correction
+        "n"                 participants with a value in the cell
+        "d"                 Cohen's d: mean z / SD of z
+        "sig"               p_adj < alpha
+    and also
+        "table"             all of the above in long form, one row per cell,
+                            with the stars (and the Wilcoxon p-values)
+        "z"                 the per-participant z values, for `comparisons`
+        "method", "adjust", "alpha"   the settings used
     """
     z = fisher_z_by_cluster(
         df,

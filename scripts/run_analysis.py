@@ -50,9 +50,6 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
     "last_visitation": [
         ("src.analyses.last_visitation.plots", "run_all_last_label_before_confirm_plots"),
     ],
-    "time_course": [
-        ("src.analyses.time_course.plots", "run_all_time_segment_plots"),
-    ],
 }
 
 # Analyses that exist but have no single-call runner, with the reason. Listed rather than

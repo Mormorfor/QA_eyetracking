@@ -1,9 +1,17 @@
-"""Per-person accuracy of the leave-one-trial-out runs.
+"""How well each participant's own model predicts their answers.
 
-One row per participant: how many trials they contributed, how those split by
-outcome, and how well the person-specific model scored them (raw and balanced
-accuracy). Balanced accuracy is ``nan`` for participants whose held-out trials
-carry a single outcome class.
+Each participant has a model of their own, and each of their trials is predicted
+by a version trained on their other trials only (one trial left out at a time,
+"LOO"; see `loo_runs`). This module gives one row per participant -- how many
+trials were scored, how many of those were answered correctly and wrongly, and the
+share the model got right, raw and balanced -- and a histogram of those scores.
+
+Balanced accuracy averages how often the model is right on correct answers and how
+often on wrong ones, so a model that calls every answer correct scores 0.5, however
+few wrong answers the person gave. It is NaN when all of a person's scored trials
+have the same outcome. That happens to someone with a single wrong answer: with
+that trial left out, only correct answers remain to train on, so it is never
+scored.
 """
 
 from __future__ import annotations
@@ -28,11 +36,12 @@ def per_person_summary(
     *,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """One row per participant: trial counts + leave-one-out accuracies.
+    """One row per participant: trial counts, and the share their model got right.
 
-    Sorted by balanced accuracy (best first). Returns columns
-    ``participant_id, n_trials, n_correct_trials, n_wrong_trials, accuracy,
-    balanced_accuracy``.
+    The counts are of the scored trials: all of a person's trials, except any whose
+    removal would leave only one outcome to train on. Columns: `participant_id`,
+    `n_trials`, `n_correct_trials`, `n_wrong_trials`, `accuracy`,
+    `balanced_accuracy`. Best balanced accuracy first, NaN last.
     """
     rows = []
     for pid, res in results_by_pid.items():
@@ -74,8 +83,13 @@ def plot_per_person_accuracy_hist(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Distribution of each accuracy metric across participants, with the mean
-    and the 0.5 chance line marked. Returns ``(fig, saved_paths)``."""
+    """Histogram of each accuracy across participants, with its mean and a line at 0.5.
+
+    The 0.5 line is labelled chance, which holds for balanced accuracy only: for raw
+    accuracy, calling every answer correct already scores the share of correct
+    answers (about 0.84 on Study 1). Saves the summary table with the figure.
+    Returns `(fig, saved)`, `saved` being what `save_output` wrote.
+    """
     colors = [POS_COLOR, NEG_COLOR]
     fig, axes = plt.subplots(1, len(metrics), figsize=(6 * len(metrics), 4))
     axes = np.atleast_1d(axes)

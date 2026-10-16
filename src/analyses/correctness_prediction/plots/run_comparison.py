@@ -1,13 +1,18 @@
-"""Comparing saved runs against each other, including the staged presentation chart.
+"""Comparing models: saved single-split runs, and cross-validated models.
 
-`collect_correctness_run_reports` **scans a directory** rather than taking a curated
-list, so anything ever saved under that folder joins the comparison figure. Check the
-folder before generating a final figure.
+* `collect_correctness_run_reports` and `plot_correctness_run_comparison` -- the
+  summary tables saved by `run.py` bundle runs, stacked and drawn as one bar chart of
+  a score. `report.py` wraps the two.
+* `plot_cv_model_comparison_staged` -- cross-validated models compared on one regime,
+  with intervals, drawn as frames that reveal one bar at a time, for slides.
 
-Split out of the 1,717-line `answer_correctness_viz.py` in stage E (map section 6.4).
+`collect_correctness_run_reports` **scans a folder** rather than taking a list of
+runs, so every run ever saved under it joins the comparison. Check the folder before
+making a final figure.
+
+`_format_comparison_labels` turns names into display labels, here and in
+`coefficients.py`.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -38,6 +43,7 @@ from src.lib.plotting.output import save_output
 
 
 def _infer_model_family(model_name: str) -> Optional[str]:
+    """The model family from a model's name: "logreg", "glmer", "julia" or None."""
     if not isinstance(model_name, str):
         return None
 
@@ -61,40 +67,17 @@ def collect_correctness_run_reports(
     ascending: bool = False,
 ) -> pd.DataFrame:
     """
-    Collect correctness run summary CSVs from one or more directories.
+    Read every run summary under `report_dirs` and stack them into one table.
 
-    Parameters
-    ----------
-    report_dirs:
-        One folder or a list of folders that contain run report CSVs.
-        Example:
-            "reports/report_data/answer_correctness/logreg"
-            [
-                "reports/report_data/answer_correctness/logreg",
-                "reports/report_data/answer_correctness/glmer",
-                "reports/report_data/answer_correctness/julia",
-            ]
+    `report_dirs` is one folder or several, e.g.
+    `reports/correctness_prediction/tables/both/logreg`. `filename` is the pattern
+    the files must match: `save_output` names a run summary
+    `model_summary__<run and model>__summary.csv`. Subfolders are searched too
+    unless `recursive=False`. Stops with an error if no file matches.
 
-    filename:
-        Glob for the run-summary CSVs. Default "model_summary*__summary.csv",
-        which is what `save_output` writes: the stem is `model_summary` plus the
-        run/model facets, and `__summary` is the `tables=` key. The pre-T1.3
-        layout wrote a bare `model_summary.csv` one directory per run, so a
-        plain filename no longer matches anything.
-
-    recursive:
-        If True, searches all nested subfolders.
-
-    sort_by:
-        Column to sort the final table by.
-
-    ascending:
-        Sort direction.
-
-    Returns
-    -------
-    pd.DataFrame
-        Combined dataframe of all found run summaries.
+    Each row gains `source_csv`, `source_folder` and `model_family` (from the
+    model's name). The main columns come first, and the rows are sorted by
+    `sort_by`.
     """
     if isinstance(report_dirs, (str, Path)):
         report_dirs = [report_dirs]
@@ -172,66 +155,19 @@ def plot_correctness_run_comparison(
     **facets,
 ):
     """
-    Create a horizontal bar plot comparing runs by balanced accuracy.
+    Horizontal bar chart of `metric_col` for each row of `summary_df` (the table from
+    `collect_correctness_run_reports`), highest at the top.
 
-    Parameters
-    ----------
-    summary_df:
-        Combined dataframe returned by collect_correctness_run_reports().
+    Rows with no value for the metric are left out; `top_n` keeps only the best.
+    Each bar's label is `label_col` if given, else built from `label_fields` (any of
+    "run_identifier", "model_family", "n_features", joined by " | "). To tidy the
+    labels, `label_replacements` (find -> replace) is applied first, then
+    `clean_labels` turns underscores into spaces; `label_split_on_sep` puts each
+    "|"-separated part on its own line, otherwise `label_wrap` wraps them. The
+    other arguments style the axes, fonts and value labels.
 
-    metric_col:
-        Metric to plot. Default: balanced_accuracy
-
-    label_col:
-        Column to use as bar labels.
-        If None, a readable label is constructed automatically.
-
-    top_n:
-        Optionally only plot the top N runs.
-
-    ytick_fontsize:
-        Font size for the y-axis (run label) tick text. If None, uses the
-        matplotlib default.
-
-    label_wrap:
-        If set, wrap each y-axis label to this maximum character width,
-        breaking onto multiple lines.
-
-    label_split_on_sep:
-        If True, put each "|"-separated part of the label on its own line.
-        Takes precedence over label_wrap when the label contains "|".
-
-    label_fields:
-        Which fields (and in what order) make up the auto-generated label
-        when label_col is None. Choose from "run_identifier", "model_family",
-        "n_features". E.g. ("run_identifier", "n_features") drops the model
-        family (the "logreg" part).
-
-    clean_labels:
-        If True (default), tidy y-axis labels for presentation: apply
-        ``label_replacements`` then replace remaining underscores with spaces
-        and collapse repeated whitespace.
-
-    label_replacements:
-        Optional {find: replace} mapping applied to each label before the
-        underscore cleanup. Use it for full control over wording, e.g.
-        {"correct+mean_wrong RT": "Correct vs. mean-wrong RT", "RT": "reaction time"}.
-
-    xlabel / ylabel:
-        Axis-label overrides for presentation. If None, the x-axis is derived
-        from ``metric_col`` (underscores -> spaces, title-cased) and the y-axis
-        is left blank (the per-bar labels are self-explanatory). Pass an empty
-        string to force a blank axis label.
-
-    value_fmt:
-        Format string for the per-bar value annotations. Default "{:.3f}".
-
-    show_values:
-        If True (default), annotate each bar with its metric value.
-
-    Returns
-    -------
-    fig, plot_df, saved_paths
+    The figure and the plotted rows are saved as `plot`, named by `**facets`;
+    `filename` is not used. Returns the figure, the plotted rows and the saved paths.
     """
 
     df = summary_df.copy()
@@ -340,11 +276,11 @@ def _format_comparison_labels(
     clean_labels: bool = True,
     label_wrap: Optional[int] = None,
 ) -> List[str]:
-    """Turn raw model identifiers into presentation-ready bar labels.
+    """Turn model or feature names into display labels.
 
-    Order of operations per label: explicit ``label_map`` lookup (falls back to
-    the raw identifier) -> ``label_replacements`` substring swaps -> underscore
-    cleanup (if ``clean_labels``) -> optional wrapping to ``label_wrap`` chars.
+    For each name, in order: `label_map` (else the name itself), then the
+    `label_replacements` swaps, then underscores to spaces (if `clean_labels`), then
+    wrapping to `label_wrap` characters.
     """
     import re
     import textwrap
@@ -434,43 +370,28 @@ def plot_cv_model_comparison_staged(
     **facets,
 ) -> Dict[str, Any]:
     """
-    Build a horizontal bar chart comparing models by a cross-validated metric
-    (with confidence intervals), revealed in stages.
+    Bar chart comparing cross-validated models on one regime, with intervals, drawn
+    as a series of frames that reveal one bar at a time -- for a slide.
 
-    The models are sorted low -> high and one bar is revealed per stage, from
-    lowest to highest. The newly added bar is drawn in ``highlight_color`` while
-    previously revealed bars use ``base_color``. Every stage uses identical
-    figure size, axis limits and y-tick labels (all category labels are always
-    shown when ``show_all_labels``), so the saved frames do not jump between
-    stages -- suitable for an animated/click-through conference slide.
+    `comparison_df` has one row per model with its mean score and interval
+    (`model`, `mean_metric`, `ci_low`, `ci_high`), e.g. from
+    `modeling/evaluate.py::build_cv_model_comparison_df`. The bars are sorted from
+    lowest to highest and revealed in that order, the newest one in
+    `highlight_color`. `swap_models` swaps pairs of models after the sort (it stops
+    if a name is not found); `n_stages` draws only that many frames. Every frame has
+    the same size, axes and labels, so nothing jumps from one to the next; with
+    `show_all_labels`, the labels of bars not yet shown are in `pending_label_color`.
 
-    Parameters
-    ----------
-    comparison_df:
-        One row per model with the mean metric and CI bounds, e.g. the output of
-        ``build_cv_model_comparison_df`` (columns ``model``, ``mean_metric``,
-        ``ci_low``, ``ci_high``). Sorting is handled internally.
-    label_map:
-        ``{model_identifier: pretty label}`` for full manual control of bar
-        labels. Identifiers not present fall back to the raw model name.
-    label_replacements / clean_labels / label_wrap:
-        Further label tidying applied after ``label_map`` (see
-        ``_format_comparison_labels``).
-    xlim:
-        Fixed x-axis limits shared by every stage. If None, computed from the CI
-        extents (plus padding and room for value annotations).
-    stage_titles:
-        Optional per-stage titles (length = number of stages). Overrides
-        ``title`` for the stages it covers.
-    chance_line:
-        If set (e.g. 0.5), draw a vertical reference line at this value.
+    `label_map` gives each model its display label (see `_format_comparison_labels`
+    for the other label options). `xlim` fixes the x-axis (by default it fits the
+    intervals, with room for the value labels); `chance_line` draws a reference line,
+    e.g. at 0.5; `stage_titles` gives each frame its own title. The other arguments
+    style the figure.
 
-    Returns
-    -------
-    dict with:
-        "figs"        : list of matplotlib Figures, one per stage
-        "plot_df"     : the sorted dataframe with the resolved "_label" column
-        "saved_paths" : {stage_number: [paths]} (empty unless save=True)
+    Each frame is saved as `plot`, named by `regime`, `stage` and `**facets`, with
+    the whole table; `filename` is not used. Returns a dict: `figs` (one per frame;
+    empty with `close=True`), `plot_df` (the sorted table, with its `_label` column)
+    and `saved_paths` (`{stage: [paths]}`, empty unless saved).
     """
     df = comparison_df.copy()
     df = df.dropna(subset=[mean_col]).reset_index(drop=True)
@@ -510,7 +431,8 @@ def plot_cv_model_comparison_staged(
     highs = df[ci_high_col].to_numpy(dtype=float) if ci_high_col in df else means
     y_pos = np.arange(n_models)
 
-    # Asymmetric error magnitudes (clipped to be non-negative).
+    # Whisker lengths below and above each mean. matplotlib refuses negative
+    # lengths, so a bound on the wrong side of its mean is drawn as length 0.
     err_low = np.clip(means - lows, 0, None)
     err_high = np.clip(highs - means, 0, None)
 

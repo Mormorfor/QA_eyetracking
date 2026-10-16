@@ -1,8 +1,17 @@
-"""Figures: the opening scan over the four answer options.
+"""Figures for the opening scan: the order in which a participant first visits the
+four answers.
 
-Backs the paper's First-scan behavior subsection. The strategy computation itself is
-`features/strategies.py` -- unified there in T1.1/T1.6, after two implementations of
-it drifted apart precisely because the plots sat this far from the features."""
+Backs the paper's First-scan behavior subsection. `run_all_strategy_plots` gives,
+for each group, the share of participants with a dominant strategy (their most
+common opening scan covers at least half their trials), before and after
+interrupted scans are completed, and draws the dominance figures.
+`run_all_simplified_visit_matrices` draws heatmaps of which area is at each of a
+trial's first (or last) visits.
+
+The numbers are computed in `features/strategies.py`; this module draws and
+saves them, under `reports/scan_strategies/`. A function that takes a `df` with a
+strategy column expects one row per trial, as `build_starting_strategies` returns
+it. The terms are explained in `glossary.md` §8."""
 
 from typing import Optional
 import ast
@@ -29,19 +38,9 @@ from src.features.scope import split_participant_groups
 import seaborn as sns
 
 
-# ==========================================================================
-# from src/viz/visualisations_strategies.py
-# ==========================================================================
-
 # ---------------------------------------------------------------------------
-# Dominant Strategies
+# Dominant strategies
 # ---------------------------------------------------------------------------
-
-# NOTE: build_strategy_dataframe used to live here. It was a byte-identical
-# duplicate of features.strategies.build_starting_strategies (verified on
-# both L1 groups: same rows, keys and strategy tuples), so it was removed on
-# 2026-09-20 and callers now use the derived one. Only the keyword changed --
-# `strat_col=` became `out_col=`.
 
 
 def proportion_with_dominant_strategy(
@@ -51,8 +50,8 @@ def proportion_with_dominant_strategy(
     threshold: float = DEFAULT_DOMINANCE_THRESHOLD,
 ) -> float:
     """
-    Proportion of participants whose most frequent strategy
-    accounts for AT LEAST `threshold` of their trials.
+    Share of participants with a dominant strategy: their most common strategy
+    covers at least `threshold` of their trials.
     """
     dominant = dominant_strategy_by_participant(
         df, id_col=id_col, strat_col=strat_col
@@ -76,10 +75,15 @@ def plot_dominant_strategy_hist(
     completed_flag_col: Optional[str] = None,
 ):
     """
-    Histogram of the dominant-strategy proportion per participant:
-    - What percentage of trials did the participant use their most common strategy?
-    - How many participants fall into each bin?
+    Histogram of the dominance score: for each participant, the share of their
+    trials that use their most common strategy.
 
+    `bins` is a number of equal-width bins from 0 to 1, or the bin edges.
+    `strat_col` goes into the title and file name, which keeps the raw and the
+    completed versions apart. Returns the scores.
+
+    `completed_flag_col` is accepted but not used. The saved table holds the
+    scores without participant ids.
     """
     dominant_prop = dominant_strategy_by_participant(
         df, id_col=id_col, strat_col=strat_col
@@ -129,12 +133,12 @@ def plot_dominance_gap(
     scatter_kwargs: Optional[dict] = None,
 ):
     """
-    For each participant:
-      P1 = most frequent strategy proportion
-      P2 = second-most frequent strategy proportion
-      gap = P1 - P2
+    How far each participant's most common strategy is ahead of their second.
 
-    Plots a histogram of gaps and a P2 vs P1 scatter.
+    P1 is the share of their trials on the most common strategy, P2 the share
+    on the second (0 if they used only one), and the gap is P1 - P2. Left: a
+    histogram of the gaps. Right: P1 against P2, one point per participant,
+    with the line P1 = P2. Saves and returns the per-participant table.
     """
     hist_kwargs = hist_kwargs or {"edgecolor": "k"}
     scatter_kwargs = scatter_kwargs or {"alpha": 0.7}
@@ -185,7 +189,11 @@ def plot_strategy_count_distribution(
     **plot_kwargs,
 ):
     """
-    Distribution of how many distinct strategies each participant uses.
+    Histogram of how many different strategies each participant used.
+
+    It shows that "dominant" means most common, not the only one: a person
+    with a dominant strategy can still have used many others. Saves and
+    returns the per-participant counts.
     """
     strat_counts = strategy_variety_by_participant(
         df, id_col=id_col, strat_col=strat_col
@@ -232,9 +240,9 @@ def plot_dominant_strategy_counts_above_threshold(
     **bar_kwargs,
 ):
     """
-    For participants whose dominant strategy ≥ threshold of trials:
-    barplot of which strategies are dominant and how many participants
-    use each.
+    Bar chart: among participants with a dominant strategy (at least
+    `threshold` of their trials), how many have each strategy as their
+    dominant one. Saves and returns the counts.
     """
     freq = dominant_strategy_counts(
         df, id_col=id_col, strat_col=strat_col, threshold=threshold
@@ -266,13 +274,6 @@ def plot_dominant_strategy_counts_above_threshold(
 
 
 
-# NOTE: build_prefix_completion_map_from_series and add_completed_sequence_column
-# moved to features.strategies on 2026-09-20 (as build_prefix_completion_map
-# and add_completed_strategy_column) -- they are the interrupted-scan completion
-# method, not plotting. Behaviour unchanged, including the population-wide scope
-# of the learned map (todo.md T3.21 row 5).
-
-
 def summarize_before_after(
     df: pd.DataFrame,
     id_col: str = Con.PARTICIPANT_ID,
@@ -289,50 +290,21 @@ def summarize_before_after(
     full_len: int = 4,
 ):
     """
-    Compare dominant-strategy proportions BEFORE vs AFTER completion,
-    per participant, and plot overlapping histograms.
+    Compare each participant's dominance score before and after interrupted-scan
+    completion, as two overlapping histograms.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain at least:
-          - id_col (e.g. Con.PARTICIPANT_ID)
-          - raw_col (e.g. 'strategy')
-          - comp_col (e.g. 'strategy_completed')
-    id_col : str
-        Participant ID column.
-    raw_col : str
-        Column with raw strategies (tuples, length <= full_len).
-    comp_col : str or None
-        Column with completed strategies. If None, defaults to
-        f"{raw_col}_completed".
-    threshold : float
-        Threshold for “dominant strategy” (e.g. 0.5 for 50% of trials).
-    bins : int or array
-        Bins for the histograms.
-    figsize : tuple
-        Figure size.
-    h_or_g : str
-        Group label for titles/filenames ('hunters' / 'gatherers').
-    save : bool
-        Save the figure to disk.
-    to_paper : bool or None
-        Mirror into the Overleaf-synced papers/ tree (off by default).
-    density : bool
-        If True, plot density instead of counts.
-    hist_kwargs : dict or None
-        Extra kwargs for plt.hist (applied to both histograms).
-    full_len : int
-        Full strategy length (used for normalising sequences in change stats).
+    `df` has one row per trial, with the raw strategies in `raw_col` and the
+    completed ones in `comp_col` (default `<raw_col>_completed`, the name
+    `add_completed_strategy_column` gives them). `threshold` decides what
+    counts as a dominant strategy in the summary, `full_len` is the length of a
+    complete scan, and `density` plots densities instead of counts.
 
-    Returns
-    -------
-    summary : dict
-        Aggregate statistics about raw vs completed dominance.
-    both : DataFrame
-        Per-participant table with raw/comp proportions and change info.
-    fig, ax : matplotlib Figure and Axes
-        The histogram figure and axes.
+    Saves the figure with both tables. Returns `(summary, both, fig, ax)`, the
+    first two from `summarize_completion_effect`: `summary` is a dict (average
+    scores, the share with a dominant strategy before and after, how many
+    participants' dominant strategy changed); `both` has one row per
+    participant, with both scores, their difference, both dominant strategies,
+    and how many of the person's trials completion changed.
     """
     if comp_col is None:
         comp_col = f"{raw_col}_completed"
@@ -407,8 +379,16 @@ def plot_strategies(
     to_paper=None,
 ):
     """
-    Convenience wrapper: runs all strategy plots on one DataFrame.
-    Assumes `strat_col` and `strat_col + "_completed"` exist.
+    Draw the dominance figures for one group, in this order: the dominance-score
+    histogram, raw and then completed; the dominance gap and the number of
+    strategies per participant, both raw; and which strategies are dominant,
+    completed.
+
+    `df` has one row per trial, with `strat_col` and `<strat_col>_completed`.
+    The last chart always uses a threshold of 0.5, even if
+    `run_all_strategy_plots` was given another one.
+
+    Returns the five results in the same order.
     """
     # Histogram of dominant usage (raw)
     dominant = plot_dominant_strategy_hist(
@@ -482,35 +462,30 @@ def run_all_strategy_plots(
     include_all: bool = True,
 ) -> dict:
     """
-    Build strategy data from simplified sequences and run all strategy analyses
-    for hunters and gatherers.
+    Build the opening scans and draw every dominance figure, for hunters,
+    gatherers and all participants together.
 
-    - uses FIRST `window_len` entries of the simplified sequence
-    - always drops 'question' tokens
-    - `kind` chooses between SIMPLIFIED_FIX_SEQ_BY_LOCATION / ...BY_LABEL
+    The scan is the first `window_len` answer visits of the merged sequence,
+    with the question's entries removed; `kind` picks the sequence by place
+    ("location", the default) or by meaning ("label"). For each group it prints
+    the share of participants with a dominant strategy (at least `threshold` of
+    their trials) before and after completion, then runs `summarize_before_after`
+    and `plot_strategies`.
 
-    The interrupted-scan completion map is learned ONCE, over every participant
-    in ``all_participants``, and the same map is then applied to each group.
-    Diana, 2026-09-25: the completion should use the whole population of the
-    dataset. It used to be learned inside the group loop, so hunters and
-    gatherers repaired the same short scan differently -- a property of the
-    grouping rather than of the behaviour (`todo.md` T3.21 row 5).
+    The completion map is learned once, from every trial in `all_participants`,
+    and used for every group, so a short scan is completed the same way
+    whichever group the person is in. Pass one dataset at a time: a map learned
+    over Study 1 and Study 2 together would make Study 1's numbers depend on
+    Study 2's data.
 
-    One map per DATASET, not across datasets: learning it over L1 and KnowQA
-    together would make Study 1's descriptive numbers depend on Study 2 data.
+    `split_groups=False` gives only the all-participants group, and
+    `include_all=False` leaves it out.
 
-    ``include_all`` adds the all-participants group. It is on by default because
-    the paper reports a dominant-strategy prevalence for the whole sample, and
-    that number had never been produced -- this function used to hardcode
-    ``include_all=False`` (`findings.md` 1.2).
-
-    Returns nested dict:
-        results[group_name] = {
-            "df": df_strat_with_completed,
-            "prefix_map": prefix_map,
-            "dominant_prop": dominant_prop,
-            "plots": (dh, cdh, gh, ch, sh),
-        }
+    Returns `{group: {...}}`, each with: `df` (the per-trial strategies, raw and
+    completed), `prefix_map` (the shared completion map), `dominant_prop_raw` and
+    `dominant_prop_completed`; `before_after_summary`, `before_after_table`,
+    `before_after_fig` and `before_after_ax` (from `summarize_before_after`); and
+    `plots` (the five results of `plot_strategies`).
     """
     results = {}
 
@@ -609,12 +584,8 @@ def run_all_strategy_plots(
     return results
 
 
-# ==========================================================================
-# from src/viz/visualisations_simplified_visits.py
-# ==========================================================================
-
 # ---------------------------------------------------------------------------
-# First/Last Visits Heatmaps
+# First and last visits heatmaps
 # ---------------------------------------------------------------------------
 
 def matrix_plot_simplified_visits(
@@ -628,7 +599,7 @@ def matrix_plot_simplified_visits(
     save: Optional[bool] = None,
     to_paper=None,
     show: bool = True,
-    # ---- presentation touch-ups (optional; defaults preserve behavior) ----
+    # ---- styling (optional) ----
     title: Optional[str] = None,
     xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
@@ -645,47 +616,29 @@ def matrix_plot_simplified_visits(
     annot_fontsize: Optional[float] = None,
 ):
     """
-    Plot a heatmap of visit frequencies for a fixed-length window taken from
-    the simplified fixation sequence.
+    Heatmap of which area is at each of a trial's first (or last) visits.
 
-    For each trial/participant row:
-      - Take the simplified sequence (label or location).
-      - Optionally remove 'question' tokens.
-      - Take either:
-          * the first X tokens      (which = 'first'), or
-          * the last  X tokens      (which = 'last'),
-        where X = 4 if drop_question=True, else X = 5.
-      - Re-index those tokens as positions 0..len(window)-1.
-      - Count how often each area occurs at each position across trials.
+    For each trial: take the merged sequence (by meaning with `kind="label"`,
+    by place with `kind="location"`), remove the question's entries if
+    `drop_question` is set, and keep the first or last 4 entries (5 when the
+    question is kept), as `which` says. The matrix counts, over trials, how
+    often each area is at each position: rows are positions 0-3 (or 0-4),
+    columns are areas. Removing the question does not merge the entries on
+    either side of it, so (A, question, A) becomes (A, A).
 
-    Result: a small matrix:
-      rows   = visit position (0..3 or 0..4)
-      cols   = areas (answers, and optionally question)
-      values = counts.
+    `df` may have several rows per trial (e.g. the word table); it is reduced to
+    one row per trial. The caller filters it to one group and one chosen
+    answer; `h_or_g` and `selected` only label the figure and the file name.
+    `normalize` turns the counts into shares of each position ("row"), of each
+    area ("col") or of all ("all"). The remaining arguments are styling, and
+    `show=False` closes the figure instead of showing it.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Data filtered to a specific group (hunters/gatherers) and selected
-        answer label, typically one row per (trial, participant).
-    kind : {"label", "location"}
-        Which sequence to visualise:
-        - "label"    -> Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
-        - "location" -> Con.SIMPLIFIED_FIX_SEQ_BY_LOCATION
-    which : {"first", "last"}
-        Whether to use the first X or last X entries of the sequence.
-    drop_question : bool
-        If True, remove 'question' tokens before taking the window.
-    h_or_g : str
-        Group label: 'hunters' or 'gatherers', used in the title/filename.
-    selected : str
-        Selected answer label ('A', 'B', 'C', 'D'), used in the title/filename.
-    figsize : tuple
-        Figure size for the heatmap.
-    save : bool
-        If True, write the figure and its pivot through ``save_output``.
-    show : bool
-        If True, display the plot; otherwise close it after saving.
+    Trials whose sequence is missing or cannot be read, or is empty once the
+    question is removed, are left out without a message. If no trial is left,
+    it prints a note and returns None.
+
+    Saves the figure and the matrix (after `normalize`). Returns
+    `(fig, ax, matrix)`.
     """
     if kind == "label":
         seq_col = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL
@@ -851,11 +804,13 @@ def run_all_simplified_visit_matrices(
     show: bool = True,
 ) -> None:
     """
-    Generate visit-order heatmaps (first/last visits) for simplified sequences:
-      - hunters, gatherers, and all participants
-      - each selected answer (A–D)
-      - label-based and/or location-based sequences
-      - with and without 'question'
+    Draw every visit heatmap: for each group (hunters, gatherers, all
+    participants), each chosen answer (A-D), first and last visits, by meaning
+    and by place, and with the question removed and kept -- 96 heatmaps with
+    the defaults.
+
+    A chosen answer nobody in a group picked is skipped. Returns nothing; each
+    heatmap and its matrix are saved by `matrix_plot_simplified_visits`.
     """
     groups = split_participant_groups(all_participants, split=split_groups)
 

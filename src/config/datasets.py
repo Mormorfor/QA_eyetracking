@@ -475,7 +475,7 @@ TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 # folders are what cross-validation uses: in them each trial's regime is
 # rebuilt from the group's participant split and the shared paragraph split,
 # and the pairs that cross the two held-out sets (a validation participant on
-# a test paragraph, or the reverse) are left out. Both are made in
+# a test paragraph, or the reverse) count as test, both new. Both are made in
 # notebooks/builders/create_merge_folds_csv.ipynb.
 # ---------------------------------------------------------------------------
 

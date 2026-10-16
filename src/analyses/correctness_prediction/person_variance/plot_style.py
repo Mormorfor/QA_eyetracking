@@ -1,20 +1,22 @@
-"""Shared colours and label helpers for the per-person variance figures.
+"""Colours and label helpers shared by the figures in this folder.
 
-Every figure in this package encodes the same two meanings with the same two
-colours -- blue = positive / "helps", orange = negative / "hurts" -- so a bar,
-a box and a stacked share all read the same way across sections.
+Wherever colour marks the sign of a coefficient or a correlation, blue is positive
+("helps") and orange negative ("hurts"), so a bar, a box and a stacked share read
+the same way in every figure. In two figures the same colours only tell two series
+apart: the two accuracy histograms, and the sensitivity and specificity bars. The
+figures drawn by the shared helpers in `plots/` use their own colours.
 """
 
 from __future__ import annotations
 
 from typing import Iterable, List, Sequence
 
-# Direction encoding, shared by every figure in the package.
+# Sign colours.
 POS_COLOR = "#4C72B0"   # positive coefficient / association ("helps")
 NEG_COLOR = "#DD8452"   # negative coefficient / association ("hurts")
-ZERO_COLOR = "#D9D9D9"  # ~zero coefficient (feature inactive for that person)
+ZERO_COLOR = "#D9D9D9"  # zero coefficient (feature never varied for that person)
 
-# Confusion quadrants (see ``mistake_types``): hits in cool colours, errors warm.
+# Confusion quadrants (see `mistake_types`): hits in cool colours, errors warm.
 QUAD_COLORS = {
     "TP": "#4C72B0",
     "TN": "#55A868",
@@ -29,5 +31,5 @@ def signed_bar_colors(values: Iterable[float]) -> List[str]:
 
 
 def clean_feature_labels(features: Sequence[str]) -> List[str]:
-    """``area_dwell_proportion__correct`` -> ``area_dwell_proportion . correct``."""
+    """Axis labels with `__` shown as ` · `: `skip_rate__correct` -> `skip_rate · correct`."""
     return [str(f).replace("__", " · ") for f in features]

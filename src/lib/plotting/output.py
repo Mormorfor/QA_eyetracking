@@ -87,7 +87,6 @@ ANALYSES: Dict[str, str] = {
     "attention_allocation": "Per-area attention metrics across the five screen areas",
     "scan_strategies": "Opening-scan strategies, dominance, first-visit matrices, dominant eye",
     "last_visitation": "Last area fixated before select / before confirm",
-    "time_course": "Before / during / after the decision",
     "correctness_associations": "Correctness against scan effort, dwell, RT, preference matching",
     "correctness_prediction": "The headline answer-correctness model",
     "correctness_prediction/person_variance": "Models fitted per participant: coefficients and accuracy",
@@ -102,6 +101,7 @@ ANALYSES: Dict[str, str] = {
     "explorations/text_answer_effects": "Mixed-effects models of paragraph parts against answer dwell",
     "explorations/unlikely_analysis": "Trials whose prediction disagrees with the outcome",
     "explorations/text_alignment": "KnowQA stored-text / interest-area alignment investigation",
+    "explorations/time_course": "Before / during / after the first look at the chosen answer (unfinished)",
 }
 
 

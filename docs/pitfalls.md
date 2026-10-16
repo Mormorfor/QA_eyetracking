@@ -155,13 +155,13 @@ of cutting the same person's data.
 
 ### Where this actually bites
 
-**Cross-validation.** Features are rebuilt inside each fold, which means a participant-level
-feature is estimated from only that fold's slice of their trials. That is not a preference,
-it is forced: the alternative — estimate on the training rows and score the held-out ones
-against it — cannot work for the unseen-subject folds, where the person has no training
-trials at all. So the only two options are "within the slice" and "across everything", and
-the second leaks. On KnowQA the difference is measurable: estimating over the full set rather
-than the slice flips `breaks_pattern_no_q` on 52 of 300 no-knowledge trials.
+**Cross-validation.** By default each fold is cut from the ready-made model table, where these
+features are worked out from all of a person's trials, held-out ones included. That is fine for
+the saved feature sets, which do not use them. For a feature set that does, pass
+`rebuild_features=True` (`modeling/crossval.py`): the features are then rebuilt from each
+regime's own trials. Per regime is the only scope that works, because in a new-person regime
+the person has no training trials to estimate from. On KnowQA the two scopes give a different
+`breaks_pattern_no_q` on 52 of 300 no-knowledge trials.
 
 **Any filter that keeps a person but drops some of their trials** — correct-trials-only
 analyses, exclusion thresholds, and so on.

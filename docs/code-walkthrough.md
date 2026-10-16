@@ -57,7 +57,7 @@ Nine stops. Line counts are there so you can budget — they're the real sizes.
 
 **Start here. It's the dictionary.**
 
-- `columns.py` (508) — every column name in the project, with comments explaining the ones that
+- `columns.py` (509) — every column name in the project, with comments explaining the ones that
   aren't obvious. Read it like a glossary, not like code. Nothing happens in this file.
 - `datasets.py` (554) — where every data file lives. Four datasets (L1, KnowQA, two pilots), each
   described once.
@@ -143,7 +143,7 @@ every trial has exactly one match.
 
 ---
 
-### Stop 5 — The prediction machinery · `src/modeling/` (3,710 lines)
+### Stop 5 — The prediction machinery · `src/modeling/` (3,730 lines)
 
 Generic. It doesn't know this is about eye-tracking — you could point it at anything.
 
@@ -152,10 +152,11 @@ Generic. It doesn't know this is about eye-tracking — you could point it at an
 2. `folds.py` (396) — which trials train and which are held out. Ten stored folds per group;
    each gives every person × paragraph pair a regime: new paragraph, new person, or both. **Read
    the docstring of `attach_fold_regimes`** — the join leaves out, without a message, the trials
-   a fold file has no regime for.
-3. `crossval.py` (678) — the testing loop: fit on each fold's training trials, score on each
-   held-out regime. Note the choice between rebuilding the features per regime (safe) and
-   slicing a ready-made table (fast, leaks), explained at the top.
+   a fold file has no regime for (none, with the current files).
+3. `crossval.py` (692) — the testing loop: fit on each fold's training trials, score on each
+   held-out regime. Each fold is cut from the ready-made model table; `rebuild_features=True`
+   rebuilds the features per regime instead, which only matters for the opening-scan features
+   (explained at the top).
 4. `evaluate.py` (587) — fit-and-score on one split, the single full-data fit the paper's
    coefficients come from, and the summary tables.
 5. `inference.py` (397) — confidence intervals on the coefficients. **Worth scrutiny.** Two
@@ -168,26 +169,32 @@ Generic. It doesn't know this is about eye-tracking — you could point it at an
 
 ---
 
-### Stop 6 — The actual questions · `src/analyses/` (~13,000 lines)
+### Stop 6 — The paper's results · `src/analyses/` (~13,800 lines)
 
-**This is the paper.** One folder per thing the paper claims. Each folder has the same shape:
-`compute.py` works out the numbers, `stats.py` tests them, `plots.py` draws them.
+**This is the paper.** One folder per result. Each folder works out its numbers and draws its
+figures, and every figure is saved with the numbers behind it under `reports/<folder>/`. The small
+folders do both in `plots.py`; `attention_allocation/` and
+`correctness_associations/` keep their tests in `stats.py`; the two big ones are split into several
+modules, each listed at the top of the folder's `__init__.py`. `python scripts/run_analysis.py
+--list` says which folders run without a notebook; the others are run from `notebooks/drivers/`.
 
 Read them in the order the paper makes its argument:
 
-| folder | the claim | lines |
+| folder | what it shows | lines |
 |---|---|---|
-| `scan_strategies/` | people open with a consistent clockwise scan | 1,100 |
-| `last_visitation/` | the last look before committing lands on their chosen answer | 228 |
-| `attention_allocation/` | they look hardest at the option they pick | 800 |
-| `correctness_associations/` | longer, more back-and-forth trials are less accurate | 1,800 |
-| `correctness_prediction/` | **the headline model** — and the biggest folder | 6,800 |
-| `text_qa_relationship/` | time on the paragraph relates to time on the options | 1,760 |
-| `time_course/` | attention before vs during vs after the decision | 501 |
-| `answer_rt_comparison/` | time on wrong options predicts errors; time on the right one doesn't | 222 |
+| `scan_strategies/` | most people (about 60%) look over the four answers in a habitual order, most often clockwise | 1,070 |
+| `last_visitation/` | the last area looked at before confirming is usually the chosen answer | 210 |
+| `attention_allocation/` | people look most at the answer they end up choosing | 790 |
+| `correctness_associations/` | longer, more back-and-forth trials are less accurate | 1,830 |
+| `correctness_prediction/` | **the headline model** — and the biggest folder | 7,690 |
+| `text_qa_relationship/` | how time on the paragraph's parts relates to time on the answers | 1,970 |
+| `answer_rt_comparison/` | accuracy barely moves with time on the correct answer, and falls with time on the wrong ones | 230 |
 
-Inside `correctness_prediction/`, go: `run.py` → `plots/` → `person_variance/` →
-`knowledge_regimes/` (that last one is Study 2 and can wait).
+Inside `correctness_prediction/`, go: `run.py` → `plots/` → `participant_level.py` and
+`person_variance/` → `knowledge_regimes/` (that last one is Study 2 and can wait). `run.py` fits
+the model on one train/test split. The paper's accuracy comes from cross-validation
+(`modeling/crossval.py`, run from `notebooks/drivers/answer_corr_prediction.ipynb`), and its
+coefficients from one fit on all the data (`modeling/evaluate.py`).
 
 ---
 
@@ -199,10 +206,12 @@ what they looked at.
 
 ---
 
-### Stop 8 — Things kept but not used · `src/explorations/` (~5,400 lines)
+### Stop 8 — Things kept but not used · `src/explorations/` (~7,300 lines)
 
 **You can skip all of this** and lose nothing about the paper. It's abandoned or paused work,
-kept on purpose and labelled. Two of these folders don't even run.
+kept on purpose and labelled. Two of these folders don't even run. One is unfinished:
+`time_course/` was meant to compare behaviour before and after the first look at the chosen
+answer, but it still splits each trial by screen order, not time (its docstring explains).
 
 Worth five minutes just to confirm nothing in here is secretly load-bearing. It isn't — that's
 checked automatically.

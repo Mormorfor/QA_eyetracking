@@ -319,9 +319,9 @@ def _weighted_fold_means(
     """
     Mean of a per-fold score, weighted by how many trials each fold scored.
 
-    Fold sizes differ within a regime -- on hunters the `both` cell has 78-120
-    trials per fold, and `seen_subject_unseen_item` 702-1080 -- so a plain mean
-    would let a fold of 78 trials count as much as one of 120.
+    Fold sizes differ within a regime -- on hunters `val_unseen_subject_unseen_item`
+    has 78-120 trials per fold, and `val_seen_subject_unseen_item` 624-960 -- so a
+    plain mean would let a fold of 78 trials count as much as one of 120.
 
     **Exact for `accuracy`, an approximation for `balanced_accuracy`.** Pooling
     accuracy over folds is the weighted mean. Balanced accuracy is the mean of

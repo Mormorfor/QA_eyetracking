@@ -1,9 +1,10 @@
-"""Predicted-probability distributions -- the figure the confidence reading rests on.
+"""The model's predicted probability of a correct answer, split by whether the
+answer was in fact correct.
 
-Split out of the 1,717-line `answer_correctness_viz.py` in stage E (map section 6.4).
+The paper reads this probability as a stand-in for how confident the participant
+was, and this is the figure that reading rests on. `run.py` draws it for the test
+trials of every bundle.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -53,29 +54,19 @@ def plot_predicted_probability_hist(
     **facets,
 ):
     """
-    Histogram of the model's predicted probability of correctness, split by the
-    true outcome (actually-correct vs. actually-wrong trials).
+    Two overlaid histograms of the predicted probability of a correct answer: one
+    for the trials answered correctly, one for those answered wrongly.
 
-    A well-separated model pushes the true-correct mass toward 1.0 and the
-    true-wrong mass toward 0.0; heavy overlap in the middle signals a model that
-    struggles to distinguish the two outcomes.
+    The better the model tells the two apart, the closer the correct trials sit to
+    1 and the wrong ones to 0. `y_prob` is the probability per trial (a result's
+    `y_prob`) and `y_true` the outcome (1 = correct). Trials with no probability
+    (NaN) are left out without a message. The bins span 0 to 1. `density` scales
+    each group to the same area, so groups of different sizes can be compared;
+    `show_means` marks each group's mean with a dashed line.
 
-    Parameters
-    ----------
-    y_true : array-like of {0, 1}
-        True binary correctness label per trial (1 = correct, 0 = wrong).
-    y_prob : array-like of float
-        Predicted probability of correctness per trial (e.g. ``res.y_prob``).
-    density : bool
-        If True, normalise each group to a density so the two (typically
-        unbalanced) groups are comparable in height.
-    show_means : bool
-        Draw a dashed vertical line at each group's mean predicted probability.
-
-    Returns
-    -------
-    (fig, summary_df, saved_paths)
-        ``summary_df`` holds per-group count and mean predicted probability.
+    The figure and a two-row table (count, mean and median probability per group)
+    are saved as `plot`, named by `**facets`. Returns the figure, the table and the
+    saved paths.
     """
     y_true = np.asarray(y_true).reshape(-1)
     y_prob = np.asarray(y_prob, dtype=float).reshape(-1)

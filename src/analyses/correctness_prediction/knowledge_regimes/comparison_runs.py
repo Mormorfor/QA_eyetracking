@@ -1,37 +1,29 @@
-"""Train-on-L1 / test-on-new-data correctness comparison, split by knowledge regime.
+"""The L1-trained correctness model scored separately on each Study 2 knowledge regime.
 
-The new (question-answering) experiment assigns each article a *knowledge regime*
-(no / partial / full knowledge). This module fits the L1 correctness model on **all**
-of the L1 data and evaluates it separately on each regime of the new data, so we can
-compare how well the model transfers to each condition.
+`run_regime_split_comparison` fits the correctness model on every L1 trial and tests it
+on the Study 2 trials of each regime in turn (no, partial and full knowledge), and on all
+of them pooled (`all`), through the standard train-on-L1 / test-on-new-data bundle
+(`run.py::run_cross_dataset_correctness_bundle`). It returns one row of scores per run,
+side by side. `confidence_correlation` builds on its per-trial predictions.
 
-The regime lives in the raw IA report (``regime`` column). It is also carried into
-the model-ready table since 2026-09-25, so ``attach_regime`` will use the column
-already present and only falls back to re-joining it from the IA report on the trial
-keys ``(participant_id, TRIAL_INDEX)`` for tables built before that.
+**The default data is Study 2's first pilot, not KnowQA.** `NEW_EXP_FEATURES_PATH` and
+`NEW_EXP_IA_ANSWERS_PATH` are the `testrun_qa` tables (3 participants, 36 trials). Pass
+KnowQA's feature table and IA report to run on the real data.
 
-SCOPE OF THE PARTICIPANT-LEVEL FEATURES -- a deliberate choice, not an accident
-(Diana, 2026-09-25; `todo.md` T3.21 row 7). The dominance / pattern-breaking columns
-on the new data are computed **across the participant's whole session**, pooling the
-three regimes, because that is a globally-built feature table being sliced by regime
-here rather than rebuilt per regime.
+The regime is read from the feature table's `regime` column. Only if the table has none
+is it merged in from the IA report, on `(participant_id, TRIAL_INDEX)`.
 
-That is the right scope for THIS comparison, and the reason is train/test symmetry:
-the L1 model is fitted on features where dominance is a participant-level trait over
-all of that person's trials. Rebuilding per regime would hand the model a feature
-estimated over ~48 trials where it was trained on one estimated over ~54, i.e. the
-same column name meaning a different thing at test time than at training time.
-
-The per-regime version answers a different and genuinely interesting question --
-*does a person's scanning strategy shift between knowledge regimes* -- and it is
-real: on the current data one participant's dominance runs 0.224 under full knowledge
-against 0.630 under partial. That belongs in its own descriptive analysis, built with
-``pattern_scope_by=["regime"]``, not in this transfer comparison.
-
-Everything is parameterized by path/DataFrame, so the same entry point works for the
-current three-participant test run and, unchanged, for the full experiment once its
-features are built — just point ``new_features`` / ``regime_source`` at the real data
-(or pass the loaded frames in directly).
+**The per-participant features are pooled over the regimes, on purpose.** The opening-scan
+features (`dominance_score_*`, `breaks_pattern_*`) are worked out once from each person's
+whole set of trials -- all three regimes and, in KnowQA, all their sessions (145 trials) --
+and the table is then sliced by regime. That keeps training and test alike: the L1 model
+learned these features as a trait of the person over all of their trials (about 54 each).
+Rebuilt per regime, the same column would describe about 48 trials of one condition at test
+time: a different quantity under the same name. Per-regime scores answer another question,
+whether a person's opening scan changes with what they know, and they can differ a lot:
+built with `save_model_ready(..., pattern_scope_by=["regime"])`, participant 4000's
+`dominance_score_no_q` is 0.224 under full knowledge and 0.630 under partial.
+`pitfalls.md` §3 has more on scope.
 """
 
 from __future__ import annotations
@@ -49,19 +41,21 @@ from src.analyses.correctness_prediction.run import (
 )
 from src.analyses.correctness_prediction.plots.results import correctness_results_to_summary_df
 
-# Default regime column name in the raw IA report.
+# The regime column, in both the IA report and the feature table.
 REGIME_COL = "regime"
 
-# Regime labels that are not real knowledge conditions (practice / unassigned).
+# Regime labels that are not a knowledge condition, such as "unset". Left out of the
+# per-regime runs only: the pooled run still includes those trials, as it does trials
+# with no regime at all.
 EXCLUDED_REGIMES = frozenset({"unset", "none", "nan", ""})
 
-# Label used for the pooled (all-regimes-together) baseline row / run.
+# Label of the pooled run: every regime together.
 POOLED_LABEL = "all"
 
-# Ordering hint so discovered regimes come out no -> partial -> full.
+# The words `_regime_sort_key` looks for in a regime label, in the intended order.
 _REGIME_ORDER_HINT = ("no", "partial", "full")
 
-# Columns surfaced in the trimmed comparison table (others are kept in the full frame).
+# Columns of the short comparison table; `comparison_full` keeps every column.
 COMPARISON_VIEW_COLS = (
     "regime",
     "n_test",
@@ -80,12 +74,17 @@ DataFrameOrPath = Union[pd.DataFrame, str, Path]
 
 
 def _normalize_regime_series(s: pd.Series) -> pd.Series:
-    """Lower-case and strip a regime column so labels match regardless of casing."""
+    """`s` as stripped, lower-case text, so labels match whatever their spacing or case."""
     return s.astype(str).str.strip().str.lower()
 
 
 def _regime_sort_key(regime: str):
-    """Sort discovered regimes as no -> partial -> full, unknowns last (alphabetical)."""
+    """Sort key meant to order the regimes no -> partial -> full, unknown labels last.
+
+    It looks for the words in that order, and "no" is inside "knowledge", so every
+    "... knowledge" label matches "no" first: the three regimes in fact sort
+    alphabetically (full, no, partial).
+    """
     r = regime.lower()
     for i, hint in enumerate(_REGIME_ORDER_HINT):
         if hint in r:
@@ -100,11 +99,12 @@ def load_regime_map(
     participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
 ) -> pd.DataFrame:
-    """Build a per-trial ``(participant_id, TRIAL_INDEX, regime)`` mapping.
+    """One row per trial: `(participant_id, TRIAL_INDEX, regime)`, from the IA report.
 
-    ``ia_source`` is the raw/cleaned IA report (a DataFrame or a CSV path). The regime
-    is an article-level label, so one value is kept per trial. ``participant_id`` is
-    lower-cased to match the feature tables (which lower-case it during cleaning).
+    `ia_source` is the IA report, as a DataFrame or a CSV path. It repeats the regime on
+    every word row of a trial; the first is kept. `participant_id` and `regime` are
+    stripped and lower-cased, as Study 2's cleaning does for the ids, so they match the
+    feature table. Trials with no regime are left out.
     """
     if isinstance(ia_source, pd.DataFrame):
         ia = ia_source[[participant_col, trial_col, regime_col]].copy()
@@ -133,11 +133,13 @@ def attach_regime(
     participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
 ) -> pd.DataFrame:
-    """Return ``features_df`` with a normalized ``regime`` column.
+    """`features_df` with a stripped, lower-case `regime` column.
 
-    If the column is already present it is just normalized in place. Otherwise the
-    regime is merged on the trial keys from ``regime_source`` (a per-trial mapping,
-    a full IA report, or a CSV path).
+    If the table already has the column, it is only normalised. Otherwise it is merged in
+    from `regime_source` (an IA report or a per-trial map, as a DataFrame or a CSV path)
+    on `(participant_id, TRIAL_INDEX)`. The merge keeps every trial and does not check
+    coverage: a trial the source does not cover gets no regime, and then appears only in
+    the pooled run.
     """
     df = features_df.copy()
 
@@ -177,11 +179,11 @@ def _resolve_regimes(
     regime_col: str,
     excluded: frozenset,
 ) -> List[str]:
-    """Return the ordered list of regimes to evaluate.
+    """The regimes to evaluate, in order.
 
-    If ``regimes`` is given, it is used verbatim (already the desired order).
-    Otherwise regimes are discovered from the data (excluding practice/unassigned
-    labels) and ordered no -> partial -> full, unknowns last.
+    Given `regimes`: those labels, stripped and lower-cased, in the order given.
+    Otherwise every regime in the data except those in `excluded`, sorted by
+    `_regime_sort_key`.
     """
     if regimes is not None:
         return [r.strip().lower() for r in regimes]
@@ -211,48 +213,27 @@ def run_regime_split_comparison(
     verbose: bool = True,
     **bundle_kwargs: Any,
 ) -> Dict[str, Any]:
-    """Train the L1 correctness model on all of L1, test it per knowledge regime.
+    """Fit the correctness model on all of L1 and test it on each Study 2 regime.
 
-    Fits ``TrialLevelLogRegModel`` on the entire ``train_df`` (L1) and evaluates it,
-    via :func:`run_cross_dataset_correctness_bundle`, separately on each regime of the
-    new data — plus a pooled ``all`` baseline when ``include_pooled`` is set. Returns a
-    side-by-side comparison table so the transfer to each condition can be compared.
+    Each regime's trials of `new_features`, and all of them pooled (`all`, with
+    `include_pooled`), go through `run_cross_dataset_correctness_bundle` in turn: the
+    model (`TrialLevelLogRegModel`) is fitted on every trial of `train_df` and scored on
+    that subset. Every run fits the same model on the same data, so the runs differ only
+    in the trials they are scored on. A regime with no trials is skipped, with a message.
 
-    Parameters
-    ----------
-    train_df :
-        L1 model-ready features, or a path to load them from (default: the cached L1
-        ``READY_ALL_FEATURES_PATH``).
-    new_features :
-        New-experiment model-ready features, or a path (default:
-        ``NEW_EXP_FEATURES_PATH``). If it already carries a ``regime`` column, that is
-        used directly and ``regime_source`` is ignored.
-    regime_source :
-        Where to read the per-trial regime from when ``new_features`` lacks it: a raw
-        IA report DataFrame, a per-trial mapping, or a CSV path (default: the new-exp
-        cleaned IA report). Set to ``None`` if ``new_features`` already has the column.
-    regimes :
-        Explicit regimes to evaluate, in the desired order. ``None`` (default)
-        discovers them from the data, dropping ``excluded_regimes`` and ordering
-        no -> partial -> full.
-    include_pooled :
-        Also run/report the pooled ``all`` baseline over every new-data trial.
-    feature_cols :
-        Passed through to the bundle. ``None`` uses L1's full feature set; any feature
-        absent from the new data is dropped automatically.
-    save, close, **bundle_kwargs :
-        Forwarded to :func:`run_cross_dataset_correctness_bundle` (plot/CSV saving,
-        figure closing, ``dpi``, ``to_paper``, ...).
+    `new_features` and `regime_source` default to the first pilot; see the module
+    docstring. `regime_source` is read only when `new_features` has no `regime` column.
+    `regimes` sets which regimes run, and in what order; by default they are taken from
+    the data, minus `excluded_regimes`, in the order `_regime_sort_key` gives.
+    `feature_cols=None` uses L1's full feature set (`get_full_feature_cols`), and the
+    bundle drops any feature the Study 2 table lacks, printing which. `save`, `close` and
+    `bundle_kwargs` go to the bundle, which saves each run's figures and summary under
+    `reports/correctness_prediction/`.
 
-    Returns
-    -------
-    dict with:
-        ``comparison`` : trimmed one-row-per-regime metrics table (see
-            :data:`COMPARISON_VIEW_COLS`).
-        ``comparison_full`` : the same rows with every summary column.
-        ``outputs`` : ``{label -> bundle result dict}`` for each run.
-        ``new_features`` : the new features with the ``regime`` column attached.
-        ``regimes`` : the ordered regimes that were evaluated.
+    Returns a dict: `comparison` (one row per run, the columns in `COMPARISON_VIEW_COLS`),
+    `comparison_full` (every summary column), `outputs` (`{run label: bundle result}`),
+    `new_features` (with `regime` attached) and `regimes` (the regimes run). The
+    comparison tables are returned, not saved.
     """
     l1_features = _resolve_features(train_df)
     new_feats = _resolve_features(new_features)
@@ -268,7 +249,7 @@ def run_regime_split_comparison(
         print(new_feats[regime_col].value_counts(dropna=False).to_string())
         print(f"\nregimes evaluated: {eval_regimes}")
 
-    # Build the list of (label, test-subset) runs: pooled baseline first, then regimes.
+    # The runs as (label, test trials): the pooled run first, then the regimes.
     splits: List[tuple[str, pd.DataFrame]] = []
     if include_pooled:
         splits.append((POOLED_LABEL, new_feats))

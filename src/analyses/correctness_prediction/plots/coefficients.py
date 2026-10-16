@@ -1,12 +1,14 @@
-"""Coefficient figures and the across-run coefficient comparison table.
+"""Coefficient figures, and a table comparing coefficients across models.
 
-The CIs behind these come from `modeling/inference.py`; `collect_logreg_coef_summaries`
-defaults to the participant-clustered bootstrap for the paper path (T3.3).
+`plot_coef_summary_barh` draws one model's coefficient table (the one
+`TrialLevelLogRegModel.get_coef_summary` makes) as bars with interval whiskers;
+`build_coef_comparison_table` stacks several models' tables into one.
 
-Split out of the 1,717-line `answer_correctness_viz.py` in stage E (map section 6.4).
+The intervals are whatever the table carries. The paper's come from one fit on all
+the data, with the bootstrap clustered by participant
+(`modeling/evaluate.py::collect_logreg_coef_summaries`); a `run.py` bundle's come from
+its own training fit, with Wald intervals by default.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path
@@ -54,7 +56,7 @@ def plot_coef_summary_barh(
     close: bool = False,
     significant_only: bool = True,
     significance_eps: float = 0.0,
-    # ---- presentation touch-ups (all optional, defaults preserve behavior) ----
+    # ---- presentation options (all optional) ---------------------------------
     feature_label_map: Optional[Mapping[str, str]] = None,
     label_replacements: Optional[Mapping[str, str]] = None,
     clean_labels: bool = False,
@@ -69,18 +71,21 @@ def plot_coef_summary_barh(
     **facets,
 ):
     """
-    Horizontal bar plot of top coefficients (by absolute magnitude), overlay 95% CI error bars.
-    Can exclude insignificant.
+    Horizontal bars of a model's coefficients, with whiskers from `ci_low` to
+    `ci_high`.
 
-    Presentation touch-ups (optional, off by default):
-        feature_label_map / label_replacements / clean_labels / label_wrap
-            tidy the y-axis feature names (see ``_format_comparison_labels``).
-        xlabel / ylabel
-            axis-label overrides (default: ``value_col`` / "feature").
-        bar_color
-            single bar color.
-        title_fontsize / label_fontsize / tick_fontsize
-            font sizes for the title, axis labels and tick labels.
+    `coef_summary` is a coefficient table: `feature` and `value_col`, and if it has
+    them `abs_coef`, `ci_low` and `ci_high`. With `significant_only` (the default)
+    only features whose interval lies wholly above or below 0 (by more than
+    `significance_eps`) are kept, and a feature with no interval counts as not
+    significant. Of those, the `top_k` with the largest |coefficient| are drawn,
+    sorted by value.
+
+    The figure and the plotted rows are saved as `plot`, named by the extra keyword
+    arguments (`**facets`); `model_name` and `h_or_g` do not reach the name. The
+    presentation options style the axis labels, the bars and the fonts
+    (`_format_comparison_labels` tidies the feature names). Returns the figure, the
+    plotted rows and the saved paths.
     """
 
     df = coef_summary.copy()
@@ -212,13 +217,14 @@ def build_coef_comparison_table(
     decimals: Optional[int] = 4,
 ) -> pd.DataFrame:
     """
-    Stack per-model coefficient summaries into one tidy comparison table.
+    Stack several models' coefficient tables into one, one row per model and
+    feature.
 
-    Each input value is a ``get_coef_summary`` DataFrame; empty entries (e.g. a
-    dummy baseline) are skipped. The output has one row per (model, feature)
-    with a ``model`` display label, the raw ``feature`` name and a cleaned
-    ``feature_label``, followed by the original coefficient columns (coef,
-    odds_ratio, CIs, sig_ci, ...). Numeric columns are rounded to ``decimals``.
+    Each value of `coef_by_model` is a `get_coef_summary` table; an empty one (e.g.
+    the dummy baseline's) is left out. The first columns are `model` (the label
+    from `model_label_map`, else the key), `model_key`, `feature` and
+    `feature_label` (the tidied name); the coefficient columns follow (coef,
+    odds_ratio, the intervals, sig_ci, ...). Numbers are rounded to `decimals`.
     """
     frames: List[pd.DataFrame] = []
     for name, coef in coef_by_model.items():

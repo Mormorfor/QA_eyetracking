@@ -1,20 +1,18 @@
 """
-visualisations_last_label.py
+The last area looked at before confirming an answer, split by the answer chosen.
 
-Frequency of the last area label fixated before confirming an answer
-(`last_lbl_before_confirm`), split into one subplot per selected answer (A-D).
+Backs the paper's End of trial behavior subsection. A trial's
+`last_lbl_before_confirm` is the area (the question or one of the four answers)
+of the last fixation that started at or before the confirming press
+(`glossary.md` §9). The figure is a 2x2 grid with one panel per chosen answer
+(A-D) and one bar per area: how many of those trials, or what share of them,
+ended on that area.
 
-Input: area-level dataframe (multiple rows per trial). The last-label feature is
-trial-level, so rows are de-duplicated to one per trial before counting.
+The input may have several rows per trial (e.g. the word table); it is reduced
+to one row per trial before counting.
 
-Plots:
-  - 2x2 grid of bar charts (one per selected answer) showing either the raw
-    trial counts or the in-group proportion of each `last_lbl_before_confirm`
-    label (toggled via `normalize`).
-
-All on-plot text is presentation-clean (no underscores / variable names). The
-hunters / gatherers / all-participants distinction appears only in saved
-filenames, never on the figure.
+The figure text uses plain names and does not show the group: hunters,
+gatherers and all participants are told apart by the file name only.
 """
 
 from __future__ import annotations
@@ -33,7 +31,7 @@ from src.features.scope import split_participant_groups
 _LABEL_ORDER = ["question", "answer_A", "answer_B", "answer_C", "answer_D"]
 _SELECTED_ANSWERS = ["A", "B", "C", "D"]
 
-# Presentation-clean display names for the area labels (x-axis ticks).
+# Display names for the area labels on the x-axis.
 _LABEL_DISPLAY = {
     "question": "Question",
     "answer_A": "Answer A",
@@ -49,8 +47,8 @@ def _dedup_to_trials(
     selected_col: str,
     trial_cols: Sequence[str],
 ) -> pd.DataFrame:
-    """Collapse the area-level df to one row per trial, keeping the trial-level
-    selected-answer and last-label columns."""
+    """One row per trial, with the chosen answer and the last-look column.
+    Trials with no last look are dropped."""
     cols = list(trial_cols) + [selected_col, label_col]
     return (
         df[cols]
@@ -80,31 +78,21 @@ def plot_last_label_before_confirm_freq(
     h_or_g: str = "all_participants",
 ) -> Tuple[plt.Figure, pd.DataFrame]:
     """
-    Plot the frequency of `last_lbl_before_confirm` as four subplots, one per
-    selected answer (A/B/C/D).
+    Draw the 2x2 grid for one group: in each panel (one chosen answer), how
+    often each area was the last one looked at before confirming.
 
-    Parameters
-    ----------
-    normalize : bool
-        True  -> in-group proportion (each selected-answer panel sums to 1).
-        False -> raw counts of trials.
-    title, x_label, y_label : Optional[str]
-        On-plot text. `y_label=None` auto-selects a clean default based on
-        `normalize` ("Proportion of Trials" / "Number of Trials"). Pass an empty
-        string to suppress a label entirely, or None for the default.
-    panel_title_fmt : str
-        Format string for each subplot title; `{ans}` is the answer letter.
-    show_n : bool
-        If True, append the per-panel sample size as "(n = 1,234)".
-    h_or_g : str
-        Group tag used ONLY in the saved filename, never shown on the figure.
+    With `normalize` (the default) the bars are shares of the panel's trials;
+    without it, numbers of trials. `y_label=None` picks the matching label and
+    "" leaves it blank. `panel_title_fmt` fills `{ans}` with the letter, and
+    `show_n` adds the panel's number of trials. `h_or_g` goes into the file
+    name only.
 
-    Saves through ``plot_output.save_output`` to reports/last_visitation/.
+    Trials with no last look are left out. A panel whose answer nobody chose
+    shows zeros.
 
-    Returns
-    -------
-    (fig, summary_df) where summary_df has columns:
-        selected_answer, last_lbl_before_confirm, n, proportion
+    Saves the figure and its table under `reports/last_visitation/`. Returns
+    `(fig, summary_df)`, where `summary_df` has the columns selected_answer,
+    last_lbl_before_confirm, n and proportion.
     """
     trials = _dedup_to_trials(df, label_col, selected_col, trial_cols)
 
@@ -193,16 +181,14 @@ def run_all_last_label_before_confirm_plots(
     print_summaries: bool = False,
 ) -> Dict:
     """
-    Produce the last-label-before-confirm frequency plot for hunters, gatherers,
-    and all participants combined.
+    Draw the last-look grid for hunters, gatherers and all participants
+    together (only the last with `split_groups=False`).
 
-    Titles / axis labels are shared across groups (the group never appears on the
-    figure, only in the saved filename). See `plot_last_label_before_confirm_freq`
-    for the meaning of the text parameters.
+    The figure text is the same for every group; the text options are those of
+    `plot_last_label_before_confirm_freq`. `print_summaries` prints each
+    group's table.
 
-    Returns
-    -------
-    results[group] = {"fig": Figure, "summary": DataFrame}
+    Returns `{group: {"fig": ..., "summary": ...}}`.
     """
     groups = split_participant_groups(all_participants, split=split_groups)
 

@@ -1,8 +1,14 @@
-"""Dominant starting strategy crossed with the tracked eye.
+"""Each participant's dominant opening scan, set against the eye that was recorded.
 
-Descriptive only -- no significance test is run anywhere in this module, and the
-association is not currently claimed in the paper. The strategy side comes from
-features/strategies.py, which is the single implementation.
+For every participant: their most common opening scan (by default, the order of
+their first four answer visits), how often they used it, and the eye the tracker
+recorded for them (`EYE_TRACKED`, left or right). Draws one bar chart per eye,
+counting how many participants have each dominant scan, and saves a scan-by-eye
+count table.
+
+Descriptive only: no significance test is run, and the paper does not report it.
+The dominant scans come from `features/strategies.py`, like every other
+dominant-strategy number in the project.
 """
 
 from typing import Optional, Dict
@@ -34,19 +40,19 @@ def build_dominant_strategy_by_eye(
     eye_col: str = Con.DOMINANT_EYE_COLUMN,
 ) -> pd.DataFrame:
     """
-    For each participant, compute their dominant strategy (most common
-    first `window_len` visits) and how often it occurs, and attach
-    their dominant eye (EYE_TRACKED).
+    Each participant's dominant opening scan, how often they used it, and the
+    eye that was recorded for them.
 
-    SCOPE: over whatever trials are in ``df``. This is descriptive rather than
-    predictive -- no train/test split, so there is no leakage to avoid and the
-    honest scope is simply the population being described. `n_total` is already
-    returned, so a narrowed frame is visible in the output rather than silent;
-    that is why this was left as it is when the scope parameters landed
-    (`todo.md` T3.21 row 12).
+    The scan is the first `window_len` entries of the merged sequence, by place
+    (`kind="location"`) or by meaning (`kind="label"`), with the question's
+    entries removed first if `drop_question` is set. It is worked out over
+    whatever trials are in `df`; `n_total` says how many that is for each
+    person.
 
     Returns one row per participant:
         [participant_id, eye_col, dominant_strategy, n_trials, n_total, dominant_prop]
+    where `n_trials` of the person's `n_total` trials use the dominant scan, and
+    `dominant_prop` is that share (the dominance score).
     """
     df_strat = build_starting_strategies(
         df,
@@ -98,15 +104,22 @@ def plot_dominant_strategies_by_eye_sorted(
     to_paper=None,
 ):
     """
-    Produce separate horizontal barplots for each eye group (e.g. Left, Right),
-    sorted from most to least frequent dominant strategy.
+    One horizontal bar chart per recorded eye: how many participants have each
+    dominant scan, most common at the top.
+
+    `dom_df` is the table from `build_dominant_strategy_by_eye`. With
+    `min_count` above 1, scans held by fewer participants are pooled as
+    "OTHER". `group_name` goes into the titles and file names.
+
+    Saves each chart with its counts, and the whole scan-by-eye count table on
+    its own, under `reports/scan_strategies/`. Returns that count table.
     """
 
     crosstab = dominant_strategy_by_eye_crosstab(
         dom_df, eye_col=eye_col, strat_col=strat_col, min_count=min_count
     )
 
-    # The per-eye bars ARE the crosstab's columns -- no second tally needed.
+    # Each eye's chart is that eye's column of the count table.
     for eye in crosstab.columns:
         freq = crosstab[eye]
         freq = freq[freq > 0].sort_values(ascending=False, kind="stable")
@@ -120,7 +133,6 @@ def plot_dominant_strategies_by_eye_sorted(
             f"Dominant strategies by eye dominance ({eye}-eye, {group_name})"
         )
 
-        # annotate counts
         for i, v in enumerate(freq.values):
             ax.text(v + 0.2, i, str(v), va="center")
 
@@ -163,11 +175,14 @@ def run_dominant_strategy_eye_analysis(
     to_paper=None,
 ):
     """
-    For hunters, gatherers, and all participants:
-      - compute dominant strategy per participant (first `window_len` visits)
-      - filter participants by dominant_prop if threshold > 0
-      - produce sorted per-eye barplots
-      - return dominant tables + crosstabs
+    Run the analysis for hunters, gatherers and all participants together
+    (only the last with `split_groups=False`).
+
+    For each group: build the per-participant table, keep only participants
+    whose dominance score is at least `threshold` (when it is above 0; by
+    default everyone is kept), then draw and save the per-eye charts.
+
+    Returns `{group: {"dominant_df": ..., "crosstab": ...}}`.
     """
     results = {}
 

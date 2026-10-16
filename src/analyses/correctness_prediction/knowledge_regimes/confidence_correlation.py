@@ -1,31 +1,26 @@
-"""Do the model's predicted probabilities track self-reported confidence?
+"""Does the model's predicted probability track the participant's own confidence?
 
-The new (question-answering) experiment asks the participant, after every trial, how
-confident they are in the answer they just gave (``confidence_rating``, 1-5). That
-rating is a *trial-level* value which the IA report duplicates across every
-fixation/IA row of the trial, so it is collapsed back to one value per
-``(participant_id, TRIAL_INDEX)`` before being joined onto the model-ready features.
+Study 2 asks after every trial how confident the participant is in the answer they just
+gave (`confidence_rating`, 1 to 5). This module sets that rating against the model's
+predicted P(correct) for the same trial, and asks three questions, which can disagree:
 
-This module takes the per-regime train-on-L1 / test-on-new-data runs produced by
-:func:`..comparison_runs.run_regime_split_comparison`, pulls out the model's predicted
-P(correct) for every test trial, attaches the self-reported confidence, and asks
-whether the two agree — overall, per knowledge regime, and within participant.
+* **model vs confidence** -- does P(correct) rise with confidence? The headline: whether
+  the eye-movement model picks up what the participant reports.
+* **confidence vs correctness** -- is the rating itself calibrated? Without this
+  reference, a null result above cannot be read: the rating may simply be noise.
+* **within participant** -- confidence scales are personal (one person's "4" is another's
+  "2"), so a pooled correlation mixes the effect within each person with differences in
+  how people use the scale. Correlations computed per participant keep only the first.
 
-Three separate questions are reported, because they can disagree:
+Each is reported per run: each knowledge regime, plus all trials pooled (`all`).
 
-* **model vs. confidence** — does P(correct) rise with the participant's confidence?
-  This is the headline: it says whether the eye-movement model is picking up the same
-  signal the participant introspects on.
-* **confidence vs. correctness** — is the self-report itself calibrated? Without this
-  reference, a null model-vs-confidence result is uninterpretable (the confidence
-  rating may simply be noise).
-* **within-participant** — confidence scales are personal (one participant's "4" is
-  another's "2"), so the pooled correlation mixes a within-subject effect with
-  between-subject scale-use differences. The per-participant correlations, and their
-  mean, isolate the within-subject part.
-
-Everything is parameterized, so the same entry point works for the current
-three-participant test run and, unchanged, for the full experiment.
+The per-trial predictions come from `comparison_runs.run_regime_split_comparison` (via
+`collect_prediction_frame`) or from `descriptives.to_prediction_frame`; both give one row
+per run and trial. `run_confidence_correlation` does the whole analysis in one call. Its
+default confidence source is the first pilot's IA report, like `comparison_runs`'s default
+data; pass KnowQA's for the real data. The plot functions return `(figure, paths
+written)`; with `save` on, they write the figure and its table to
+`reports/correctness_prediction/knowledge_regimes/`.
 """
 
 from __future__ import annotations
@@ -47,20 +42,21 @@ from src.analyses.correctness_prediction.knowledge_regimes.comparison_runs impor
     run_regime_split_comparison,
 )
 
-# Trial-level self-report column in the new-experiment IA report (1-5 Likert).
+# The confidence rating in Study 2's IA report: one per trial, on a 1-5 scale.
 CONFIDENCE_COL = "confidence_rating"
 
 # Column the per-trial prediction frame carries the model's P(correct) in.
 PRED_PROB_COL = "pred_prob"
 
-# Correlation flavours reported for every run: linear, rank, and rank (tie-robust).
+# Correlations reported for every run: Pearson (linear), Spearman (rank) and Kendall
+# (rank, corrected for ties).
 CORR_METHODS = ("pearson", "spearman", "kendall")
 
-# Minimum non-null pairs before a correlation is computed at all (below this the
-# estimate is meaningless and scipy warns / returns nan).
+# Fewest complete pairs a correlation is computed from: below this the estimate means
+# nothing, and scipy warns or returns NaN.
 MIN_PAIRS = 3
 
-# Colour per regime label, so the same condition keeps its colour across figures.
+# Colour per run label, so a regime keeps its colour across this module's figures.
 _RUN_COLORS = {
     POOLED_LABEL: "#4d4d4d",
     "no knowledge": "#de2d26",
@@ -86,12 +82,12 @@ def load_confidence_map(
     participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
 ) -> pd.DataFrame:
-    """Collapse the IA report to one ``confidence_rating`` per trial.
+    """One `confidence_rating` per trial, from the IA report (a DataFrame or a CSV path).
 
-    ``ia_source`` is the raw/cleaned IA report (a DataFrame or a CSV path). The rating
-    is a trial-level answer duplicated across the trial's fixation/IA rows, so a single
-    value per ``(participant_id, TRIAL_INDEX)`` is kept. ``participant_id`` is
-    lower-cased to match the feature tables (which lower-case it during cleaning).
+    The IA report repeats the rating on every word row of a trial; the first is kept.
+    `participant_id` is stripped and lower-cased, as Study 2's cleaning does, so it
+    matches the feature tables. A rating that is missing or not a number is dropped, so
+    that trial is absent from the result.
     """
     cols = [participant_col, trial_col, confidence_col]
 
@@ -118,10 +114,12 @@ def attach_confidence(
     participant_col: str = Con.PARTICIPANT_ID,
     trial_col: str = Con.TRIAL_ID,
 ) -> pd.DataFrame:
-    """Return ``df`` with a numeric per-trial ``confidence_rating`` column.
+    """`df` with a numeric `confidence_rating` column.
 
-    If the column is already present it is only coerced to numeric; otherwise it is
-    merged in from ``confidence_source`` on the trial keys.
+    If `df` already has the column, it is only turned into numbers (anything that is not
+    a number becomes NaN). Otherwise it is merged in from `confidence_source`, on
+    `(participant_id, TRIAL_INDEX)`; every trial of `df` is kept, and one with no rating
+    gets NaN.
     """
     out = df.copy()
 
@@ -156,15 +154,17 @@ def collect_prediction_frame(
     trial_col: str = Con.TRIAL_ID,
     target_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
-    """Flatten every run in a regime-split result into one tidy per-trial frame.
+    """Every run of a `run_regime_split_comparison` result as one frame, one row per run
+    and trial.
 
-    Returns one row per (run, trial) with the trial keys, the true label, the model's
-    predicted label, and its predicted P(correct). ``run`` is the run's label — each
-    knowledge regime plus the pooled ``all`` baseline, so the pooled rows duplicate the
-    per-regime ones by design (the pooled run is analysed as its own group).
+    Columns: `run` (the regime, or `all` for the pooled run), the trial keys, `y_true`,
+    `y_pred`, `pred_prob` (the model's P(correct)) and `is_correct` (a copy of
+    `y_true`). The pooled run repeats every regime's trials on purpose: it is analysed as
+    a group of its own.
 
-    ``y_prob`` is positionally aligned with ``test_df`` (see
-    ``evaluate_single_model_on_prepared_split``), so the columns are zipped by position.
+    Predictions are matched to trials by position. That is safe because the bundle
+    predicts every row of its `test_df`, in order
+    (`evaluate_single_model_on_prepared_split`).
     """
     frames: List[pd.DataFrame] = []
 
@@ -193,7 +193,7 @@ def collect_prediction_frame(
 
 
 def _run_order(runs: Sequence[str]) -> List[str]:
-    """Pooled baseline first, then the regimes in the order the runs were produced."""
+    """The pooled run first, then the others in the order they appear."""
     ordered = [r for r in runs if r == POOLED_LABEL]
     ordered += [r for r in runs if r != POOLED_LABEL]
     return ordered
@@ -205,7 +205,7 @@ def _run_order(runs: Sequence[str]) -> List[str]:
 
 
 def _correlate(x: np.ndarray, y: np.ndarray, method: str):
-    """Return ``(statistic, p_value)``, or ``(nan, nan)`` when it is not computable."""
+    """`(r, p)` by `method`, or `(nan, nan)` with too few pairs or a side that never varies."""
     if len(x) < MIN_PAIRS or np.all(x == x[0]) or np.all(y == y[0]):
         return np.nan, np.nan
 
@@ -226,10 +226,11 @@ def _correlation_row(
     y_col: str,
     methods: Sequence[str],
 ) -> Dict[str, Any]:
-    """One correlation row (all methods) for ``x_col`` vs ``y_col`` in ``frame``.
+    """One table row for `x_col` against `y_col`: n, both means, and every method's r and
+    p, over the trials that have both values.
 
-    ``mean_x`` / ``mean_y`` are named generically so rows comparing different y columns
-    (predicted probability vs. actual correctness) stack into one table.
+    The means are called `mean_x` / `mean_y` so that rows with different `y_col`s
+    (predicted probability, actual correctness) stack into one table.
     """
     pair = frame[[x_col, y_col]].dropna()
     x = pair[x_col].to_numpy(dtype=float)
@@ -256,11 +257,9 @@ def correlations_by_run(
     target_col: str = Con.IS_CORRECT_COLUMN,
     methods: Sequence[str] = CORR_METHODS,
 ) -> pd.DataFrame:
-    """Model-vs-confidence and confidence-vs-correctness correlations, per run.
-
-    Two rows per run: the headline ``pred_prob ~ confidence`` correlation, and the
-    ``is_correct ~ confidence`` reference that says whether the self-report is
-    calibrated at all in that condition.
+    """Two rows of correlations per run: `pred_prob ~ confidence`, the headline, and
+    `is_correct ~ confidence`, the reference that says whether the rating tracks
+    correctness at all in that run.
     """
     rows: List[Dict[str, Any]] = []
 
@@ -298,12 +297,12 @@ def correlations_by_participant(
     participant_col: str = Con.PARTICIPANT_ID,
     methods: Sequence[str] = CORR_METHODS,
 ) -> pd.DataFrame:
-    """Within-participant ``pred_prob ~ confidence`` correlations for one run.
+    """`pred_prob ~ confidence` within each participant, for one run: one row per person.
 
-    Confidence scales are personal, so the pooled correlation confounds the
-    within-subject effect with between-subject scale use. One row per participant
-    isolates the former; participants who used a single rating for every trial come out
-    as ``nan`` (no variance to correlate).
+    Confidence scales are personal, so a pooled correlation mixes the effect within each
+    person with differences in how people use the scale; this keeps only the first. Pass
+    `prob_col="is_correct"` for the confidence-vs-correctness version. A participant who
+    gave the same rating on every trial gets NaN: there is no variation to correlate.
     """
     sub = pred_df.loc[pred_df["run"] == run]
     rows = [
@@ -326,11 +325,12 @@ def summarize_by_confidence_level(
     prob_col: str = PRED_PROB_COL,
     target_col: str = Con.IS_CORRECT_COLUMN,
 ) -> pd.DataFrame:
-    """Per (run, confidence level): trial count, predicted P(correct), actual accuracy.
+    """Per run and confidence rating: trials, mean / median / SD of predicted P(correct),
+    and actual accuracy.
 
-    The direct read of the headline question — if the model tracks confidence, mean
-    ``pred_prob`` climbs down the rating scale; the ``accuracy`` column next to it shows
-    whether the participants' own confidence climbed with their actual performance.
+    The direct read of the headline question: if the model tracks confidence, mean
+    `pred_prob` rises with the rating. `accuracy` beside it shows whether the
+    participants were in fact right more often when they said they were more confident.
     """
     rows: List[Dict[str, Any]] = []
 
@@ -360,6 +360,7 @@ def summarize_by_confidence_level(
 
 
 def _grid(n: int, ncols: int, figsize_per: tuple):
+    """A figure with `n` panels, `ncols` to a row, the unused ones hidden."""
     nrows = int(np.ceil(n / ncols))
     fig, axes = plt.subplots(
         nrows,
@@ -390,11 +391,11 @@ def plot_confidence_vs_prob_scatter(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Scatter of predicted P(correct) against the self-reported confidence, per run.
+    """Predicted P(correct) against confidence, one panel per run, one point per trial.
 
-    Confidence is jittered horizontally so overlapping trials stay visible; marker fill
-    encodes the true outcome, and the dashed line is the least-squares fit through the
-    un-jittered points. Each panel is annotated with its Spearman rho.
+    Confidence is jittered sideways so overlapping trials stay visible. Filled markers
+    are correct answers, hollow ones wrong. The dashed line is the least-squares fit
+    through the un-jittered points, and each title gives the panel's Spearman rho.
     """
     runs = _run_order(pred_df["run"].unique().tolist())
     fig, axes = _grid(len(runs), ncols, (6.0, 4.5))
@@ -462,11 +463,11 @@ def plot_prob_by_confidence_level(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Mean predicted P(correct) per confidence level, one line per run.
+    """Mean predicted P(correct) at each confidence rating, one line per run, from
+    `summarize_by_confidence_level`.
 
-    The grey dashed line is the pooled *actual* accuracy at each confidence level — the
-    curve the model would have to follow to be tracking the same thing the participants
-    are reporting.
+    The grey dashed line is the pooled run's actual accuracy at each rating: the curve
+    the model would follow if it tracked the same thing the participants report.
     """
     fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -519,10 +520,10 @@ def plot_prob_boxplot_by_confidence(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Distribution (not just the mean) of predicted P(correct) at each confidence level.
+    """The spread of predicted P(correct) at each confidence rating, one panel per run.
 
-    The means in :func:`plot_prob_by_confidence_level` can hide a level whose trials are
-    split rather than shifted; the boxes show the spread behind each point.
+    A mean in `plot_prob_by_confidence_level` can hide a rating whose trials split into
+    two groups rather than shift together; the boxes show the spread behind each point.
     """
     runs = _run_order(pred_df["run"].unique().tolist())
     fig, axes = _grid(len(runs), ncols, (6.0, 4.0))
@@ -582,38 +583,30 @@ def run_confidence_correlation(
     verbose: bool = True,
     **regime_kwargs: Any,
 ) -> Dict[str, Any]:
-    """Correlate the correctness model's predicted probabilities with self-reported confidence.
+    """The whole analysis in one call: the model's predicted probabilities against the
+    confidence ratings, per run and within participant, with three figures.
 
-    Parameters
-    ----------
-    regime_result :
-        The dict returned by :func:`..comparison_runs.run_regime_split_comparison`.
-        Pass the already-computed result to reuse its fitted model and predictions;
-        ``None`` (default) runs the regime split first, forwarding ``regime_kwargs``.
-    confidence_source :
-        Where to read the per-trial ``confidence_rating`` from: a raw IA report
-        DataFrame, a per-trial mapping, or a CSV path (default: the new-exp cleaned IA
-        report). Ignored if the predictions already carry the column.
-    methods :
-        Correlation flavours to report (default: Pearson, Spearman, Kendall).
-    participant_run :
-        Which run the per-participant correlations are computed on (default: the pooled
-        ``all`` baseline, i.e. every new-data trial).
-    save, to_paper, dpi, close :
-        Plot/CSV output control, matching the rest of the answer-correctness pipeline.
+    `regime_result` is the output of `comparison_runs.run_regime_split_comparison`; pass
+    one already computed to reuse its predictions, or `None` to run it first with
+    `regime_kwargs`. Each trial's rating is taken from `confidence_source` (an IA report
+    or a per-trial map, as a DataFrame or a CSV path). Its default is the first pilot's
+    IA report, matching `comparison_runs`'s default data; for KnowQA, pass a
+    `regime_result` run on KnowQA and `confidence_source=KNOW_QA_IA_ANSWERS_PATH`.
 
-    Returns
-    -------
-    dict with:
-        ``correlations`` : per-run ``pred_prob ~ confidence`` and the
-            ``is_correct ~ confidence`` calibration reference.
-        ``by_confidence`` : per (run, confidence level) counts, predicted probability
-            and actual accuracy.
-        ``by_participant`` : within-participant correlations on ``participant_run``.
-        ``predictions`` : the tidy per-(run, trial) frame everything is computed from.
-        ``regime_result`` : the underlying regime-split result (freshly run or the one
-            that was passed in).
-        ``figures`` / ``paths`` : the created figures and any saved file paths.
+    Trials with no rating are left out of the correlations, and their number is printed;
+    if no trial has one, it stops. The per-participant correlations use `participant_run`
+    (default: the pooled run). If there is no run of that name, the first run is used
+    instead, without a warning; with `verbose`, the run used is printed.
+
+    With `save`, the figures and tables go to
+    `reports/correctness_prediction/knowledge_regimes/`, in the subfolder
+    `<split_tag>/logreg/<subdir>`.
+
+    Returns a dict: `correlations` (per run, `pred_prob ~ confidence` and the
+    `is_correct ~ confidence` reference), `by_confidence` (per run and rating: trials,
+    predicted probability, actual accuracy), `by_participant` (the within-participant
+    correlations), `predictions` (the per-(run, trial) frame all of it is computed from),
+    `regime_result` (the one passed in, or the one run here), `figures` and `paths`.
     """
     if regime_result is None:
         regime_result = run_regime_split_comparison(

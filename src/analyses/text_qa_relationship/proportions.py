@@ -1,27 +1,29 @@
 """
-Dwell proportions: how a trial's dwell time is split, on each of the two screens.
+The correlation maps for dwell proportions: how a trial's looking time is split
+between the areas of each screen.
 
-The answer screen already has them -- `area_dwell_proportion__answer_A`, ...,
-`__question`, built by `features.area_metrics.create_dwell_proportions`
-as each area's share of the trial's total IA dwell time. The paragraph screen
-has the same quantity per span (critical / distractor / outside), built the same
-way by `features.paragraph.spans` and cached in
-`PARAGRAPH_SPAN_FEATURES_PATH`; it is simply not in the model-ready feature file
-that the reading-time maps run on. `add_text_dwell_proportions` merges it in, and
-the rest of this module maps the three text proportions against the five answer
-ones with the same participant-level machinery as the RT / TFD maps.
+On the answer screen, `area_dwell_proportion__answer_A`, ..., `__question` are
+each area's share of the trial's looking time on that screen
+(`features.area_metrics.create_dwell_proportions`). The paragraph screen has the
+same measure for its three parts, `area_dwell_proportion__critical`,
+`__distractor` and `__outside`, built by `features.paragraph.spans` and saved at
+`PARAGRAPH_SPAN_FEATURES_PATH`. The model-ready tables already carry both sets,
+so `add_text_dwell_proportions` normally finds the paragraph shares in place; it
+joins them from the paragraph file only for a table that lacks them. The map
+puts the three paragraph shares against the five answer-screen shares, with the
+same participant-level tests as the RT / TFD maps.
 
-Two things follow from proportions being proportions:
+Two things follow from these being proportions:
 
-- Each side is compositional -- the 3 text shares sum to 1 and so do the 5
-  answer shares. Within a side the parts are negatively coupled by
-  construction, which is why the *rows* of a map cannot all move the same way:
-  reading more of the critical span means reading proportionally less of the
-  rest, whatever the answers do. The cross-screen cells themselves are still
-  ordinary correlations, but a whole row (or column) is not free.
-- Trials where nothing at all was dwelt on the answer screen leave all five
-  answer shares at 0 (9 trials of 19436). They are dropped by default -- that is
-  a missing screen, not a reading pattern.
+- Each side adds up to 1 -- the three paragraph shares, and the five answer
+  shares -- so within a side the parts pull against each other by
+  construction: reading more of the critical part means reading
+  proportionally less of the rest, whatever the answers do. That is why the
+  rows of a map cannot all move the same way. Each cell is still an ordinary
+  correlation, but a whole row (or column) is not free.
+- A trial with no looking time on the answer screen has all five answer shares
+  at 0 (9 trials of 19,436). These are dropped by default: that is a missing
+  screen, not a reading pattern.
 
 Usage mirrors `report`::
 
@@ -77,7 +79,7 @@ def proportion_col(part: str) -> str:
 
 
 def region_proportion_cols() -> list[str]:
-    """Rows of a proportion map: the three paragraph spans."""
+    """Rows of a proportion map: the three paragraph parts."""
     return [proportion_col(region) for region in REGIONS]
 
 
@@ -97,15 +99,24 @@ def add_text_dwell_proportions(
     rebuild: bool = False,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Add `area_dwell_proportion__{critical,distractor,outside}` to a feature frame.
+    """Make sure a trial table has the three paragraph shares,
+    `area_dwell_proportion__{critical,distractor,outside}`.
 
-    Left-joined on (participant_id, TRIAL_INDEX) from the cached paragraph-span
-    features, which cover every trial of every participant, so nothing is
-    dropped and no row is duplicated. `rebuild=True` (or a missing cache)
-    re-runs the extraction from the paragraph IA report -- minutes, not seconds.
+    A table that already has all three (every model-ready table does) is
+    returned unchanged. Otherwise they are joined on (participant_id,
+    TRIAL_INDEX) from the paragraph file, and the run stops if any trial is left
+    without a value, since that trial would silently become NaN and drop out of
+    its correlations. A trial repeated in the file would duplicate rows; nothing
+    checks for that.
+
+    Unless `paragraph_features` is passed in, the paragraph file is loaded
+    first, even for a table that already has the columns. With `rebuild=True`,
+    or if the file is missing, it is rebuilt from the paragraph reports, which
+    takes minutes.
     """
     if paragraph_features is None:
-        # Imported lazily: rebuilding is rare and pulls in the modelling stack.
+        # Imported only when needed: rebuilding is rare and pulls in the
+        # feature-building code.
         from src.features.paragraph.spans import (
             load_paragraph_features,
             save_paragraph_features,
@@ -124,12 +135,10 @@ def add_text_dwell_proportions(
     keys = list(TRIAL_ID_COLS)
     cols = region_proportion_cols()
 
-    # The model-ready table already carries these three columns -- they are
-    # merged in by features.build.build_trial_level_model_df from
-    # this very cache. Merging again renamed both copies to _x / _y and the next
-    # lookup died, so this analysis could not run at all. Verified 2026-09-20:
-    # the two copies are bit-identical (max|diff| = 0, nothing unmatched), so the
-    # columns already present are the right ones to use.
+    # The model-ready tables already carry these three columns, joined in from
+    # this same file by features.build.build_trial_level_model_df. Merging them
+    # again would make pandas rename both copies to _x / _y, so a table that has
+    # all three is used as it is.
     already = [c for c in cols if c in df.columns]
     if len(already) == len(cols):
         if verbose:
@@ -165,7 +174,7 @@ def add_text_dwell_proportions(
 def _drop_empty_answer_screens(
     df: pd.DataFrame, verbose: bool = True
 ) -> pd.DataFrame:
-    """Drop trials with no dwell anywhere on the answer screen (all shares 0)."""
+    """Drop the trials with no looking time on the answer screen (all five shares 0)."""
     empty = df[answer_proportion_cols()].sum(axis=1) == 0
     if verbose and empty.any():
         print(f"dropping {int(empty.sum())} trials with no answer-screen dwell")
@@ -179,11 +188,13 @@ def load_proportion_features(
     verbose: bool = True,
     **kwargs,
 ) -> pd.DataFrame:
-    """`data.load_features` plus the three text dwell proportions.
+    """`data.load_features` plus the three paragraph shares, without the trials
+    that have no looking time on the answer screen (unless
+    `drop_empty_answer_screens=False`).
 
-    `rebuild` is passed to `load_features` (the model-ready cache), not to the
-    paragraph-span cache; pass `rebuild=True` to `add_text_dwell_proportions`
-    directly to regenerate that one.
+    `rebuild` applies to the model-ready table only; to rebuild the paragraph
+    file, call `add_text_dwell_proportions(..., rebuild=True)` directly. Other
+    keyword arguments go to `add_text_dwell_proportions`.
     """
     df = load_features(name, rebuild=rebuild, verbose=verbose)
     df = add_text_dwell_proportions(df, verbose=verbose, **kwargs)
@@ -198,7 +209,7 @@ def load_all_proportion_features(**kwargs) -> pd.DataFrame:
 
 
 def load_group_proportion_features(**kwargs) -> dict[str, pd.DataFrame]:
-    """Proportion features per reading regime: `{"hunters": ..., "gatherers": ...}`."""
+    """Proportion features for each group: `{"hunters": ..., "gatherers": ...}`."""
     return {name: load_proportion_features(name, **kwargs) for name in GROUP_NAMES}
 
 
@@ -211,11 +222,12 @@ def proportion_map_stats(
     method: str = DEFAULT_METHOD,
     **kwargs,
 ) -> dict:
-    """Participant-level stats for the text-vs-answer proportion map.
+    """Participant-level tests for the proportion map: `corr_map_stats` on the
+    three paragraph shares against the five answer-screen shares.
 
-    One map (proportions have no RT/TFD or pure/normalized variants), otherwise
-    identical to `corr_map_stats`: within-participant r, Fisher z, one-sample
-    t-test across participants, BH-corrected over the 15 cells.
+    There is one map only: proportions have no RT / TFD or pure / normalized
+    versions. Keyword arguments go to `corr_map_stats`; by default the p-values
+    are corrected over the 15 cells (Benjamini-Hochberg).
     """
     return corr_map_stats(
         df,
@@ -243,10 +255,12 @@ def plot_proportion_maps(
     suptitle: str | None = None,
     **kwargs,
 ):
-    """Proportion maps side by side -- typically all / hunters / gatherers.
+    """Proportion maps side by side -- typically all / hunters / gatherers -- on
+    one colour scale, so the same colour means the same r in every panel.
 
-    A shared colour scale across the panels, so the same colour means the same
-    r in all of them.
+    Saved through `plot_corr_map_pair` under the same plot name as the
+    reading-time maps, told apart from them by `measure="dwell_proportions"`
+    in the file name.
     """
     first = next(iter(stats_by_label.values()))
     method = first.get("method", DEFAULT_METHOD)
@@ -264,10 +278,10 @@ def plot_proportion_maps(
                 f"({method}, participant-level)"
             )
         ),
-        # `measure` is what separates these from the reading-time maps: same
-        # rows, same columns, different quantity (share of the screen's dwell
-        # time rather than time per word). Without it both land on one filename.
-        # There is no `scaling` here -- a proportion is already unitless.
+        # `measure` says which quantity the map shows: same rows and columns as
+        # the reading-time maps, but a share of the screen's looking time rather
+        # than time per word. There is no `scaling` here -- a proportion has no
+        # units to scale.
         plot=kwargs.pop("plot", "text_qa_corr_map"),
         measure="dwell_proportions",
         panels="+".join(stats_by_label),
@@ -276,7 +290,7 @@ def plot_proportion_maps(
 
 
 def proportion_region_contrasts(stats: dict, **kwargs) -> pd.DataFrame:
-    """Span-vs-span comparisons within each answer column of a proportion map."""
+    """Part-vs-part comparisons within each column of a proportion map."""
     return compare_rows_within_column(
         stats["z"], region_proportion_cols(), answer_proportion_cols(), **kwargs
     )
@@ -289,10 +303,10 @@ def proportion_group_contrast(
     region: str | None = None,
     **kwargs,
 ) -> pd.DataFrame:
-    """Between-group comparison of every cell of the proportion map.
+    """Compare the two groups on every cell of the proportion map (`compare_groups`).
 
-    `region` restricts to one span, which also makes that span the
-    multiple-comparison family: 5 tests instead of 15.
+    `region` limits the comparison to one paragraph part, which also makes that
+    row the multiple-comparison family: 5 tests instead of 15.
     """
     z_a = stats_by_group[label_a]["z"]
     z_b = stats_by_group[label_b]["z"]
@@ -308,6 +322,6 @@ def proportion_group_contrast(
 
 
 def proportion_summary(df: pd.DataFrame, cols: Sequence[str] | None = None):
-    """Mean / sd of each proportion column, as a sanity check on the shares."""
+    """Count, mean, SD, min, median and max of each share, as a quick check on them."""
     cols = list(cols or region_proportion_cols() + answer_proportion_cols())
     return df[cols].describe().T[["count", "mean", "std", "min", "50%", "max"]]

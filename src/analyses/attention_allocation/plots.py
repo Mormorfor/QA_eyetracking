@@ -1,7 +1,22 @@
-"""Figures: where attention goes across the five screen areas.
+"""Figures: how attention is spread over the four answers, by the answer chosen.
 
-Merged from three `viz/visualisations_*` modules in stage E. They were split by
-figure type (bars, matrices, significance heatmaps); they are one question."""
+Behind the paper's attention-allocation result: people look more at the answer
+they end up choosing. Each figure shows one per-area measurement (dwell time,
+skip rate, pupil size, ...) for the trials where one answer (A-D) was chosen, in
+one group (hunters, gatherers or all participants). Answers are named by meaning,
+so `answer_A` is always the correct one.
+
+    area_bars                   the mean on each answer, with 95% intervals
+                                (`run_all_area_barplots`)
+    area_label_by_loc_heatmap   the mean by answer and screen position
+                                (`run_all_area_metric_plots`)
+    area_pairwise_significance  which pairs of answers differ, from the mixed
+                                models (`stats.run_all_area_mixed_models`)
+
+Each figure first reduces the word-level table to one row per trial and area. The
+sweeps save one figure per combination under reports/attention_allocation/, and
+pool the numbers into one long table per kind of figure.
+"""
 
 from typing import Optional
 import numpy as np
@@ -13,12 +28,8 @@ from src.lib.plotting.output import collect_tables, save_output
 from src.features.scope import split_participant_groups
 
 
-# ==========================================================================
-# from src/viz/visualisations_area_bars.py
-# ==========================================================================
-
 # ---------------------------------------------------------------------------
-# Base Statistics Bar-charts + Mixed Models
+# Bar charts: the mean on each answer
 # ---------------------------------------------------------------------------
 
 
@@ -34,11 +45,17 @@ def plot_area_ci_bar(
     selected: str = "A",
     title: Optional[str] = None,
 ):
-    """
-    Plot mean ± 95% CI of a metric by area (answer_A/B/C/D).
+    """Bar chart of one measurement's mean on each of the four answers.
 
-    Saves through ``plot_output.save_output`` to
-    ``reports/attention_allocation/{figures,tables}/<stat_col>/``.
+    `df` holds the trials to show, usually those where one answer was chosen;
+    `selected` and `h_or_g` only label the figure and its file name. It is reduced
+    to one row per trial and area, and the question is not shown. The error bars
+    are seaborn's 95% bootstrap interval over trials, which treats trials as
+    independent and is not in the saved table.
+
+    Saves the figure and a summary (mean, sd and n per answer; n counts the trials
+    with a value) through `save_output`, under reports/attention_allocation/ in a
+    subfolder per measurement. Returns (fig, summary).
     """
 
     dedup = df[list(trial_cols) + [area_col, stat_col]].drop_duplicates(
@@ -107,11 +124,14 @@ def run_all_area_barplots(
     print_summaries: bool = True,
     split_groups: bool = True,
 ):
-    """
-    For each metric and each selected answer label (A–D),
-    for hunters, gatherers, and all participants combined,
-    create area-level barplots (mean ± 95% CI).
+    """Draw `plot_area_ci_bar` for every measurement, chosen answer and group.
 
+    Groups are hunters, gatherers and all participants (only all participants if
+    `split_groups=False`). `metrics` defaults to the model's list of per-area
+    measurements (pupil size z-scored). The summaries are pooled into one long
+    table instead of one per figure.
+
+    Returns results[group][metric][answer] = {"fig", "summary"}.
     """
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS_MODELING
@@ -158,21 +178,15 @@ def run_all_area_barplots(
 
     groups = split_participant_groups(all_participants, split=split_groups)
 
-    # A sweep over group x metric x selected: up to 120 figures. Their summaries
-    # pool into one long table rather than 120 small ones -- see
-    # plot_output.collect_tables.
+    # Up to 120 figures: 3 groups x 10 measurements x 4 chosen answers.
     with collect_tables("attention_allocation", plots=["area_bars"]):
         results = {name: _run_for_group(df, name) for name, df in groups.items()}
 
     return results
 
 
-# ==========================================================================
-# from src/viz/visualisations_area_matrices.py
-# ==========================================================================
-
 # ---------------------------------------------------------------------------
-#  Base Statistics Heatmaps
+# Heatmaps: answer by screen position
 # ---------------------------------------------------------------------------
 
 def matrix_plot_ABCD(
@@ -185,32 +199,17 @@ def matrix_plot_ABCD(
     save: Optional[bool] = None,
     to_paper=None,
 ) -> pd.DataFrame:
-    """
-    Draw a heatmap of a metric by (area_label x area_screen_loc)
-    for participants who selected a given answer label (A/B/C/D).
+    """Heatmap of one measurement by answer (rows) and screen position (columns).
 
-    Returns the pivoted matrix, which is also saved alongside the figure —
-    before T1.3 this function returned ``None`` and the numbers behind all 320
-    of these heatmaps existed only inside the PNGs.
+    Each cell is the measurement's mean over trials, for that answer when it was
+    shown in that position. `df` must already hold only the trials where
+    `selected` was chosen: `selected` and `h_or_g` only label the figure and its
+    file name. `stat` is meant to come from `AREA_METRIC_COLUMNS_VIZES` (pupil
+    size in mm). `drop_questions=True` leaves the question out.
 
-    Parameters
-    ----------
-    df : DataFrame
-        Row-level data already filtered to the desired subset
-        (e.g. only trials where selected_answer_label == 'A').
-    stat : str
-        Column name of the metric to visualize (e.g. 'mean_dwell_time')
-        Should be selected from C.AREA_METRIC_COLUMNS_VIZES
-    selected : str, optional
-        Which answer label was selected ('A', 'B', 'C', 'D').
-    h_or_g : str, optional
-        Tag for hunters/gatherers, used in the plot title and filename.
-    drop_questions : bool, optional
-        If True, exclude rows where AREA_LABEL_COLUMN == 'question'.
-    show : bool, optional
-        If True, display the plot.
-    save : bool, optional
-        If True, write the figure and its matrix through ``save_output``.
+    Saves the figure and the matrix through `save_output`, under
+    reports/attention_allocation/ in a subfolder per measurement, then shows the
+    figure if `show`, else closes it. Returns the matrix.
     """
     df = df[
         [Con.TRIAL_ID, Con.PARTICIPANT_ID, Con.AREA_LABEL_COLUMN, Con.AREA_SCREEN_LOCATION, stat]
@@ -251,8 +250,6 @@ def matrix_plot_ABCD(
     title_suffix = " (questions removed)" if drop_questions else ""
     plt.title(f"{stat} of those who chose {selected}{title_suffix}")
     plt.xlabel(Con.AREA_SCREEN_LOCATION)
-    # The y axis is indexed by area_label (the pivot's index), not by screen
-    # location -- both axes were labelled area_screen_loc until 2026-09-20.
     plt.ylabel(Con.AREA_LABEL_COLUMN)
     plt.tight_layout()
 
@@ -286,15 +283,10 @@ def label_vs_loc_mat(
     split_groups: bool = True,
     **plot_kwargs,
 ) -> None:
-    """
-    For a given metric, plot heatmaps for each selected answer label (A-D).
-
-    Splits the single ``all_participants`` frame on request and runs:
-      - hunters
-      - gatherers
-      - all participants
-
-    When ``split_groups=False`` only the combined all-participants group is run.
+    """Draw `matrix_plot_ABCD` for one measurement, for each chosen answer (A-D)
+    and each group: hunters, gatherers and all participants, or only all
+    participants if `split_groups=False`. Other keyword arguments go to
+    `matrix_plot_ABCD`.
     """
     def _run(df: pd.DataFrame, group_label: str) -> None:
         print(f"{group_label.upper()} (drop_questions={drop_questions})")
@@ -325,17 +317,18 @@ def run_all_area_metric_plots(
     to_paper=None,
     split_groups: bool = True,
 ):
-    """
-    Convenience wrapper: for every metric, generate label-vs-location matrices
-    for hunters, gatherers, and all participants, with and without questions.
+    """Draw the answer-by-position heatmaps for every measurement, chosen answer and
+    group, with and without the question (`drop_question_variants`).
 
+    `metrics` defaults to the plots' list of per-area measurements (pupil size in
+    mm). The matrices are pooled into one long table instead of one per figure.
+    With `show=True` (the default) every figure is also displayed.
     """
     if metrics is None:
         metrics = Con.AREA_METRIC_COLUMNS_VIZES
 
-    # A sweep over metric x drop_questions x group x selected: up to 240 figures.
-    # Their matrices pool into one long table rather than 240 small ones -- see
-    # plot_output.collect_tables.
+    # Up to 240 figures: 10 measurements x 2 question settings x 3 groups x 4
+    # chosen answers.
     with collect_tables("attention_allocation", plots=["area_label_by_loc_heatmap"]):
         for metric in metrics:
             for dq in drop_question_variants:
@@ -352,11 +345,12 @@ def run_all_area_metric_plots(
                 )
 
 
-# ==========================================================================
-# from src/viz/visualisations_area_significance_heatmaps.py
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Significance heatmaps for the mixed models in stats.py
+# ---------------------------------------------------------------------------
 
 def _stars_from_p(p):
+    """*** below .001, ** below .01, * below .05, otherwise nothing."""
     if pd.isna(p):
         return ""
     if p < 0.001:
@@ -375,17 +369,16 @@ def plot_pairwise_significance_heatmap(
     areas=None,
     show=False,
 ):
-    """
-    Heatmap for pairwise comparisons table.
+    """Heatmap of the pairwise answer comparisons from `mixed_area_analysis`.
 
-    Color = -log10(p_adj_holm)
-    Annotation (upper triangle) = stars + direction of diff_i_minus_j
+    Each cell's colour is -log10 of the pair's Holm-adjusted p-value, so larger
+    means more significant. In the upper triangle, a pair with p below `alpha` also
+    shows stars and an arrow: ↑ if the row's answer has the higher value, ↓ if the
+    lower. `pairwise` needs the columns area_i, area_j, p_adj_holm and
+    diff_i_minus_j; `areas` sets the order (default: answer_A-D, those present).
 
-    pairwise must have: area_i, area_j, p_adj_holm, diff_i_minus_j
-
-    Returns the figure; persistence belongs to the caller, which also holds the
-    fixed-effects table that belongs with it (see
-    ``statistics.mixed_area_comparisons.run_models_for_group``).
+    Returns the figure, or None with fewer than two areas. It saves nothing:
+    `stats.run_models_for_group` saves it together with the tables behind it.
     """
     if areas is None:
         canonical = ["answer_A", "answer_B", "answer_C", "answer_D"]
@@ -418,6 +411,7 @@ def plot_pairwise_significance_heatmap(
         E[i, j] = eff
         E[j, i] = -eff
 
+    # For the colour only: keeps -log10 finite if a p-value underflows to 0.
     P_clip = np.clip(P, 1e-300, 1.0)
     intensity = -np.log10(P_clip)
     np.fill_diagonal(intensity, 0.0)
@@ -431,7 +425,7 @@ def plot_pairwise_significance_heatmap(
     ax.set_yticklabels(areas)
     ax.set_title(title)
 
-    # grid
+    # Minor ticks on the cell edges, to draw lines between the cells.
     ax.set_xticks(np.arange(-.5, n, 1), minor=True)
     ax.set_yticks(np.arange(-.5, n, 1), minor=True)
     ax.grid(which="minor", linewidth=0.5)
@@ -440,7 +434,7 @@ def plot_pairwise_significance_heatmap(
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("-log10(p_adj_holm)")
 
-    # annotate only upper triangle
+    # Only the upper triangle is annotated: the lower one mirrors it.
     for i in range(n):
         for j in range(i + 1, n):
             p = P[i, j]

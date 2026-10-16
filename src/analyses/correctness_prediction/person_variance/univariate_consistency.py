@@ -1,23 +1,24 @@
-"""Consistency of *every* feature, via per-person marginal associations.
+"""How consistent every feature is across participants, measured without a model.
 
-:mod:`coef_consistency` needs per-person model **coefficients**, so it only
-covers the handful of trained features. To ask the same "same for everyone vs.
-varies?" question for **every** feature, this module switches to a per-person
-**marginal** measure that needs no model: for each participant, the Spearman
-correlation of each feature with the outcome over that person's own trials.
-Consistency is then how much that association agrees across participants.
+`coef_consistency` needs each person's model coefficients, so it covers only the
+dozen features the per-participant models use. To ask the same question -- the
+same for everyone, or different from person to person? -- of every feature, this
+module uses a measure that needs no model: for each participant, the Spearman
+correlation of each feature with answering correctly, over that person's own
+trials. Consistency is then how far those correlations agree across participants.
 
-Two things to keep in mind when reading the result:
+Two things to keep in mind:
 
-* This is a **marginal** (unadjusted) association, not the model's **partial**
-  coefficient. A feature can be consistent on its own yet unstable once the
-  other features are held fixed (collinearity), and vice-versa -- so this
-  *complements* the trained-feature view, it does not replace it.
-* Only participants with enough trials and **both** outcome classes can be
-  scored, and a feature that is constant within a person is skipped (tracked as
-  ``coverage``). With ~50 trials per person these per-person correlations are
-  noisy, so read a ``dominant_share`` near 0.5 as "no reliable direction", not
-  as proof of a real split.
+* This is a feature's association on its own, not a model coefficient, which
+  holds the other features fixed. A feature can be consistent on its own and
+  unstable once features that carry the same information are accounted for, or
+  the other way round -- so this adds to the coefficient view rather than
+  replacing it.
+* Only participants with enough trials and enough of both outcomes are scored,
+  and a feature that never varies within a person is skipped for that person
+  (counted by `coverage`). With 54 trials per person on Study 1 the correlations
+  are noisy, so read a `dominant_share` near 0.5 as "no reliable direction", not
+  as proof that people differ.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from src.analyses.correctness_prediction.person_variance.plot_style import (
 )
 from src.lib.plotting.output import save_output
 
+# The columns of `per_person_univariate_consistency`'s summary worth printing.
 UNIVARIATE_DISPLAY_COLS = [
     "feature", "n_valid", "coverage", "mean_r", "dominant_share", "std_r", "mean_abs_r",
 ]
@@ -52,22 +54,29 @@ def per_person_univariate_consistency(
     method: str = "spearman",
     verbose: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Per-person MARGINAL association of each feature with the outcome, then its
-    consistency across participants -- works for ANY feature (no model needed).
+    """Each feature's correlation with the outcome per participant, and its consistency.
 
-    For each participant with >= ``min_trials`` trials and >= ``min_class`` of
-    each outcome class, correlate every feature with ``outcome`` over that
-    person's own trials. A constant feature yields NaN and is simply not counted
-    for that feature (tracked via ``coverage``).
+    A participant is scored only with at least `min_trials` trials and at least
+    `min_class` of each outcome; each of their features is then correlated with
+    `outcome` over their own trials. A feature that is constant within a person
+    gives no correlation for them and is not counted (see `coverage`). Features not
+    in `trial_df` are dropped without a message.
 
-    Returns ``(rmat, summary_df)``: ``rmat`` is participants x features of
-    per-person correlations, ``summary_df`` one row per feature sorted by
-    ``mean_abs_r`` (strongest first).
+    Like any per-person quantity, the result depends on which trials `trial_df`
+    holds; the full table uses all of each person's trials (`docs/pitfalls.md`
+    §3). How many trials each person's correlations rest on is kept in
+    `rmat.attrs["n_trials_per_participant"]`, and its median in the summary.
+
+    Returns `(rmat, summary_df)`: `rmat` holds the correlations, participants x
+    features; `summary_df` has one row per feature, strongest mean |r| first.
     """
     feature_cols = [c for c in feature_cols if c in trial_df.columns]
     per_pid, n_kept, n_drop = {}, 0, 0
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")  # constant feature -> NaN corr, expected
+        # Silences every warning in the loop. The one expected is from a feature
+        # that is constant within a person: its correlation is NaN, and `coverage`
+        # counts those.
+        warnings.simplefilter("ignore")
         for pid, g in trial_df.groupby(participant_col):
             y = pd.to_numeric(g[outcome], errors="coerce")
             if (len(g) < min_trials or (y == 1).sum() < min_class
@@ -89,11 +98,9 @@ def per_person_univariate_consistency(
 
     rmat = pd.DataFrame(per_pid).T  # participants x features
 
-    # How many trials each retained participant's correlations rest on. SCOPE:
-    # these are per-person quantities over whatever trial_df held, so a narrowed
-    # frame would shrink every correlation's basis silently -- the count is what
-    # makes that visible (`todo.md` T3.21 row 9). The driver passes the global
-    # table today, so this is the participant's full trial set.
+    # How many trials each kept participant's correlations rest on. They are over
+    # whatever trials trial_df holds, so a filtered table would quietly shrink that
+    # basis; the count makes it visible.
     rmat.attrs["n_trials_per_participant"] = (
         trial_df.groupby(participant_col).size().reindex(rmat.index)
     )
@@ -121,9 +128,12 @@ def most_person_dependent(
     summ: pd.DataFrame,
     n_strongest: int = 60,
 ) -> pd.DataFrame:
-    """Among the ``n_strongest`` features (by ``mean_abs_r``), the ones whose
-    direction is *least* consistent across participants -- i.e. where a real
-    marginal signal flips sign between people."""
+    """The `n_strongest` features by mean |r|, least consistent direction first.
+
+    These are the features with a strong association on average whose sign agrees
+    least across participants. Expects `summ` in the order
+    `per_person_univariate_consistency` returns it, strongest first.
+    """
     return summ.head(n_strongest).sort_values("dominant_share")
 
 
@@ -141,15 +151,19 @@ def plot_univariate_consistency(
     dpi: int = 300,
     close: bool = False,
 ):
-    """Plot the first ``top_k`` rows of ``summ_sorted`` -- sort it however you
-    like first (by ``mean_abs_r`` for the strongest signals,
-    ``dominant_share`` via :func:`most_person_dependent` for the least
-    consistent ones).
+    """Draw the first `top_k` rows of `summ_sorted`: sign split and spread per feature.
 
-    *Left* is the direction split across participants (with each feature's
-    ``coverage`` in brackets), *right* the spread of the per-person
-    correlations: tight and off 0 = consistent, straddling 0 = varies.
-    Returns ``(fig, saved_paths)``.
+    The order of `summ_sorted` decides what is shown: as returned by
+    `per_person_univariate_consistency` for the strongest associations, or through
+    `most_person_dependent` for the least consistent among the strong ones.
+
+    *Left*: the share of participants with a negative or a positive correlation,
+    among those it could be computed for; the label gives the share of the more
+    common sign and, in brackets, `coverage`. *Right*: the spread of the per-person
+    correlations; tight and away from 0 = consistent, spread across 0 = varies.
+
+    Saves the plotted summary rows. Returns `(fig, saved)`, `saved` being what
+    `save_output` wrote.
     """
     top = summ_sorted.head(top_k)
     feats = top["feature"].tolist()[::-1]

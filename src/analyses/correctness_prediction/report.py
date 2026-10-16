@@ -1,9 +1,15 @@
-"""Collect saved cross-validation run reports and draw the model-comparison figure.
+"""Comparing saved runs of the headline model.
 
-Note the figure's contents are whatever is on disk: these functions SCAN the
-given report directories rather than taking a curated model list, so any run
-ever saved there joins the comparison. Check the folder before generating a
-final figure.
+Each run of a `run.py` bundle with `save=True` writes its scores as a one-row table,
+`model_summary__<run and model>__summary.csv`. The functions here find those files
+and compare the runs: as a bar chart of one score (`collect_and_plot_correctness_runs`),
+or as a table with one column per held-out regime (`collect_correctness_runs_by_mode`).
+Each run is one train/test split; comparing cross-validated models is
+`plots/run_comparison.py::plot_cv_model_comparison_staged`.
+
+The functions scan the folders they are given rather than taking a list of runs,
+so every run ever saved there is included. Check the folder before making a final
+figure.
 """
 
 from typing import Iterable, List, Optional, Sequence, Union, Dict, Any, Tuple, Mapping
@@ -47,10 +53,13 @@ def collect_and_plot_correctness_runs(
     show_values: bool = True,
 ) -> Dict[str, Any]:
     """
-    Convenience wrapper:
-    - collect all run summaries
-    - plot balanced accuracy comparison
-    - optionally save combined table and figure
+    Collect every saved run summary under `report_dirs` and draw them as one bar
+    chart of `metric_col`, highest at the top.
+
+    The collecting is `plots/run_comparison.py::collect_correctness_run_reports`
+    (`filename`, `recursive`, `sort_by`, `ascending`) and the chart is
+    `plot_correctness_run_comparison` (everything else). Returns the collected
+    table, the plotted rows, the figure and the saved paths.
     """
     summary_df = collect_correctness_run_reports(
         report_dirs=report_dirs,
@@ -90,8 +99,7 @@ def collect_and_plot_correctness_runs(
         "summary_df": summary_df,
         "plot_df": plot_df,
         "fig": fig,
-        # The figure and its table are written by one call now, so there is a
-        # single list of paths rather than two that could disagree.
+        # One save writes the figure and its table, so there is one list of paths.
         "saved_paths": plot_paths,
     }
 
@@ -111,48 +119,26 @@ def collect_correctness_runs_by_mode(
     to_paper=None,
 ) -> Dict[str, Any]:
     """
-    Build a comparison table of one metric (default: balanced accuracy) across
-    the three testing modes.
+    A table of one score (balanced accuracy by default) for every saved run, with
+    one column per held-out regime ("testing mode").
 
-    The resulting table has:
-        - one column per testing mode (new_item, new_subject, both)
-        - one row per run identifier (i.e. which features the model trained on)
-        - cells holding the metric value for that run / mode combination
+    `base_dir` holds one folder per mode, named as `run.py` names its output
+    folders: e.g. `reports/correctness_prediction/tables/`, with `new_item/`,
+    `new_subject/` and `both/` inside. `modes` maps each column label to its folder
+    (by default each of the three regimes to its own name), and the columns keep
+    its order. A missing folder is skipped with a printed note; a folder with no
+    run summaries in it stops with an error.
 
-    Parameters
-    ----------
-    base_dir:
-        Folder that contains the per-mode subfolders, e.g.
-        "reports/report_data/answer_correctness".
-    modes:
-        Mapping of {column_label: subfolder_name}. Defaults to
-        {"new_item": "new_item", "new_subject": "new_subject", "both": "both"}.
-        The column order in the output follows this mapping's order.
-    filename:
-        Glob for the run-summary CSVs written by `save_output`.
-        Default: "model_summary*__summary.csv" -- the stem is `model_summary`
-        plus the run/model facets, and `__summary` is the `tables=` key.
-    recursive:
-        Search nested subfolders for the CSVs.
-    metric_col:
-        Column to place in the table cells. Default: "balanced_accuracy".
-    index_col:
-        Column used as the run identifier (table rows). Default: "run_identifier".
-    decimals:
-        If not None, round the metric cells to this many decimals.
-    sort_by_mode:
-        Optional mode column label to sort rows by (descending). If None, rows
-        are sorted alphabetically by run identifier.
-    save / subdir / plot / to_paper:
-        One flag now covers the figure and its numbers -- they are written by the
-        same save_output call, so a saved figure always has a saved table.
+    One row per run, labelled by `index_col` (`run_identifier`). Runs that share a
+    label within a mode are averaged into one cell, and a run saved without a label
+    is left out. Rows are sorted by the `sort_by_mode` column, highest first, if
+    that column exists, otherwise by label; `decimals` rounds the cells.
 
-    Returns
-    -------
-    dict with:
-        "pivot_df"  : wide table (index=run identifier, columns=modes)
-        "long_df"   : tidy table with a "testing_mode" column
-        "table_paths": list of saved CSV paths (empty unless save_table=True)
+    With `save_table=True` the table is saved as `<table_filename>__pivot.csv`, in
+    `reports/correctness_prediction/tables/<subdir>/`.
+
+    Returns a dict: `pivot_df` (the table), `long_df` (every run summary, with a
+    `testing_mode` column) and `table_paths` (empty unless saved).
     """
     if modes is None:
         modes = {
@@ -194,7 +180,7 @@ def collect_correctness_runs_by_mode(
         aggfunc="mean",
     )
 
-    # Keep the requested mode column order (only those that actually appeared).
+    # The columns in the order of `modes`, for the modes that were found.
     ordered_cols = [m for m in modes.keys() if m in pivot_df.columns]
     pivot_df = pivot_df[ordered_cols]
     pivot_df.columns.name = None
@@ -207,7 +193,7 @@ def collect_correctness_runs_by_mode(
     if decimals is not None:
         pivot_df = pivot_df.round(decimals)
 
-    # index=False on write, so the run identifier moves into a column first.
+    # Tables are written without their index, so the run label becomes a column first.
     table_paths = save_output(
         None,
         analysis="correctness_prediction",

@@ -1,19 +1,13 @@
-"""Cross-validation result figures.
+"""Cross-validation scores by regime: printed tables and a bar chart.
 
-Split out of `answer_correctness/cross_validation.py` in stage D step 7. These
-three are the reason that module could not simply become `modeling/crossval.py`:
-they import `viz.plot_output` and matplotlib, and `modeling/` imports nothing
-from `viz/`. Leaving them in place would have carried that dependency into the
-new package and broken the layering rule the restructure is for.
+`cv_out` is what the runners in `modeling/crossval.py` return, or what
+`load_cross_validation_run` reloads. The numbers come from
+`modeling/evaluate.py::summarize_cv_results_by_regime`, which averages each regime's
+score over the folds, weighted by how many trials each fold scored; this module only
+shows them.
 
-**This is a waypoint, not a destination.** Stage E dissolves `viz/` into
-per-analysis `plots.py`, and these belong with the rest of the correctness-model
-figures -- `analyses/correctness_prediction/plots/` in the target tree
-(`restructure-map.md` §6.4). They sit here so they are in the same queue as every
-other `visualisations_*` module rather than in a folder invented ahead of time.
-
-The numbers come from `modeling/evaluate.summarize_cv_results_by_regime`; this
-module only renders them.
+`model_name` must be the name the run gives the model (its key in `model_builders`).
+The default is not a name any of the project's runs use.
 """
 
 from __future__ import annotations
@@ -36,7 +30,16 @@ def show_cv_results(
     metric_col: str = "balanced_accuracy",
 ) -> Dict[str, pd.DataFrame]:
     """
-    Display fold-level and aggregated CV results for a model.
+    Show one model's cross-validation results as five tables, for a notebook: every
+    fold and regime; by regime; by regime for the test half only; by regime for the
+    validation half only; and one overall line.
+
+    The overall line is a plain average over every fold and regime -- new item, new
+    participant and both together -- so it only checks that the run worked. Needs a
+    run that scored both halves (`eval_split="both"`, the default): the test-only and
+    validation-only tables stop with an error otherwise.
+
+    Returns the five tables in a dict.
     """
     summary_df = cv_out.summary_df.copy()
 
@@ -124,7 +127,16 @@ def plot_cv_metric_by_regime(
     subdir: str | None = None,
 ):
     """
-    Bar plot of mean CV metric by regime, with confidence intervals across folds.
+    Bar chart of one model's cross-validated score in each regime, with error bars.
+
+    Each bar is the mean over folds, weighted by trials scored. The error bars are a
+    `ci` interval across folds (mean +/- z x standard error, cut to [0, 1]; `ci` must
+    be 0.90, 0.95 or 0.99). The folds share most of their training data, so the
+    error bars are narrower than the real uncertainty. `test_only` / `val_only` keep
+    one half of the held-out trials.
+
+    The figure and the summary table are saved as `cv_metric_by_regime`, named by
+    model and metric. Returns the summary table, the figure and the axes.
     """
     summary = summarize_cv_results_by_regime(
         cv_out=cv_out,
@@ -184,7 +196,11 @@ def plot_cv_metric_by_regime_pretty(
     figsize: tuple = (10, 6),
 ):
     """
-    Same as `plot_cv_metric_by_regime`, but with prettier regime labels.
+    `plot_cv_metric_by_regime` with readable regime names on the x-axis.
+
+    The relabelled figure is not saved: the saving happens inside
+    `plot_cv_metric_by_regime`, before the labels change, and follows the session
+    default (`set_output_defaults`).
     """
     pretty_names = {
         "val_seen_subject_unseen_item": "Val: seen subj,\nunseen item",
