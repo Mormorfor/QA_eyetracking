@@ -1,5 +1,3 @@
-# src/predictive_modeling/answer_correctness/answer_correctness_participant_cluster_metrics.py
-
 from __future__ import annotations
 
 from typing import Dict, Literal

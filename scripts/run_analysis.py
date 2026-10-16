@@ -10,8 +10,8 @@ than inventing a folder.
 
 **What this is not.** It is not a replacement for the driver notebooks: several analyses have
 parameters worth varying interactively, and this runs them at their defaults. It is the
-answer to "can a reader regenerate this without opening Jupyter", which the release standard
-in `conventions.md` requires and which was not true before stage F.
+way to regenerate these figures without opening Jupyter, which the release standard in
+`conventions.md` asks for.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# analysis -> [(module, function), ...]. Every runner listed here takes the IA-level frame
+# analysis -> [(module, function), ...]. Every runner listed here takes the word-level frame
 # as its first argument; the one that does not (`run_all_area_mixed_models`, which wants the
 # two group frames) is handled in `_run` below.
 RUNNERS: dict[str, list[tuple[str, str]]] = {
@@ -74,11 +74,8 @@ def _run(name: str, save: bool, verbose: bool) -> None:
 
     ds = get_dataset("l1")
 
-    # Reads the three grain tables and rejoins them, rather than the 2.9 GB
-    # broadcast table: 4 s against 64 s, and the frames are **verified equivalent**
-    # on every column the analyses can see -- 121 shared columns, 0 value, 0 null
-    # and 0 dtype differences (2026-10-13). The 118 columns the read-time whitelist
-    # drops are raw passthrough that nothing under `analyses/` reads.
+    # The word-level frame, rebuilt from the three tables (`load_model_input`). The
+    # raw report columns it leaves out are ones nothing under `analyses/` reads.
     if verbose:
         print("loading the grain tables")
     all_participants = load_model_input(ds, verbose=verbose)
@@ -88,12 +85,9 @@ def _run(name: str, save: bool, verbose: bool) -> None:
         if verbose:
             print(f"  {fn_name}")
         if fn_name == "run_all_area_mixed_models":
-            # The one runner that wants the two group frames rather than the pooled
-            # one. It read `ds.root / "hunters.csv"` until 2026-10-13 -- a path that
-            # has not existed since stage G moved those files under `interim/`, so
-            # this branch raised FileNotFoundError. The group subsets of each grain
-            # are written in the same run as their parent, so they cannot be stale
-            # relative to it the way the old pair could.
+            # The one runner that wants the two groups' frames rather than the pooled
+            # one. The groups' tables are written in the same build as the pooled
+            # ones, so the two cannot be out of step.
             fn(
                 load_model_input(ds, facet="hunters", verbose=False),
                 load_model_input(ds, facet="gatherers", verbose=False),

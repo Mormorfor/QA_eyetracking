@@ -1,7 +1,5 @@
-"""Scanpath and fixation-sequence figures. **Parked** (Diana, 2026-10-07).
+"""Scanpath and fixation-sequence figures. **Parked.**
 
-No `src` importer; driven only by `notebooks/exploration/sequence_visualisations.ipynb`.
-A notebook driver is not a live-path caller, which is the same evidence that parks
-everything else here. It writes nothing through `save_output`, so it has no
-`ANALYSES` key and needs none.
+Driven by `notebooks/exploration/sequence_visualisations.ipynb`; nothing in `src/` imports
+it. It saves nothing through `save_output`, so nothing of it lands in `reports/`.
 """

@@ -232,8 +232,8 @@ are all digits and would otherwise be read as integers, breaking every join.
 modules failing to import because seaborn's `from statistics import NormalDist` found ours
 instead.
 
-The folder is now `src/stats/`, and the import path carries only the repo root — everything
-is reached as `src.…`. **Putting `src/` back on the path re-arms this**, whether through
+The statistics helpers are now in `src/lib/stats/`, and the import path carries only the repo
+root — everything is reached as `src.…`. **Putting `src/` back on the path re-arms this**, whether through
 `.env`, a notebook cell, a `conftest.py`, or a `sys.path.insert`. The failure surfaces inside
 a third-party library, nowhere near the cause.
 

@@ -1,9 +1,9 @@
 """Driver for the lab's EyeBench trial-level paragraph feature extraction.
 
 The extraction itself lives in `src/vendor/eyebench/` (vendored source plus our
-adapter `paragraph_trial_features.py`); this module is only the orchestration
-that used to sit in the notebook: pick the participants, decide between the
-cached CSV and a rebuild, and read back the feature -> model-family key files.
+adapter `paragraph_trial_features.py`); this module only drives it: pick the
+participants, decide between the cached CSV and a rebuild, and read back the
+feature -> model-family key files.
 
 A full build reads two multi-GB reports and takes ~1.5 h, so
 `get_paragraph_trial_features` loads `PARAGRAPH_TRIAL_FEATURES_PATH` whenever it
@@ -62,7 +62,7 @@ def quick_test_participants(
 
 
 def _write_cache_provenance(cache_path: Path, build_kwargs: dict) -> Path:
-    """Record *how* the cache was built, beside the cache (`todo.md` T5.9).
+    """Record *how* the cache was built, in a file beside the cache.
 
     Two entry points can write this file with different feature definitions:
     this runner defaults `fix_ptb_pos_double_mapping=True`, giving the 80

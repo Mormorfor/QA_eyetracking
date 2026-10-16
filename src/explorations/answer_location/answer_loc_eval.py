@@ -10,8 +10,6 @@ from src.explorations.answer_location.answer_loc_models import AnswerLocationMod
 from src.explorations.answer_location.answer_loc_data import (
     build_trial_level_location_table,
 )
-# `group_vise_train_test_split` was re-exported by answer_loc_data until an
-# earlier refactor moved it; imported from its real home since 2026-10-07.
 from src.modeling.folds import group_vise_train_test_split
 
 

@@ -1,16 +1,8 @@
 """Random-effects figures for the mixed-model backends. **Parked.**
 
-Split out of `answer_correctness_viz.py` in stage E. These read `get_random_effects()`
-and `get_random_effect_variance_summary()`, which only the Julia backend implements
-(`todo.md` T2.3) -- so they are unusable with the logistic regression the paper reports,
-and they belong with the backends rather than with the paper figures.
-
-**Not to be confused with `analyses/attention_allocation/stats.py`**, which also says
-"mixed effects" and is paper code: that is a *difference test* between screen areas, this
-is *fitting the outcome* with a mixed model. Diana, 2026-10-07.
+These read `get_random_effects()` and `get_random_effect_variance_summary()`, which only
+the Julia backend has, so they cannot be used with the paper's logistic regression.
 """
-
-# src/predictive_modeling/answer_correctness/answer_correctness_viz.py
 
 from __future__ import annotations
 from pathlib import Path

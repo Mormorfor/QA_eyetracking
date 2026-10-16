@@ -175,16 +175,9 @@ def _rt_family_groups() -> Dict[str, List[str]]:
     }
 
 
-# Groups 5 and 11 -- the RT/TFD *interaction* sets -- were removed on 2026-09-27
-# (`todo.md` T2.1). They were built from fg.RT_INTERACTION_COLS / TFD_INTERACTION_COLS /
-# RT_TFD_INTERACTION_COLS, which name paragraph-x-answer product columns
-# ("RT_normalized_critical__x__RT_normalized_answer_A"). Those constants were deleted from
-# feature_groups.py in commit c5f6470, and the columns they named are not built by anything
-# and appear in no dataset -- so the 31 feature sets involved could only ever have referenced
-# columns that do not exist. Restoring the constants would have resurrected that, which is
-# why the references were removed instead. Recover the definitions from
-# `git show 5fd5079:src/predictive_modeling/answer_correctness/feature_groups.py` if the
-# interaction terms are ever actually built.
+# There are no groups 5 and 11. They would hold the paragraph-by-answer reading-time
+# interactions (e.g. "RT_normalized_critical__x__RT_normalized_answer_A"), which nothing
+# builds.
 
 def _save_set_collection(
     sets: Dict[str, Sequence[str]],

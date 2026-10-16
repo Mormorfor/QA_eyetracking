@@ -14,8 +14,7 @@ It goes by the order of the rows, and the word table lists a trial's words by
 (on Study 1, in all but 10 trials). So "before" is the question and the answers
 that come before the chosen one in that order, "during" the chosen answer's own
 words, and "after" the answers that come after it (none, when the chosen answer
-is at the bottom). On
-Study 1, in 24% of trials a word counted as "after" was first looked at before
+is at the bottom). On Study 1, in 24% of trials a word counted as "after" was first looked at before
 the chosen answer was. Splitting by time would need each trial's fixations in
 time order, from the fixation report.
 """

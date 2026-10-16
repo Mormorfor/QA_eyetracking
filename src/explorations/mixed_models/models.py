@@ -4,10 +4,8 @@
 were judged not important enough to pursue for this paper."* The reported model is the
 logistic regression in `modeling/models/logreg_model.py`.
 
-Moved out of `modeling/models/` in stage E so the paper's run path imports no Julia.
-`run_model_bundles` used to open with a warning that importing it *"pulls in the Julia
-backend, so it needs a working juliacall toolchain even when only the logistic
-regression is wanted"* -- that is no longer true."""
+Kept here, apart from the paper's model, so that nothing on the paper's path needs Julia
+or R installed."""
 
 from __future__ import annotations
 

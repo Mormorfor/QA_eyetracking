@@ -4,5 +4,5 @@ Mirrors the `src.configs` package of the source project, reproducing only the
 names `utils - paragraph feature extraction.py` imports. That file's
 `from src.configs...` imports are redirected here at load time by
 `src/vendor/eyebench/paragraph_trial_features.py`, so the vendored file itself
-needs no editing. Project-wide constants live in `src/constants.py`.
+needs no editing. This project's own column names are in `src/config/columns.py`.
 """

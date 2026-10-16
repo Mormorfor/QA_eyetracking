@@ -1,7 +1,6 @@
 """Predicting which screen *position* the participant picks. **Parked, and broken.**
 
-`todo.md` T2.2: does not import. Four independent breakages, including a
-`multi_class="multinomial"` argument scikit-learn no longer accepts. Filed here as-is
-rather than repaired -- the restructure's job is to make "this does not back the paper"
-visible from the path; fixing it is work for whenever the strand is picked up.
+It imports, but does not run with the current libraries: for example, the multinomial
+model passes `multi_class="multinomial"`, which the installed scikit-learn (1.8) does not
+accept. Driven by `notebooks/exploration/answer_loc_prediction.ipynb`.
 """

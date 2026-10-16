@@ -1,11 +1,8 @@
 """Trial-level paragraph feature extraction from the lab's EyeBench / OneStop pipeline.
 
-Everything EyeBench lives here -- the code as received, the configuration it
-needs, our adapter, and the driver -- by decision (Diana, 2026-10-06): one place,
-and it must not be able to break the rest of the project. Before the Stage C
-restructure these four were split across `src/external/EyeBench/` and
-`src/derived/external/EyeBench/`, which made the wrapper look like vendored code
-and the vendored code look like ours.
+Everything EyeBench is in this one folder -- the code as received, the configuration
+it needs, our adapter and the driver -- and nothing outside it imports it at module
+level, so it cannot break the rest of the project. Which file is whose:
 
 | file | whose | what |
 |---|---|---|

@@ -1,5 +1,3 @@
-# src/predictive_modeling/answer_correctness/answer_correctness_participant_clustering.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,8 +1,8 @@
 """Mixed-effects bundles: the same evaluate-and-save cycle, Julia/R backend. **Parked.**
 
-Split out of `run_model_bundles.py` in stage E. They share every helper with the logistic
-bundles, which is why those moved down to `modeling/bundles.py` rather than being
-duplicated here -- leaving these in `analyses/` had made `analyses/` import `explorations/`.
+The same runs as `analyses/correctness_prediction/run.py` -- one stored fold, fit, score,
+save, figures -- with the Julia mixed model (`models.py`). The split, the feature handling,
+the saving and the figures are imported from that module and its `plots/`.
 """
 
 from __future__ import annotations

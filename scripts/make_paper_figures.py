@@ -3,27 +3,19 @@
     python scripts/make_paper_figures.py --list
     python scripts/make_paper_figures.py
 
-**This is a skeleton** (Diana, 2026-10-07: *"You can make it a skeleton for now. We will work
-on paper figures, but this comes when the codebase is already nice and organized."*). The
-structure and the inventory are here; the wiring is partial on purpose.
+**This is a skeleton.** The inventory is complete, the wiring is partial. Every entry below
+is marked `WIRED` (rebuilt by `run_analysis.py`) or `TODO` (needs a person or a notebook), and
+a run ends by listing the TODO ones, so a partial run cannot pass for a complete one.
 
-**What it will not do is pretend.** Every entry below is marked `WIRED` or `TODO`, and a run
-prints the TODO list at the end. A script that silently regenerates eight of fourteen figures
-and exits 0 is worse than no script, because it looks like coverage.
+Why some are TODO:
 
-**Why some are TODO.** They are not oversights, they are the open items:
-
-* `correctness_prediction` figures come from cross-validation runs that take real time and are
-  driven from notebooks; the CV results were also deleted with the old `reports/` tree and
-  need regenerating first (`restructure-map.md` section 9).
-* the error-analysis figures live in `notebooks/drivers/general_model_confusion.ipynb`, which
-  persists nothing -- that is `todo.md` T4.0, pushed to Diana's manual pass.
-* the paper's figure list is itself not final: `draft2.tex` references figures in prose only,
-  with **no uncommented `\\includegraphics` anywhere**, so there is no machine-readable list to
-  check this against yet.
-
-Until those close, the honest output of this script is "here is what I can rebuild, and here
-is what still needs a human".
+* the `correctness_prediction` figures come from cross-validation and per-participant runs,
+  which take a long time and are run from notebooks;
+* the error-analysis figures are drawn in `notebooks/drivers/general_model_confusion.ipynb`,
+  which saves nothing;
+* the paper's list of figures is not final: `draft2.tex` names its figures in the text only,
+  with no `\\includegraphics` that is not commented out, so there is no list to check
+  against yet.
 """
 
 from __future__ import annotations
@@ -61,11 +53,11 @@ FIGURES: list[Figure] = [
     Figure("Results - Text Associations", "text_qa_relationship",
            "sequence of map/contrast calls; notebooks/drivers/text_associations.ipynb", False),
     Figure("Results - Error analysis", "correctness_prediction",
-           "notebooks/drivers/general_model_confusion.ipynb persists nothing (T4.0)", False),
+           "notebooks/drivers/general_model_confusion.ipynb saves nothing", False),
     Figure("Results - Participant-level coefficients", "correctness_prediction/person_variance",
-           "needs the cached LOO pickle, deleted with the old reports/ tree", False),
+           "needs the per-participant runs; notebooks/drivers/per_person_runs.ipynb", False),
     Figure("Methods - Models comparison", "correctness_prediction",
-           "needs a cross-validation run; CV results not yet regenerated", False),
+           "needs a cross-validation run; notebooks/drivers/answer_corr_prediction.ipynb", False),
     Figure("Methods - Study 2 regimes and confidence", "correctness_prediction/knowledge_regimes",
            "notebooks/drivers/preliminary_analysis.ipynb", False),
     Figure("(unplaced) correct-vs-distractor RT asymmetry", "answer_rt_comparison",

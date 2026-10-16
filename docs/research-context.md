@@ -1,21 +1,15 @@
 # Research context
 
-The science behind the code. Drafted from
-`papers/correctness_prediction/Nature Comunications/draft2.tex` (the live paper outline)
-and the code itself.
+The science behind the code, drafted from
+`papers/correctness_prediction/Nature Comunications/draft2.tex` (the live paper outline) and
+the code itself. Diana has reviewed the science in §§1–4. It is still a reading of her draft,
+not the authoritative statement of the research: where this file and the draft disagree, the
+draft wins.
 
-**Status: reviewed with Diana 2026-09-04/05.** §§1–6 have been corrected by her; the
-decisions are listed at the end of §7. Still my reading of her paper draft rather than an
-authoritative statement of the research — where this and the draft disagree, the draft wins.
-
-> `papers/` is read-only for Claude. This file exists so the code's purpose is legible from
-> inside the repo; it is not a substitute for the paper and should not be treated as the
-> canonical statement of the claims.
->
-> **Tracking:** `draft2.tex` supersedes `draft1.tex` (results-first restructure, three new
-> Results subsections). `abstract.tex` and `paper.tex` in the parent folder are the older
-> ACM-era drafts and describe a mixed-effects model that was never used — treat them as
-> retired.
+> `papers/` is read-only for Claude. This file makes the code's purpose legible from inside the
+> repo; it is not a substitute for the paper. `draft2.tex` is the current outline; `draft1.tex`,
+> and `abstract.tex` and `paper.tex` in the parent folder, are older drafts (the last two describe
+> a mixed-effects model that is not used).
 
 ---
 
@@ -50,17 +44,17 @@ articles, 54 paragraphs total. Each paragraph is followed by one multiple-choice
 comprehension question, selected from three possible questions for that paragraph.
 
 **The sample is native English speakers.** `L1` means *native language*, and this project
-uses the **L1 portion of OneStop** — hence the `L1_` prefix on every processed output
-(`data/L1_based_data/`, `L1_model_ready_all_features.csv`). OneStop also has an L2
-(non-native) portion, which is not used here.
+uses the **L1 portion of OneStop** — hence the dataset key `l1` and the folder
+`data/datasets/l1_onestop/`. OneStop also has an L2 (non-native) portion, which is not used
+here.
 
 This matters for the paper in two places: Study 1's sample description, and Study 2's
 limitations — **Study 2 recruits participants of mixed linguistic backgrounds**, so the two
 studies are not matched on language background. Draft2's `\section{Limitations}` is currently
 empty; this belongs in it.
 
-It also matters for the code: the `L1_` prefix marks a **sample restriction**, not a study
-number. Any future non-native data needs its own namespace rather than reusing these paths.
+It also matters for the code: `l1` marks a **sample restriction**, not a study number. Any
+future non-native data needs its own dataset record rather than reusing these paths.
 
 ### Design
 
@@ -106,8 +100,7 @@ OneStopQA builds each option from a specific relationship to the paragraph:
 *same* span — B is the trap for a reader who found the right sentence and misread it, while C
 is the trap for a reader who anchored on the wrong sentence.
 
-This ordering is not encoded anywhere in the code (`ANSWER_LABELS` is a flat list), but the
-data follows it on two independent measures:
+The data follows this ordering on two independent measures:
 
 | | A | B | C | D |
 |---|---|---|---|---|
@@ -117,14 +110,12 @@ data follows it on two independent measures:
 | skip rate | 0.356 | 0.452 | 0.492 | 0.484 |
 
 **Selection follows the full ranking; attention flattens at C ≈ D.** The mixed models say the
-same: A–B, B–C and B–D are all significant, while **C–D is not** (`findings.md` §3.1). That is
-exactly what the construction predicts — B is critical-span material and gets treated as a
-live contender, whereas C and D are both "not it" visually even though readers still choose
-between them at a 2:1 rate.
+same: A–B, B–C and B–D are all significant, while **C–D is not**. That is exactly what the
+construction predicts — B is critical-span material and gets treated as a live contender,
+whereas C and D are both "not it" visually even though readers still choose between them at a
+2:1 rate.
 
-The code does not use this ordering — `wrong_mean` averages B, C and D as equals. That is
-accepted, not an oversight; using the ordinal structure was considered and deliberately set
-aside (2026-09-05).
+The model does not use this ordering, on purpose: `wrong_mean` averages B, C and D as equals.
 
 ### Data preparation
 
@@ -137,8 +128,9 @@ Fixations become a temporal sequence of region symbols, then get collapsed so th
 consecutive repeats become one symbol — turning the sequence into a record of *transitions
 between regions*.
 
-One targeted cleanup: an isolated leading fixation on the question — a single fixation
-immediately followed by a move elsewhere — is removed as spillover from screen 3.
+One targeted cleanup: a single opening look at the question — one run of fixations on one
+question word, immediately followed by a move elsewhere — is removed as spillover from
+screen 3 (glossary §8).
 
 ### Features
 
@@ -161,7 +153,7 @@ sequence features add hesitation patterns (XYX, XYXY), sequence length, and mean
 ### Model
 
 Logistic regression with weighted classes, evaluated on **balanced accuracy** (base rate
-≈ 0.8 correct). Interpretability is a deliberate constraint, not a convenience: which
+≈ 0.84 correct). Interpretability is a deliberate constraint, not a convenience: which
 behaviours the model finds predictive is itself a research question.
 
 **Framing that matters:** the model knows which option is correct; it does not know what the
@@ -181,16 +173,11 @@ regimes, named `new_item`, `new_subject` and `both` in the figures and folders. 
 Draft2 is **results-first**: a narrative Results section with six thematic subsections, and
 all the "how" moved into Methods. This section follows that order.
 
-Headline: **~0.83 balanced accuracy** on the answer-selection screens.
-
-> Note: the Results opener says "about eighty percent" while Models comparison says 0.83.
-> **Not an inconsistency to fix** — the figure varies a little between testing regimes and is
-> a placeholder until the final numbers land.
+Headline: **~0.83 balanced accuracy** on the answer-selection screens. The Results opener says
+"about eighty percent" and Models comparison 0.83; the figure varies a little between testing
+regimes, and both are placeholders until the final numbers.
 
 ### 3.1 First-scan behavior
-
-**This is new in draft2** and it promotes what was previously a parked experiment into a
-headline finding.
 
 - Most participants open with a **clockwise first scan of the answer options, starting from
   the top**. Second most common: **counter-clockwise from the top**.
@@ -205,44 +192,22 @@ headline finding.
 - All three percentages rise when **interrupted-scan completion** is applied to scan passes
   shorter than four items.
 
-**`X`, `Y` and `Z` have already been computed** — they are in the stored output of
-`notebooks/vizes for purpouse/visualisations.ipynb` cell 6. See `docs/findings.md` §1.2 for
-the full table; in brief, using the `≥ half of trials` convention that matches draft2's
-wording: **hunters 48.9% raw / 53.3% after completion; gatherers 58.3% / 61.1%.** The
-group difference runs in the direction the draft claims.
+On the current data, with "at least half of the trials" (raw / after completion): **all
+participants 60.3% / 63.1%, hunters 55.6% / 59.4%, gatherers 65.0% / 66.7%**. The group
+difference runs in the direction the draft claims. Completion changes the dominant strategy of
+3 of the 360 participants, so the finding does not depend on it.
 
-The clockwise / counter-clockwise claim is also already established: the dominant strategies
-are literal location tuples, and the top two across both groups are exactly
-`(top, right, bottom, left)` and `(top, left, bottom, right)`. Counts in `findings.md` §1.1.
+Clockwise and counter-clockwise are not categories in the code: the dominant strategies are
+literal tuples of screen positions, and the two most common are exactly
+`(top, right, bottom, left)` and `(top, left, bottom, right)` — 79 and 23 of the hunters with
+a dominant strategy, 92 and 20 of the gatherers.
 
-**Code:** `viz/visualisations_strategies.py` (descriptive — `run_all_strategy_plots`, and
-the prefix-completion pair `build_prefix_completion_map_from_series` /
-`add_completed_sequence_column`, which *is* the interrupted-scan completion),
-`viz/visualisations_dominant_eye.py` (`run_dominant_strategy_eye_analysis`),
-`viz/visualisations_simplified_visits.py` (the first-four-visits heatmap), and
-`derived/pattern_breaking.py` (the per-trial model features derived from the same concept).
+"Dominant" means *most common*, not *only*: hunters use between 5 and 28 distinct opening
+scans each (median 12). That belongs next to the headline.
 
-> **Two implementations of "starting strategy" still coexist** — descriptive (with prefix
-> completion, in `viz/visualisations_strategies.py`) and model-feature (without, in
-> `derived/pattern_breaking.py`). **To be unified: `todo.md` T1.6.** The completion on/off
-> difference is a real parameter; two code paths for it is not.
->
-> *(Half done, 2026-09-20: the two no longer duplicate the reduction to a dominant strategy —
-> both now call `derived/pattern_breaking.dominant_strategy_by_participant`. What remains
-> duplicated is the sequence parsing and windowing.)*
->
-> Which variant the *feature* ends up using matters little here: the point of the first-scan
-> analysis is that the opening scan is **not** predictive of correctness, and that holds
-> either way. Current expectation is the uncompleted version for the feature, completed for
-> the descriptive figures.
-
-> ⚠️ Three smaller things, all in `findings.md`: the all-participants `X%` was never
-> produced (`run_all_strategy_plots` forces `include_all=False`); ~~the threshold is applied as
-> strict `>` in one function and `≥` in two others, which is why the printed 46.1% and the
-> summary's 48.9% differ~~ — **fixed 2026-09-20, `todo.md` T1.1: `≥` everywhere, so the
-> canonical prevalences are hunters 48.89% / 53.33% and gatherers 58.33% / 61.11%**; and
-> "dominant" means *modal*, not consistent — hunters use 6–28 distinct opening sequences each,
-> modal ≈13. That last point belongs next to the headline.
+**Code:** `features/strategies.py` makes the opening scans, the dominant strategy, the
+completion and the per-trial model features. The model features use the scans without
+completion; the descriptive figures use both. The figures are in `analyses/scan_strategies/`.
 
 ### 3.2 End of trial behavior
 
@@ -253,34 +218,25 @@ Interpreted as a **validation step before commitment**, not the moment of select
 This is why the attention features and the last-fixation features are treated as different
 kinds of evidence rather than pooled.
 
-**Code:** `derived/select_confirm_last.py`, `viz/visualisations_last_label.py`, and the
-`LAST_*` feature groups in `answer_correctness/feature_groups.py`.
+**Code:** `features/last_visited.py` (the last area before each press), the `LAST_*` feature
+lists in `features/build.py`, and the figures in `analyses/last_visitation/`.
 
 ### 3.3 Attention allocation between answer options
 
 Consistent with prior work on attention to subjectively preferred options: clear preference
 for the answer ultimately selected — **lower skip rates, higher mean dwell durations**, etc.
 
-**Code:** `derived/preference_matching.py`, `viz/visualisations_area_bars.py`,
-`viz/visualisations_preference_correctness.py` — plus
-`stats/mixed_area_comparisons.py`, which produced the pairwise significance actually
-reported in `findings.md` §3.1.
+**Code:** the per-area measurements in `features/area_metrics.py`; the figures and the mixed
+models that test the pairwise differences in `analyses/attention_allocation/`; whether the
+gaze-preferred answer is the chosen one in `features/preference.py`, plotted in
+`analyses/correctness_associations/`.
 
-> **Status (2026-09-05): paper code.** Settled — `mixed_area_comparisons.py` is classified with
-> the live code, not with the parked mixed-model strands, and its pairwise area comparisons
-> belong to this subsection. Practical consequence: its 108 output figures are among the
-> zero-byte ones (`todo.md` T4.2) and **need re-running** — the backing CSVs
-> (`report_data/area_mixed_models/`, 216 files) survived, so it is a rerun, not a recovery.
-
-> ⚠️ If this subsection uses the pairwise area comparisons, note that
-> `reports/plots/area_significance_heatmaps/` contains **108 zero-byte PNGs** — every figure
-> from that analysis is an empty file. The backing CSVs in
-> `reports/report_data/area_mixed_models/` survived, so it is a regeneration job, not lost
-> work. See `docs/status.md`.
+The mixed models have a random intercept per participant and a text term nested within
+participant. A participant reads each text once, so that term is in effect an intercept per
+trial, not a text effect shared across participants — worth knowing for how Methods describes
+them.
 
 ### 3.4 Error analysis
-
-Draft2 expands this considerably and gives it a theoretical spine.
 
 - Confusion matrix of the final model on the Study 1 test subset.
 - **False negatives are ~6× more frequent than false positives.** No recall/precision
@@ -296,10 +252,9 @@ Draft2 expands this considerably and gives it a theoretical spine.
 - Errors are then restated under three guessing models: guessing among **all four** options,
   having **eliminated one**, or narrowed to a **fifty-fifty** between two.
 
-**Code:** `notebooks/general_model_confusion.ipynb` (which already contains a
+**Code:** `notebooks/drivers/general_model_confusion.ipynb` (which contains a
 guessing-correction sensitivity analysis across the three test regimes) and
-`person_variance/mistake_types.py`. **`unlikely_analysis.py` is stale and probably not part of
-this paper** (2026-09-05).
+`analyses/correctness_prediction/person_variance/mistake_types.py`.
 
 ### 3.5 Participant-level model coefficients
 
@@ -311,19 +266,16 @@ The best model is retrained **per participant**, leaving one trial out at a time
 with very few incorrect trials score worst (few negative examples) and are excluded above a
 threshold.
 
-**Code:** `answer_correctness/person_variance/` (`coef_consistency.py`,
-`univariate_consistency.py`, `accuracy_characterization.py`, `person_accuracy.py`),
-`participant_level.py`, `notebooks/per_person_runs.ipynb`.
+**Code:** `analyses/correctness_prediction/participant_level.py` and `person_variance/`, run
+from `notebooks/drivers/per_person_runs.ipynb`.
 
-> Note: draft1's sentences about population-level significance are **commented out** in
-> draft2, alongside your `\todo` that "'significance' / CIs are calculated very differently
-> here". That instinct is correct — see §5.
+Draft1's sentences about population-level significance are commented out in draft2, with a
+`\todo` that "'significance' / CIs are calculated very differently here" — see §5.
 
 ### 3.6 Text Associations
 
-Now carries concrete findings. Relates **proportion of time on each paragraph span** to
-**proportion of time on each answer option and on the question** (excluding the first
-read-through of the question text).
+Relates **proportion of time on each paragraph span** to **proportion of time on each answer
+option and on the question** (excluding the first read-through of the question text).
 
 Spans: **critical** (contains the answer), **distractor** (supports a wrong answer),
 **outside** (everything else).
@@ -338,36 +290,19 @@ Spans: **critical** (contains the answer), **distractor** (supports a wrong answ
 
 Requires explaining OneStopQA's answer-construction logic, or pointing readers to it.
 
-**Code:** `stats/RT_correlations/`, driven by `notebooks/text_associations.ipynb`.
-**This is the current and authoritative text–QA relationship analysis** (confirmed
-2026-09-04). Proportions of time, participant-level Fisher-z, FDR-corrected.
+**Code:** `analyses/text_qa_relationship/`, run from `notebooks/drivers/text_associations.ipynb`;
+figures and tables in `reports/text_qa_relationship/`. Proportions of time, per-participant
+Fisher z, FDR-corrected.
 
-> **`stats/mixed_text_answer_effects.py` is an older, half-abandoned attempt** at the
-> same question and is **not** the source of these findings — it is future-directions code
-> with some directions worth revisiting. Its stored output (`findings.md` §7) reaches
-> materially different conclusions: `outside` (generic reading effort on the rest of the
-> paragraph) as the strongest and only universally significant predictor, `distractor`
-> essentially never significant, and `critical`→A significant in *both* groups rather than
-> preview-only. Do not mix its numbers into this subsection, and do not treat the
-> disagreement as a contradiction to resolve — different method, superseded strand.
->
-> ⚠️ **It also does not import today** (`todo.md` **T2.6**, ⏭️ pushed to stage E): pymer4 0.9.0
-> replaced `Lmer` with the lowercase `lmer`, so `from pymer4.models import Lmer` fails at line 31.
-> That matters for the sentence below about what is *worth reviving* — reviving it means an API
-> migration first, not just re-running the notebook.
->
-> The promising part worth keeping: it models item and participant as random effects, which
-> `RT_correlations` handles by aggregating to participant level instead.
-
-> ⚠️ **Neither candidate has regenerable figures.** `text_associations.ipynb` writes
-> **nothing** to `reports/` — `RT_correlations/plots.py` bypasses `plot_output.py` and takes
-> a caller-supplied path the notebook never provides, so those findings exist only as cell
-> outputs inside a 1.2 MB notebook. And `reports/plots/texts_to_answers/` — the
-> `mixed_text_answer_effects` output — is **165 zero-byte PNGs**.
-
-One byproduct worth keeping: `text_id_with_q` random-effect variance is ~4.8× the
-`participant_id` variance. **Item identity matters far more than participant identity**,
-which is a good justification for the item-crossed fold design.
+`explorations/text_answer_effects/` is an older attempt at the same question with mixed models,
+and is **not** the source of these findings. Its saved output, from older data, reaches
+different conclusions (`outside` the strongest predictor, `distractor` essentially never
+significant, `critical`→A in both groups); do not mix its numbers into this subsection. It does
+not import with the installed `pymer4`, so reviving it means updating it first. What it does
+offer: it models item and participant as random effects, which the current analysis handles by
+working per participant instead, and its item (`text_id_with_q`) variance is ~4.8× the
+participant variance — item identity matters far more than participant identity, which supports
+the item-crossed fold design.
 
 ---
 
@@ -391,16 +326,17 @@ Each participant meets three **knowledge regimes**, one third of trials each:
 | **partial knowledge** | the paragraph to read — the closest analogue to Study 1 |
 | no knowledge | no context at all; a correct answer here is a guess |
 
-**"Partial knowledge" is the canonical name** (2026-09-04), matching the code. Draft2
-currently calls it the paragraph-reading condition; same regime.
+**"Partial knowledge"** is the name the code uses; draft2 calls it the paragraph-reading
+condition. Same regime.
 
 Counterbalanced on both the order of regimes and which questions appear in which regime.
 Plus a **1–5 confidence self-report after every trial**, which Study 1 lacked.
 
-The counterbalancing is a double Latin square (regime × article group, then question
-ordering) giving 27 lists, times 6 regime orderings = **54 ordered lists**, generated by
-`experiment_builder/lists_builder.ipynb`. Note: the repo contains **no presentation code** —
-the 54 list CSVs are the hand-off to the experiment software, which lives elsewhere.
+The counterbalancing is in `src/experiment/lists.py`: two Latin squares (regime × article
+group, then which question each paragraph gets) give 27 lists; each regime list is then given
+all six regime orders, for **54 ordered lists**. They were built by
+`notebooks/experiment/lists_builder.ipynb`. The repo contains **no presentation code** — the
+list files in `data/stimuli/new_batched_lists/` are the hand-off to the experiment software.
 
 Draft2 adds a **Participant Demographics** subsection: first languages and English test
 scores. These are **collected by questionnaire as the experiment runs**, not produced by this
@@ -421,80 +357,74 @@ Train on all of Study 1, test on Study 2, split by regime:
 Then: correlate predicted probability against self-reported confidence, overall, per regime,
 and within participant, with the self-report's own calibration as a reference.
 
-**Code:** `answer_correctness/knowledge_regimes_analysis/` (`comparison_runs.py`,
-`confidence_correlation.py`), `experiment_builder/preliminary_analysis.ipynb`.
+**Code:** `analyses/correctness_prediction/knowledge_regimes/`, run from
+`notebooks/drivers/preliminary_analysis.ipynb` and `knowqa_data_showcase.ipynb`. The data
+preparation is `ingest/knowqa.py`.
 
 ### Status
 
-Two pilots (`testrun_QA`, `second_test`) then the first real collection (`KnowQA`).
-Collection is **ongoing and small** — the analysis modules' docstrings still refer to a
-three-participant test run, and `MIN_PAIRS = 3`. Current Study 2 results are descriptive,
-not inferential, and `preliminary_analysis.ipynb` says so.
-
-Study 2 now carries more weight than it did in draft1: besides validating the confidence
-interpretation, it supplies the guess-rate figure that the error analysis in §3.4 is built
-on.
+Two pilots (`testrun_qa`, `second_test`), then the first real collection, KnowQA: 6
+participants, three sessions each, 870 trials. That is small: Study 2's results are
+descriptive, not inferential. Study 2 carries more weight than it did in draft1: besides
+validating the confidence interpretation, it supplies the guess-rate figure that the error
+analysis in §3.4 is built on.
 
 ---
 
 ## 5. Open items in the draft
 
-Diana's own `\todo`s and placeholders, recorded here because most are code work.
+Diana's own `\todo`s and placeholders, where they touch the code.
 
 | Draft item | Code implication |
 |---|---|
-| `Y%`, `Z%` — dominant-strategy prevalence by preview group | **Already computed** — `findings.md` §1.2. Hunters 48.9%/53.3%, gatherers 58.3%/61.1% (`≥` convention). |
-| `X%` — dominant strategy, all participants | The one genuinely missing number: `run_all_strategy_plots` forces `include_all=False`. One argument. |
-| Clockwise / counter-clockwise prevalence | **Already established** — `findings.md` §1.1. CW 71/89, CCW 20/14 (hunters/gatherers). No classifier needed; naming the tuples in the figure would help the reader. |
-| "interrupted scan completion for scan-passes shorter than four items" | **Exists** — the prefix-completion pair in `viz/visualisations_strategies.py`. Changes the result by ~2 points and flips 1.1% of participants, so the finding is robust to it (worth saying). |
+| `X%`, `Y%`, `Z%` — dominant-strategy prevalence, all and by group | Computed (§3.1). All 60.3% / 63.1%, hunters 55.6% / 59.4%, gatherers 65.0% / 66.7% (raw / completed). |
+| Clockwise / counter-clockwise prevalence | Established (§3.1). Naming the tuples in the figure would help the reader. |
+| "interrupted scan completion for scan-passes shorter than four items" | Exists (`features/strategies.py`). Changes the prevalences by 2–4 points and the dominant strategy of 3 of 360 participants, so the finding is robust to it (worth saying). |
 | `x%` — correct responses in the no-knowledge regime | From Study 2; needs enough participants to be meaningful. |
-| "why these 10 attention features and not another. Should I run a brute force try CV on each combination?" | **Not a code task — the answer is already the truth of what happened.** The ten features in `SELECT_1_COLS` were **picked by hand**, on domain grounds: few, and covering the four behaviours the design targets. They are not the output of the selection machinery, so there is no search to defend and no leakage to correct. Draft2 already says the substance in a comment ("we just tried to keep it small and cover the whole space of the idea") — it needs to move into the text. Any future reselection will also be manual. (Was `todo.md` T3.2; **removed 2026-09-27** — justifying the model is the paper's job, not the code's.) |
-| "'significance' / CIs are calculated very differently here" (now commented out) | The Wald coefficient CIs ignore the L2 penalty, the class weights, and clustering by participant. A participant-clustered bootstrap is already implemented in `common/data_utils.py` but never called. |
-| "some robustness checks? VIF analysis?" | VIF machinery exists in `common/`. |
+| "why these 10 attention features and not another. Should I run a brute force try CV on each combination?" | Not a code task. The ten features in `SELECT_1_COLS` were **picked by hand**, on domain grounds: few, and covering the four behaviours the design targets. They are not the output of a search, so there is no search to defend and no selection leakage to correct. Draft2 says the substance in a comment ("we just tried to keep it small and cover the whole space of the idea") — it needs to move into the text. |
+| "'significance' / CIs are calculated very differently here" (now commented out) | The paper's coefficient intervals come from a bootstrap that resamples whole participants and refits the actual penalised, class-weighted model (`modeling/evaluate.py::collect_logreg_coef_summaries`). |
+| "some robustness checks? VIF analysis?" | VIF is in `modeling/inference.py`. |
 | "need to explain answer building logic" | Not code — but §3.6's findings depend on it. |
-| "count somehow if this discrepancy is covered by the expected 1 in 4 chance to guess" | Now the core of §3.4's guessing models. |
+| "count somehow if this discrepancy is covered by the expected 1 in 4 chance to guess" | The core of §3.4's guessing models. |
 | "should we pre-register the data collection somehow?" | Not code. |
-| Correct / wrong trial separation — WIP | `person_variance/mistake_types.py`. |
+| Correct / wrong trial separation — WIP | `analyses/correctness_prediction/person_variance/mistake_types.py`. |
 
 ---
 
 ## 6. Paper section → code map
 
-For deciding what has to be paper-grade. Draft2 puts the substance in Results and the
-machinery in Methods, so both columns point at the same code.
+Draft2 puts the substance in Results and the machinery in Methods, so both point at the same
+code. Paths are under `src/`.
 
 | Draft2 section | Code |
 |---|---|
-| Results · First-scan behavior | `derived/pattern_breaking.py`, `viz/visualisations_strategies.py`, `visualisations_simplified_visits.py` |
-| Results · End of trial behavior | `derived/select_confirm_last.py`, `viz/visualisations_last_label.py` |
-| Results · Attention allocation | `derived/preference_matching.py`, `viz/visualisations_area_bars.py`, `visualisations_preference_correctness.py`, **`stats/mixed_area_comparisons.py`** (paper code, settled 2026-09-05 — see §7) |
-| Results · Error analysis | `notebooks/general_model_confusion.ipynb`, `person_variance/mistake_types.py` |
-| Results · Participant-level coefficients | `person_variance/`, `participant_level.py` |
-| Results · Text Associations | `stats/RT_correlations/` |
-| Methods · Study 1 dataset / prep / features | `data_prep/`, `derived/`, `answer_correctness/model_data.py` |
-| Methods · Modeling, Models comparison | `answer_correctness/{cross_validation,evaluation_core,feature_groups}.py`, `models/{logreg,dummy}_model.py`, `answer_correctness_viz.py` |
-| Methods · Feature contributions | `common/data_utils.py` (coefficient CIs), `answer_correctness_viz.py` |
-| Methods · Study 2 design | `experiment_builder/{lists_builder,text_adjustments}.ipynb` |
-| Methods · Study 2 data prep | `data_prep/know_qa_dataprep.py` |
-| Methods · probabilities per regime, confidence | `knowledge_regimes_analysis/`, `experiment_builder/preliminary_analysis.ipynb` |
+| Results · First-scan behavior | `features/strategies.py`, `analyses/scan_strategies/` |
+| Results · End of trial behavior | `features/last_visited.py`, `analyses/last_visitation/` |
+| Results · Attention allocation | `features/area_metrics.py`, `analyses/attention_allocation/`, `features/preference.py` |
+| Results · Error analysis | `notebooks/drivers/general_model_confusion.ipynb`, `analyses/correctness_prediction/person_variance/mistake_types.py` |
+| Results · Participant-level coefficients | `analyses/correctness_prediction/participant_level.py`, `.../person_variance/` |
+| Results · Text Associations | `analyses/text_qa_relationship/` |
+| Methods · Study 1 dataset / prep / features | `ingest/`, `features/` (`docs/data-pipeline.md`) |
+| Methods · Modeling, Models comparison | `modeling/` (`folds.py`, `crossval.py`, `evaluate.py`, `feature_sets.py`, `models/`), `analyses/correctness_prediction/` |
+| Methods · Feature contributions | `modeling/evaluate.py::collect_logreg_coef_summaries`, `analyses/correctness_prediction/plots/coefficients.py` |
+| Methods · Study 2 design | `experiment/`, `notebooks/experiment/` |
+| Methods · Study 2 data prep | `ingest/knowqa.py` |
+| Methods · probabilities per regime, confidence | `analyses/correctness_prediction/knowledge_regimes/` |
 
-**Changed from draft1:** `pattern_breaking.py` and the strategy visualisations move from
-future-directions into paper-critical. `mixed_text_answer_effects.py` is confirmed
-superseded. **`mixed_area_comparisons.py` is paper code** (settled 2026-09-05) — it backs the
-Attention allocation subsection, and its output folder is one of the zero-byte ones, so those
-108 figures need re-running.
-
-**Out of scope, kept as future directions** (confirmed 2026-09-04):
+**Out of scope, kept as future directions**, in `src/explorations/` (each folder's
+`__init__.py` says what state it is in):
 
 | | Why |
 |---|---|
-| `predictive_modeling/answer_RTs/` | predicting answer reading times from the paragraph text — **not working at present**. This is why draft2's "Paragraph associations" heading under Methods is empty |
-| Julia and R mixed-model backends | mixed effects have their own problems and were judged not important enough to pursue for this paper |
-| `stats/mixed_text_answer_effects.py` | superseded; `RT_correlations/` is the current text–QA analysis |
-| `answer_correctness/unlikely_analysis.py` | stale; the error-analysis subsection is served by `general_model_confusion.ipynb` |
-| `predictive_modeling/answer_loc/` | predicting answer position |
-| `answer_correctness/clusters/` | participant clustering, superseded by `person_variance/` |
-| `generate_column_options.py` | the JSON feature-set factory |
+| `answer_reading_times/` | predicting answer reading times from the paragraph text — not working at present. This is why draft2's "Paragraph associations" heading under Methods is empty |
+| `mixed_models/` | the Julia and R mixed-model backends: mixed effects have their own problems and were judged not important enough to pursue for this paper |
+| `text_answer_effects/` | the older mixed-model Text Associations analysis (§3.6) |
+| `time_course/` | before / during / after the first look at the chosen answer; unfinished, its split does not follow time yet |
+| `unlikely_analysis/` | the error-analysis subsection is served by `general_model_confusion.ipynb` instead |
+| `answer_location/` | predicting which screen position is chosen |
+| `participant_clustering/` | superseded by `person_variance/` |
+| `feature_search/` | generating candidate feature sets; not used for the reported model |
+| `sequence_figures/` | scanpath figures |
 
 "Future direction" means **kept and organized, not deleted** (`conventions.md`).
 
@@ -504,29 +434,6 @@ Attention allocation subsection, and its output folder is one of the zero-byte o
 
 1. "80% look at the answer they select" (draft2) vs ~68–71% of trials measured
    (`findings.md` §2) — participants vs trials, or a number to reconcile?
-2. Is the correct-vs-distractor RT asymmetry (`findings.md` §9.1) going in the paper? Strong,
-   clean, and currently living in one cell of `presentation_prep.ipynb`.
-
-**Resolved 2026-09-04/05:**
-
-- `L1` = native language; the project uses OneStop's L1 (native English) sample. Study 2's
-  mixed linguistic backgrounds are a limitation of that study (§2).
-- **Answer construction:** A and B from the critical span (B a misreading), C from the
-  distractor span, D absent from the text; plausibility A > B > C > D (§2).
-- **Text Associations** comes from `RT_correlations/`; `mixed_text_answer_effects.py` is
-  superseded (§3.6).
-- **`answer_RTs/` is out** — not working, future direction (§6).
-- **Mixed effects are out** — own problems, judged not important for this paper (§6).
-- **"Partial knowledge"** is the canonical name for Study 2's middle regime (§4).
-- **Participant demographics** are collected by questionnaire during the experiment, not by
-  this pipeline (§4).
-- **"Eighty percent" vs 0.83** is not an inconsistency — it varies by testing regime and is a
-  placeholder (§3).
-- **Clockwise / counter-clockwise** is an observation about the data, not a classifier the
-  code needs to implement (§3.1).
-- **Starting-strategy duplication** is to be unified, `todo.md` T1.6 (§3.1).
-- **The ordinal A > B > C > D structure will not be used in the model** — `wrong_mean`
-  keeps averaging B, C and D. Considered and set aside (§2).
-- **`SELECT_1_COLS` is a manual pick**, not an output of the selection machinery, so the
-  CV estimate carries no selection-leakage caveat. Future reselection will also be manual
-  (§5; the corresponding todo item was removed 2026-09-27 as paper work).
+2. Is the correct-vs-distractor reading-time asymmetry going in the paper? Accuracy barely
+   moves with time on the correct answer and falls steeply with time on the wrong ones
+   (`analyses/answer_rt_comparison/`); no paper section uses it yet.

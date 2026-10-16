@@ -233,7 +233,9 @@ checked automatically.
 ### Stop 9 — Someone else's code · `src/vendor/` 
 
 Not ours. Kept exactly as received so it can be swapped for a newer copy. Don't review it as if
-it were yours; do note that it fills missing values with zero very liberally.
+it were yours; do note that it fills missing values with zero very liberally. Two files in
+`eyebench/` are ours, the adapter `paragraph_trial_features.py` and the driver `runner.py`;
+`eyebench/__init__.py` has a table of whose file is whose. Only exploration code uses any of it.
 
 ---
 

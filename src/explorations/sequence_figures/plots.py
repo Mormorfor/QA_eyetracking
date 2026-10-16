@@ -10,8 +10,6 @@ import pandas as pd
 import sequence_visualisations as SV
 
 # 1) Load processed hunters / gatherers
-#    (hunters.csv / gatherers.csv were retired 2026-10-13 -- this is the
-#     replacement, and it returns the same frame)
 from src.config.datasets import dataset as get_dataset
 from src.features.build import load_model_input
 df_h = load_model_input(get_dataset("l1"), facet="hunters")

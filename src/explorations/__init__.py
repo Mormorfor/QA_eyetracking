@@ -1,14 +1,13 @@
 """Parked work: real analyses that do not back the paper.
 
-Kept rather than deleted, per `docs/conventions.md` ("Keep, don't delete"), and
-kept *labelled* -- the folder name is the label. A reader who clones the repo
-alongside the paper can tell at a glance which code produced a published number
-and which did not, without having to ask.
+Kept rather than deleted (`docs/conventions.md`, "Keep, don't delete"), and kept
+apart, so the path says which code produced a number in the paper and which did not:
 
-Parked is not the same as broken, and not the same as archived:
+* `src/analyses/` -- the paper's code.
+* `src/explorations/` -- ran and produced something, but is not claimed in the paper.
+  Some of it may be picked up again as future work. Some of it no longer runs; each
+  folder's `__init__.py` says what state it is in.
+* `archive/` -- superseded, and not expected to run.
 
-* `src/analyses/` (stage E) -- paper code.
-* `src/explorations/` -- ran, produced something, not claimed in the paper. May
-  be picked back up; some of it is the "future directions" list.
-* `archive/` -- superseded, with a line in the docs saying why. Not expected to run.
+Nothing in the paper's code imports from here.
 """

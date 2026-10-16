@@ -12,8 +12,7 @@ This module contains:
 - model fitting (no-slopes and with slopes)
 - extraction of participant-specific effects
 
-All plotting lives in:
-    this module (the plotting lives here, not in src/viz/)
+- the plots of those effects
 """
 
 import os

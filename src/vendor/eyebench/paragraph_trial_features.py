@@ -10,7 +10,7 @@
 # does is bridging:
 #
 #   * it satisfies the `src.configs.*` imports the snippet makes, by aliasing
-#     them onto `EyeBench/configs` before loading it (`_alias_config_package`);
+#     them onto `src/vendor/eyebench/configs/` before loading it (`_alias_config_package`);
 #   * the preprocessing steps of their `OneStopProcessor` / `our_processing` are
 #     reproduced here function-for-function (dtype conversions, 0-based word
 #     indices, `normalized_ID`, `total_skip`, `is_content_word`, merging the IA
@@ -57,7 +57,7 @@ EXTERNAL_MODULE_PATH = Path(__file__).with_name(
 
 
 def _alias_config_package() -> None:
-    """Make the vendored file's `src.configs.*` imports resolve to `EyeBench/configs`.
+    """Make the vendored file's `src.configs.*` imports resolve to `configs/` here.
 
     The source project keeps these constants in its own `src.configs` package.
     Registering the aliases here means the vendored file can stay byte-identical

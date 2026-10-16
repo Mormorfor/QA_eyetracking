@@ -4,9 +4,8 @@ import sys
 
 # Windows consoles default to cp1252, which cannot encode several characters this
 # project prints -- the "done" tick, "<=" in threshold group labels, arrows in
-# sequence output. On 2026-10-07 that crashed an L1 rebuild on its very last line,
-# AFTER an hour of work and after every output file had been written, with a
-# UnicodeEncodeError from a decorative checkmark.
+# sequence output. Printing one stops the run with a UnicodeEncodeError, even at the
+# very end of a long build whose files have all been written.
 #
 # This sets the console encoding, not the data. Nothing analytical changes: files
 # are written by pandas with its own encoding, and `errors="replace"` only ever

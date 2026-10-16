@@ -1,4 +1,4 @@
-"""Constants required by `src/external/utils - paragraph feature extraction.py`.
+"""Constants required by `utils - paragraph feature extraction.py`, the vendored file.
 
 The external snippet expects these names to come from its original project's
 config package. The column lists, `gsf_features` and the enums below are copied
@@ -19,7 +19,7 @@ Two notes on how these lists meet *our* raw reports
   (`IA_FIRST_RUN_LANDING_POSITION`, `IA_FIRST_FIXATION_DURATION`,
   `IA_DWELL_TIME`).
 * `gsf_features`, by contrast, is indexed directly and every one of its columns
-  must be present on the fixation side -- `src/external/paragraph_trial_features.py`
+  must be present on the fixation side -- `paragraph_trial_features.py`
   merges the word-level `IA_*` measures onto each fixation for exactly that
   reason.
 """
