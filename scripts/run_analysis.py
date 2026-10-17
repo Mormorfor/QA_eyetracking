@@ -55,6 +55,11 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
     "error_analysis": [
         ("src.analyses.error_analysis.plots", "run_error_analysis"),
     ],
+    # The model comparison only: the saved feature sets on Study 1 and Study 2, about
+    # a minute. The coefficient figures are drawn from the analysis's overview notebook.
+    "correctness_prediction": [
+        ("src.analyses.correctness_prediction.plots.model_comparison", "run_model_comparison_figures"),
+    ],
 }
 
 # Analyses that exist but have no single-call runner, with the reason. Listed rather than
@@ -62,7 +67,6 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
 NO_RUNNER: dict[str, str] = {
     "answer_rt_comparison": "one plotting function, called directly; takes the trial table",
     "text_qa_relationship": "a sequence of map/contrast calls; driven by notebooks/drivers/text_associations.ipynb",
-    "correctness_prediction": "cross-validation and per-person runs; expensive, driven by its notebooks",
     "correctness_prediction/person_variance": "needs the cached LOO pickle; see notebooks/drivers/per_person_runs.ipynb",
     "correctness_prediction/knowledge_regimes": "Study 2; see notebooks/drivers/preliminary_analysis.ipynb",
 }

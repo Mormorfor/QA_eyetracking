@@ -348,7 +348,7 @@ def run_cross_validation_on_combined_folds(
 ) -> CrossValidationRunResult:
     """
     Cross-validate on folds pooled from several folders -- e.g. hunters and
-    gatherers together, as `notebooks/drivers/answer_corr_prediction.ipynb`
+    gatherers together, as `analyses/correctness_prediction/comparison.py`
     runs it.
 
     For each fold number, that fold's file is read from every folder in

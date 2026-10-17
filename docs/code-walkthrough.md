@@ -197,8 +197,8 @@ Read them in the order the paper makes its argument:
 Inside `correctness_prediction/`, go: `run.py` → `plots/` → `participant_level.py` and
 `person_variance/` → `knowledge_regimes/` (that last one is Study 2 and can wait). `run.py` fits
 the model on one train/test split. The paper's accuracy comes from cross-validation
-(`modeling/crossval.py`, run from `notebooks/drivers/answer_corr_prediction.ipynb`), and its
-coefficients from one fit on all the data (`modeling/evaluate.py`).
+(`modeling/crossval.py`, run for any set of models by `comparison.py`), and its coefficients
+from one fit on all the data (`modeling/evaluate.py`).
 
 ---
 

@@ -21,11 +21,14 @@ existing models see, so it is a modelling decision, not a tidy-up.
 
 from __future__ import annotations
 
-from typing import List
+import json
+from pathlib import Path
+from typing import Dict, List
 
 import pandas as pd
 
 from src.config import columns as Con
+from src.config.outputs import FEATURE_SETS_DIR
 from src.config.screens import screen
 
 SEP = Con.DERIVED_SEP
@@ -405,3 +408,27 @@ def get_full_feature_cols(df: pd.DataFrame) -> List[str]:
     cols.extend(get_last_visited_feature_cols(df))
     cols.extend(get_rt_tfd_feature_cols(df))
     return cols
+
+
+# ===========================================================================
+# The sets saved in configs/feature_sets/
+# ===========================================================================
+
+def load_feature_sets(folder: Path = FEATURE_SETS_DIR) -> Dict[str, List[str]]:
+    """The feature sets saved as JSON in `configs/feature_sets/`, as `{name: columns}`.
+
+    Each file holds `{"identifier": ..., "columns": [...]}`. A set's name is the
+    identifier inside its file, not the file name: `total_answering_RT.json` holds
+    the set `total_answering_RT_normalized`. Files are read in name order.
+
+    Stops if two files use the same identifier, since one name would then stand
+    for two different sets.
+    """
+    sets: Dict[str, List[str]] = {}
+    for path in sorted(Path(folder).glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        name = payload["identifier"]
+        if name in sets:
+            raise ValueError(f"Two files in {folder} use the identifier {name!r}.")
+        sets[name] = list(payload["columns"])
+    return sets

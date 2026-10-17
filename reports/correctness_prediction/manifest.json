@@ -1,0 +1,31 @@
+{
+  "model_comparison__dataset-knowqa": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.analyses.correctness_prediction.plots.model_comparison.plot_model_comparison",
+    "figure": "model_comparison__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:59:09"
+  },
+  "model_comparison__dataset-l1": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.analyses.correctness_prediction.plots.model_comparison.plot_model_comparison",
+    "figure": "model_comparison__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "folds",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:59:09"
+  }
+}

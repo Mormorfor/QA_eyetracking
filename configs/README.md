@@ -31,9 +31,20 @@ One JSON per named set of model features: `{"identifier": ..., "columns": [...]}
 | `total_answering_RT.json` | 1 | single-RT baseline. Note the **identifier inside says `total_answering_RT_normalized`** — the identifier is authoritative, not the filename |
 
 They are **hand-specified**, not the output of a search. `select_1` is the same ten columns as
-`SELECT_1_COLS` in `src/modeling/feature_sets.py`; the JSON exists so the cross-validation
-driver (`notebooks/drivers/answer_corr_prediction.ipynb`) can load a set by name. All 27 column
+`SELECT_1_COLS` in `src/modeling/feature_sets.py`; the JSON exists so code can load a set by
+name. `modeling/feature_sets.py::load_feature_sets` reads them all.
+`analyses/correctness_prediction/comparison.py` scores them side by side
+(`python scripts/run_analysis.py --name correctness_prediction`); its `PAPER_MODELS` names
+these five, so a set saved here later does not join the paper's comparison by itself. All 27 column
 names across the five files exist in `features/model_ready.csv`.
+
+**Candidates, not in the paper's comparison** — compared beside the five in
+`analyses/correctness_prediction/overview.ipynb`, which reads every file here:
+
+| file | features | what it is |
+|---|---|---|
+| `select_2.json` | 10 | `select_1` with `skip_rate__correct` swapped for `RT_normalized_contrast` (reading time per word on the correct answer minus the wrong answers' mean) |
+| `select_2_plus_last_confirm.json` | 12 | `select_2` + the two last-fixation features |
 
 `src/explorations/feature_search/column_options.py` can also *write* here: it produces
 machine-searched sets (`pruned`, `aic`, …) for the parked feature-search work. Those are

@@ -3,6 +3,8 @@ picks the correct answer.
 
 * `run.py` -- fit the logistic regression on one train/test split, score it, and
   draw its figures.
+* `comparison.py` -- any set of models scored side by side: Study 1 by
+  cross-validation, Study 2 by one fit on all of Study 1.
 * `plots/` -- those figures, the cross-validation figures, and the comparisons of
   runs and models.
 * `report.py` -- collect saved runs and compare them.

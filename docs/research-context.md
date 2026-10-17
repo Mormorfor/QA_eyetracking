@@ -408,7 +408,7 @@ code. Paths are under `src/`.
 | Results · Participant-level coefficients | `analyses/correctness_prediction/participant_level.py`, `.../person_variance/` |
 | Results · Text Associations | `analyses/text_qa_relationship/` |
 | Methods · Study 1 dataset / prep / features | `ingest/`, `features/` (`docs/data-pipeline.md`) |
-| Methods · Modeling, Models comparison | `modeling/` (`folds.py`, `crossval.py`, `evaluate.py`, `feature_sets.py`, `models/`), `analyses/correctness_prediction/` |
+| Methods · Modeling, Models comparison | `modeling/` (`folds.py`, `crossval.py`, `evaluate.py`, `feature_sets.py`, `models/`), `analyses/correctness_prediction/` — the comparison figure is `comparison.py` and `plots/model_comparison.py` |
 | Methods · Feature contributions | `modeling/evaluate.py::collect_logreg_coef_summaries`, `analyses/correctness_prediction/plots/coefficients.py` |
 | Methods · Study 2 design | `experiment/`, `notebooks/experiment/` |
 | Methods · Study 2 data prep | `ingest/knowqa.py` |

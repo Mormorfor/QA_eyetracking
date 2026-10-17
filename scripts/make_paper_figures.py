@@ -9,8 +9,8 @@ a run ends by listing the TODO ones, so a partial run cannot pass for a complete
 
 Why some are TODO:
 
-* the `correctness_prediction` figures come from cross-validation and per-participant runs,
-  which take a long time and are run from notebooks;
+* the per-participant figures (`correctness_prediction/person_variance`) come from runs
+  that take a long time and are run from notebooks;
 * the paper's list of figures is not final: `draft2.tex` names its figures in the text only,
   with no `\\includegraphics` that is not commented out, so there is no list to check
   against yet.
@@ -55,7 +55,7 @@ FIGURES: list[Figure] = [
     Figure("Results - Participant-level coefficients", "correctness_prediction/person_variance",
            "needs the per-participant runs; notebooks/drivers/per_person_runs.ipynb", False),
     Figure("Methods - Models comparison", "correctness_prediction",
-           "needs a cross-validation run; notebooks/drivers/answer_corr_prediction.ipynb", False),
+           "analysis:correctness_prediction", True),
     Figure("Methods - Study 2 regimes and confidence", "correctness_prediction/knowledge_regimes",
            "notebooks/drivers/preliminary_analysis.ipynb", False),
     Figure("(unplaced) correct-vs-distractor RT asymmetry", "answer_rt_comparison",

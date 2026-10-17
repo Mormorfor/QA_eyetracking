@@ -150,6 +150,12 @@ left behind when the output layout changed, so the comparison figure couldn't be
 with the files present. Fixed, but **untested end to end** — it can't be exercised until a
 cross-validation run exists.
 
+**✅ The comparison figure is rebuilt (2026-10-17)** — from the ten-fold cross-validation, no
+longer from saved single-split runs, so the reader above is not behind it any more (and is still
+untested). `analyses/correctness_prediction/comparison.py` scores any set of models on Study 1
+and Study 2; `python scripts/run_analysis.py --name correctness_prediction` draws the paper's
+five. Change-log row in `findings.md`.
+
 ---
 
 ## 5. Things recorded but not turned into work

@@ -423,6 +423,26 @@ def _aggregate_cv_summary(
         summary_overall_df,
     )
 
+# Only three levels are tabulated. Any other stops with an error, so a figure
+# can never be drawn at one level and labelled with another (plot titles are
+# built from `ci`).
+_Z_BY_CI = {
+    0.90: 1.645,
+    0.95: 1.96,
+    0.99: 2.576,
+}
+
+
+def _z_for_ci(ci: float) -> float:
+    """The normal z for a two-sided `ci` interval: 0.90, 0.95 or 0.99 only."""
+    if ci not in _Z_BY_CI:
+        raise ValueError(
+            f"ci must be one of {sorted(_Z_BY_CI)}, got {ci!r}: these are the "
+            f"only levels with a tabulated z here."
+        )
+    return _Z_BY_CI[ci]
+
+
 def summarize_cv_results_by_regime(
     cv_out,
     model_name: Optional[str] = "full_features_correctness_log_reg",
@@ -474,21 +494,7 @@ def summarize_cv_results_by_regime(
     if df.empty:
         raise ValueError("No rows found for the requested selection.")
 
-    # Only three levels are tabulated. Any other stops with an error, so a
-    # figure can never be drawn at one level and labelled with another (plot
-    # titles are built from `ci`).
-    z_map = {
-        0.90: 1.645,
-        0.95: 1.96,
-        0.99: 2.576,
-    }
-    if ci not in z_map:
-        raise ValueError(
-            f"ci must be one of {sorted(z_map)}, got {ci!r}. These are the only "
-            f"levels with a tabulated z here; anything else would have been "
-            f"drawn at z=1.96 and labelled with the level you asked for."
-        )
-    z = z_map[ci]
+    z = _z_for_ci(ci)
 
     out = (
         df.groupby("regime", as_index=False)
@@ -526,6 +532,107 @@ def summarize_cv_results_by_regime(
     out["metric"] = metric_col
 
     return out
+
+
+# The novelty label of the row that averages the novelties.
+AVERAGE_NOVELTY = "average"
+
+
+def _fold_interval_row(
+    model: str,
+    novelty: str,
+    mean: float,
+    fold_scores: pd.Series,
+    total_n_eval: float,
+    z: float,
+    metric_col: str,
+) -> Dict[str, Any]:
+    """One summary row: `mean` with a z-interval from the spread of `fold_scores`."""
+    n_folds = len(fold_scores)
+    std = float(fold_scores.std())  # NaN with a single fold
+    se = std / np.sqrt(n_folds)
+    return {
+        "model": model,
+        "novelty": novelty,
+        "n_folds": n_folds,
+        "mean_metric": mean,
+        "std_metric": std,
+        "se_metric": se,
+        # Scores are proportions, so the interval is cut to [0, 1].
+        "ci_low": float(np.clip(mean - z * se, 0.0, 1.0)),
+        "ci_high": float(np.clip(mean + z * se, 0.0, 1.0)),
+        "total_n_eval": float(total_n_eval),
+        "metric": metric_col,
+    }
+
+
+def summarize_cv_results_by_novelty(
+    cv_out,
+    *,
+    metric_col: str = "balanced_accuracy",
+    ci: float = 0.95,
+) -> pd.DataFrame:
+    """
+    Each model's cross-validated score on each novelty -- a new paragraph, a new
+    participant, or both -- and on their average, with an interval across folds.
+
+    The fold is the unit. Within a fold, a novelty's validation and test halves
+    are pooled into one score, weighted by how many trials each scored. Across
+    folds the mean is weighted by trials, which makes it the same number as
+    `summary_by_novelty_df`. The interval is mean +/- z x standard error of the
+    fold scores, cut to [0, 1]; `ci` must be 0.90, 0.95 or 0.99.
+
+    The `average` row counts the novelties equally: its mean is the plain mean of
+    their means, and its interval comes from each fold's own plain mean of its
+    novelty scores. `novelties_averaged` says which novelties it averages.
+
+    As everywhere in this module, the interval is narrower than the real
+    uncertainty, because the folds share most of their training data. With a
+    single fold there is no spread, and the interval is left empty (NaN).
+
+    One row per model and novelty, in the run's model order: `model`, `novelty`,
+    `n_folds`, `mean_metric`, `std_metric`, `se_metric`, `ci_low`, `ci_high`,
+    `total_n_eval`, `metric` and `novelties_averaged`.
+    """
+    z = _z_for_ci(ci)
+    rows = cv_out.summary_df
+    if metric_col not in rows.columns:
+        raise ValueError(f"metric_col='{metric_col}' not found in cv_out.summary_df")
+
+    # One score per model, novelty and fold: the two halves pooled.
+    keys = ["model", "novelty", "fold"]
+    per_fold = _weighted_fold_means(rows, keys, value_cols=(metric_col,)).rename(
+        columns={f"mean_{metric_col}": "score"}
+    )
+    per_fold = per_fold.merge(
+        rows.groupby(keys, as_index=False)["n_eval"].sum(),
+        on=keys, how="left", validate="one_to_one",
+    )
+
+    out: List[Dict[str, Any]] = []
+    for model, by_model in per_fold.groupby("model", sort=False):
+        means: Dict[str, float] = {}
+        for novelty, g in by_model.groupby("novelty", sort=False):
+            means[novelty] = float((g["score"] * g["n_eval"]).sum() / g["n_eval"].sum())
+            out.append(_fold_interval_row(
+                model, novelty, means[novelty], g["score"], g["n_eval"].sum(), z, metric_col,
+            ))
+
+        # A fold missing a novelty would average fewer of them than the others.
+        wide = by_model.pivot(index="fold", columns="novelty", values="score")
+        if wide.isna().any().any():
+            raise ValueError(
+                f"{model}: not every fold scored every novelty, so the folds' "
+                f"averages would cover different novelties."
+            )
+        average = _fold_interval_row(
+            model, AVERAGE_NOVELTY, float(np.mean(list(means.values()))),
+            wide.mean(axis=1), by_model["n_eval"].sum(), z, metric_col,
+        )
+        average["novelties_averaged"] = "+".join(means)
+        out.append(average)
+
+    return pd.DataFrame(out)
 
 
 def build_cv_model_comparison_df(
