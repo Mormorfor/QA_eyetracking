@@ -11,8 +11,8 @@ column per feature.
 |---|---|---|---|---|
 | `l1` | Study 1: OneStop, native English speakers. 360 participants, 19,436 trials | `data_raw/full/` (CSV) and `data_raw/tsv/` (TSV) | `data/datasets/l1_onestop/` | `scripts/build_dataset.py --dataset l1` |
 | `knowqa` | Study 2 | `data_raw/KnowQA/` (UTF-16 `.xls`) | `data/datasets/knowqa/` | `scripts/build_dataset.py --dataset knowqa` |
-| `testrun_qa` | Study 2, first pilot | `data_raw/testrun_QA/` (UTF-16 `.xls`, plus a messages report) | `data/datasets/pilots/testrun_qa/` | `notebooks/builders/data_prep_new_exp.ipynb` |
-| `second_test` | Study 2, second pilot | `data_raw/second_test/` (UTF-8 `.tsv`) | `data/datasets/pilots/second_test/` | the same notebook |
+| `testrun_qa` | Study 2, first pilot | `data_raw/testrun_QA/` (UTF-16 `.xls`, plus a messages report) | `data/datasets/pilots/testrun_qa/` | `scripts/build_pilot.py --pilot testrun_qa` |
+| `second_test` | Study 2, second pilot | `data_raw/second_test/` (UTF-8 `.tsv`) | `data/datasets/pilots/second_test/` | `scripts/build_pilot.py --pilot second_test` |
 
 Each dataset is described once, by a `Dataset` record in `src/config/datasets.py`, and every
 output path is built from that record.
@@ -61,7 +61,8 @@ By default it also writes the hunters' and gatherers' subsets of each table
 **Study 2** runs `ingest/knowqa.py::prepare_know_qa`: two preparation steps (§3), then the same
 answer-screen pipeline as Study 1, then the model table. There is no paragraph step.
 
-**The pilots** are built by the notebook, not by the script — but see §9 item 3.
+**The pilots** are built by their own script, `python scripts/build_pilot.py --pilot <key>`,
+because they use an older identity scheme — see §9 item 3.
 
 ---
 
@@ -257,15 +258,11 @@ Pupil size arrives in the tracker's units (an area) and is converted to a diamet
 2. **Per-participant features depend on which trials they are given.** The opening-scan
    features summarise a person over the trials in the table they are handed. `pitfalls.md` §3
    explains when that matters.
-3. **Three builder notebooks do not match the current code.**
-   - `data_prep_new_exp.ipynb` (the pilots): its `main()` call does not pass `dataset=`, so it
-     saves none of the three tables, and it passes two arguments the functions do not have
-     (`button_clicks_fix_csv_path` to `main()`, `include_paragraph_features` to
-     `save_model_ready`). As it stands, it cannot rebuild the pilots.
-   - `clicks_selections_confirms.ipynb` and `reading_times.ipynb` call
-     `run_trial_level_pipeline`, `build_rt_and_tfd` and a last-look function in an older form,
-     and read `hunters.csv` / `gatherers.csv`, which a normal build does not write. The build
-     script makes everything these two notebooks used to make.
+3. **The pilots' tables on disk are older than the current fixation sequences.** Rebuilt with
+   `scripts/build_pilot.py`, both pilots come out with the same trials and columns, but the
+   features built from the fixation sequence (visit counts, `seq_len`, back-and-forth and
+   opening-scan features) differ on a few trials: 7 of 197 columns for `testrun_qa`, 20 for
+   `second_test`. Rerun the script to bring them up to date.
 4. **`interest_areas.csv` has an `index` column.** It holds row numbers (0 to 760,627 on
    Study 1), left over from resetting the table's index while the per-word features run.
    Nothing reads it.

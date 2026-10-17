@@ -17,8 +17,8 @@ has no paragraph screen. `docs/data-pipeline.md` describes both.
 `--splits` (on by default, Study 1 only) also writes the hunters' and gatherers' subsets, of the
 three tables and of the model table.
 
-This file only calls functions defined elsewhere, in order. The two pilots are not built here
-(see `main`).
+This file only calls functions defined elsewhere, in order. The two pilots are built by
+`scripts/build_pilot.py` (see `main`).
 """
 
 from __future__ import annotations
@@ -121,13 +121,13 @@ def main(argv: list[str] | None = None) -> int:
 
     ds = get_dataset(args.dataset)
     if args.dataset not in BUILDERS:
-        # The two pilots are built by notebooks/builders/data_prep_new_exp.ipynb, which
-        # uses the identity scheme they were collected under. Building them here would
-        # use Study 2's scheme instead and give a different dataset under the same file
-        # names, so this refuses.
+        # The two pilots are built by scripts/build_pilot.py, which uses the identity
+        # scheme they were collected under. Building them here would use Study 2's
+        # scheme instead and give a different dataset under the same file names, so
+        # this refuses.
         raise SystemExit(
-            f"{ds.key} is a {ds.kind}; it is built by "
-            f"notebooks/builders/data_prep_new_exp.ipynb, not by this script."
+            f"{ds.key} is a {ds.kind}; build it with "
+            f"`python scripts/build_pilot.py --pilot {ds.key}`."
         )
 
     if args.splits and args.dataset != "l1":

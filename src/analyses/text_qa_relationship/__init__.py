@@ -13,8 +13,9 @@ time on that answer. The maps are made for two reading-time measures, RT and
 TFD (total fixation duration; `docs/glossary.md` §10), and for dwell
 proportions (each area's share of its screen's looking time).
 
-The notebook that runs them is `notebooks/drivers/text_associations.ipynb`.
-Figures and their tables are saved under `reports/text_qa_relationship/`.
+`overview.ipynb`, beside this file, walks through them. Called with
+`save=True`, each plotting function saves its figure and table under
+`reports/text_qa_relationship/`.
 
 Layout
 ------

@@ -83,7 +83,7 @@ from src.config.datasets import KNOW_QA_OUT_DIR, KNOW_QA_PATH, dataset, dataset_
 #
 # Only collections whose recordings are named `4XXX_YZ` belong here. The two
 # pilots are named differently (`r1_l1_b1`, `T1_l1`), so `parse_session_label`
-# rejects them; they are prepared by notebooks/builders/data_prep_new_exp.ipynb.
+# rejects them; they are prepared by scripts/build_pilot.py.
 #
 # Another collection in this format needs a line here (or a `runs` mapping
 # passed to `prepare_know_qa`) and a dataset record in config/datasets.py.
@@ -387,8 +387,7 @@ RENAME_MAP: dict[str, str] = {
 }
 
 # The row features Study 2 skips, as listed on its dataset record in
-# config/datasets.py. The pilots' notebook imports this name; `run_pipeline`
-# reads the record directly.
+# config/datasets.py. `run_pipeline` reads the record directly.
 EXCLUDED_BASE_FUNCS = set(dataset("knowqa").skip_base_features)
 
 # Also skipped when pupil size is normalized per session, because the clean step

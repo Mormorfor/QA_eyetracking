@@ -1,5 +1,5 @@
 """Study 2 (KnowQA) described by knowledge regime, and the L1-trained correctness model
-applied to it. The functions behind `notebooks/drivers/knowqa_data_showcase.ipynb`.
+applied to it. `overview.ipynb`, beside this file, walks through them.
 
 * **The data.** Who took part (`cohort_summary`), how often they were right
   (`correctness_by_regime`), how fast they went (`reading_speed_by_regime`) and how

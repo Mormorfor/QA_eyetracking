@@ -14,4 +14,5 @@ CSVs on disk were made from older data, so do not quote a number from them; and 
 merge's default inputs, `hunters.csv` / `gatherers.csv`, are not written by the build.
 
 `mixed_text_answer_effects` does not import: the installed `pymer4` (0.9) has no `Lmer`.
+The notebook of the same name, beside this file, drives it.
 """

@@ -179,7 +179,7 @@ the manual check.)*
 
 * **T5.9** — Two EyeBench entry points write the same cache with different feature definitions, and the cache can't say which one made it. *(M)*
 
-* **T5.10** — `data_prep_new_exp.ipynb` overwrites KnowQA's output with the older identity scheme; mark superseded or remove the collision. *(S)*
+* **✅ DONE — T5.10** — `data_prep_new_exp.ipynb` overwrites KnowQA's output with the older identity scheme; mark superseded or remove the collision. *(done 2026-10-17 — the notebook is deleted; the pilots are built by `scripts/build_pilot.py`, which accepts only the two pilot keys, so it cannot write KnowQA's files)*
 
 * **T5.11** — `evaluate_one_fold_on_regimes` refits the same model 6× per fold; hoisting it removes the speed argument for the leaking CV path. *(S · efficiency only)*
 

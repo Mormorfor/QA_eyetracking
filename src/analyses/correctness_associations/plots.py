@@ -118,7 +118,7 @@ def plot_correctness_by_sequence_len_threshold(
 def run_all_correctness_seq_len_threshold_plots(
     all_participants: pd.DataFrame,
     split_groups: bool = True,
-    thresholds: Tuple[int, ...] = (2, 3, 4, 5),
+    thresholds: Tuple[int, ...] = (2, 3, 4, 5, 6, 7),
     save: Optional[bool] = None,
     to_paper=None,
     print_summaries: bool = False,
@@ -286,8 +286,8 @@ def run_all_correctness_seq_len_continuous_plots(
     print_summaries: bool = False,
     seq_col: str = Con.SIMPLIFIED_FIX_SEQ_BY_LABEL,
     correct_col: str = Con.IS_CORRECT_COLUMN,
-    max_len: Optional[int] = None,
-    min_n_per_len: int = 5,
+    max_len: Optional[int] = 40,
+    min_n_per_len: int = 0,
     show_ci: bool = True,
     title: Optional[str] = None,
     x_label: Optional[str] = None,
@@ -727,8 +727,8 @@ def run_all_trial_mean_dwell_continuous_plots(
     correct_col: str = Con.IS_CORRECT_COLUMN,
     bin_width: Optional[float] = 10.0,
     n_bins: Optional[int] = None,
-    min_n_per_bin: int = 10,
-    x_max: Optional[float] = None,
+    min_n_per_bin: int = 0,
+    x_max: Optional[float] = 700.0,
     show_ci: bool = True,
 ) -> Dict[str, Dict[str, object]]:
     """Draw `plot_correctness_by_trial_mean_dwell_continuous` for each group:

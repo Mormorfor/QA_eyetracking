@@ -42,7 +42,7 @@ relevant files, and in several cases doing it earlier would mean doing it twice.
 | **D** | **T3.22** | Trials are treated as independent when they are nested in 360 participants and 972 items, so count-based p-values are too small. A real statistical point, but it belongs with the inference code once that code is in one place |
 | **E** — analyses + explorations | **T2.2**, **T2.6** | Two modules that don't import at all (verified again today). Both are parked strands. The restructure's job is to file them under `explorations/` as clearly-not-paper-code; repairing them is work for whenever those strands are picked up |
 | **E** | **T3.19** | Check whether `last_answer_area_visited_lbl` is buggy. It has two siblings computed a different way, so the natural test is to cross-check the three — easiest once they sit together |
-| **F** — entry points | **T5.6**, **T5.10** | Document and enforce the build order; remove a notebook that overwrites a newer pipeline's output with an older scheme |
+| **F** — entry points | **T5.6**, ~~T5.10~~ | Document and enforce the build order. *(T5.10 ✅ 2026-10-17: the overwriting notebook is deleted; the pilots are built by `scripts/build_pilot.py`)* |
 | **G** — data + release | **T5.5**, **T5.7**, **T5.8**, **T5.9** | README (verified absent), instructions for placing your own OneStop download, pilot naming, and the two EyeBench entry points that write the same cache with different definitions |
 
 > **Why the stages are now lower-risk than the plan says.** `restructure-map.md` calls stages C

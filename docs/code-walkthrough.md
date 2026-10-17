@@ -176,7 +176,7 @@ figures, and every figure is saved with the numbers behind it under `reports/<fo
 folders do both in `plots.py`; `attention_allocation/` and
 `correctness_associations/` keep their tests in `stats.py`; the two big ones are split into several
 modules, each listed at the top of the folder's `__init__.py`. `python scripts/run_analysis.py
---list` says which folders run without a notebook; the others are run from `notebooks/drivers/`.
+--list` says which folders run without a notebook; the others are run from their `overview.ipynb`.
 
 **Each folder has an `overview.ipynb`** that shows what the analysis does on the current data: its
 question, its input, and its main figures and tables, with saving switched off. It is the quickest
@@ -236,6 +236,9 @@ Not ours. Kept exactly as received so it can be swapped for a newer copy. Don't 
 it were yours; do note that it fills missing values with zero very liberally. Two files in
 `eyebench/` are ours, the adapter `paragraph_trial_features.py` and the driver `runner.py`;
 `eyebench/__init__.py` has a table of whose file is whose. Only exploration code uses any of it.
+Beside it, `cv_folds/` holds the notebooks that made the cross-validation folds (its README says
+which cells are the lab's), and `julia_integration/` a notebook that sets up Julia for the parked
+mixed-model backend.
 
 ---
 

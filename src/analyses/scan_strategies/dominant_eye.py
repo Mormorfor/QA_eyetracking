@@ -170,7 +170,7 @@ def run_dominant_strategy_eye_analysis(
     kind: str = "location",
     window_len: int = 4,
     drop_question: bool = True,
-    threshold: float = 0.0,  # min dominant_prop to include participants
+    threshold: float = 0.5,  # min dominant_prop to include participants
     save: Optional[bool] = None,
     to_paper=None,
 ):
@@ -179,8 +179,9 @@ def run_dominant_strategy_eye_analysis(
     (only the last with `split_groups=False`).
 
     For each group: build the per-participant table, keep only participants
-    whose dominance score is at least `threshold` (when it is above 0; by
-    default everyone is kept), then draw and save the per-eye charts.
+    whose dominance score is at least `threshold` -- by default 0.5, the
+    participants with a dominant strategy; 0 keeps everyone -- then draw and
+    save the per-eye charts.
 
     Returns `{group: {"dominant_df": ..., "crosstab": ...}}`.
     """

@@ -404,7 +404,7 @@ trials per group and fold, which makes the test "both new" regime about three ti
 the validation one. The two groups hold out the same paragraphs in each fold, so their folds can
 be pooled. The original assignments, which file the crossing pairs under test "new item" and test
 "new participant", are kept in `HuntersFolds/` and `GatherersFolds/`; both refolded sets are made
-in `notebooks/builders/create_merge_folds_csv.ipynb`.
+in `src/vendor/cv_folds/create_merge_folds_csv.ipynb`.
 
 Nothing in the model is tuned, so the `val_*` regimes do not choose anything: they are a second
 held-out sample, like `test_*`. The summary tables (`modeling/evaluate.py`) read each regime

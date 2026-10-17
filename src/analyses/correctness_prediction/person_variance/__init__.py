@@ -5,7 +5,7 @@ alone. Each of their trials is predicted by a model trained on their other trial
 one trial left out at a time, which the code calls "LOO" -- so every participant
 gets an accuracy of their own. One more fit, on all of their trials, gives their
 coefficients. This backs the paper's participant-level results;
-`notebooks/drivers/per_person_runs.ipynb` runs it and draws every figure.
+`overview.ipynb`, beside this file, runs it and draws every figure.
 
     loo_runs.py                    runs the per-participant models, or reloads them
     person_accuracy.py             each participant's accuracy, and how it is spread

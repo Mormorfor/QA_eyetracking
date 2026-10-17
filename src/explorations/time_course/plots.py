@@ -6,7 +6,7 @@ measurements are compared across the parts -- mean dwell time per word, mean
 fixation count per word, skip rate (the share of words never looked at) and the
 number of word rows -- as one bar chart per measurement and group, each saved
 with a summary table under `reports/explorations/time_course/`. Run from
-`notebooks/exploration/time_course.ipynb`.
+`time_course.ipynb`, in this folder.
 
 Not part of the paper, and not finished: **the split does not yet follow time.**
 It goes by the order of the rows, and the word table lists a trial's words by

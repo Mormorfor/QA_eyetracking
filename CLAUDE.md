@@ -101,7 +101,7 @@ src/
   experiment/   how the Study 2 materials and design were generated
   vendor/       third-party code, kept as received — replace wholesale, do not patch
 scripts/        build_dataset.py · run_analysis.py · make_paper_figures.py
-notebooks/      drivers/ · builders/ · exploration/ · experiment/ (each has a README)
+notebooks/      experiment/ · presentations/ (each has a README)
 data/           datasets/{l1_onestop,knowqa,pilots/*}/{interim,features}/ · cv_folds/ · stimuli/
 reports/        <analysis>/{figures,tables}/ — mirrors analyses/
 papers/         Overleaf-synced; read-only from here

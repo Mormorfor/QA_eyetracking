@@ -8,7 +8,7 @@
 `save_output` validates against -- so a typo fails here the way it would fail there, rather
 than inventing a folder.
 
-**What this is not.** It is not a replacement for the driver notebooks: several analyses have
+**What this is not.** It is not a replacement for the overview notebooks: several analyses have
 parameters worth varying interactively, and this runs them at their defaults. It is the
 way to regenerate these figures without opening Jupyter, which the release standard in
 `conventions.md` asks for.
@@ -24,10 +24,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# analysis -> [(module, function), ...]. Every runner listed here takes the word-level frame
-# as its first argument; the one that does not (`run_all_area_mixed_models`, which wants the
-# two group frames) is handled in `_run` below.
-RUNNERS: dict[str, list[tuple[str, str]]] = {
+# analysis -> [(module, function), ...], or (module, function, {arguments}) where a runner is
+# called with something other than its defaults. Every runner listed here takes the
+# word-level frame as its first argument; the one that does not (`run_all_area_mixed_models`,
+# which wants the two group frames) is handled in `_run` below.
+RUNNERS: dict[str, list[tuple]] = {
     "attention_allocation": [
         ("src.analyses.attention_allocation.plots", "run_all_area_barplots"),
         ("src.analyses.attention_allocation.plots", "run_all_area_metric_plots"),
@@ -45,6 +46,8 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
         ("src.analyses.correctness_associations.plots", "run_all_trial_mean_dwell_continuous_plots"),
         ("src.analyses.correctness_associations.plots", "run_all_total_answering_rt_continuous_plots"),
         ("src.analyses.correctness_associations.plots", "run_all_back_and_forth_pattern_plots"),
+        ("src.analyses.correctness_associations.plots", "run_all_back_and_forth_pattern_plots",
+         {"use_xyxy": True}),
         ("src.analyses.correctness_associations.plots", "run_all_matching_correctness_plots"),
     ],
     "last_visitation": [
@@ -66,9 +69,9 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
 # omitted so `--list` tells the whole truth.
 NO_RUNNER: dict[str, str] = {
     "answer_rt_comparison": "one plotting function, called directly; takes the trial table",
-    "text_qa_relationship": "a sequence of map/contrast calls; driven by notebooks/drivers/text_associations.ipynb",
-    "correctness_prediction/person_variance": "needs the cached LOO pickle; see notebooks/drivers/per_person_runs.ipynb",
-    "correctness_prediction/knowledge_regimes": "Study 2; see notebooks/drivers/preliminary_analysis.ipynb",
+    "text_qa_relationship": "a sequence of map/contrast calls; see the analysis's overview.ipynb",
+    "correctness_prediction/person_variance": "360 per-person fits, about 5 minutes; see the analysis's overview.ipynb",
+    "correctness_prediction/knowledge_regimes": "Study 2; see the analysis's overview.ipynb",
 }
 
 
@@ -98,10 +101,11 @@ def _run(name: str, save: bool, verbose: bool) -> None:
 
         preds = run_crossval_predictions(all_participants, verbose=verbose)
 
-    for mod_name, fn_name in RUNNERS[name]:
+    for mod_name, fn_name, *extra in RUNNERS[name]:
+        kwargs = extra[0] if extra else {}
         fn = getattr(importlib.import_module(mod_name), fn_name)
         if verbose:
-            print(f"  {fn_name}")
+            print(f"  {fn_name}" + (f" {kwargs}" if kwargs else ""))
         if preds is not None:
             fn(preds, save=save, verbose=verbose)
         elif fn_name == "run_all_area_mixed_models":
@@ -114,7 +118,7 @@ def _run(name: str, save: bool, verbose: bool) -> None:
                 save=save,
             )
         else:
-            fn(all_participants, save=save)
+            fn(all_participants, save=save, **kwargs)
 
 
 def main(argv: list[str] | None = None) -> int:

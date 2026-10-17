@@ -269,8 +269,8 @@ The best model is retrained **per participant**, leaving one trial out at a time
 with very few incorrect trials score worst (few negative examples) and are excluded above a
 threshold.
 
-**Code:** `analyses/correctness_prediction/participant_level.py` and `person_variance/`, run
-from `notebooks/drivers/per_person_runs.ipynb`.
+**Code:** `analyses/correctness_prediction/participant_level.py` and `person_variance/`, walked
+through in `person_variance/overview.ipynb`.
 
 Draft1's sentences about population-level significance are commented out in draft2, with a
 `\todo` that "'significance' / CIs are calculated very differently here" — see §5.
@@ -293,9 +293,9 @@ Spans: **critical** (contains the answer), **distractor** (supports a wrong answ
 
 Requires explaining OneStopQA's answer-construction logic, or pointing readers to it.
 
-**Code:** `analyses/text_qa_relationship/`, run from `notebooks/drivers/text_associations.ipynb`;
-figures and tables in `reports/text_qa_relationship/`. Proportions of time, per-participant
-Fisher z, FDR-corrected.
+**Code:** `analyses/text_qa_relationship/`, walked through in its `overview.ipynb`. Proportions
+of time, per-participant Fisher z, FDR-corrected. Nothing runs it with saving on, so
+`reports/text_qa_relationship/` is not kept up to date.
 
 `explorations/text_answer_effects/` is an older attempt at the same question with mixed models,
 and is **not** the source of these findings. Its saved output, from older data, reaches
@@ -360,9 +360,8 @@ Train on all of Study 1, test on Study 2, split by regime:
 Then: correlate predicted probability against self-reported confidence, overall, per regime,
 and within participant, with the self-report's own calibration as a reference.
 
-**Code:** `analyses/correctness_prediction/knowledge_regimes/`, run from
-`notebooks/drivers/preliminary_analysis.ipynb` and `knowqa_data_showcase.ipynb`. The data
-preparation is `ingest/knowqa.py`.
+**Code:** `analyses/correctness_prediction/knowledge_regimes/`, walked through in its
+`overview.ipynb`. The data preparation is `ingest/knowqa.py`.
 
 ### Status
 

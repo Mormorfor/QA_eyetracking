@@ -82,7 +82,7 @@ TEST_RUN_PATH = PROJECT_ROOT / "data_raw" / "testrun_QA"
 #
 # The tracker's .xls exports are first converted to CSV (csvs/), then cleaned
 # into the column names the pipeline expects (csvs/cleaned/). For both pilots
-# that is done by notebooks/builders/data_prep_new_exp.ipynb.
+# that is done by scripts/build_pilot.py.
 # ---------------------------------------------------------------------------
 
 NEW_EXP_CSV_DIR = TEST_RUN_PATH / "csvs"
@@ -476,7 +476,7 @@ TEXTS_NO_REPHRASALS_PATH = EXPERIMENT_DIR / "texts_no_rephrasals.csv"
 # rebuilt from the group's participant split and the shared paragraph split,
 # and the pairs that cross the two held-out sets (a validation participant on
 # a test paragraph, or the reverse) count as test, both new. Both are made in
-# notebooks/builders/create_merge_folds_csv.ipynb.
+# src/vendor/cv_folds/create_merge_folds_csv.ipynb.
 # ---------------------------------------------------------------------------
 
 CV_FOLDS_DIR = DATA_DIR / "cv_folds"
