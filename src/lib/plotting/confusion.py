@@ -17,6 +17,7 @@ def plot_confusion_heatmap(
     labels: Iterable,
     title: str = "Confusion matrix",
     *,
+    analysis: str = "correctness_prediction",
     normalize: bool = False,
     save: Optional[bool] = None,
     to_paper=None,
@@ -31,7 +32,11 @@ def plot_confusion_heatmap(
     Rows are the true labels, columns the predicted ones. With
     `normalize=True` each row is divided by its total, so a cell reads as "the
     share of this true label predicted as that one"; a row with no cases stays
-    all zeros. Saved under the `correctness_prediction` analysis.
+    all zeros.
+
+    `analysis` is the folder under `reports/` to save into. It defaults to
+    `correctness_prediction`, where this started; anything else should pass its
+    own name, or its figure is filed under the headline model's.
 
     Returns the figure, the matrix as a table, and the paths written.
     """
@@ -66,7 +71,7 @@ def plot_confusion_heatmap(
 
     saved_paths = save_output(
         fig,
-        analysis="correctness_prediction",
+        analysis=analysis,
         plot=plot,
         tables={"matrix": cm_df.reset_index(names="row")},
         save=save,

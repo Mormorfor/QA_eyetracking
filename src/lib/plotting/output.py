@@ -91,6 +91,7 @@ ANALYSES: Dict[str, str] = {
     "correctness_prediction": "The headline answer-correctness model",
     "correctness_prediction/person_variance": "Models fitted per participant: coefficients and accuracy",
     "correctness_prediction/knowledge_regimes": "Study 2 regimes, confidence, transfer",
+    "error_analysis": "Which errors the correctness model makes, and whether guessing explains them",
     "answer_rt_comparison": "Correct vs distractor reading-time asymmetry",
     "text_qa_relationship": "Time on each paragraph part against time on each answer and the question",
     # --- explorations: kept, but not used in the paper --------------------

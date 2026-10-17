@@ -252,9 +252,12 @@ them.
 - Errors are then restated under three guessing models: guessing among **all four** options,
   having **eliminated one**, or narrowed to a **fifty-fifty** between two.
 
-**Code:** `notebooks/drivers/general_model_confusion.ipynb` (which contains a
-guessing-correction sensitivity analysis across the three test regimes) and
-`analyses/correctness_prediction/person_variance/mistake_types.py`.
+**Code:** `analyses/error_analysis/` — the confusion quadrants, the guessing-correction
+sensitivity analysis across the three test regimes, and the guessing chance at which the two
+kinds of error come out equal — and
+`analyses/correctness_prediction/person_variance/mistake_types.py` for the per-participant
+version. Run it with `python scripts/run_analysis.py --name error_analysis`; the walkthrough
+is `src/analyses/error_analysis/overview.ipynb`.
 
 ### 3.5 Participant-level model coefficients
 
@@ -401,7 +404,7 @@ code. Paths are under `src/`.
 | Results · First-scan behavior | `features/strategies.py`, `analyses/scan_strategies/` |
 | Results · End of trial behavior | `features/last_visited.py`, `analyses/last_visitation/` |
 | Results · Attention allocation | `features/area_metrics.py`, `analyses/attention_allocation/`, `features/preference.py` |
-| Results · Error analysis | `notebooks/drivers/general_model_confusion.ipynb`, `analyses/correctness_prediction/person_variance/mistake_types.py` |
+| Results · Error analysis | `analyses/error_analysis/`, `analyses/correctness_prediction/person_variance/mistake_types.py` |
 | Results · Participant-level coefficients | `analyses/correctness_prediction/participant_level.py`, `.../person_variance/` |
 | Results · Text Associations | `analyses/text_qa_relationship/` |
 | Methods · Study 1 dataset / prep / features | `ingest/`, `features/` (`docs/data-pipeline.md`) |
@@ -420,7 +423,7 @@ code. Paths are under `src/`.
 | `mixed_models/` | the Julia and R mixed-model backends: mixed effects have their own problems and were judged not important enough to pursue for this paper |
 | `text_answer_effects/` | the older mixed-model Text Associations analysis (§3.6) |
 | `time_course/` | before / during / after the first look at the chosen answer; unfinished, its split does not follow time yet |
-| `unlikely_analysis/` | the error-analysis subsection is served by `general_model_confusion.ipynb` instead |
+| `unlikely_analysis/` | the error-analysis subsection is served by `analyses/error_analysis/` instead |
 | `answer_location/` | predicting which screen position is chosen |
 | `participant_clustering/` | superseded by `person_variance/` |
 | `feature_search/` | generating candidate feature sets; not used for the reported model |

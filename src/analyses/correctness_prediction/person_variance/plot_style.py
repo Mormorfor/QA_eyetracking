@@ -17,12 +17,10 @@ NEG_COLOR = "#DD8452"   # negative coefficient / association ("hurts")
 ZERO_COLOR = "#D9D9D9"  # zero coefficient (feature never varied for that person)
 
 # Confusion quadrants (see `mistake_types`): hits in cool colours, errors warm.
-QUAD_COLORS = {
-    "TP": "#4C72B0",
-    "TN": "#55A868",
-    "FP": "#DD8452",
-    "FN": "#C44E52",
-}
+# Defined in `modeling/confusion.py`, because `analyses/error_analysis` draws the
+# same quadrants and the colours have to match. Re-exported so this module stays
+# the one place figures in this folder ask for a colour.
+from src.modeling.confusion import QUAD_COLORS  # noqa: F401  (re-exported)
 
 
 def signed_bar_colors(values: Iterable[float]) -> List[str]:

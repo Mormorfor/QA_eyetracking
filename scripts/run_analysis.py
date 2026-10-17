@@ -50,6 +50,11 @@ RUNNERS: dict[str, list[tuple[str, str]]] = {
     "last_visitation": [
         ("src.analyses.last_visitation.plots", "run_all_last_label_before_confirm_plots"),
     ],
+    # Takes held-out predictions, not the word-level frame, so `_run`
+    # cross-validates first -- see the special case below.
+    "error_analysis": [
+        ("src.analyses.error_analysis.plots", "run_error_analysis"),
+    ],
 }
 
 # Analyses that exist but have no single-call runner, with the reason. Listed rather than
@@ -80,11 +85,22 @@ def _run(name: str, save: bool, verbose: bool) -> None:
         print("loading the grain tables")
     all_participants = load_model_input(ds, verbose=verbose)
 
+    # The one analysis that takes a model's predictions rather than the
+    # measurements. The cross-validation runs once and feeds every figure; it is
+    # the slowest thing this script does, a minute or two.
+    preds = None
+    if name == "error_analysis":
+        from src.analyses.error_analysis.compute import run_crossval_predictions
+
+        preds = run_crossval_predictions(all_participants, verbose=verbose)
+
     for mod_name, fn_name in RUNNERS[name]:
         fn = getattr(importlib.import_module(mod_name), fn_name)
         if verbose:
             print(f"  {fn_name}")
-        if fn_name == "run_all_area_mixed_models":
+        if preds is not None:
+            fn(preds, save=save, verbose=verbose)
+        elif fn_name == "run_all_area_mixed_models":
             # The one runner that wants the two groups' frames rather than the pooled
             # one. The groups' tables are written in the same build as the pooled
             # ones, so the two cannot be out of step.

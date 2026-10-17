@@ -1,0 +1,144 @@
+{
+  "confusion_matrix__regime-test_seen_subject_unseen_item__scale-norm": {
+    "plot": "confusion_matrix",
+    "facets": {
+      "regime": "test_seen_subject_unseen_item",
+      "scale": "normalized"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_confusion_matrix",
+    "figure": "confusion_matrix__regime-test_seen_subject_unseen_item__scale-norm.png",
+    "subdir": null,
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:27"
+  },
+  "confusion_matrix__regime-test_unseen_subject_seen_item__scale-norm": {
+    "plot": "confusion_matrix",
+    "facets": {
+      "regime": "test_unseen_subject_seen_item",
+      "scale": "normalized"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_confusion_matrix",
+    "figure": "confusion_matrix__regime-test_unseen_subject_seen_item__scale-norm.png",
+    "subdir": null,
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:27"
+  },
+  "confusion_matrix__regime-test_unseen_subject_unseen_item__scale-norm": {
+    "plot": "confusion_matrix",
+    "facets": {
+      "regime": "test_unseen_subject_unseen_item",
+      "scale": "normalized"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_confusion_matrix",
+    "figure": "confusion_matrix__regime-test_unseen_subject_unseen_item__scale-norm.png",
+    "subdir": null,
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:27"
+  },
+  "confusion_quadrants__regime-test_unseen_subject_unseen_item": {
+    "plot": "confusion_quadrants",
+    "facets": {
+      "regime": "test_unseen_subject_unseen_item"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_confusion_quadrants",
+    "figure": "confusion_quadrants__regime-test_unseen_subject_unseen_item.png",
+    "subdir": null,
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:26"
+  },
+  "confusion_quadrants_by_regime": {
+    "plot": "confusion_quadrants_by_regime",
+    "facets": {},
+    "produced_by": "src.analyses.error_analysis.plots.plot_confusion_quadrants_by_regime",
+    "figure": "confusion_quadrants_by_regime.png",
+    "subdir": null,
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:27"
+  },
+  "guessing_balance__regime-test_seen_subject_unseen_item": {
+    "plot": "guessing_balance",
+    "facets": {
+      "regime": "test_seen_subject_unseen_item"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_guessing_balance",
+    "figure": "guessing_balance__regime-test_seen_subject_unseen_item.png",
+    "subdir": null,
+    "tables": [
+      "balance",
+      "curve"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:28"
+  },
+  "guessing_balance__regime-test_unseen_subject_seen_item": {
+    "plot": "guessing_balance",
+    "facets": {
+      "regime": "test_unseen_subject_seen_item"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_guessing_balance",
+    "figure": "guessing_balance__regime-test_unseen_subject_seen_item.png",
+    "subdir": null,
+    "tables": [
+      "balance",
+      "curve"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:29"
+  },
+  "guessing_balance__regime-test_unseen_subject_unseen_item": {
+    "plot": "guessing_balance",
+    "facets": {
+      "regime": "test_unseen_subject_unseen_item"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_guessing_balance",
+    "figure": "guessing_balance__regime-test_unseen_subject_unseen_item.png",
+    "subdir": null,
+    "tables": [
+      "balance",
+      "curve"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:29"
+  },
+  "guessing_scenarios__regime-test_unseen_subject_unseen_item": {
+    "plot": "guessing_scenarios",
+    "facets": {
+      "regime": "test_unseen_subject_unseen_item"
+    },
+    "produced_by": "src.analyses.error_analysis.plots.plot_guessing_scenarios",
+    "figure": "guessing_scenarios__regime-test_unseen_subject_unseen_item.png",
+    "subdir": null,
+    "tables": [
+      "scenarios"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:28"
+  },
+  "guessing_scenarios_by_regime": {
+    "plot": "guessing_scenarios_by_regime",
+    "facets": {},
+    "produced_by": "src.analyses.error_analysis.plots.plot_guessing_scenarios_by_regime",
+    "figure": "guessing_scenarios_by_regime.png",
+    "subdir": null,
+    "tables": [
+      "scenarios"
+    ],
+    "source": null,
+    "saved_at": "2026-10-17T11:12:28"
+  }
+}

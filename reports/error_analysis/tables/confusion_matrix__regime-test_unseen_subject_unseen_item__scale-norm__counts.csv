@@ -1,0 +1,5 @@
+quadrant,label,n_trials,share
+TP,TP - true positive,3936,0.6748971193415638
+TN,TN - true negative,799,0.13700274348422498
+FP,FP - false positive,124,0.021262002743484224
+FN,FN - false negative,973,0.16683813443072704

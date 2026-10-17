@@ -11,8 +11,6 @@ Why some are TODO:
 
 * the `correctness_prediction` figures come from cross-validation and per-participant runs,
   which take a long time and are run from notebooks;
-* the error-analysis figures are drawn in `notebooks/drivers/general_model_confusion.ipynb`,
-  which saves nothing;
 * the paper's list of figures is not final: `draft2.tex` names its figures in the text only,
   with no `\\includegraphics` that is not commented out, so there is no list to check
   against yet.
@@ -52,8 +50,8 @@ FIGURES: list[Figure] = [
            "analysis:correctness_associations", True),
     Figure("Results - Text Associations", "text_qa_relationship",
            "sequence of map/contrast calls; notebooks/drivers/text_associations.ipynb", False),
-    Figure("Results - Error analysis", "correctness_prediction",
-           "notebooks/drivers/general_model_confusion.ipynb saves nothing", False),
+    Figure("Results - Error analysis", "error_analysis",
+           "analysis:error_analysis", True),
     Figure("Results - Participant-level coefficients", "correctness_prediction/person_variance",
            "needs the per-participant runs; notebooks/drivers/per_person_runs.ipynb", False),
     Figure("Methods - Models comparison", "correctness_prediction",

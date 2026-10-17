@@ -4,11 +4,12 @@
 This module splits that by the kind of mistake, using the confusion matrix of the
 per-participant models' predictions (each trial predicted by a model trained on
 the same person's other trials; see `loo_runs`). `is_correct = 1` means the
-participant answered correctly:
+participant answered correctly, and that is the positive class -- so a false
+negative is a trial the participant got right and the model called wrong:
 
-                   | model says correct    | model says wrong
-    human correct  | TP - correct on right | FN - miss
-    human wrong    | FP - false alarm      | TN - correct on wrong
+                   | model says correct | model says wrong
+    human correct  | TP                 | FN
+    human wrong    | FP                 | TN
 
 Two views:
 
@@ -17,10 +18,10 @@ Two views:
    answer*. Each comparison holds the participant's answer fixed and varies only
    whether the model got it right:
 
-   * `FN - TP | human correct`: among correctly answered trials, how a trial the
-     model **missed** differs from one it **caught**.
-   * `FP - TN | human wrong`: among wrongly answered trials, how a **false alarm**
-     differs from a wrong answer the model flagged.
+   * `FN - TP | human correct`: among correctly answered trials, how a **false
+     negative** differs from one the model got right.
+   * `FP - TN | human wrong`: among wrongly answered trials, how a **false
+     positive** differs from one the model got right.
 
 2. **Per person** (`characterize_accuracy_by_error_type`): split balanced accuracy
    into its two halves -- how often the model is right on correct answers
@@ -51,14 +52,15 @@ from src.analyses.correctness_prediction.person_variance.plot_style import (
 )
 from src.lib.plotting.output import save_output
 
-QUAD_ORDER = ["TP", "TN", "FP", "FN"]
-
-QUAD_LABELS = {
-    "TP": "TP - correct on right",   # human right, model says right
-    "TN": "TN - correct on wrong",   # human wrong, model says wrong
-    "FP": "FP - false alarm",        # human wrong, model says right
-    "FN": "FN - miss",               # human right, model says wrong
-}
+# Quadrant names and colours are shared with `analyses/error_analysis`, which
+# labels the general model's predictions the same way. They live a layer down so
+# the two cannot drift apart.
+from src.modeling.confusion import (
+    QUAD_LABELS,
+    QUAD_ORDER,
+    confusion_counts,
+    label_quadrants,
+)
 
 
 def build_trial_prediction_table(results_by_pid: Mapping[str, Any]) -> pd.DataFrame:
@@ -82,15 +84,7 @@ def build_trial_prediction_table(results_by_pid: Mapping[str, Any]) -> pd.DataFr
         td["y_prob"] = prob
         frames.append(td)
     trials = pd.concat(frames, ignore_index=True)
-
-    yt, yp = trials["y_true"].to_numpy(), trials["y_pred"].to_numpy()
-    trials["quadrant"] = np.select(
-        [(yt == 1) & (yp == 1), (yt == 0) & (yp == 0),
-         (yt == 0) & (yp == 1), (yt == 1) & (yp == 0)],
-        QUAD_ORDER, default="?",
-    )
-    trials["model_correct"] = yt == yp
-    return trials
+    return label_quadrants(trials)
 
 
 def summarize_confusion_quadrants(
@@ -99,10 +93,9 @@ def summarize_confusion_quadrants(
     verbose: bool = True,
 ) -> pd.Series:
     """Count the pooled trials in each quadrant. With `verbose`, also print the
-    shares, and how the errors split between false alarms and misses."""
-    counts = (
-        trials["quadrant"].value_counts().reindex(QUAD_ORDER).fillna(0).astype(int)
-    )
+    shares, and how the errors split between false positives and false
+    negatives."""
+    counts = confusion_counts(trials)
     if verbose:
         n_trials = len(trials)
         print(f"{n_trials} pooled held-out trials from "
@@ -111,8 +104,8 @@ def summarize_confusion_quadrants(
         for q in QUAD_ORDER:
             print(f"  {QUAD_LABELS[q]:22s} {counts[q]:6d}  ({counts[q] / n_trials:6.1%})")
         n_err = int(counts["FP"] + counts["FN"])
-        print(f"\nErrors: {n_err} total  |  FP false alarms {counts['FP'] / n_err:.1%}"
-              f"  |  FN misses {counts['FN'] / n_err:.1%}")
+        print(f"\nErrors: {n_err} total  |  FP {counts['FP'] / n_err:.1%}"
+              f"  |  FN {counts['FN'] / n_err:.1%}")
     return counts
 
 
@@ -187,8 +180,8 @@ def trial_feature_profile_by_quadrant(
 
     mean_z = z.groupby("quadrant")[cols].mean().T.reindex(columns=QUAD_ORDER)
     contrasts = {
-        "FN - TP  | human correct  (+) = elevated on misses": mean_z["FN"] - mean_z["TP"],
-        "FP - TN  | human wrong    (+) = elevated on false alarms": mean_z["FP"] - mean_z["TN"],
+        "FN - TP  | human correct  (+) = elevated on false negatives": mean_z["FN"] - mean_z["TP"],
+        "FP - TN  | human wrong    (+) = elevated on false positives": mean_z["FP"] - mean_z["TN"],
     }
 
     figs: Dict[str, Any] = {}
@@ -229,9 +222,9 @@ def trial_feature_profile_by_quadrant(
 def per_person_confusion(results_by_pid: Mapping[str, Any]) -> pd.DataFrame:
     """Each participant's confusion counts, and the two halves of balanced accuracy.
 
-        sensitivity ("correct on right") = TP / (TP + FN), over correctly answered trials
-        specificity ("correct on wrong") = TN / (TN + FP), over wrongly answered trials
-        balanced_accuracy                = the average of the two
+        sensitivity       = TP / (TP + FN), over correctly answered trials
+        specificity       = TN / (TN + FP), over wrongly answered trials
+        balanced_accuracy = the average of the two
 
     A half with no trials behind it is NaN, and `balanced_accuracy` is then the
     other half alone, because the average skips NaN. `per_person_summary` gives NaN

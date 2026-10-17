@@ -427,7 +427,7 @@ Terms used in the paper's error-analysis section.
 | **the asymmetry itself** | someone who knows will almost certainly choose correctly; someone who doesn't still has at least a 1-in-4 chance of choosing correctly by luck. So under the confidence reading, FN and FP are not equally serious errors |
 | **empirical guess rate** | the share of correct answers in Study 2's **no-knowledge** regime, where the participant could not have known |
 | **guessing models** | three assumptions the errors are restated under: guessing among **all four** answers (1/4), having **ruled one out** (1/3), or down to **two** (1/2) |
-| **unlikely trial** | a trial whose predicted probability strongly disagrees with the outcome: a probably-guessed correct answer, or a wrong answer where the correct one was seriously considered. Code: `src/explorations/unlikely_analysis/`, which does not back the paper; the paper's error analysis comes from `notebooks/drivers/general_model_confusion.ipynb` |
+| **unlikely trial** | a trial whose predicted probability strongly disagrees with the outcome: a probably-guessed correct answer, or a wrong answer where the correct one was seriously considered. Code: `src/explorations/unlikely_analysis/`, which does not back the paper; the paper's error analysis comes from `src/analyses/error_analysis/` |
 | **model-friendly / model-unfriendly participant** | someone whose features the model predicts well / poorly. The model struggles with participants who attend heavily to the question, and with those who skim the answers, the correct one included |
 
 ---

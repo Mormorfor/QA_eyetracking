@@ -1,0 +1,13 @@
+regime,regime_title,quadrant,label,n_trials,share,n_regime_trials
+test_seen_subject_unseen_item,"Seen subject, new item",TP,TP - true positive,10407,0.6693465397478775,15548
+test_seen_subject_unseen_item,"Seen subject, new item",TN,TN - true negative,2141,0.13770259840493954,15548
+test_seen_subject_unseen_item,"Seen subject, new item",FP,FP - false positive,348,0.02238229997427322,15548
+test_seen_subject_unseen_item,"Seen subject, new item",FN,FN - false negative,2652,0.1705685618729097,15548
+test_unseen_subject_seen_item,"New subject, seen item",TP,TP - true positive,10467,0.6732055569848212,15548
+test_unseen_subject_seen_item,"New subject, seen item",TN,TN - true negative,2108,0.13558013892462054,15548
+test_unseen_subject_seen_item,"New subject, seen item",FP,FP - false positive,349,0.02244661692822228,15548
+test_unseen_subject_seen_item,"New subject, seen item",FN,FN - false negative,2624,0.168767687162336,15548
+test_unseen_subject_unseen_item,"New subject, new item (""both"")",TP,TP - true positive,3936,0.6748971193415638,5832
+test_unseen_subject_unseen_item,"New subject, new item (""both"")",TN,TN - true negative,799,0.13700274348422498,5832
+test_unseen_subject_unseen_item,"New subject, new item (""both"")",FP,FP - false positive,124,0.021262002743484224,5832
+test_unseen_subject_unseen_item,"New subject, new item (""both"")",FN,FN - false negative,973,0.16683813443072704,5832
