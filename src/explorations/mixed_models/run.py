@@ -1,64 +1,76 @@
-"""Mixed-effects bundles: the same evaluate-and-save cycle, Julia/R backend. **Parked.**
+"""Mixed-model runs: the paper's fit-score-save cycle, with the Julia GLMM. **Parked.**
 
-The same runs as `analyses/correctness_prediction/run.py` -- one stored fold, fit, score,
-save, figures -- with the Julia mixed model (`models.py`). The split, the feature handling,
-the saving and the figures are imported from that module and its `plots/`.
+`run_full_features_correctness_julia_glmer_bundle` is `analyses/correctness_prediction/run.py`'s
+single-split bundle with the mixed model (`models.py`) in place of the logistic regression:
+one stored fold, fit, score, print, figures. `run_full_features_correctness_julia_glmer_fit_all`
+fits on every trial and also returns the random effects and their variances.
+
+Both take an unfitted `TrialLevelJuliaGLMERModel`, already configured -- text level,
+prediction rule, class weights -- or build the default one. The split, the summary table and
+the figures come from the paper module and its `plots/`, so the outputs land beside the
+logistic regression's, in `reports/correctness_prediction/{figures,tables}/<held-out regimes
+or full_fit>/julia/`.
+
+Cross-validation needs nothing from here: `modeling/crossval.py` takes the model as it takes
+the logistic regression (`overview.ipynb` beside this file does that).
 """
 
 from __future__ import annotations
-from pathlib import Path
-from typing import Optional, Sequence, Tuple, List, Dict, Any
+
+from typing import Any, Dict, Optional, Sequence, Tuple
+
 import pandas as pd
+
 from src.config import columns as Con
-from src.config.datasets import READY_ALL_FEATURES_PATH
-from src.modeling.folds import group_vise_train_test_split
-from src.modeling.feature_sets import get_full_feature_cols
-from src.features.build import build_trial_level_model_df, load_model_ready
 from src.modeling.evaluate import (
-    evaluate_models_on_prepared_split, fit_julia_mixed_model_on_prepared_full_data,
+    evaluate_models_on_prepared_split,
+    fit_julia_mixed_model_on_prepared_full_data,
 )
-from src.modeling.models.logreg_model import (
-    TrialLevelLogRegModel,
-)
-from src.explorations.mixed_models.models import (
-    TrialLevelJuliaGLMERModel,
-)
+from src.explorations.mixed_models.models import TrialLevelJuliaGLMERModel
 from src.explorations.mixed_models.plots import (
     plot_random_effects_barh,
     plot_random_effects_distribution,
     summarize_random_effects,
 )
-from src.analyses.correctness_prediction.plots.coefficients import (
-    plot_coef_summary_barh,
-)
-from src.analyses.correctness_prediction.plots.feature_ranks import (
-    plot_feature_correlation_heatmap,
-)
-from src.analyses.correctness_prediction.plots.probabilities import (
-    plot_predicted_probability_hist,
-)
-from src.analyses.correctness_prediction.plots.results import (
-    correctness_results_to_summary_df,
-    show_correctness_model_results,
-)
-from src.lib.plotting.confusion import plot_confusion_heatmap
+from src.analyses.correctness_prediction.plots.results import show_correctness_model_results
 from src.lib.plotting.output import save_output
 from src.analyses.correctness_prediction.run import (
     _load_or_build_full_trial_df,
     _plot_coef_summaries,
     _plot_confusions,
-    _plot_feature_corr,
+    _plot_prob_hist,
     _resolve_feature_cols,
     _save_summary_csv,
     _split_tag,
     build_train_test_trial_dfs,
 )
 
+# The output folder under reports/correctness_prediction/ that keeps these apart from the
+# logistic regression's ("logreg").
+MODEL_FAMILY = "julia"
+
+
+def _fit_report(model: TrialLevelJuliaGLMERModel) -> Dict[str, Any]:
+    """One row describing a fitted model: formula, weights, how the fit ended, the SDs."""
+    row: Dict[str, Any] = {
+        "formula": model.get_formula(),
+        "class_weight": str(model.class_weight),
+        "predict_with": model.predict_with,
+        "optimizer_returnvalue": model.optimizer_returnvalue_,
+        "converged": model.converged_,
+        "is_singular": model.is_singular_,
+        "n_train": model.n_train_,
+    }
+    for _, vc in model.get_variance_components().iterrows():
+        row[f"sd__{vc['group']}__{vc['term']}"] = vc["sd"]
+    return row
+
 
 def run_full_features_correctness_julia_glmer_bundle(
     df: pd.DataFrame,
     test_regimes: Sequence[str],
     *,
+    model: Optional[TrialLevelJuliaGLMERModel] = None,
     test_split: str = "test",
     fold: Optional[int] = None,
     sources: Sequence[str] = ("hunters", "gatherers"),
@@ -68,25 +80,30 @@ def run_full_features_correctness_julia_glmer_bundle(
     dpi: int = 300,
     close: bool = False,
     subdir: Optional[str] = None,
-    use_rfx: bool = False,
     run_identifier: str = "",
     random_state: int = 42,
-    participant_effects_mode: str = "slopes",
-    text_effects_mode: str = "slopes",
+    coef_figsize: Optional[Tuple[int, int]] = None,
+    title_prefix: str = "",
 ) -> Dict[str, Any]:
-    model = TrialLevelJuliaGLMERModel()
-    model.participant_effects_mode = participant_effects_mode
-    model.text_effects_mode = text_effects_mode
+    """
+    Fit the mixed model on one fold's training trials, score it on the `test_regimes`
+    trials, print the scores and draw the figures.
 
+    The same split and the same figures as the paper's
+    `run_full_features_correctness_bundle`: confusion matrix (shares and counts), the
+    predicted probabilities on the test trials, and the coefficients (all, and those
+    whose interval excludes 0). The intervals are the mixed model's own Wald intervals.
+    The feature-correlation figure is left out: it describes the features, not the
+    model, and the paper bundle draws it.
+
+    `model` is an unfitted `TrialLevelJuliaGLMERModel`; its `predict_with` decides how
+    the test trials are scored. The summary table is written only with `save=True`.
+    """
+    model = model if model is not None else TrialLevelJuliaGLMERModel()
     model_name = model.name
-    model_family = "julia"
 
     split_tag = _split_tag(test_regimes)
-    # Browsable folder under reports/correctness_prediction/; the filename still
-    # carries every facet, so the folder is navigation, not identity.
-    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
-
-    keep_cols = [Con.TEXT_ID_WITH_Q_COLUMN]
+    base_dir = "/".join(x for x in (split_tag or "full_fit", MODEL_FAMILY, subdir) if x)
 
     train_df, test_df, split_info = build_train_test_trial_dfs(
         df=df,
@@ -94,7 +111,7 @@ def run_full_features_correctness_julia_glmer_bundle(
         test_split=test_split,
         fold=fold,
         sources=sources,
-        keep_cols=keep_cols,
+        keep_cols=[model.text_col],
         random_state=random_state,
     )
 
@@ -106,46 +123,27 @@ def run_full_features_correctness_julia_glmer_bundle(
         test_df=test_df,
         target_col=Con.IS_CORRECT_COLUMN,
         feature_cols=feat_cols,
-        fit_kwargs_by_model={
-            model_name: {
-                "participant_col": Con.PARTICIPANT_ID,
-                "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-            }
-        },
-        predict_kwargs_by_model={
-            model_name: {
-                "target_col": Con.IS_CORRECT_COLUMN,
-                "participant_col": Con.PARTICIPANT_ID,
-                "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-                "use_rfx": use_rfx,
-            }
-        },
-        predict_proba_kwargs_by_model={
-            model_name: {
-                "target_col": Con.IS_CORRECT_COLUMN,
-                "participant_col": Con.PARTICIPANT_ID,
-                "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-                "use_rfx": use_rfx,
-            }
-        },
     )
 
     show_correctness_model_results(results)
     res = results[model_name]
-
-    formula = model.get_formula()
-    print(f"Model formula: {formula}")
+    fit_report = _fit_report(model)
+    print(f"Formula: {fit_report['formula']}")
+    print(
+        f"Optimiser: {fit_report['optimizer_returnvalue']}   "
+        f"singular: {fit_report['is_singular']}"
+    )
 
     summary_paths = None
     if save:
         summary_paths = _save_summary_csv(
             results=results,
             model_name=model_name,
-            trained_feature_cols=model.feature_cols_raw_,
+            trained_feature_cols=model.feature_cols_,
             base_dir=base_dir,
             run_identifier=run_identifier,
             to_paper=to_paper,
-            formula=formula,
+            formula=fit_report["formula"],
         )
 
     cm_paths, cm_paths2 = _plot_confusions(
@@ -156,6 +154,19 @@ def run_full_features_correctness_julia_glmer_bundle(
         save=save,
         to_paper=to_paper,
         close=close,
+        title_prefix=title_prefix,
+    )
+
+    prob_hist_paths = _plot_prob_hist(
+        y_true=res.y_true,
+        y_prob=res.y_prob,
+        model_name=model_name,
+        base_dir=base_dir,
+        save=save,
+        to_paper=to_paper,
+        dpi=dpi,
+        close=close,
+        title_prefix=title_prefix,
     )
 
     coef_paths, coef_sig_paths = _plot_coef_summaries(
@@ -166,45 +177,34 @@ def run_full_features_correctness_julia_glmer_bundle(
         to_paper=to_paper,
         dpi=dpi,
         close=close,
-    )
-
-    trial_df = _load_or_build_full_trial_df(
-        df=df,
-        keep_cols=keep_cols,
-    )
-
-    corr_paths = _plot_feature_corr(
-        trial_df=trial_df,
-        corr_feature_cols=model.feature_cols_raw_,
-        base_dir=base_dir,
-        save=save,
-        to_paper=to_paper,
-        dpi=dpi,
-        close=close,
+        figsize=coef_figsize,
+        title_prefix=title_prefix,
     )
 
     return {
         "results": results,
+        "model": model,
+        "fit_report": fit_report,
         "train_df": train_df,
         "test_df": test_df,
-        "trial_df": trial_df,
         "split_tag": split_tag,
         "split_info": split_info,
         "base_subdir": base_dir,
         "summary_csv": summary_paths,
-        "formula": formula,
         "paths": {
             "confusion_norm": cm_paths,
             "confusion_unnorm": cm_paths2,
+            "predicted_probability_hist": prob_hist_paths,
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
-            "correlation": corr_paths,
         },
     }
 
 
 def run_full_features_correctness_julia_glmer_fit_all(
     df: pd.DataFrame,
+    *,
+    model: Optional[TrialLevelJuliaGLMERModel] = None,
     feature_cols: Optional[Sequence[str]] = None,
     save: Optional[bool] = None,
     to_paper=None,
@@ -213,22 +213,22 @@ def run_full_features_correctness_julia_glmer_fit_all(
     subdir: Optional[str] = None,
     top_n_rfx: int = 30,
     run_identifier: str = "",
-    participant_effects_mode: str = "slopes",
-    text_effects_mode: str = "slopes",
+    coef_figsize: Optional[Tuple[int, int]] = None,
 ) -> Dict[str, Any]:
-    model = TrialLevelJuliaGLMERModel()
-    model.participant_effects_mode = participant_effects_mode
-    model.text_effects_mode = text_effects_mode
+    """
+    Fit the mixed model once on every trial, and draw its coefficients and random effects.
 
+    Returns the coefficient table (Wald intervals), the random effects per participant and
+    per text, the variance components, and a one-row summary of the fit (formula, weights,
+    how the optimiser stopped, whether the fit is singular, the random-effect SDs). For
+    each grouping factor: a histogram of its random intercepts and the `top_n_rfx` largest
+    in absolute size. The tables are written only with `save=True`.
+    """
+    model = model if model is not None else TrialLevelJuliaGLMERModel()
     model_name = f"{model.name}_fit_all"
+    base_dir = "/".join(x for x in ("full_fit", MODEL_FAMILY, subdir) if x)
 
-    base_dir = "/".join(x for x in ("full_fit", "julia", subdir) if x)
-
-    fit_df = _load_or_build_full_trial_df(
-        df=df,
-        keep_cols=[Con.TEXT_ID_WITH_Q_COLUMN],
-    )
-
+    fit_df = _load_or_build_full_trial_df(df=df, keep_cols=[model.text_col])
     feat_cols = _resolve_feature_cols(fit_df, feature_cols)
 
     res = fit_julia_mixed_model_on_prepared_full_data(
@@ -236,30 +236,21 @@ def run_full_features_correctness_julia_glmer_fit_all(
         fit_df=fit_df,
         target_col=Con.IS_CORRECT_COLUMN,
         feature_cols=feat_cols,
-        fit_kwargs={
-            "participant_col": Con.PARTICIPANT_ID,
-            "text_col": Con.TEXT_ID_WITH_Q_COLUMN,
-        },
     )
 
-    formula = model.get_formula()
-    print(f"Model formula: {formula}")
-
-    trained_feature_cols = list(model.feature_cols_raw_)
-
+    variance_df = model.get_variance_components()
     summary_df = pd.DataFrame([{
         "run_identifier": run_identifier,
         "model_name": model_name,
         "n_rows": int(res["n_rows"]),
         "n_positive": int(res["n_positive"]),
         "n_negative": int(res["n_negative"]),
-        "formula": formula,
-        "participant_effects_mode": participant_effects_mode,
-        "text_effects_mode": text_effects_mode,
-        "random_effect_variance_summary": res["random_effect_variance_summary"],
-        "n_features": len(trained_feature_cols),
-        "trained_feature_cols": " | ".join(trained_feature_cols),
+        **_fit_report(model),
+        "n_features": len(model.feature_cols_),
+        "trained_feature_cols": " | ".join(model.feature_cols_),
     }])
+    print(f"Formula: {model.get_formula()}")
+    print(res["random_effect_variance_summary"])
 
     summary_paths = None
     if save:
@@ -267,155 +258,66 @@ def run_full_features_correctness_julia_glmer_fit_all(
             None,
             analysis="correctness_prediction",
             plot="model_summary_fit_all",
-            tables={"summary": summary_df},
+            tables={"summary": summary_df, "variance_components": variance_df},
             save=save,
             to_paper=to_paper,
             subdir=base_dir,
             model=model_name,
         ).paths
 
-    coef_paths = []
-    coef_sig_paths = []
-
-    coef_summary = res["coef_summary"]
-    if coef_summary is not None and not coef_summary.empty:
-        _, _, coef_paths = plot_coef_summary_barh(
-            coef_summary=coef_summary,
-            value_col="coef",
-            model_name=model_name,
-            title=f"{model_name} – coefficients",
-            save=save,
-            subdir=f"{base_dir}/coefficients",
-            plot="coefficients",
-            model=model_name,
-            coefs="all",
-            to_paper=to_paper,
-            dpi=dpi,
-            close=close,
-            significant_only=False,
-        )
-
-        _, _, coef_sig_paths = plot_coef_summary_barh(
-            coef_summary=coef_summary,
-            value_col="coef",
-            model_name=model_name,
-            title=f"{model_name} – significant coefficients",
-            save=save,
-            subdir=f"{base_dir}/coefficients",
-            plot="coefficients",
-            model=model_name,
-            coefs="significant",
-            to_paper=to_paper,
-            dpi=dpi,
-            close=close,
-            significant_only=True,
-        )
-
-    corr_paths = _plot_feature_corr(
-        trial_df=fit_df,
-        corr_feature_cols=model.feature_cols_raw_,
+    coef_paths, coef_sig_paths = _plot_coef_summaries(
+        coef_summary=res["coef_summary"],
+        model_name=model_name,
         base_dir=base_dir,
         save=save,
         to_paper=to_paper,
         dpi=dpi,
         close=close,
+        figsize=coef_figsize,
     )
 
-    random_effects = res["random_effects"] or {}
-    rfx_paths = {}
+    random_effects = res["random_effects"]
+    rfx_paths: Dict[str, Dict[str, Any]] = {}
     rfx_summary_frames = []
+    for group, table in random_effects.items():
+        level = "participant" if group == model.participant_col else "text"
+        rfx_summary_frames.append(summarize_random_effects(table, group_name=group))
 
-    if Con.PARTICIPANT_ID in random_effects:
-        part_df = random_effects[Con.PARTICIPANT_ID]
-        rfx_summary_frames.append(
-            summarize_random_effects(part_df, group_name=Con.PARTICIPANT_ID)
-        )
-
-        _, _, part_dist_paths = plot_random_effects_distribution(
-            part_df,
+        _, _, dist_paths = plot_random_effects_distribution(
+            table,
             effect_col="random_intercept",
-            title=f"{model_name} – participant random-effects distribution",
+            title=f"{model_name} – {level} random intercepts",
             save=save,
             subdir=f"{base_dir}/random_effects",
             plot="random_effects_distribution",
             model=model_name,
-            level="participant",
+            level=level,
             to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
-
-        _, _, part_bar_paths = plot_random_effects_barh(
-            part_df,
-            id_col=Con.PARTICIPANT_ID,
+        _, _, bar_paths = plot_random_effects_barh(
+            table,
+            id_col=group,
             effect_col="random_intercept",
-            title=f"{model_name} – strongest participant random effects",
+            title=f"{model_name} – largest {level} random intercepts",
             top_n=top_n_rfx,
             save=save,
             subdir=f"{base_dir}/random_effects",
             plot="random_effects_barh",
             model=model_name,
-            level="participant",
+            level=level,
             top=top_n_rfx,
             to_paper=to_paper,
             dpi=dpi,
             close=close,
         )
+        rfx_paths[group] = {"distribution": dist_paths, "top_abs": bar_paths}
 
-        rfx_paths[Con.PARTICIPANT_ID] = {
-            "distribution": part_dist_paths,
-            "top_abs": part_bar_paths,
-        }
-
-    if Con.TEXT_ID_WITH_Q_COLUMN in random_effects:
-        text_df = random_effects[Con.TEXT_ID_WITH_Q_COLUMN]
-        rfx_summary_frames.append(
-            summarize_random_effects(text_df, group_name=Con.TEXT_ID_WITH_Q_COLUMN)
-        )
-
-        _, _, text_dist_paths = plot_random_effects_distribution(
-            text_df,
-            effect_col="random_intercept",
-            title=f"{model_name} – text random-effects distribution",
-            save=save,
-            subdir=f"{base_dir}/random_effects",
-            plot="random_effects_distribution",
-            model=model_name,
-            level="text",
-            to_paper=to_paper,
-            dpi=dpi,
-            close=close,
-        )
-
-        _, _, text_bar_paths = plot_random_effects_barh(
-            text_df,
-            id_col=Con.TEXT_ID_WITH_Q_COLUMN,
-            effect_col="random_intercept",
-            title=f"{model_name} – strongest text random effects",
-            top_n=top_n_rfx,
-            save=save,
-            subdir=f"{base_dir}/random_effects",
-            plot="random_effects_barh",
-            model=model_name,
-            level="text",
-            top=top_n_rfx,
-            to_paper=to_paper,
-            dpi=dpi,
-            close=close,
-        )
-
-        rfx_paths[Con.TEXT_ID_WITH_Q_COLUMN] = {
-            "distribution": text_dist_paths,
-            "top_abs": text_bar_paths,
-        }
-
-    random_effects_summary_df = (
-        pd.concat(rfx_summary_frames, ignore_index=True)
-        if rfx_summary_frames else pd.DataFrame()
-    )
+    random_effects_summary_df = pd.concat(rfx_summary_frames, ignore_index=True)
 
     rfx_summary_paths = None
-    if save and not random_effects_summary_df.empty:
+    if save:
         rfx_summary_paths = save_output(
             None,
             analysis="correctness_prediction",
@@ -429,16 +331,17 @@ def run_full_features_correctness_julia_glmer_fit_all(
 
     return {
         "result": res,
+        "model": model,
         "fit_df": fit_df,
         "base_subdir": base_dir,
+        "summary_df": summary_df,
         "summary_csv": summary_paths,
-        "formula": formula,
+        "variance_components": variance_df,
         "random_effects": random_effects,
         "random_effects_summary_df": random_effects_summary_df,
         "paths": {
             "coef_all": coef_paths,
             "coef_significant": coef_sig_paths,
-            "correlation": corr_paths,
             "random_effects": rfx_paths,
             "random_effects_summary": rfx_summary_paths,
         },

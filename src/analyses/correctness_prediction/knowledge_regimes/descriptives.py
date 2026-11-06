@@ -37,7 +37,12 @@ import numpy as np
 import pandas as pd
 
 from src.config import columns as Con
-from src.config.datasets import KNOW_QA_FEATURES_PATH, KNOW_QA_IA_ANSWERS_PATH, READY_ALL_FEATURES_PATH
+from src.config.datasets import (
+    EXPERIMENT_TEXT_COMPLETED_PATH,
+    KNOW_QA_FEATURES_PATH,
+    KNOW_QA_IA_ANSWERS_PATH,
+    READY_ALL_FEATURES_PATH,
+)
 from src.lib.stats.proportions import wilson_ci
 from src.features.build import load_model_ready
 from src.modeling.models.logreg_model import (
@@ -62,7 +67,9 @@ _META_COLS = (REGIME_COL, SESSION_COL, CONFIDENCE_COL)
 # `comparison_runs`): the ten hand-picked features of `SELECT_1_COLS`, plus two last-look
 # features -- whether the last area looked at before the confirming press was the correct
 # answer, and whether it was the question. To try other features, change this list.
-SHOWCASE_FEATURE_COLS: List[str] = list(fg.SELECT_1_COLS) + list(fg.LAST_CONFIRM_COMPACT)
+SHOWCASE_FEATURE_COLS: List[str] = list(fg.SELECT_1_COLS) + list(
+    fg.LAST_CONFIRM_COMPACT
+)
 
 PROB_COL = "pred_prob"
 PRED_COL = "pred_is_correct"
@@ -146,16 +153,13 @@ def _ordered_regimes(df: pd.DataFrame) -> List[str]:
 
 def cohort_summary(df: pd.DataFrame) -> pd.DataFrame:
     """One row per participant: number of sessions, number of trials, and trials per regime."""
-    counts = (
-        df.pivot_table(
-            index=Con.PARTICIPANT_ID,
-            columns=REGIME_COL,
-            values=Con.IS_CORRECT_COLUMN,
-            aggfunc="size",
-            fill_value=0,
-        )
-        .reindex(columns=_ordered_regimes(df), fill_value=0)
-    )
+    counts = df.pivot_table(
+        index=Con.PARTICIPANT_ID,
+        columns=REGIME_COL,
+        values=Con.IS_CORRECT_COLUMN,
+        aggfunc="size",
+        fill_value=0,
+    ).reindex(columns=_ordered_regimes(df), fill_value=0)
     base = df.groupby(Con.PARTICIPANT_ID).agg(
         sessions=(SESSION_COL, "nunique"),
         trials=(Con.IS_CORRECT_COLUMN, "size"),
@@ -176,9 +180,16 @@ def _proportion_rows(
         n = len(sub)
         k = int(sub[value_col].sum())
         lo, hi = wilson_ci(k, n)
-        rows.append({**dict(zip(group_cols, keys)), "n": n, "k": k,
-                     "proportion": k / n if n else np.nan,
-                     "ci_low": lo, "ci_high": hi})
+        rows.append(
+            {
+                **dict(zip(group_cols, keys)),
+                "n": n,
+                "k": k,
+                "proportion": k / n if n else np.nan,
+                "ci_low": lo,
+                "ci_high": hi,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -194,7 +205,9 @@ def correctness_by_regime(
     """
     group_cols = [REGIME_COL] + list(by or [])
 
-    pooled = _proportion_rows(df.assign(**{REGIME_COL: "all"}), group_cols, Con.IS_CORRECT_COLUMN)
+    pooled = _proportion_rows(
+        df.assign(**{REGIME_COL: "all"}), group_cols, Con.IS_CORRECT_COLUMN
+    )
     per_regime = _proportion_rows(df, group_cols, Con.IS_CORRECT_COLUMN)
 
     order = {r: i for i, r in enumerate(["all"] + _ordered_regimes(df))}
@@ -233,7 +246,9 @@ def reading_speed_by_regime(
     use = [c for c in (cols or SPEED_COLS) if c in df.columns]
 
     frames = []
-    for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
+    for label, sub in [("all", df)] + [
+        (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
+    ]:
         stats = sub[use].agg(["mean", "std", "median"]).T
         stats.insert(0, "n", len(sub))
         stats.insert(0, REGIME_COL, label)
@@ -248,9 +263,14 @@ def confidence_by_regime(df: pd.DataFrame) -> pd.DataFrame:
     """Mean confidence (1-5) for a pooled `all` row and each regime, overall and split by
     whether the answer was correct."""
     frames = []
-    for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
-        row: Dict[str, Any] = {REGIME_COL: label, "n": len(sub),
-                               "mean_confidence": sub[CONFIDENCE_COL].mean()}
+    for label, sub in [("all", df)] + [
+        (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
+    ]:
+        row: Dict[str, Any] = {
+            REGIME_COL: label,
+            "n": len(sub),
+            "mean_confidence": sub[CONFIDENCE_COL].mean(),
+        }
         for is_corr, tag in [(1, "correct"), (0, "wrong")]:
             part = sub[sub[Con.IS_CORRECT_COLUMN] == is_corr]
             row[f"n_{tag}"] = len(part)
@@ -283,7 +303,9 @@ def fit_l1_model(
     model.fit(l1, target_col=Con.IS_CORRECT_COLUMN, feature_cols=list(feature_cols))
 
     if verbose:
-        print(f"fitted {model.name} on {len(l1)} L1 trials, {len(feature_cols)} features")
+        print(
+            f"fitted {model.name} on {len(l1)} L1 trials, {len(feature_cols)} features"
+        )
         print(f"  L1 base rate: {l1[Con.IS_CORRECT_COLUMN].mean():.4f}")
 
     return model
@@ -337,11 +359,17 @@ def _confusion_row(sub: pd.DataFrame) -> Dict[str, Any]:
     spec = tn / (tn + fp) if (tn + fp) else np.nan
     balanced = (sens + spec) / 2 if np.isfinite(sens) and np.isfinite(spec) else np.nan
     return {
-        "n": len(sub), "n_correct": int(y.sum()), "n_wrong": int((y == 0).sum()),
+        "n": len(sub),
+        "n_correct": int(y.sum()),
+        "n_wrong": int((y == 0).sum()),
         "accuracy": (tp + tn) / len(sub) if len(sub) else np.nan,
         "balanced_accuracy": balanced,
-        "sensitivity": sens, "specificity": spec,
-        "TP": tp, "TN": tn, "FP": fp, "FN": fn,
+        "sensitivity": sens,
+        "specificity": spec,
+        "TP": tp,
+        "TN": tn,
+        "FP": fp,
+        "FN": fn,
         "FN_over_FP": fn / fp if fp else np.nan,
     }
 
@@ -351,7 +379,9 @@ def prediction_metrics_by_regime(df: pd.DataFrame) -> pd.DataFrame:
     and each regime: accuracy, balanced accuracy, sensitivity, specificity, the four
     confusion counts and FN / FP."""
     rows = []
-    for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
+    for label, sub in [("all", df)] + [
+        (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
+    ]:
         rows.append({REGIME_COL: label, **_confusion_row(sub)})
     return pd.DataFrame(rows)
 
@@ -365,9 +395,12 @@ def probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
     than outcome should not be confident about them.
     """
     rows = []
-    for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
+    for label, sub in [("all", df)] + [
+        (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
+    ]:
         row: Dict[str, Any] = {
-            REGIME_COL: label, "n": len(sub),
+            REGIME_COL: label,
+            "n": len(sub),
             "mean_prob": sub[PROB_COL].mean(),
             "median_prob": sub[PROB_COL].median(),
             "sd_prob": sub[PROB_COL].std(),
@@ -399,12 +432,17 @@ def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
         acc = sub[Con.IS_CORRECT_COLUMN].mean()
         m_corr = sub.loc[sub[Con.IS_CORRECT_COLUMN] == 1, PROB_COL].mean()
         m_wrong = sub.loc[sub[Con.IS_CORRECT_COLUMN] == 0, PROB_COL].mean()
-        rows.append({
-            REGIME_COL: r, "n": len(sub), "accuracy": acc,
-            "mean_prob": sub[PROB_COL].mean(),
-            "mean_prob_correct": m_corr, "mean_prob_wrong": m_wrong,
-            "counterfactual_mean": pooled_acc * m_corr + (1 - pooled_acc) * m_wrong,
-        })
+        rows.append(
+            {
+                REGIME_COL: r,
+                "n": len(sub),
+                "accuracy": acc,
+                "mean_prob": sub[PROB_COL].mean(),
+                "mean_prob_correct": m_corr,
+                "mean_prob_wrong": m_wrong,
+                "counterfactual_mean": pooled_acc * m_corr + (1 - pooled_acc) * m_wrong,
+            }
+        )
     out = pd.DataFrame(rows)
     out["explained_by_composition"] = out["mean_prob"] - out["counterfactual_mean"]
     return out
@@ -416,7 +454,9 @@ def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
 
 import matplotlib.pyplot as plt
 
-from src.lib.plotting.output import save_output  # noqa: E402  (kept with the plotting section)
+from src.lib.plotting.output import (
+    save_output,
+)  # noqa: E402  (kept with the plotting section)
 
 _REGIME_COLOURS = {
     "no knowledge": "#c44e52",
@@ -430,7 +470,13 @@ def _colours(labels: Sequence[str]) -> List[str]:
     return [_REGIME_COLOURS.get(l, "#8c8c8c") for l in labels]
 
 
-def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_accuracy_by_regime(
+    summary: pd.DataFrame,
+    *,
+    figsize=(7, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Participant accuracy per regime: bars with 95% Wilson intervals, and a dotted line
     at chance (1 in 4).
 
@@ -438,7 +484,11 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Op
     "Participant accuracy" is how often the people answered correctly, not how well the
     model predicted it; this module's figures show both, so the names keep them apart.
     """
-    s = summary[summary[REGIME_COL] != "all"] if "all" in set(summary[REGIME_COL]) else summary
+    s = (
+        summary[summary[REGIME_COL] != "all"]
+        if "all" in set(summary[REGIME_COL])
+        else summary
+    )
     fig, ax = plt.subplots(figsize=figsize)
     x = range(len(s))
     err = [s["accuracy"] - s["ci_low"], s["ci_high"] - s["accuracy"]]
@@ -449,10 +499,18 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Op
     ax.text(-0.45, 0.27, "chance (1 of 4)", fontsize=8, color="grey", ha="left")
     for i, (_, r) in enumerate(s.iterrows()):
         # Above the whisker, not just the bar, so the interval does not run through the label.
-        ax.text(i, r["ci_high"] + 0.025, f"{r['accuracy']:.3f}\nn={r['n']}",
-                ha="center", va="bottom", fontsize=9)
-    ax.set_xticks(list(x)); ax.set_xticklabels(s[REGIME_COL])
-    ax.set_ylim(0, 1.18); ax.set_ylabel("participant accuracy")
+        ax.text(
+            i,
+            r["ci_high"] + 0.025,
+            f"{r['accuracy']:.3f}\nn={r['n']}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(s[REGIME_COL])
+    ax.set_ylim(0, 1.18)
+    ax.set_ylabel("participant accuracy")
     ax.set_title("KnowQA participant accuracy by knowledge regime (Wilson 95% CI)")
     fig.tight_layout()
     save_output(
@@ -466,15 +524,22 @@ def plot_accuracy_by_regime(summary: pd.DataFrame, *, figsize=(7, 4.2), save: Op
     return fig
 
 
-def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
-                        *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_pace_by_regime(
+    df: pd.DataFrame,
+    measure: str = "total_answering_RT",
+    *,
+    figsize=(7, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Box plot of one pace measure (a key of `SPEED_COLS`) per regime, outliers not drawn."""
     regimes = _ordered_regimes(df)
     data = [df.loc[df[REGIME_COL] == r, measure].dropna() for r in regimes]
     fig, ax = plt.subplots(figsize=figsize)
     bp = ax.boxplot(data, labels=regimes, patch_artist=True, showfliers=False)
     for patch, c in zip(bp["boxes"], _colours(regimes)):
-        patch.set_facecolor(c); patch.set_alpha(0.65)
+        patch.set_facecolor(c)
+        patch.set_alpha(0.65)
     ax.set_ylabel(SPEED_COLS.get(measure, measure))
     ax.set_title(f"{SPEED_COLS.get(measure, measure)} by regime")
     fig.tight_layout()
@@ -489,18 +554,26 @@ def plot_pace_by_regime(df: pd.DataFrame, measure: str = "total_answering_RT",
     return fig
 
 
-def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_confidence_distribution(
+    df: pd.DataFrame, *, figsize=(7, 4.2), save: Optional[bool] = None, to_paper=None
+):
     """Grouped bars: the share of trials at each confidence rating, one colour per regime."""
     tab = confidence_distribution(df).set_index(REGIME_COL)
     ratings = list(tab.columns)
     fig, ax = plt.subplots(figsize=figsize)
     width = 0.8 / len(tab)
     for i, (regime, row) in enumerate(tab.iterrows()):
-        ax.bar([r + i * width for r in range(len(ratings))], row.values, width,
-               label=regime, color=_REGIME_COLOURS.get(regime, "#8c8c8c"))
+        ax.bar(
+            [r + i * width for r in range(len(ratings))],
+            row.values,
+            width,
+            label=regime,
+            color=_REGIME_COLOURS.get(regime, "#8c8c8c"),
+        )
     ax.set_xticks([r + 0.4 - width / 2 for r in range(len(ratings))])
     ax.set_xticklabels(ratings)
-    ax.set_xlabel("self-reported confidence"); ax.set_ylabel("share of trials")
+    ax.set_xlabel("self-reported confidence")
+    ax.set_ylabel("share of trials")
     ax.set_title("Confidence by knowledge regime")
     ax.legend(frameon=False)
     fig.tight_layout()
@@ -515,8 +588,14 @@ def plot_confidence_distribution(df: pd.DataFrame, *, figsize=(7, 4.2), save: Op
     return fig
 
 
-def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = True,
-                               figsize=(8, 4.5), save: Optional[bool] = None, to_paper=None):
+def plot_probability_by_regime(
+    df: pd.DataFrame,
+    *,
+    split_by_outcome: bool = True,
+    figsize=(8, 4.5),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Box plots of predicted P(correct) per regime, by default split into correct and
     wrong answers.
 
@@ -528,8 +607,11 @@ def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = Tru
     fig, ax = plt.subplots(figsize=figsize)
 
     if not split_by_outcome:
-        ax.boxplot([df.loc[df[REGIME_COL] == r, PROB_COL] for r in regimes],
-                   labels=regimes, showfliers=False)
+        ax.boxplot(
+            [df.loc[df[REGIME_COL] == r, PROB_COL] for r in regimes],
+            labels=regimes,
+            showfliers=False,
+        )
     else:
         positions, labels, data, colours = [], [], [], []
         for i, r in enumerate(regimes):
@@ -539,11 +621,14 @@ def plot_probability_by_regime(df: pd.DataFrame, *, split_by_outcome: bool = Tru
                 labels.append(f"{r.split()[0]}\n{tag}\nn={len(sub)}")
                 data.append(sub[PROB_COL].values)
                 colours.append(_REGIME_COLOURS[r] if is_corr else "#cccccc")
-        bp = ax.boxplot(data, positions=positions, widths=0.75,
-                        patch_artist=True, showfliers=False)
+        bp = ax.boxplot(
+            data, positions=positions, widths=0.75, patch_artist=True, showfliers=False
+        )
         for patch, c in zip(bp["boxes"], colours):
-            patch.set_facecolor(c); patch.set_alpha(0.75)
-        ax.set_xticks(positions); ax.set_xticklabels(labels, fontsize=8)
+            patch.set_facecolor(c)
+            patch.set_alpha(0.75)
+        ax.set_xticks(positions)
+        ax.set_xticklabels(labels, fontsize=8)
 
     ax.axhline(0.5, ls=":", c="grey", lw=1)
     ax.set_ylabel("predicted P(correct)")
@@ -569,9 +654,9 @@ def item_correctness(df: pd.DataFrame, *, regime: Optional[str] = None) -> pd.Da
     """Per item, hardest first: trials, accuracy, mean confidence and, if predictions are
     attached, the mean predicted probability.
 
-    An item is a paragraph and one of its questions (`text_id_with_q`). With six
-    participants an item is seen by a handful of people at most, so read every rate
-    beside its `n`. `regime` limits the table to one regime.
+    An item is a paragraph and one of its questions (`text_id_with_q`). Within a regime
+    an item is seen by 2 people at most (`item_coverage`), so read every rate beside its
+    `n`. `regime` limits the table to one regime.
     """
     sub = df if regime is None else df[df[REGIME_COL] == regime]
     agg = sub.groupby(Con.TEXT_ID_WITH_Q_COLUMN).agg(
@@ -604,18 +689,137 @@ def shared_item_structure(df: pd.DataFrame, regime: str) -> pd.DataFrame:
     rows = []
     pids = sorted(by_pid)
     for i, a in enumerate(pids):
-        for b in pids[i + 1:]:
+        for b in pids[i + 1 :]:
             A, B = by_pid[a], by_pid[b]
             shared = A.index.intersection(B.index)
             agree = int((A.loc[shared] == B.loc[shared]).sum()) if len(shared) else 0
-            rows.append({
-                "participant_a": a, "participant_b": b,
-                "n_a": len(A), "n_b": len(B), "n_shared": len(shared),
-                "same_outcome": agree,
-                "agreement": agree / len(shared) if len(shared) else np.nan,
-                "acc_a": A.mean(), "acc_b": B.mean(),
-            })
-    return pd.DataFrame(rows).sort_values("n_shared", ascending=False).reset_index(drop=True)
+            rows.append(
+                {
+                    "participant_a": a,
+                    "participant_b": b,
+                    "n_a": len(A),
+                    "n_b": len(B),
+                    "n_shared": len(shared),
+                    "same_outcome": agree,
+                    "agreement": agree / len(shared) if len(shared) else np.nan,
+                    "acc_a": A.mean(),
+                    "acc_b": B.mean(),
+                }
+            )
+    return (
+        pd.DataFrame(rows)
+        .sort_values("n_shared", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def item_coverage(df: pd.DataFrame) -> pd.DataFrame:
+    """How many people answered each item under each regime: items counted by regime
+    (rows) and number of people (columns).
+
+    The lists put every item into every regime, each time in 2 of a batch's 18 lists
+    (two copies that differ only in regime order). So once all 18 lists have been run,
+    every item has 2 people in every regime, never more. Before that, an item can have 0
+    or 1. The 0 column counts the items of `df` not yet seen in that regime.
+    """
+    n = df.groupby([Con.TEXT_ID_WITH_Q_COLUMN, REGIME_COL])[
+        Con.PARTICIPANT_ID
+    ].nunique()
+    out = n.groupby(level=REGIME_COL).value_counts().unstack(fill_value=0)
+    out.insert(0, 0, df[Con.TEXT_ID_WITH_Q_COLUMN].nunique() - out.sum(axis=1))
+    out.columns.name = "people per item"
+    return out.reindex(_ordered_regimes(df))
+
+
+def add_item_text(
+    items: pd.DataFrame, source: Union[str, Path] = EXPERIMENT_TEXT_COMPLETED_PATH
+) -> pd.DataFrame:
+    """Add each item's `question` and its correct answer (`correct_answer_text`) to a
+    per-item table such as `item_correctness`'s, from the experiment's text file."""
+    text = pd.read_csv(
+        source, usecols=[Con.TEXT_ID_WITH_Q_COLUMN, "question", "answer_A"]
+    )
+    # answer_A is the correct answer in the experiment's texts.
+    text = text.rename(columns={"answer_A": "correct_answer_text"})
+    out = items.merge(
+        text, on=Con.TEXT_ID_WITH_Q_COLUMN, how="left", validate="many_to_one"
+    )
+    missing = int(out["question"].isna().sum())
+    assert missing == 0, f"{missing} item(s) not found in {source}"
+    return out
+
+
+def guessing_by_item(
+    df: pd.DataFrame, *, regime: str = "no knowledge", n_perm: int = 2000, seed: int = 0
+) -> pd.DataFrame:
+    """Are some items guessed right by everyone? Items counted by how many people saw
+    them in `regime` and how many of those were right, against two references.
+
+    One row per (`n_participants`, `n_correct`); `items` is the observed count.
+    `chance` is the count that guessing among the four answers would give (binomial,
+    1 in 4). `expected` is the count if items made no difference and each person were
+    right at their own rate in the regime: the mean over `n_perm` shuffles of each
+    person's outcomes across their own items, with the middle 95% of the shuffles in
+    `expected_low` and `expected_high`. `p_more` is the share of shuffles with at least
+    as many items as observed. A small `p_more` on the all-right row means more items
+    were guessed by everyone than people's own rates explain.
+
+    `chance` and `expected` answer different questions. Above `chance` only says that
+    people guess better than 1 in 4. Above `expected` says that the extra correct
+    guesses gather on particular items.
+
+    People who share items share all of them in a regime (the two copies of a list), so
+    a person's own rate already includes how guessable their item set is. The shuffle
+    therefore tests only differences between items within a set.
+    """
+    from scipy import stats
+
+    sub = df[df[REGIME_COL] == regime]
+    # Each row must be one person's single answer to an item, or `n_participants`
+    # would count trials rather than people.
+    assert not sub.duplicated(
+        [Con.PARTICIPANT_ID, Con.TEXT_ID_WITH_Q_COLUMN]
+    ).any(), "a participant answered the same item twice in this regime"
+    y = sub[Con.IS_CORRECT_COLUMN].astype(int).to_numpy()
+    item = pd.factorize(sub[Con.TEXT_ID_WITH_Q_COLUMN])[0]
+    n_per_item = np.bincount(item)
+    people = list(sub.groupby(Con.PARTICIPANT_ID).indices.values())
+
+    width = n_per_item.max() + 1
+    combos = [(n, k) for n in sorted(set(n_per_item)) for k in range(n + 1)]
+    codes = [n * width + k for n, k in combos]
+
+    def count(outcome: np.ndarray) -> np.ndarray:
+        k = np.bincount(item, weights=outcome).astype(int)
+        return np.bincount(n_per_item * width + k, minlength=width * width)[codes]
+
+    rng = np.random.default_rng(seed)
+    shuffled = y.copy()
+    perms = np.empty((n_perm, len(combos)))
+    for b in range(n_perm):
+        for idx in people:
+            shuffled[idx] = rng.permutation(y[idx])
+        perms[b] = count(shuffled)
+
+    observed = count(y)
+    items_with_n = {n: int((n_per_item == n).sum()) for n, _ in combos}
+    return pd.DataFrame(
+        {
+            REGIME_COL: regime,
+            "n_participants": [n for n, _ in combos],
+            "n_correct": [k for _, k in combos],
+            "items": observed,
+            "chance": [
+                items_with_n[n] * stats.binom.pmf(k, n, 0.25) for n, k in combos
+            ],
+            "expected": perms.mean(axis=0),
+            "expected_low": np.percentile(perms, 2.5, axis=0),
+            "expected_high": np.percentile(perms, 97.5, axis=0),
+            "p_more": (perms >= observed).mean(axis=0),
+            "n_perm": n_perm,
+            "seed": seed,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -634,8 +838,16 @@ def to_prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
     it uses the same features (`SHOWCASE_FEATURE_COLS`), each of its runs fits the same
     model on the same L1 data, and the model never sees the regime.
     """
-    cols = [Con.PARTICIPANT_ID, Con.TRIAL_ID, Con.IS_CORRECT_COLUMN,
-            CONFIDENCE_COL, PROB_COL, PRED_COL, SESSION_COL, REGIME_COL]
+    cols = [
+        Con.PARTICIPANT_ID,
+        Con.TRIAL_ID,
+        Con.IS_CORRECT_COLUMN,
+        CONFIDENCE_COL,
+        PROB_COL,
+        PRED_COL,
+        SESSION_COL,
+        REGIME_COL,
+    ]
     base = df[cols].copy()
 
     blocks = [base.assign(run="all")]
@@ -669,18 +881,127 @@ def discrimination_comparison(df: pd.DataFrame) -> pd.DataFrame:
     same information or add to each other.
     """
     rows = []
-    for label, sub in [("all", df)] + [(r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)]:
-        combined = (sub[PROB_COL].rank(pct=True) + sub[CONFIDENCE_COL].rank(pct=True)) / 2
-        rows.append({
-            REGIME_COL: label, "n": len(sub),
-            "n_correct": int(sub[Con.IS_CORRECT_COLUMN].sum()),
-            "auc_model": _auc(sub[PROB_COL], sub[Con.IS_CORRECT_COLUMN]),
-            "auc_confidence": _auc(sub[CONFIDENCE_COL], sub[Con.IS_CORRECT_COLUMN]),
-            "auc_combined": _auc(combined, sub[Con.IS_CORRECT_COLUMN]),
-        })
+    for label, sub in [("all", df)] + [
+        (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
+    ]:
+        combined = (
+            sub[PROB_COL].rank(pct=True) + sub[CONFIDENCE_COL].rank(pct=True)
+        ) / 2
+        rows.append(
+            {
+                REGIME_COL: label,
+                "n": len(sub),
+                "n_correct": int(sub[Con.IS_CORRECT_COLUMN].sum()),
+                "auc_model": _auc(sub[PROB_COL], sub[Con.IS_CORRECT_COLUMN]),
+                "auc_confidence": _auc(sub[CONFIDENCE_COL], sub[Con.IS_CORRECT_COLUMN]),
+                "auc_combined": _auc(combined, sub[Con.IS_CORRECT_COLUMN]),
+            }
+        )
     out = pd.DataFrame(rows)
     out["model_minus_confidence"] = out["auc_model"] - out["auc_confidence"]
     return out
+
+
+def _bin_probability(prob: pd.Series, n_bins: int) -> pd.Series:
+    """P(correct) cut into `n_bins` equal-width bins on [0, 1], numbered from 1 like the
+    confidence rating. Bins are right-closed, so 0.2 falls in bin 1."""
+    binned = (
+        pd.cut(prob, np.linspace(0, 1, n_bins + 1), labels=False, include_lowest=True)
+        + 1
+    )
+    # `_auc` scores complete pairs only, so a NaN here would quietly shrink its sample.
+    assert (
+        binned.notna().all()
+    ), f"{binned.isna().sum()} probabilities are missing or outside [0, 1]"
+    return binned
+
+
+def discrimination_bootstrap(
+    df: pd.DataFrame,
+    *,
+    model_bins: Optional[int] = 5,
+    n_boot: int = 2000,
+    ci: float = 0.95,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """Is the model's AUC higher than the confidence rating's? One row per regime, with
+    intervals from resampling participants.
+
+    A test that treats trials as independent (DeLong) is too confident here: each person
+    gives about 48 trials per regime, and wrong answers cluster within person. So whole
+    participants are resampled instead. Each of the `n_boot` resamples draws as many
+    participants as the regime has, with replacement, takes all their trials in that
+    regime, and scores both AUCs on those same trials. `diff` is model minus rating. The
+    intervals are the middle `ci` of the resampled values; the two-sided p is 2 x the
+    smaller share of resampled differences at or below 0 and at or above 0, floored at
+    1 / n_boot_ok.
+
+    P(correct) is binned as in `plot_discrimination_roc`, so both scores have five levels
+    and the model is not favoured for being finer-grained. `model_bins=None` uses the raw
+    probability.
+
+    A resample in which every trial is correct, or every one wrong, has no AUC and is
+    skipped; `n_boot_ok` says how many were used.
+
+    Two limits. The same items recur across participants, and that second clustering is
+    not resampled. And 11 participants are few units for a bootstrap: percentile
+    intervals from so few tend to be too narrow.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    model_col = PROB_COL
+    if model_bins is not None:
+        model_col = f"{PROB_COL}_bin"
+        df = df.assign(**{model_col: _bin_probability(df[PROB_COL], model_bins)})
+
+    rng = np.random.default_rng(seed)
+    lo_q, hi_q = 100 * (1 - ci) / 2, 100 * (1 + ci) / 2
+    rows = []
+    for r in _ordered_regimes(df):
+        sub = df[df[REGIME_COL] == r]
+        y = sub[Con.IS_CORRECT_COLUMN].astype(int).to_numpy()
+        model, conf = sub[model_col].to_numpy(), sub[CONFIDENCE_COL].to_numpy()
+        # Row positions within `sub`, one array per participant.
+        people = list(sub.groupby(Con.PARTICIPANT_ID).indices.values())
+
+        boots = []
+        for _ in range(n_boot):
+            idx = np.concatenate(
+                [people[i] for i in rng.integers(0, len(people), size=len(people))]
+            )
+            if y[idx].min() == y[idx].max():
+                continue
+            boots.append(
+                (roc_auc_score(y[idx], model[idx]), roc_auc_score(y[idx], conf[idx]))
+            )
+        boots = np.array(boots)
+        diffs = boots[:, 0] - boots[:, 1]
+
+        auc_model, auc_conf = roc_auc_score(y, model), roc_auc_score(y, conf)
+        rows.append(
+            {
+                REGIME_COL: r,
+                "n": len(sub),
+                "n_correct": int(y.sum()),
+                "n_participants": len(people),
+                "auc_model": auc_model,
+                "auc_model_ci_low": np.percentile(boots[:, 0], lo_q),
+                "auc_model_ci_high": np.percentile(boots[:, 0], hi_q),
+                "auc_confidence": auc_conf,
+                "auc_confidence_ci_low": np.percentile(boots[:, 1], lo_q),
+                "auc_confidence_ci_high": np.percentile(boots[:, 1], hi_q),
+                "diff": auc_model - auc_conf,
+                "diff_ci_low": np.percentile(diffs, lo_q),
+                "diff_ci_high": np.percentile(diffs, hi_q),
+                "p": np.clip(
+                    2 * min((diffs <= 0).mean(), (diffs >= 0).mean()), 1 / len(diffs), 1
+                ),
+                "n_boot_ok": len(diffs),
+            }
+        )
+    return pd.DataFrame(rows).assign(
+        model_bins=model_bins, n_boot=n_boot, ci=ci, seed=seed
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -714,31 +1035,43 @@ def participant_profile(
     for vals, sub in df.groupby(keys, sort=True):
         vals = vals if isinstance(vals, tuple) else (vals,)
         row = dict(zip(keys, vals))
-        row.update({
-            "n": len(sub),
-            "n_wrong": int((sub[Con.IS_CORRECT_COLUMN] == 0).sum()),
-            "participant_accuracy": sub[Con.IS_CORRECT_COLUMN].mean(),
-            "mean_confidence": sub[CONFIDENCE_COL].mean(),
-            "median_RT_ms": sub["total_answering_RT"].median(),
-            "mean_seq_len": sub["seq_len"].mean(),
-        })
+        row.update(
+            {
+                "n": len(sub),
+                "n_wrong": int((sub[Con.IS_CORRECT_COLUMN] == 0).sum()),
+                "participant_accuracy": sub[Con.IS_CORRECT_COLUMN].mean(),
+                "mean_confidence": sub[CONFIDENCE_COL].mean(),
+                "median_RT_ms": sub["total_answering_RT"].median(),
+                "mean_seq_len": sub["seq_len"].mean(),
+            }
+        )
         if PROB_COL in sub.columns:
             conf = _confusion_row(sub)
-            row.update({
-                "mean_pred_prob": sub[PROB_COL].mean(),
-                "model_accuracy": conf["accuracy"],
-                "model_balanced_accuracy": conf["balanced_accuracy"],
-                "model_sensitivity": conf["sensitivity"],
-                "model_specificity": conf["specificity"],
-                "auc_model": _auc(sub[PROB_COL], sub[Con.IS_CORRECT_COLUMN]),
-                "auc_confidence": _auc(sub[CONFIDENCE_COL], sub[Con.IS_CORRECT_COLUMN]),
-            })
+            row.update(
+                {
+                    "mean_pred_prob": sub[PROB_COL].mean(),
+                    "model_accuracy": conf["accuracy"],
+                    "model_balanced_accuracy": conf["balanced_accuracy"],
+                    "model_sensitivity": conf["sensitivity"],
+                    "model_specificity": conf["specificity"],
+                    "auc_model": _auc(sub[PROB_COL], sub[Con.IS_CORRECT_COLUMN]),
+                    "auc_confidence": _auc(
+                        sub[CONFIDENCE_COL], sub[Con.IS_CORRECT_COLUMN]
+                    ),
+                }
+            )
         rows.append(row)
     return pd.DataFrame(rows)
 
 
-def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
-                             figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_confusion_by_regime(
+    df: pd.DataFrame,
+    *,
+    normalize: str = "true",
+    figsize=(13, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """One confusion matrix per regime, with the counts printed in each cell.
 
     `normalize="true"` (the default) shades each row by its share of the actual outcome,
@@ -757,8 +1090,10 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
     for ax, r in zip(axes, regimes):
         sub = df[df[REGIME_COL] == r]
         y, p = sub[Con.IS_CORRECT_COLUMN].astype(int), sub[PRED_COL].astype(int)
-        cm = np.array([[int(((y == a) & (p == b)).sum()) for b in (0, 1)] for a in (0, 1)],
-                      dtype=float)
+        cm = np.array(
+            [[int(((y == a) & (p == b)).sum()) for b in (0, 1)] for a in (0, 1)],
+            dtype=float,
+        )
 
         shown = cm.copy()
         if normalize == "true":
@@ -771,11 +1106,19 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
         for i in range(2):
             for j in range(2):
                 frac = "" if not normalize else f"\n{shown[i, j]:.2f}"
-                ax.text(j, i, f"{int(cm[i, j])}{frac}", ha="center", va="center",
-                        fontsize=11,
-                        color="white" if shown[i, j] > 0.55 else "black")
-        ax.set_xticks([0, 1]); ax.set_xticklabels(["pred wrong", "pred correct"])
-        ax.set_yticks([0, 1]); ax.set_yticklabels(["was wrong", "was correct"])
+                ax.text(
+                    j,
+                    i,
+                    f"{int(cm[i, j])}{frac}",
+                    ha="center",
+                    va="center",
+                    fontsize=11,
+                    color="white" if shown[i, j] > 0.55 else "black",
+                )
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["pred wrong", "pred correct"])
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels(["was wrong", "was correct"])
 
         # Worked out from this panel's own cells, so the title always matches its matrix.
         tn, fp, fn, tp = cm[0, 0], cm[0, 1], cm[1, 0], cm[1, 1]
@@ -790,9 +1133,11 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
             fontsize=9.5,
         )
 
-    fig.suptitle("L1 model on KnowQA — confusion by regime "
-                 f"({'row-normalised' if normalize == 'true' else normalize})",
-                 fontsize=11)
+    fig.suptitle(
+        "L1 model on KnowQA — confusion by regime "
+        f"({'row-normalised' if normalize == 'true' else normalize})",
+        fontsize=11,
+    )
     fig.tight_layout()
     save_output(
         fig,
@@ -805,8 +1150,15 @@ def plot_confusion_by_regime(df: pd.DataFrame, *, normalize: str = "true",
     return fig
 
 
-def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
-                                split_by_outcome: bool = True, figsize=(13, 3.8), save: Optional[bool] = None, to_paper=None):
+def plot_probability_histograms(
+    df: pd.DataFrame,
+    *,
+    bins: int = 20,
+    split_by_outcome: bool = True,
+    figsize=(13, 3.8),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Histogram of predicted P(correct) per regime, by default split into correct and
     wrong answers; the dashed line is the regime's mean.
 
@@ -822,11 +1174,18 @@ def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
     for ax, r in zip(axes, regimes):
         sub = df[df[REGIME_COL] == r]
         if split_by_outcome:
-            for is_corr, colour, tag in [(0, "#c44e52", "was wrong"),
-                                         (1, "#4c72b0", "was correct")]:
+            for is_corr, colour, tag in [
+                (0, "#c44e52", "was wrong"),
+                (1, "#4c72b0", "was correct"),
+            ]:
                 vals = sub.loc[sub[Con.IS_CORRECT_COLUMN] == is_corr, PROB_COL]
-                ax.hist(vals, bins=edges, alpha=0.65, color=colour,
-                        label=f"{tag} (n={len(vals)})")
+                ax.hist(
+                    vals,
+                    bins=edges,
+                    alpha=0.65,
+                    color=colour,
+                    label=f"{tag} (n={len(vals)})",
+                )
         else:
             ax.hist(sub[PROB_COL], bins=edges, color=_REGIME_COLOURS.get(r, "#8c8c8c"))
 
@@ -848,10 +1207,19 @@ def plot_probability_histograms(df: pd.DataFrame, *, bins: int = 20,
     return fig
 
 
-def plot_participant_profiles(df: pd.DataFrame, *,
-                              measures: Sequence[str] = ("participant_accuracy", "mean_confidence",
-                                                         "mean_pred_prob", "median_RT_ms"),
-                              figsize=(12, 7), save: Optional[bool] = None, to_paper=None):
+def plot_participant_profiles(
+    df: pd.DataFrame,
+    *,
+    measures: Sequence[str] = (
+        "participant_accuracy",
+        "mean_confidence",
+        "mean_pred_prob",
+        "median_RT_ms",
+    ),
+    figsize=(12, 7),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """One panel per measure of `participant_profile`: participants along x, one line
     per regime.
 
@@ -870,13 +1238,18 @@ def plot_participant_profiles(df: pd.DataFrame, *,
     for ax, measure in zip(axes.ravel(), use):
         for r in regimes:
             s = prof[prof[REGIME_COL] == r].sort_values(Con.PARTICIPANT_ID)
-            ax.plot(s[Con.PARTICIPANT_ID], s[measure], marker="o",
-                    color=_REGIME_COLOURS.get(r, "#8c8c8c"), label=r)
+            ax.plot(
+                s[Con.PARTICIPANT_ID],
+                s[measure],
+                marker="o",
+                color=_REGIME_COLOURS.get(r, "#8c8c8c"),
+                label=r,
+            )
         ax.set_title(measure, fontsize=10)
         ax.tick_params(axis="x", rotation=45)
         ax.grid(alpha=0.25)
 
-    for ax in axes.ravel()[len(use):]:
+    for ax in axes.ravel()[len(use) :]:
         ax.set_visible(False)
     axes[0, 0].legend(fontsize=8, frameon=False)
     fig.suptitle("Per-participant profile by regime", fontsize=11)
@@ -906,8 +1279,14 @@ def _run_order_local(runs: Sequence[str]) -> List[str]:
     return out + sorted(r for r in runs if r != "all" and r not in REGIME_ORDER)
 
 
-def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
-                             figsize=(9, 4.6), save: Optional[bool] = None, to_paper=None):
+def plot_correlations_by_run(
+    corr_df: pd.DataFrame,
+    *,
+    method: str = "spearman",
+    figsize=(9, 4.6),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Grouped bars of `confidence_correlation.correlations_by_run`: one cluster per run,
     one bar per comparison, with significance stars.
 
@@ -915,6 +1294,9 @@ def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
     well the rating tracks correctness in that run, and `pred_prob ~ confidence` only
     means something against it. Where both are near zero, the rating carried no signal
     there; that is not a failure of the model.
+
+    Rows stacked onto `corr_df` from `confidence_correlation.model_vs_correctness_by_run`
+    or `partial_correlations_by_run` add a third bar per run, and name the saved file.
     """
     r_col, p_col = f"{method}_r", f"{method}_p"
     runs = _run_order_local(corr_df["run"].unique().tolist())
@@ -934,9 +1316,13 @@ def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
         bars = ax.bar(xs, ys, width, label=comp, color=palette[j % len(palette)])
         for b, y, p in zip(bars, ys, ps):
             if np.isfinite(y):
-                ax.text(b.get_x() + b.get_width() / 2,
-                        y + (0.02 if y >= 0 else -0.05),
-                        p_to_stars(p), ha="center", fontsize=8)
+                ax.text(
+                    b.get_x() + b.get_width() / 2,
+                    y + (0.02 if y >= 0 else -0.05),
+                    p_to_stars(p),
+                    ha="center",
+                    fontsize=8,
+                )
 
     ax.axhline(0, c="k", lw=0.8)
     ax.set_xticks([i + 0.4 - width / 2 for i in range(len(runs))])
@@ -948,6 +1334,13 @@ def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
     ax.set_ylim(min(lo, 0), hi * 1.12)
     ax.legend(frameon=False, fontsize=9)
     fig.tight_layout()
+    # Any comparison beyond the standard two names the file, so a figure with a third
+    # bar does not overwrite the two-bar one.
+    extra = [
+        c
+        for c in comps
+        if c not in ("pred_prob ~ confidence", "is_correct ~ confidence")
+    ]
     save_output(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
@@ -955,6 +1348,7 @@ def plot_correlations_by_run(corr_df: pd.DataFrame, *, method: str = "spearman",
         tables={"data": corr_df},
         save=save,
         to_paper=to_paper,
+        third="+".join(extra) or None,
     )
     return fig
 
@@ -963,78 +1357,170 @@ def plot_participant_correlation_forest(
     by_model: pd.DataFrame,
     by_correct: Optional[pd.DataFrame] = None,
     *,
+    third: Optional[pd.DataFrame] = None,
+    third_label: Optional[str] = None,
     method: str = "spearman",
-    figsize=(8, 4.6),
+    figsize=None,
     save: Optional[bool] = None,
     to_paper=None,
 ):
-    """Within-participant correlations as a dot plot, one row per participant.
+    """Within-participant correlations as a dot plot, one row per participant and one
+    panel per run.
 
     `by_model` and `by_correct` come from `confidence_correlation.correlations_by_participant`:
     `pred_prob ~ confidence`, and the same with `prob_col="is_correct"`. Confidence
     scales are personal, so the pooled correlation mixes the effect within each person
     with how differently people use the scale; one row per person keeps only the first.
     Drawing both series shows whether a participant whose rating tracks their own
-    correctness is also one the model agrees with. Only `by_model` is saved as the
-    figure's table.
+    correctness is also one the model agrees with.
+
+    Frames that hold several runs (each regime, say) get one panel per run, on a shared
+    axis. `third` adds a third series, named by `third_label`: for example the model
+    against correctness, or `pred_prob ~ confidence` with correctness held fixed
+    (`confidence_correlation.partial_correlations_by_participant`). Every series drawn is
+    saved, in one table with a `comparison` column.
     """
     r_col, p_col = f"{method}_r", f"{method}_p"
-    pids = list(by_model[Con.PARTICIPANT_ID])
+    series = [(by_model, "pred_prob ~ confidence", "o", "#4c72b0")]
+    if by_correct is not None:
+        series.append((by_correct, "is_correct ~ confidence", "D", "#dd8452"))
+    if third is not None:
+        # The label also names the saved file; without it this figure would overwrite
+        # the two-series one.
+        assert third_label is not None, "a third series needs third_label"
+        series.append((third, third_label, "s", "#55a868"))
+
+    runs = _run_order_local(by_model["run"].unique().tolist())
+    for frame, label, _, _ in series[1:]:
+        assert set(frame["run"]) == set(runs), (
+            f"'{label}' covers runs {sorted(set(frame['run']))}, "
+            f"pred_prob ~ confidence covers {runs}"
+        )
+    # Participants in the order of the first run, so a row is one person in every panel.
+    pids = list(by_model.loc[by_model["run"] == runs[0], Con.PARTICIPANT_ID])
     y = np.arange(len(pids))
 
-    model_r = by_model.set_index(Con.PARTICIPANT_ID).reindex(pids)
+    # Two series share a row, with stars above one and below the other: the two markers
+    # can sit almost on top of each other (participant 4004: 0.60 and 0.58), and starring
+    # only one would make the other look non-significant when it is not. Three do not fit
+    # that way, so each gets its own line within the row and its stars beside the marker.
+    dodge = len(series) > 2
+    offsets = np.linspace(0.27, -0.27, len(series)) if dodge else np.zeros(len(series))
 
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.scatter(model_r[r_col], y, s=70, color="#4c72b0", zorder=3,
-               label="pred_prob ~ confidence")
+    if figsize is None:
+        figsize = (8 if len(runs) == 1 else 4 * len(runs) + 1, 6 if dodge else 4.6)
+    fig, axes = plt.subplots(
+        1, len(runs), figsize=figsize, sharex=True, sharey=True, squeeze=False
+    )
+    axes = axes[0]
 
-    if by_correct is not None:
-        correct_r = by_correct.set_index(Con.PARTICIPANT_ID).reindex(pids)
-        for yi in y:
-            a, b = model_r[r_col].iloc[yi], correct_r[r_col].iloc[yi]
-            if np.isfinite(a) and np.isfinite(b):
-                ax.plot([a, b], [yi, yi], c="grey", lw=1, zorder=1)
-        ax.scatter(correct_r[r_col], y, s=70, marker="D", color="#dd8452", zorder=3,
-                   label="is_correct ~ confidence")
+    for ax, run in zip(axes, runs):
+        vals = [
+            frame[frame["run"] == run].set_index(Con.PARTICIPANT_ID).reindex(pids)
+            for frame, _, _, _ in series
+        ]
+
+        if dodge:
+            for yi in y[::2]:
+                ax.axhspan(yi - 0.5, yi + 0.5, color="0.94", zorder=0)
+        else:
+            for yi in y:
+                xs = [v[r_col].iloc[yi] for v in vals if np.isfinite(v[r_col].iloc[yi])]
+                if len(xs) > 1:
+                    ax.plot([min(xs), max(xs)], [yi, yi], c="grey", lw=1, zorder=1)
+
+        for i, (v, (_, label, marker, colour)) in enumerate(zip(vals, series)):
+            ys = y + offsets[i]
+            ax.scatter(
+                v[r_col],
+                ys,
+                s=40 if dodge else 70,
+                marker=marker,
+                color=colour,
+                zorder=3,
+                label=label,
+            )
+            for yi, r, p in zip(ys, v[r_col], v[p_col]):
+                if not np.isfinite(r):
+                    continue
+                if dodge:
+                    ax.annotate(
+                        p_to_stars(p),
+                        (r, yi),
+                        xytext=(5, 0),
+                        textcoords="offset points",
+                        ha="left",
+                        va="center",
+                        fontsize=6,
+                        color=colour,
+                    )
+                else:
+                    dy, va = (0.20, "bottom") if i == 0 else (-0.20, "top")
+                    ax.text(
+                        r,
+                        yi + dy,
+                        p_to_stars(p),
+                        ha="center",
+                        va=va,
+                        fontsize=7,
+                        color=colour,
+                    )
+
+        ax.axvline(0, c="k", lw=0.8)
+        ax.set_xlabel(f"{method} r")
+        ax.grid(axis="x", alpha=0.25)
+        if len(runs) > 1:
+            ax.set_title(run, fontsize=10)
+
+    if dodge:
+        lo, hi = axes[0].get_xlim()  # room for the stars right of the rightmost marker
+        axes[0].set_xlim(lo, hi + 0.06 * (hi - lo))
+    axes[0].set_yticks(y)
+    axes[0].set_yticklabels(pids)
+    # Room for the stars above and below the outer rows.
+    axes[0].set_ylim(*((-0.5, len(pids) - 0.5) if dodge else (-0.75, len(pids) - 0.15)))
+    axes[0].set_ylabel("participant")
+    title = "Within-participant confidence correlations"
+    if len(runs) == 1:
+        axes[0].set_title(title)
     else:
-        correct_r = None
+        fig.suptitle(title, fontsize=11)
+    # Below the panels: loc="best" lands on the points when the dots cluster.
+    fig.legend(
+        *axes[0].get_legend_handles_labels(),
+        frameon=False,
+        fontsize=8,
+        loc="lower center",
+        ncol=len(series),
+    )
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
 
-    # Stars on both series, offset in opposite directions: the two markers can sit almost
-    # on top of each other (participant 4004: 0.60 and 0.58), and starring only one would
-    # make the other look non-significant when it is not.
-    for frame, colour, dy, va in [(model_r, "#4c72b0", 0.20, "bottom"),
-                                  (correct_r, "#dd8452", -0.20, "top")]:
-        if frame is None:
-            continue
-        for yi, r, p in zip(y, frame[r_col], frame[p_col]):
-            if np.isfinite(r):
-                ax.text(r, yi + dy, p_to_stars(p), ha="center", va=va,
-                        fontsize=7, color=colour)
-
-    ax.axvline(0, c="k", lw=0.8)
-    ax.set_yticks(y)
-    ax.set_yticklabels(pids)
-    ax.set_ylim(-0.75, len(pids) - 0.15)   # room for the stars above and below
-    ax.set_xlabel(f"{method} r")
-    ax.set_ylabel("participant")
-    ax.set_title("Within-participant confidence correlations")
-    ax.grid(axis="x", alpha=0.25)
-    # Anchored outside the axes: loc="best" lands on the points when the dots cluster.
-    ax.legend(frameon=False, fontsize=8, loc="upper center",
-              bbox_to_anchor=(0.5, -0.16), ncol=2)
-    fig.tight_layout()
+    table = pd.concat(
+        [frame.assign(comparison=label) for frame, label, _, _ in series],
+        ignore_index=True,
+    )
+    table = table[["comparison", *[c for c in table.columns if c != "comparison"]]]
     save_output(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="participant_correlation_forest",
-        tables={"data": by_model},
+        tables={"data": table},
         save=save,
         to_paper=to_paper,
+        runs="+".join(runs),
+        third=third_label,
     )
     return fig
 
 
-def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_discrimination_roc(
+    df: pd.DataFrame,
+    *,
+    model_bins: Optional[int] = 5,
+    figsize=(13, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """ROC curves per regime for predicting a correct answer: the model's P(correct)
     against the confidence rating.
 
@@ -1042,8 +1528,22 @@ def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Option
     answers better; the curves show where. Near the origin are the highest scores: a
     rating whose curve follows the diagonal there gives its top value as often to wrong
     answers as to correct ones.
+
+    The rating has five levels, so its curve has at most four corners, while a
+    continuous probability draws a fine staircase. To compare the two at the same
+    resolution, P(correct) is cut into `model_bins` equal-width bins on [0, 1], numbered
+    from 1 like the rating. The AUC in the legend is then the binned one; the unbinned
+    AUC is in `discrimination_comparison`. `model_bins=None` plots the raw probability.
     """
     from sklearn.metrics import roc_curve
+
+    model_col, model_name = PROB_COL, "model P(correct)"
+    if model_bins is not None:
+        model_col, model_name = (
+            f"{PROB_COL}_bin",
+            f"model P(correct), {model_bins} bins",
+        )
+        df = df.assign(**{model_col: _bin_probability(df[PROB_COL], model_bins)})
 
     regimes = _ordered_regimes(df)
     fig, axes = plt.subplots(1, len(regimes), figsize=figsize, sharey=True)
@@ -1052,13 +1552,16 @@ def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Option
     for ax, r in zip(axes, regimes):
         sub = df[df[REGIME_COL] == r]
         y = sub[Con.IS_CORRECT_COLUMN].astype(int)
-        for score, colour, name in [(sub[PROB_COL], "#4c72b0", "model P(correct)"),
-                                    (sub[CONFIDENCE_COL], "#dd8452", "self-report")]:
+        for score, colour, name in [
+            (sub[model_col], "#4c72b0", model_name),
+            (sub[CONFIDENCE_COL], "#dd8452", "self-report"),
+        ]:
             if y.nunique() < 2:
                 continue
             fpr, tpr, _ = roc_curve(y, score)
-            ax.plot(fpr, tpr, color=colour, lw=2,
-                    label=f"{name} (AUC {_auc(score, y):.3f})")
+            ax.plot(
+                fpr, tpr, color=colour, lw=2, label=f"{name} (AUC {_auc(score, y):.3f})"
+            )
         ax.plot([0, 1], [0, 1], ls=":", c="grey", lw=1)
         ax.set_title(f"{r}\nn={len(sub)}, {int(y.sum())} correct", fontsize=10)
         ax.set_xlabel("false positive rate")
@@ -1074,14 +1577,98 @@ def plot_discrimination_roc(df: pd.DataFrame, *, figsize=(13, 4.2), save: Option
         tables={"data": df},
         save=save,
         to_paper=to_paper,
+        model_bins=model_bins,
     )
     return fig
 
 
-def plot_transfer_metrics(metrics: pd.DataFrame, *,
-                          measures: Sequence[str] = ("accuracy", "balanced_accuracy",
-                                                     "sensitivity", "specificity"),
-                          figsize=(9.5, 4.4), save: Optional[bool] = None, to_paper=None):
+def plot_discrimination_bootstrap(
+    boot: pd.DataFrame, *, figsize=(11, 4.2), save: Optional[bool] = None, to_paper=None
+):
+    """The output of `discrimination_bootstrap`: each regime's two AUCs (left) and their
+    difference (right), with the participant-bootstrap intervals.
+
+    Read the right panel. The two scores are measured on the same trials, so whether
+    their intervals on the left overlap says little about whether they differ.
+    """
+    regimes = list(boot[REGIME_COL])
+    x = np.arange(len(regimes))
+    bins = boot["model_bins"].iloc[0]
+    bins = None if pd.isna(bins) else int(bins)
+    model_name = "model P(correct)" + (f", {bins} bins" if bins is not None else "")
+    fig, (ax_auc, ax_diff) = plt.subplots(1, 2, figsize=figsize)
+
+    for dx, col, colour, name in [
+        (-0.1, "auc_model", "#4c72b0", model_name),
+        (0.1, "auc_confidence", "#dd8452", "self-report"),
+    ]:
+        err = [boot[col] - boot[f"{col}_ci_low"], boot[f"{col}_ci_high"] - boot[col]]
+        ax_auc.errorbar(
+            x + dx, boot[col], yerr=err, fmt="o", color=colour, capsize=4, label=name
+        )
+    ax_auc.axhline(0.5, ls=":", c="grey", lw=1)
+    ax_auc.set_ylim(0.3, 1.02)
+    ax_auc.set_ylabel("AUC (correct vs wrong)")
+    ax_auc.legend(fontsize=8, frameon=False, loc="lower right")
+
+    err = [boot["diff"] - boot["diff_ci_low"], boot["diff_ci_high"] - boot["diff"]]
+    ax_diff.errorbar(x, boot["diff"], yerr=err, fmt="o", color="k", capsize=4)
+    ax_diff.axhline(0, c="k", lw=0.8)
+    for xi, (_, r) in zip(x, boot.iterrows()):
+        floor = r["p"] <= 1 / r["n_boot_ok"]
+        ax_diff.text(
+            xi + 0.08,
+            r["diff"],
+            f"p {'≤' if floor else '='} {r['p']:.4f} {p_to_stars(r['p'])}",
+            fontsize=8,
+            va="center",
+        )
+    ax_diff.set_ylabel("AUC difference, model − self-report")
+    ax_diff.set_xlim(
+        -0.5, len(regimes) - 0.2
+    )  # room for the p labels right of the last point
+
+    for ax in (ax_auc, ax_diff):
+        ax.set_xticks(x)
+        ax.set_xticklabels(
+            [
+                f"{r}\n{n_wrong} wrong"
+                for r, n_wrong in zip(regimes, boot["n"] - boot["n_correct"])
+            ]
+        )
+        ax.grid(axis="y", alpha=0.25)
+    pct = int(round(100 * boot["ci"].iloc[0]))
+    fig.suptitle(
+        f"Model vs self-report: {pct}% intervals from {boot['n_boot'].iloc[0]} "
+        f"resamples of {boot['n_participants'].max()} participants",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="discrimination_bootstrap",
+        tables={"summary": boot},
+        save=save,
+        to_paper=to_paper,
+        model_bins=bins,
+    )
+    return fig
+
+
+def plot_transfer_metrics(
+    metrics: pd.DataFrame,
+    *,
+    measures: Sequence[str] = (
+        "accuracy",
+        "balanced_accuracy",
+        "sensitivity",
+        "specificity",
+    ),
+    figsize=(9.5, 4.4),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Grouped bars of the transfer metrics from `prediction_metrics_by_regime`, with
     each regime's base rate marked.
 
@@ -1105,16 +1692,24 @@ def plot_transfer_metrics(metrics: pd.DataFrame, *,
     for i, row in metrics.reset_index(drop=True).iterrows():
         base = row["n_correct"] / row["n"]
         ax.plot([i - 0.1, i + 0.8], [base, base], c="k", ls="--", lw=1.2)
-        ax.text(i + 0.82, base, f"always-correct\nbaseline {base:.2f}",
-                fontsize=6.5, va="center")
+        ax.text(
+            i + 0.82,
+            base,
+            f"always-correct\nbaseline {base:.2f}",
+            fontsize=6.5,
+            va="center",
+        )
 
     ax.axhline(0.5, c="grey", ls=":", lw=1)
     ax.set_xticks([i + 0.4 - width / 2 for i in range(len(runs))])
     ax.set_xticklabels(runs)
     ax.set_ylim(0, 1.12)
     ax.set_ylabel("score")
-    ax.set_title("L1 model transferred to KnowQA, by regime\n"
-                 "(dashed = always-predict-correct baseline)", fontsize=10)
+    ax.set_title(
+        "L1 model transferred to KnowQA, by regime\n"
+        "(dashed = always-predict-correct baseline)",
+        fontsize=10,
+    )
     ax.legend(frameon=False, fontsize=8, ncol=2, loc="upper left")
     fig.tight_layout()
     save_output(
@@ -1128,7 +1723,9 @@ def plot_transfer_metrics(metrics: pd.DataFrame, *,
     return fig
 
 
-def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_probability_decomposition(
+    dec: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None
+):
     """Per regime, two dots from `decompose_probability_by_regime`: the observed mean
     P(correct), and the same regime re-mixed at the pooled accuracy.
 
@@ -1140,16 +1737,38 @@ def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), sav
     y = np.arange(len(dec))
 
     for yi, (_, row) in zip(y, dec.iterrows()):
-        ax.plot([row["counterfactual_mean"], row["mean_prob"]], [yi, yi],
-                c="grey", lw=2, zorder=1)
-    ax.scatter(dec["counterfactual_mean"], y, s=90, color="#8c8c8c", zorder=3,
-               label="re-mixed at pooled accuracy")
-    ax.scatter(dec["mean_prob"], y, s=90,
-               color=_colours(dec[REGIME_COL]), zorder=3, label="observed")
+        ax.plot(
+            [row["counterfactual_mean"], row["mean_prob"]],
+            [yi, yi],
+            c="grey",
+            lw=2,
+            zorder=1,
+        )
+    ax.scatter(
+        dec["counterfactual_mean"],
+        y,
+        s=90,
+        color="#8c8c8c",
+        zorder=3,
+        label="re-mixed at pooled accuracy",
+    )
+    ax.scatter(
+        dec["mean_prob"],
+        y,
+        s=90,
+        color=_colours(dec[REGIME_COL]),
+        zorder=3,
+        label="observed",
+    )
 
     for yi, (_, row) in zip(y, dec.iterrows()):
-        ax.text(max(row["mean_prob"], row["counterfactual_mean"]) + 0.015, yi,
-                f"{row['explained_by_composition']:+.3f}", va="center", fontsize=8)
+        ax.text(
+            max(row["mean_prob"], row["counterfactual_mean"]) + 0.015,
+            yi,
+            f"{row['explained_by_composition']:+.3f}",
+            va="center",
+            fontsize=8,
+        )
 
     ax.set_yticks(y)
     ax.set_yticklabels(dec[REGIME_COL])
@@ -1169,9 +1788,17 @@ def plot_probability_decomposition(dec: pd.DataFrame, *, figsize=(8.5, 4.2), sav
     return fig
 
 
-def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
-                       cmap: str = "RdYlBu", vmin=None, vmax=None, cbar_label="",
-                       marks: Optional[pd.DataFrame] = None):
+def _annotated_heatmap(
+    ax,
+    mat: pd.DataFrame,
+    *,
+    fmt: str = "{:.2f}",
+    cmap: str = "RdYlBu",
+    vmin=None,
+    vmax=None,
+    cbar_label="",
+    marks: Optional[pd.DataFrame] = None,
+):
     """Draw `mat` as a heatmap with every value printed, and label both axes. Missing
     cells show "-".
 
@@ -1181,8 +1808,9 @@ def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
     to how dark its cell is actually drawn, so it stays readable on any colour map,
     including ones that are near-white at one end.
     """
-    im = ax.imshow(mat.values.astype(float), cmap=cmap, vmin=vmin, vmax=vmax,
-                   aspect="auto")
+    im = ax.imshow(
+        mat.values.astype(float), cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto"
+    )
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
             v = mat.values[i, j]
@@ -1190,10 +1818,17 @@ def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
                 ax.text(j, i, "-", ha="center", va="center", fontsize=8, color="grey")
                 continue
             r, g, b, _ = im.cmap(im.norm(v))
-            luminance = 0.299 * r + 0.587 * g + 0.114 * b   # ITU-R BT.601
+            luminance = 0.299 * r + 0.587 * g + 0.114 * b  # ITU-R BT.601
             suffix = "" if marks is None else str(marks.values[i, j] or "")
-            ax.text(j, i, fmt.format(v) + suffix, ha="center", va="center", fontsize=8,
-                    color="white" if luminance < 0.55 else "black")
+            ax.text(
+                j,
+                i,
+                fmt.format(v) + suffix,
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white" if luminance < 0.55 else "black",
+            )
     ax.set_xticks(range(mat.shape[1]))
     ax.set_xticklabels(mat.columns, rotation=30, ha="right", fontsize=8)
     ax.set_yticks(range(mat.shape[0]))
@@ -1207,8 +1842,12 @@ def _annotated_heatmap(ax, mat: pd.DataFrame, *, fmt: str = "{:.2f}",
 def plot_participant_regime_heatmap(
     df: pd.DataFrame,
     *,
-    measures: Sequence[str] = ("participant_accuracy", "mean_confidence", "mean_pred_prob",
-                               "model_balanced_accuracy"),
+    measures: Sequence[str] = (
+        "participant_accuracy",
+        "mean_confidence",
+        "mean_pred_prob",
+        "model_balanced_accuracy",
+    ),
     side_column: Optional[str] = None,
     figsize=(14, 3.8),
     save: Optional[bool] = None,
@@ -1242,14 +1881,19 @@ def plot_participant_regime_heatmap(
         )
         side = df.groupby(Con.PARTICIPANT_ID)[side_column].first().to_frame(side_column)
         widths = [0.42] + [1.0] * len(use)
-        fig, all_axes = plt.subplots(1, len(use) + 1, figsize=figsize,
-                                     gridspec_kw={"width_ratios": widths})
+        fig, all_axes = plt.subplots(
+            1, len(use) + 1, figsize=figsize, gridspec_kw={"width_ratios": widths}
+        )
         all_axes = np.atleast_1d(all_axes)
         side_ax, axes = all_axes[0], all_axes[1:]
-        _annotated_heatmap(side_ax, side.reindex(prof[Con.PARTICIPANT_ID].unique()),
-                           fmt="{:g}", cmap="PuBuGn",
-                           vmin=float(side[side_column].min()),
-                           vmax=float(side[side_column].max()))
+        _annotated_heatmap(
+            side_ax,
+            side.reindex(prof[Con.PARTICIPANT_ID].unique()),
+            fmt="{:g}",
+            cmap="PuBuGn",
+            vmin=float(side[side_column].min()),
+            vmax=float(side[side_column].max()),
+        )
         side_ax.set_title(f"{side_column}\n(own scale)", fontsize=9)
         side_ax.set_xticks([])
     else:
@@ -1258,8 +1902,9 @@ def plot_participant_regime_heatmap(
 
     starred = False
     for ax, m in zip(axes, use):
-        mat = (prof.pivot(index=Con.PARTICIPANT_ID, columns=REGIME_COL, values=m)
-                   .reindex(columns=regimes))
+        mat = prof.pivot(
+            index=Con.PARTICIPANT_ID, columns=REGIME_COL, values=m
+        ).reindex(columns=regimes)
         marks = None
 
         # Balanced accuracy is undefined where a participant made no errors in a regime:
@@ -1268,9 +1913,9 @@ def plot_participant_regime_heatmap(
         # cell shows that instead, starred because it is a different measure. Only the
         # figure changes; participant_profile keeps the NaN.
         if m == "model_balanced_accuracy" and "model_accuracy" in prof.columns:
-            fallback = (prof.pivot(index=Con.PARTICIPANT_ID, columns=REGIME_COL,
-                                   values="model_accuracy")
-                            .reindex(columns=regimes))
+            fallback = prof.pivot(
+                index=Con.PARTICIPANT_ID, columns=REGIME_COL, values="model_accuracy"
+            ).reindex(columns=regimes)
             gaps = mat.isna() & fallback.notna()
             if gaps.to_numpy().any():
                 starred = True
@@ -1289,12 +1934,18 @@ def plot_participant_regime_heatmap(
     fig.suptitle("Per participant, per regime", fontsize=11)
     fig.tight_layout()
     if starred:
-        fig.text(0.005, -0.02,
-                 "* the model's plain accuracy, not its balanced accuracy: the "
-                 "PARTICIPANT answered every trial in that regime correctly, so there "
-                 "are no wrong trials to measure specificity on and balanced accuracy "
-                 "is undefined.",
-                 fontsize=7.5, ha="left", va="top", wrap=True)
+        fig.text(
+            0.005,
+            -0.02,
+            "* the model's plain accuracy, not its balanced accuracy: the "
+            "PARTICIPANT answered every trial in that regime correctly, so there "
+            "are no wrong trials to measure specificity on and balanced accuracy "
+            "is undefined.",
+            fontsize=7.5,
+            ha="left",
+            va="top",
+            wrap=True,
+        )
     save_output(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
@@ -1306,7 +1957,13 @@ def plot_participant_regime_heatmap(
     return fig
 
 
-def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
+def plot_shared_item_structure(
+    pairs: pd.DataFrame,
+    *,
+    figsize=(11, 4.4),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Two heatmaps over pairs of participants, from `shared_item_structure`: how many
     items they shared, and how often they answered the shared ones the same way.
 
@@ -1324,11 +1981,24 @@ def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: 
         agree.loc[a, b] = agree.loc[b, a] = r["agreement"]
 
     fig, axes = plt.subplots(1, 2, figsize=figsize)
-    _annotated_heatmap(axes[0], shared, fmt="{:.0f}", cmap="Blues",
-                       vmin=0, cbar_label="items in common")
+    _annotated_heatmap(
+        axes[0],
+        shared,
+        fmt="{:.0f}",
+        cmap="Blues",
+        vmin=0,
+        cbar_label="items in common",
+    )
     axes[0].set_title("Shared item sets", fontsize=10)
-    _annotated_heatmap(axes[1], agree, fmt="{:.2f}", cmap="Greens",
-                       vmin=0, vmax=1, cbar_label="same outcome")
+    _annotated_heatmap(
+        axes[1],
+        agree,
+        fmt="{:.2f}",
+        cmap="Greens",
+        vmin=0,
+        vmax=1,
+        cbar_label="same outcome",
+    )
     axes[1].set_title("Agreement on shared items", fontsize=10)
     fig.tight_layout()
     save_output(
@@ -1342,7 +2012,13 @@ def plot_shared_item_structure(pairs: pd.DataFrame, *, figsize=(11, 4.4), save: 
     return fig
 
 
-def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Optional[bool] = None, to_paper=None):
+def plot_item_difficulty(
+    items: pd.DataFrame,
+    *,
+    figsize=(11, 4.4),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Item accuracy, from `item_correctness`: its distribution, and whether the model
     knew which items were hard.
 
@@ -1354,17 +2030,28 @@ def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Option
     """
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
-    axes[0].hist(items["accuracy"], bins=np.linspace(0, 1, 11),
-                 color="#4c72b0", edgecolor="white")
+    axes[0].hist(
+        items["accuracy"],
+        bins=np.linspace(0, 1, 11),
+        color="#4c72b0",
+        edgecolor="white",
+    )
     axes[0].set_xlabel("item accuracy")
     axes[0].set_ylabel("items")
     axes[0].set_title(f"Item difficulty ({len(items)} items)", fontsize=10)
 
     if "mean_pred_prob" in items.columns:
         sizes = 18 * items["n"].clip(lower=1)
-        sc = axes[1].scatter(items["accuracy"], items["mean_pred_prob"], s=sizes,
-                             c=items["mean_confidence"], cmap="viridis",
-                             alpha=0.75, edgecolor="k", linewidth=0.3)
+        sc = axes[1].scatter(
+            items["accuracy"],
+            items["mean_pred_prob"],
+            s=sizes,
+            c=items["mean_confidence"],
+            cmap="viridis",
+            alpha=0.75,
+            edgecolor="k",
+            linewidth=0.3,
+        )
         axes[1].plot([0, 1], [0, 1], ls=":", c="grey")
         axes[1].set_xlabel("item accuracy (what happened)")
         axes[1].set_ylabel("mean predicted P(correct)")
@@ -1384,11 +2071,91 @@ def plot_item_difficulty(items: pd.DataFrame, *, figsize=(11, 4.4), save: Option
     return fig
 
 
+def plot_guessing_by_item(
+    guess: pd.DataFrame,
+    *,
+    figsize=(7.5, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
+    """The output of `guessing_by_item`: for the items seen by 2 or more people, how many
+    had 0, 1, 2, ... of them right, beside the two references.
+
+    Grey is the count if items made no difference (each person right at their own rate),
+    with the middle 95% of the shuffles as whiskers; light is pure 1-in-4 guessing. Items
+    that everyone guesses right show up as a dark bar above the grey one on the right.
+    """
+    groups = sorted(n for n in guess["n_participants"].unique() if n > 1)
+    fig, axes = plt.subplots(1, len(groups), figsize=figsize, squeeze=False)
+    regime = guess[REGIME_COL].iloc[0]
+
+    for ax, n in zip(axes[0], groups):
+        g = guess[guess["n_participants"] == n]
+        x = np.arange(len(g))
+        ax.bar(x - 0.27, g["items"], 0.27, color="#4c72b0", label="observed")
+        ax.bar(
+            x,
+            g["expected"],
+            0.27,
+            color="0.65",
+            yerr=[
+                g["expected"] - g["expected_low"],
+                g["expected_high"] - g["expected"],
+            ],
+            capsize=3,
+            label="if items made no difference",
+        )
+        ax.bar(
+            x + 0.27,
+            g["chance"],
+            0.27,
+            color="0.88",
+            edgecolor="0.6",
+            label="guessing at 1 in 4",
+        )
+        for xi, (_, r) in zip(x, g.iterrows()):
+            ax.text(
+                xi - 0.27,
+                r["items"],
+                f"{int(r['items'])}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+        ax.set_xticks(x)
+        ax.set_xticklabels([f"{k} of {n}" for k in g["n_correct"]])
+        ax.set_xlabel("people who got the item right")
+        ax.set_title(
+            f"{g['items'].sum()} items seen by {n} people\n"
+            f"all right: p = {g['p_more'].iloc[-1]:.3f} vs no item differences",
+            fontsize=10,
+        )
+        ax.grid(axis="y", alpha=0.25)
+    axes[0][0].set_ylabel("items")
+    axes[0][0].legend(fontsize=8, frameon=False)
+    fig.suptitle(f"Items answered right by everyone, {regime}", fontsize=11)
+    fig.tight_layout()
+    save_output(
+        fig,
+        analysis="correctness_prediction/knowledge_regimes",
+        plot="guessing_by_item",
+        tables={"summary": guess},
+        save=save,
+        to_paper=to_paper,
+        regime=regime,
+    )
+    return fig
+
+
 def plot_session_trajectories(
     df: pd.DataFrame,
     *,
-    measures: Sequence[str] = ("participant_accuracy", "mean_confidence", "median_RT_ms",
-                               "mean_pred_prob"),
+    measures: Sequence[str] = (
+        "participant_accuracy",
+        "mean_confidence",
+        "median_RT_ms",
+        "mean_pred_prob",
+    ),
     figsize=(12, 7),
     save: Optional[bool] = None,
     to_paper=None,
@@ -1416,7 +2183,7 @@ def plot_session_trajectories(
         ax.set_xticks(range(1, 1 + prof.groupby(Con.PARTICIPANT_ID).size().max()))
         ax.grid(alpha=0.25)
 
-    for ax in axes.ravel()[len(use):]:
+    for ax in axes.ravel()[len(use) :]:
         ax.set_visible(False)
     axes[0, 0].legend(fontsize=7, frameon=False, ncol=2, title="participant")
     fig.suptitle("Across the three sittings", fontsize=11)
@@ -1432,7 +2199,9 @@ def plot_session_trajectories(
     return fig
 
 
-def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool] = None, to_paper=None):
+def plot_pace_panel(
+    df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool] = None, to_paper=None
+):
     """Every pace measure in `SPEED_COLS`, one panel each, regimes along x: means with
     standard-error whiskers.
 
@@ -1452,14 +2221,15 @@ def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool]
             vals = df.loc[df[REGIME_COL] == r, measure].dropna()
             means.append(vals.mean())
             errs.append(vals.std() / np.sqrt(len(vals)) if len(vals) else np.nan)
-        ax.bar(range(len(regimes)), means, yerr=errs, capsize=4,
-               color=_colours(regimes))
+        ax.bar(
+            range(len(regimes)), means, yerr=errs, capsize=4, color=_colours(regimes)
+        )
         ax.set_xticks(range(len(regimes)))
         ax.set_xticklabels([r.split()[0] for r in regimes], fontsize=8)
         ax.set_title(SPEED_COLS.get(measure, measure), fontsize=9)
         ax.grid(axis="y", alpha=0.25)
 
-    for ax in axes.ravel()[len(use):]:
+    for ax in axes.ravel()[len(use) :]:
         ax.set_visible(False)
     fig.suptitle("Pace measures by regime (mean +/- SE)", fontsize=11)
     fig.tight_layout()
@@ -1474,7 +2244,13 @@ def plot_pace_panel(df: pd.DataFrame, *, figsize=(12, 6.5), save: Optional[bool]
     return fig
 
 
-def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2), save: Optional[bool] = None, to_paper=None):
+def plot_confidence_by_regime(
+    conf: pd.DataFrame,
+    *,
+    figsize=(8.5, 4.2),
+    save: Optional[bool] = None,
+    to_paper=None,
+):
     """Mean confidence per regime, side by side for correct and wrong answers, from
     `confidence_by_regime`.
 
@@ -1486,17 +2262,34 @@ def plot_confidence_by_regime(conf: pd.DataFrame, *, figsize=(8.5, 4.2), save: O
     x = np.arange(len(rows))
     width = 0.35
 
-    ax.bar(x - width / 2, rows["mean_confidence_correct"], width,
-           label="answer was correct", color="#4c72b0")
-    ax.bar(x + width / 2, rows["mean_confidence_wrong"], width,
-           label="answer was wrong", color="#c44e52")
+    ax.bar(
+        x - width / 2,
+        rows["mean_confidence_correct"],
+        width,
+        label="answer was correct",
+        color="#4c72b0",
+    )
+    ax.bar(
+        x + width / 2,
+        rows["mean_confidence_wrong"],
+        width,
+        label="answer was wrong",
+        color="#c44e52",
+    )
 
     for xi, (_, r) in zip(x, rows.iterrows()):
-        for off, col, n in [(-width / 2, "mean_confidence_correct", "n_correct"),
-                            (width / 2, "mean_confidence_wrong", "n_wrong")]:
+        for off, col, n in [
+            (-width / 2, "mean_confidence_correct", "n_correct"),
+            (width / 2, "mean_confidence_wrong", "n_wrong"),
+        ]:
             if np.isfinite(r[col]):
-                ax.text(xi + off, r[col] + 0.06, f"{r[col]:.2f}\nn={int(r[n])}",
-                        ha="center", fontsize=8)
+                ax.text(
+                    xi + off,
+                    r[col] + 0.06,
+                    f"{r[col]:.2f}\nn={int(r[n])}",
+                    ha="center",
+                    fontsize=8,
+                )
 
     ax.set_xticks(x)
     ax.set_xticklabels(rows[REGIME_COL])
@@ -1572,8 +2365,12 @@ def attach_item_difficulty(
     diff = l1.groupby(Con.TEXT_ID_WITH_Q_COLUMN)[Con.IS_CORRECT_COLUMN].mean()
 
     base = df.drop(columns=[ITEM_DIFFICULTY_COL], errors="ignore")
-    out = base.merge(diff.rename(ITEM_DIFFICULTY_COL), left_on=Con.TEXT_ID_WITH_Q_COLUMN,
-                     right_index=True, how="left")
+    out = base.merge(
+        diff.rename(ITEM_DIFFICULTY_COL),
+        left_on=Con.TEXT_ID_WITH_Q_COLUMN,
+        right_index=True,
+        how="left",
+    )
 
     assert len(out) == len(df), (
         f"item-difficulty merge changed the row count: {len(df)} -> {len(out)}; "
@@ -1604,7 +2401,8 @@ def session_summary(df: pd.DataFrame) -> pd.DataFrame:
     for order, sub in work.groupby(SESS_ORDER_COL):
         y = sub[Con.IS_CORRECT_COLUMN].astype(int)
         row: Dict[str, Any] = {
-            "session": order, "n": len(sub),
+            "session": order,
+            "n": len(sub),
             "n_items": sub[Con.TEXT_ID_WITH_Q_COLUMN].nunique(),
             "participant_accuracy": y.mean(),
             ITEM_DIFFICULTY_COL: sub[ITEM_DIFFICULTY_COL].mean(),
@@ -1612,12 +2410,14 @@ def session_summary(df: pd.DataFrame) -> pd.DataFrame:
         }
         if PROB_COL in sub.columns:
             conf = _confusion_row(sub)
-            row.update({
-                "model_balanced_accuracy": conf["balanced_accuracy"],
-                "model_auc": _auc(sub[PROB_COL], y),
-                "mean_pred_prob": sub[PROB_COL].mean(),
-                "confidence_auc": _auc(sub[CONFIDENCE_COL], y),
-            })
+            row.update(
+                {
+                    "model_balanced_accuracy": conf["balanced_accuracy"],
+                    "model_auc": _auc(sub[PROB_COL], y),
+                    "mean_pred_prob": sub[PROB_COL].mean(),
+                    "confidence_auc": _auc(sub[CONFIDENCE_COL], y),
+                }
+            )
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -1648,47 +2448,80 @@ def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
 
     rows: List[Dict[str, Any]] = []
 
-    per_part = work.pivot_table(index=Con.PARTICIPANT_ID, columns=SESS_ORDER_COL,
-                                values=Con.IS_CORRECT_COLUMN, aggfunc="mean")
+    per_part = work.pivot_table(
+        index=Con.PARTICIPANT_ID,
+        columns=SESS_ORDER_COL,
+        values=Con.IS_CORRECT_COLUMN,
+        aggfunc="mean",
+    )
     first, last = per_part.columns.min(), per_part.columns.max()
     w = stats.wilcoxon(per_part[first], per_part[last])
-    rows.append({"test": f"Wilcoxon, sitting {first} vs {last}", "n_units": len(per_part),
-                 "statistic": float(w.statistic), "p_value": float(w.pvalue),
-                 "effect": per_part[last].mean() - per_part[first].mean(),
-                 "effect_is": "mean accuracy difference"})
+    rows.append(
+        {
+            "test": f"Wilcoxon, sitting {first} vs {last}",
+            "n_units": len(per_part),
+            "statistic": float(w.statistic),
+            "p_value": float(w.pvalue),
+            "effect": per_part[last].mean() - per_part[first].mean(),
+            "effect_is": "mean accuracy difference",
+        }
+    )
 
-    rhos = [stats.spearmanr(s[SESS_ORDER_COL], s[Con.IS_CORRECT_COLUMN]).statistic
-            for _, s in work.groupby(Con.PARTICIPANT_ID)]
+    rhos = [
+        stats.spearmanr(s[SESS_ORDER_COL], s[Con.IS_CORRECT_COLUMN]).statistic
+        for _, s in work.groupby(Con.PARTICIPANT_ID)
+    ]
     t = stats.ttest_1samp(rhos, 0)
-    rows.append({"test": "per-participant Spearman(sitting, correct), vs 0",
-                 "n_units": len(rhos), "statistic": float(t.statistic),
-                 "p_value": float(t.pvalue), "effect": float(np.mean(rhos)),
-                 "effect_is": "mean within-participant rho"})
+    rows.append(
+        {
+            "test": "per-participant Spearman(sitting, correct), vs 0",
+            "n_units": len(rhos),
+            "statistic": float(t.statistic),
+            "p_value": float(t.pvalue),
+            "effect": float(np.mean(rhos)),
+            "effect_is": "mean within-participant rho",
+        }
+    )
 
     # The design matrix is built by hand rather than from a formula: `regime` has pandas'
     # string dtype, which patsy cannot read.
     y = work[Con.IS_CORRECT_COLUMN].astype(int).to_numpy()
     groups = pd.factorize(np.asarray(work[Con.PARTICIPANT_ID], dtype=object))[0]
     reg = np.asarray(work[REGIME_COL], dtype=object)
-    base = [np.ones(len(y)), work[SESS_ORDER_COL].to_numpy(float),
-            (reg == "partial knowledge").astype(float), (reg == "full knowledge").astype(float)]
+    base = [
+        np.ones(len(y)),
+        work[SESS_ORDER_COL].to_numpy(float),
+        (reg == "partial knowledge").astype(float),
+        (reg == "full knowledge").astype(float),
+    ]
 
     for label, X in [
         ("clustered logit: sitting + regime", np.column_stack(base)),
-        ("clustered logit: sitting + regime + item difficulty",
-         np.column_stack(base + [work[ITEM_DIFFICULTY_COL].to_numpy(float)])),
+        (
+            "clustered logit: sitting + regime + item difficulty",
+            np.column_stack(base + [work[ITEM_DIFFICULTY_COL].to_numpy(float)]),
+        ),
     ]:
-        res = sm.Logit(y, X).fit(disp=0, cov_type="cluster", cov_kwds={"groups": groups})
-        rows.append({"test": label, "n_units": len(set(groups)),
-                     "statistic": float(np.exp(res.params[1])),
-                     "p_value": float(res.pvalues[1]),
-                     "effect": float(res.params[1]),
-                     "effect_is": "log-odds per sitting (statistic = odds ratio)"})
+        res = sm.Logit(y, X).fit(
+            disp=0, cov_type="cluster", cov_kwds={"groups": groups}
+        )
+        rows.append(
+            {
+                "test": label,
+                "n_units": len(set(groups)),
+                "statistic": float(np.exp(res.params[1])),
+                "p_value": float(res.pvalues[1]),
+                "effect": float(res.params[1]),
+                "effect_is": "log-odds per sitting (statistic = odds ratio)",
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bool] = None, to_paper=None):
+def plot_session_trend(
+    df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bool] = None, to_paper=None
+):
     """Two panels across sittings, from `session_summary`: what the participants did,
     and what the model and the confidence rating did.
 
@@ -1704,22 +2537,49 @@ def plot_session_trend(df: pd.DataFrame, *, figsize=(12, 4.6), save: Optional[bo
     fig, axes = plt.subplots(1, 2, figsize=figsize)
     x = s["session"].to_numpy()
 
-    axes[0].plot(x, s["participant_accuracy"], marker="o", lw=2, color="#c44e52",
-                 label="participant accuracy (KnowQA)")
-    axes[0].plot(x, s[ITEM_DIFFICULTY_COL], marker="s", lw=2, ls="--", color="#4c72b0",
-                 label="same items, answered in L1")
+    axes[0].plot(
+        x,
+        s["participant_accuracy"],
+        marker="o",
+        lw=2,
+        color="#c44e52",
+        label="participant accuracy (KnowQA)",
+    )
+    axes[0].plot(
+        x,
+        s[ITEM_DIFFICULTY_COL],
+        marker="s",
+        lw=2,
+        ls="--",
+        color="#4c72b0",
+        label="same items, answered in L1",
+    )
     for xi, a, b in zip(x, s["participant_accuracy"], s[ITEM_DIFFICULTY_COL]):
-        axes[0].annotate(f"{a:.3f}", (xi, a), textcoords="offset points", xytext=(0, -14),
-                         ha="center", fontsize=8)
-        axes[0].annotate(f"{b:.3f}", (xi, b), textcoords="offset points", xytext=(0, 8),
-                         ha="center", fontsize=8)
+        axes[0].annotate(
+            f"{a:.3f}",
+            (xi, a),
+            textcoords="offset points",
+            xytext=(0, -14),
+            ha="center",
+            fontsize=8,
+        )
+        axes[0].annotate(
+            f"{b:.3f}",
+            (xi, b),
+            textcoords="offset points",
+            xytext=(0, 8),
+            ha="center",
+            fontsize=8,
+        )
     axes[0].set_title("Accuracy across sittings, against item difficulty", fontsize=10)
     axes[0].set_ylabel("accuracy")
 
-    for col, colour, name in [("model_balanced_accuracy", "#4c72b0", "model balanced acc"),
-                              ("model_auc", "#55a868", "model AUC"),
-                              ("confidence_auc", "#dd8452", "self-report AUC"),
-                              ("mean_pred_prob", "#8c8c8c", "mean P(correct)")]:
+    for col, colour, name in [
+        ("model_balanced_accuracy", "#4c72b0", "model balanced acc"),
+        ("model_auc", "#55a868", "model AUC"),
+        ("confidence_auc", "#dd8452", "self-report AUC"),
+        ("mean_pred_prob", "#8c8c8c", "mean P(correct)"),
+    ]:
         if col in s.columns:
             axes[1].plot(x, s[col], marker="o", lw=2, color=colour, label=name)
     axes[1].set_title("Model and self-report across sittings", fontsize=10)
@@ -1760,6 +2620,13 @@ LEXTALE_SCORES: Dict[str, float] = {
     "4003": 81.25,
     "4004": 75.00,
     "4005": 95.00,
+    "4006": 98.75,
+    "4007": 100.0,
+    "4008": 92.5,
+    "4009": 95.0,
+    "4010": 95.0,
+    "4011": 100,
+    "4012": 96.25,
 }
 
 LEXTALE_COL = "lextale"
@@ -1798,16 +2665,25 @@ def lextale_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
     work = df if LEXTALE_COL in df.columns else attach_lextale(df)
 
-    acc = (
-        work.pivot_table(index=Con.PARTICIPANT_ID, columns=REGIME_COL,
-                         values=Con.IS_CORRECT_COLUMN, aggfunc="mean")
-        .reindex(columns=_ordered_regimes(work))
+    acc = work.pivot_table(
+        index=Con.PARTICIPANT_ID,
+        columns=REGIME_COL,
+        values=Con.IS_CORRECT_COLUMN,
+        aggfunc="mean",
+    ).reindex(columns=_ordered_regimes(work))
+    out = (
+        pd.DataFrame(
+            {
+                LEXTALE_COL: work.groupby(Con.PARTICIPANT_ID)[LEXTALE_COL].first(),
+                "n": work.groupby(Con.PARTICIPANT_ID).size(),
+                "participant_accuracy": work.groupby(Con.PARTICIPANT_ID)[
+                    Con.IS_CORRECT_COLUMN
+                ].mean(),
+            }
+        )
+        .join(acc)
+        .reset_index()
     )
-    out = pd.DataFrame({
-        LEXTALE_COL: work.groupby(Con.PARTICIPANT_ID)[LEXTALE_COL].first(),
-        "n": work.groupby(Con.PARTICIPANT_ID).size(),
-        "participant_accuracy": work.groupby(Con.PARTICIPANT_ID)[Con.IS_CORRECT_COLUMN].mean(),
-    }).join(acc).reset_index()
 
     mean_row = {Con.PARTICIPANT_ID: "mean", "n_participants": len(out)}
     for c in out.columns:
@@ -1829,15 +2705,24 @@ def lextale_correlations(df: pd.DataFrame, *, method: str = "spearman") -> pd.Da
 
     work = df if LEXTALE_COL in df.columns else attach_lextale(df)
     rows = []
-    for label, sub in [("all", work)] + [(r, work[work[REGIME_COL] == r])
-                                         for r in _ordered_regimes(work)]:
+    for label, sub in [("all", work)] + [
+        (r, work[work[REGIME_COL] == r]) for r in _ordered_regimes(work)
+    ]:
         per = sub.groupby(Con.PARTICIPANT_ID).agg(
-            lex=(LEXTALE_COL, "first"), acc=(Con.IS_CORRECT_COLUMN, "mean"))
+            lex=(LEXTALE_COL, "first"), acc=(Con.IS_CORRECT_COLUMN, "mean")
+        )
         fn = stats.spearmanr if method == "spearman" else stats.pearsonr
         res = fn(per["lex"], per["acc"])
-        rows.append({REGIME_COL: label, "n_participants": len(per),
-                     f"{method}_r": float(res.statistic if hasattr(res, "statistic") else res[0]),
-                     "p_value": float(res.pvalue if hasattr(res, "pvalue") else res[1])})
+        rows.append(
+            {
+                REGIME_COL: label,
+                "n_participants": len(per),
+                f"{method}_r": float(
+                    res.statistic if hasattr(res, "statistic") else res[0]
+                ),
+                "p_value": float(res.pvalue if hasattr(res, "pvalue") else res[1]),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -1859,8 +2744,13 @@ def plot_lextale(df: pd.DataFrame, *, figsize=(12, 4.4)):
     order = people.sort_values(LEXTALE_COL)
     axes[0].bar(order[Con.PARTICIPANT_ID], order[LEXTALE_COL], color="#4c72b0")
     axes[0].axhline(mean_score, ls="--", c="k", lw=1.2)
-    axes[0].text(len(order) - 0.4, mean_score + 0.9, f"mean {mean_score:.2f}",
-                 ha="right", fontsize=9)
+    axes[0].text(
+        len(order) - 0.4,
+        mean_score + 0.9,
+        f"mean {mean_score:.2f}",
+        ha="right",
+        fontsize=9,
+    )
     for x, v in zip(range(len(order)), order[LEXTALE_COL]):
         axes[0].text(x, v + 0.9, f"{v:g}", ha="center", fontsize=9)
     axes[0].set_ylim(0, 105)
@@ -1869,16 +2759,36 @@ def plot_lextale(df: pd.DataFrame, *, figsize=(12, 4.4)):
     axes[0].set_title("English proficiency", fontsize=10)
 
     for r in regimes:
-        axes[1].scatter(people[LEXTALE_COL], people[r], s=70, label=r,
-                        color=_REGIME_COLOURS.get(r, "#8c8c8c"))
-    axes[1].scatter(people[LEXTALE_COL], people["participant_accuracy"], s=90, marker="D",
-                    facecolor="none", edgecolor="k", label="all trials")
+        axes[1].scatter(
+            people[LEXTALE_COL],
+            people[r],
+            s=70,
+            label=r,
+            color=_REGIME_COLOURS.get(r, "#8c8c8c"),
+        )
+    axes[1].scatter(
+        people[LEXTALE_COL],
+        people["participant_accuracy"],
+        s=90,
+        marker="D",
+        facecolor="none",
+        edgecolor="k",
+        label="all trials",
+    )
     for _, row in people.iterrows():
-        axes[1].annotate(row[Con.PARTICIPANT_ID], (row[LEXTALE_COL], row["participant_accuracy"]),
-                         textcoords="offset points", xytext=(6, -3), fontsize=7)
+        axes[1].annotate(
+            row[Con.PARTICIPANT_ID],
+            (row[LEXTALE_COL], row["participant_accuracy"]),
+            textcoords="offset points",
+            xytext=(6, -3),
+            fontsize=7,
+        )
     axes[1].set_xlabel("LexTALE score")
     axes[1].set_ylabel("participant accuracy")
-    axes[1].set_title("Proficiency against correctness (6 points per series)", fontsize=10)
+    axes[1].set_title(
+        f"Proficiency against correctness ({len(people)} points per series)",
+        fontsize=10,
+    )
     axes[1].legend(fontsize=7, frameon=False)
     axes[1].grid(alpha=0.25)
 

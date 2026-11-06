@@ -227,6 +227,7 @@ ABBREVIATIONS: Dict[str, str] = {
     # misc long facet values
     "CONFIRM_FINAL_ANSWER_RT": "confirm_RT",
     "dwell_proportions": "dwell_props",
+    "no_knowledge+partial_knowledge+full_knowledge": "regimes",
     "normalized": "norm",
 }
 

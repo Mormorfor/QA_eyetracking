@@ -181,7 +181,7 @@ the manual check.)*
 
 * **✅ DONE — T5.10** — `data_prep_new_exp.ipynb` overwrites KnowQA's output with the older identity scheme; mark superseded or remove the collision. *(done 2026-10-17 — the notebook is deleted; the pilots are built by `scripts/build_pilot.py`, which accepts only the two pilot keys, so it cannot write KnowQA's files)*
 
-* **T5.11** — `evaluate_one_fold_on_regimes` refits the same model 6× per fold; hoisting it removes the speed argument for the leaking CV path. *(S · efficiency only)*
+* **✅ DONE — T5.11** — `evaluate_one_fold_on_regimes` refits the same model 6× per fold; hoisting it removes the speed argument for the leaking CV path. *(done 2026-11-05 — one fit per fold; logistic-regression CV output verified identical)*
 
 ## T6 · The restructure
 

@@ -77,11 +77,7 @@ def evaluate_single_model_on_prepared_split(
     """
     feat_cols = list(feature_cols)
     fit_kwargs = dict(fit_kwargs or {})
-    predict_kwargs = dict(predict_kwargs or {})
-    predict_proba_kwargs = dict(predict_proba_kwargs or {})
     coef_kwargs = dict(coef_kwargs or {})
-
-    y_true = test_df[target_col].astype(int).to_numpy()
 
     model.fit(
         train_df=train_df,
@@ -90,19 +86,14 @@ def evaluate_single_model_on_prepared_split(
         **fit_kwargs,
     )
 
-    y_pred = model.predict(
+    y_true, y_pred, y_prob = score_fitted_model(
+        model,
         test_df,
+        target_col=target_col,
         feature_cols=feat_cols,
-        **predict_kwargs,
+        predict_kwargs=predict_kwargs,
+        predict_proba_kwargs=predict_proba_kwargs,
     )
-    y_pred = np.asarray(y_pred).reshape(-1).astype(int)
-
-    y_prob = model.predict_proba(
-        test_df,
-        feature_cols=feat_cols,
-        **predict_proba_kwargs,
-    )
-    y_prob = np.asarray(y_prob).reshape(-1).astype(float)
 
     coef_summary = model.get_coef_summary(
         train_df=train_df,
@@ -122,6 +113,42 @@ def evaluate_single_model_on_prepared_split(
         n_negative=int((y_true == 0).sum()),
         coef_summary=coef_summary,
     )
+
+
+def score_fitted_model(
+    model,
+    test_df: pd.DataFrame,
+    *,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    feature_cols: Sequence[str],
+    predict_kwargs: Optional[dict[str, Any]] = None,
+    predict_proba_kwargs: Optional[dict[str, Any]] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Score an already fitted model on ``test_df``: the true labels, the predicted
+    labels and the predicted probabilities, as flat arrays.
+
+    Kept apart from the fit so one fitted model can score several test tables
+    (`crossval.py` scores every held-out regime of a fold with the same fit).
+    """
+    feat_cols = list(feature_cols)
+    y_true = test_df[target_col].astype(int).to_numpy()
+
+    y_pred = model.predict(
+        test_df,
+        feature_cols=feat_cols,
+        **dict(predict_kwargs or {}),
+    )
+    y_pred = np.asarray(y_pred).reshape(-1).astype(int)
+
+    y_prob = model.predict_proba(
+        test_df,
+        feature_cols=feat_cols,
+        **dict(predict_proba_kwargs or {}),
+    )
+    y_prob = np.asarray(y_prob).reshape(-1).astype(float)
+
+    return y_true, y_pred, y_prob
 
 
 def evaluate_models_on_prepared_split(

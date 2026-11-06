@@ -60,11 +60,10 @@ dependencies:
   - notebook=7.5.5
 
   # --- parked strands ----------------------------------------------------
-  # Kept because the modules that need them still import at module level.
-  # `juliacall` is the awkward one: `run_model_bundles.py` imports the Julia
-  # backend at the top of the file, so a Julia toolchain is currently needed
-  # even to fit a plain logistic regression. The file says so itself at line 7.
-  # Making that import lazy is stage D work -- until then this is not optional.
+  # Needed only by explorations/. `juliacall` and `pymer4` are imported only
+  # by `explorations/mixed_models/`; the paper's logistic regression needs
+  # neither Julia nor R. The Julia packages themselves are installed by
+  # `src/vendor/julia_integration/julia_test.ipynb`.
   - umap-learn=0.5.11      # participant clustering (explorations/)
   - loguru=0.7.3           # used by the vendored EyeBench extractor
   - polars=1.38.1          # read by the R glmer backend

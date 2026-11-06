@@ -2,7 +2,7 @@
 
 Study 2 asks after every trial how confident the participant is in the answer they just
 gave (`confidence_rating`, 1 to 5). This module sets that rating against the model's
-predicted P(correct) for the same trial, and asks three questions, which can disagree:
+predicted P(correct) for the same trial, and asks four questions, which can disagree:
 
 * **model vs confidence** -- does P(correct) rise with confidence? The headline: whether
   the eye-movement model picks up what the participant reports.
@@ -11,6 +11,11 @@ predicted P(correct) for the same trial, and asks three questions, which can dis
 * **within participant** -- confidence scales are personal (one person's "4" is another's
   "2"), so a pooled correlation mixes the effect within each person with differences in
   how people use the scale. Correlations computed per participant keep only the first.
+* **beyond correctness** -- the model is fitted to predict correctness and the rating
+  tracks correctness too, so they correlate partly through that alone.
+  `partial_correlations_by_participant` and `partial_correlations_by_run` hold
+  correctness fixed and show what is left; `model_vs_correctness_by_run` is the model
+  against correctness itself.
 
 Each is reported per run: each knowledge regime, plus all trials pooled (`all`).
 
@@ -314,6 +319,158 @@ def correlations_by_participant(
             methods=methods,
         )
         for pid, part in sub.groupby(participant_col, sort=True)
+    ]
+    return pd.DataFrame(rows)
+
+
+def _partial_correlate(x: np.ndarray, y: np.ndarray, z: np.ndarray, method: str):
+    """`(r, p)` of `x` and `y` with `z` held fixed, or `(nan, nan)` when `z` never varies or
+    a side has nothing left once `z` is removed.
+
+    Both sides are regressed on `z` and the residuals correlated; for Spearman they are
+    ranked first. The p-value uses n - 3 degrees of freedom, one fewer than a plain
+    correlation, for the variable held fixed.
+    """
+    transform = {"pearson": lambda v: v, "spearman": stats.rankdata}[method]
+    x, y = transform(x).astype(float), transform(y).astype(float)
+
+    n = len(x)
+    if n - 3 < 1 or np.all(z == z[0]):
+        return np.nan, np.nan
+
+    design = np.column_stack([np.ones(n), z])
+    rx = x - design @ np.linalg.lstsq(design, x, rcond=None)[0]
+    ry = y - design @ np.linalg.lstsq(design, y, rcond=None)[0]
+    if np.allclose(rx, 0) or np.allclose(ry, 0):
+        return np.nan, np.nan
+
+    r = float(np.corrcoef(rx, ry)[0, 1])
+    t = r * np.sqrt((n - 3) / (1 - r ** 2))
+    return r, float(2 * stats.t.sf(abs(t), n - 3))
+
+
+def _partial_correlation_row(
+    frame: pd.DataFrame,
+    *,
+    label_cols: Dict[str, Any],
+    x_col: str,
+    y_col: str,
+    z_col: str,
+    methods: Sequence[str],
+) -> Dict[str, Any]:
+    """One table row for `x_col` against `y_col` with `z_col` held fixed, over the trials
+    that have all three: the columns of `_correlation_row`, plus `n_wrong` (rows where
+    `z_col` is 0)."""
+    trio = frame[[x_col, y_col, z_col]].dropna()
+    x = trio[x_col].to_numpy(dtype=float)
+    y = trio[y_col].to_numpy(dtype=float)
+    z = trio[z_col].to_numpy(dtype=float)
+
+    row: Dict[str, Any] = dict(label_cols)
+    row["n"] = int(len(trio))
+    row["n_wrong"] = int((z == 0).sum())
+    row["mean_x"] = float(x.mean()) if len(x) else np.nan
+    row["mean_y"] = float(y.mean()) if len(y) else np.nan
+    for method in methods:
+        stat, p = _partial_correlate(x, y, z, method)
+        row[f"{method}_r"] = stat
+        row[f"{method}_p"] = p
+    return row
+
+
+def partial_correlations_by_participant(
+    pred_df: pd.DataFrame,
+    *,
+    run: str = POOLED_LABEL,
+    confidence_col: str = CONFIDENCE_COL,
+    prob_col: str = PRED_PROB_COL,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    participant_col: str = Con.PARTICIPANT_ID,
+    methods: Sequence[str] = ("pearson", "spearman"),
+) -> pd.DataFrame:
+    """`pred_prob ~ confidence` within each participant with correctness held fixed: how
+    far the model tracks the rating beyond what both share with being right.
+
+    The model is fitted to predict correctness, and the rating tracks correctness too, so
+    the two would correlate even if the model knew nothing else about confidence. This
+    takes that shared part out. Because correctness is 0/1, holding it fixed is the same
+    as correlating within the correct trials and within the wrong ones, and pooling the
+    two.
+
+    The columns match `correlations_by_participant`'s, plus `n_wrong`. A participant who
+    was right on every trial of the run (or wrong on every one) gets NaN: correctness
+    does not vary, so there is nothing to hold fixed. Under full knowledge `n_wrong` is 0
+    to 3, and the value then rests almost entirely on the correct trials.
+    """
+    sub = pred_df.loc[pred_df["run"] == run]
+    rows = [
+        _partial_correlation_row(
+            part,
+            label_cols={"run": run, participant_col: pid},
+            x_col=confidence_col,
+            y_col=prob_col,
+            z_col=target_col,
+            methods=methods,
+        )
+        for pid, part in sub.groupby(participant_col, sort=True)
+    ]
+    return pd.DataFrame(rows)
+
+
+def model_vs_correctness_by_run(
+    pred_df: pd.DataFrame,
+    *,
+    prob_col: str = PRED_PROB_COL,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    methods: Sequence[str] = CORR_METHODS,
+) -> pd.DataFrame:
+    """`pred_prob ~ is_correct` per run, as rows that stack onto `correlations_by_run`'s
+    table: how well the model's probability separates correct from wrong answers. Here
+    `mean_x` is the share of correct answers.
+
+    Against a 0/1 outcome a correlation cannot reach 1, and its ceiling falls as the share
+    of correct answers moves away from one half. Under full knowledge, where nearly every
+    answer is correct, even a model that ranked every correct answer above every wrong one
+    would score low.
+    """
+    rows = [
+        _correlation_row(
+            pred_df.loc[pred_df["run"] == run],
+            label_cols={"run": run, "comparison": "pred_prob ~ is_correct"},
+            x_col=target_col,
+            y_col=prob_col,
+            methods=methods,
+        )
+        for run in _run_order(pred_df["run"].unique().tolist())
+    ]
+    return pd.DataFrame(rows)
+
+
+def partial_correlations_by_run(
+    pred_df: pd.DataFrame,
+    *,
+    confidence_col: str = CONFIDENCE_COL,
+    prob_col: str = PRED_PROB_COL,
+    target_col: str = Con.IS_CORRECT_COLUMN,
+    methods: Sequence[str] = ("pearson", "spearman"),
+) -> pd.DataFrame:
+    """`pred_prob ~ confidence` per run with correctness held fixed, as rows that stack
+    onto `correlations_by_run`'s table, plus `n_wrong`.
+
+    The run-level version of `partial_correlations_by_participant`. Like the other rows of
+    that table it pools participants, so differences in how people use the rating scale
+    are part of it.
+    """
+    rows = [
+        _partial_correlation_row(
+            pred_df.loc[pred_df["run"] == run],
+            label_cols={"run": run, "comparison": "pred_prob ~ confidence | is_correct"},
+            x_col=confidence_col,
+            y_col=prob_col,
+            z_col=target_col,
+            methods=methods,
+        )
+        for run in _run_order(pred_df["run"].unique().tolist())
     ]
     return pd.DataFrame(rows)
 

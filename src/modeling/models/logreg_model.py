@@ -204,7 +204,7 @@ class TrialLevelLogRegModel:
             # needs no approximation, and it does not break down with few
             # participants the way the clustered Wald formula does (Study 2 has
             # 6). The callers that cannot afford ~5,000 refits ask for Wald
-            # instead: crossval.py (once per fold and regime) and
+            # instead: crossval.py (once per fold) and
             # analyses/correctness_prediction/participant_level.py (one model per
             # participant, where clustering by participant means nothing).
             ci_method: Literal["bootstrap", "wald", "none"] = "bootstrap",

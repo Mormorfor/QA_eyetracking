@@ -5,244 +5,272 @@ were judged not important enough to pursue for this paper."* The reported model 
 logistic regression in `modeling/models/logreg_model.py`.
 
 Kept here, apart from the paper's model, so that nothing on the paper's path needs Julia
-or R installed."""
+or R installed.
+
+`TrialLevelJuliaGLMERModel` is that logistic regression with random intercepts added: the
+same features, prepared by the same code, the same class weights and the same 0.5
+threshold, so it plugs into `modeling/crossval.py` and `modeling/evaluate.py` the way the
+logistic regression does. `overview.ipynb` beside this file runs it. The R backend
+(`TrialLevelGLMERModel`) has not been brought up to date.
+"""
 
 from __future__ import annotations
 
+import os
+import re
+import sys
+import warnings
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Literal
+
 import numpy as np
 import pandas as pd
+from scipy.special import expit
+from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
-from juliacall import Main as jl
-import src.config.columns as Con
-from typing import Optional, Sequence, Dict, List
-import polars as pl
-from pymer4.models import glmer
+from sklearn.utils.class_weight import compute_sample_weight
+
 from src.config import columns as Con
+from src.modeling.models.logreg_model import TrialLevelLogRegModel
+
+# juliacall keeps its Julia packages in a project folder that it picks from the *activated*
+# conda env (CONDA_PREFIX). Run this env's python without activating it, or from a Jupyter
+# started in another env, and it picks a different folder: it then installs a fresh Julia
+# there, which takes minutes, and fails with "Package DataFrames not found". Pinning the
+# folder to the running interpreter's env makes the choice follow the Python actually in use.
+os.environ.setdefault("PYTHON_JULIAPKG_PROJECT", str(Path(sys.prefix) / "julia_env"))
+from juliacall import Main as jl  # noqa: E402  -- must come after the line above
 
 
 # ==========================================================================
-# from src/modeling/models/julia_model.py
+# Julia side: loaded once per process
 # ==========================================================================
+
+_JULIA_READY = False
+
+
+def _setup_julia() -> None:
+    """Load the Julia packages and define the few helpers the model calls."""
+    global _JULIA_READY
+    if _JULIA_READY:
+        return
+
+    jl.seval("using DataFrames, StatsModels, MixedModels, Distributions, StatsBase, PythonCall")
+
+    # Columns are passed one at a time as plain Python lists. Handing Julia the pandas
+    # frame itself does not work reliably (`vendor/julia_integration/README.md`).
+    jl.seval("""
+    function pycols_to_df(colnames, cols)
+        d = DataFrame()
+        for (nm, col) in zip(colnames, cols)
+            d[!, Symbol(nm)] = pyconvert(Vector, col)
+        end
+        return d
+    end
+    """)
+
+    jl.seval("""
+    function fit_bernoulli_glmm(f, df, wts)
+        w = pyconvert(Vector{Float64}, wts)   # empty = unweighted
+        return fit(MixedModel, f, df, Bernoulli(); wts=w, progress=false)
+    end
+    """)
+
+    # One {column name => values} dict per grouping factor: the level, then one column
+    # per random term ("(Intercept)", and a feature name per random slope).
+    jl.seval("""
+    function ranef_columns(m)
+        out = Dict{String, Any}()
+        for (g, tbl) in pairs(raneftables(m))
+            d = DataFrame(tbl)
+            out[string(g)] = Dict(n => collect(d[!, n]) for n in names(d))
+        end
+        return out
+    end
+    """)
+
+    jl.seval("""
+    function variance_components(m)
+        groups = String[]; terms = String[]; sds = Float64[]
+        for (g, nt) in pairs(m.σs)
+            for (t, s) in pairs(nt)
+                push!(groups, string(g)); push!(terms, string(t)); push!(sds, s)
+            end
+        end
+        return Dict("group" => groups, "term" => terms, "sd" => sds)
+    end
+    """)
+
+    jl.seval("""
+    function model_text(x)
+        io = IOBuffer()
+        show(io, MIME"text/plain"(), x)
+        return String(take!(io))
+    end
+    """)
+
+    _JULIA_READY = True
+
+
+# NLopt's return codes that mean the optimiser stopped because it converged. Anything else
+# (MAXEVAL_REACHED, MAXTIME_REACHED, FAILURE, ...) means it stopped for another reason.
+_CONVERGED_RETURNVALUES = {"SUCCESS", "FTOL_REACHED", "XTOL_REACHED", "STOPVAL_REACHED"}
+
+# A name pasted into `@formula(...)` must be a plain Julia identifier; anything else would
+# be parsed as an expression rather than a column.
+_JULIA_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 @dataclass
 class TrialLevelJuliaGLMERModel:
-    """
-    Binomial mixed-effects model using Julia MixedModels.jl.
+    """Mixed-effects logistic regression predicting `is_correct`, fitted in Julia.
 
-    Expected input:
-      - a ready trial-level dataframe
-      - explicit feature_cols passed from the outside
+    The paper's logistic regression (`TrialLevelLogRegModel`) with a random intercept per
+    participant and per text added:
 
-    Random intercepts/slopes:
-      - participant
-      - text
+        is_correct ~ 1 + <features> + (1 | participant_id) + (1 | text_id_with_q)
+
+    **What is the same as the logistic regression, by construction:**
+
+    * the feature matrix is prepared by the logistic regression's own code
+      (`TrialLevelLogRegModel._prepare_X`, called on an instance held in `prep_`): numeric
+      columns, EVERY NaN filled with `fill_value` and counted (`imputed_counts_`,
+      `imputed_mask_`), a warning for NaN outside the explained families, and a
+      `StandardScaler` fitted on the training rows. So coefficients are per standard
+      deviation of each feature, as there;
+    * `class_weight="balanced"` gives the same per-trial weights sklearn uses
+      (`compute_sample_weight`), so correct and wrong answers count equally;
+    * `predict` is `predict_proba > 0.5`, which is sklearn's rule.
+
+    **What is not:**
+
+    * no L2 penalty. The logistic regression has sklearn's default (C = 1); on ~19,000
+      trials and 12 standardised features that penalty is small, but it is not zero;
+    * the class weights enter a mixed-model likelihood as prior weights. That shifts the
+      intercept as intended, and also changes the estimated variance of the random
+      intercepts and the model-based standard errors: neither is the likelihood estimate
+      of the unweighted model. Fit with `class_weight=None` to see the unweighted values.
+
+    **The text level** is `text_col`, by default `text_id_with_q`: a paragraph together
+    with the question asked about it, the test item (L1: 972 items, about 20 trials each).
+
+    **Prediction on held-out trials** (`predict_with`):
+
+    * `"fixed"` -- fixed effects only: every random intercept set to 0, so a trial is
+      scored as if its participant and its text were average. The same score for a seen
+      and an unseen participant; the closest analogue of the logistic regression;
+    * `"known_levels"` -- a participant's or text's estimated random effect where that
+      level was in the training data, 0 where it was not. MixedModels'
+      `new_re_levels=:population` rule, computed here from the fitted tables (MixedModels'
+      own `predict` insists on a response column even for new data).
+
+    With a new participant reading a new text the two are identical.
+
+    Coefficient intervals are Wald intervals from the model's own standard errors: they
+    account for trials being grouped by participant and by text through the random
+    intercepts, not through a sandwich or a bootstrap as for the logistic regression.
     """
-    name: str = "full_features_correctness_julia_glmer"
+
+    name: str = "trial_level_julia_glmm"
+    participant_col: str = Con.PARTICIPANT_ID
+    text_col: str = Con.TEXT_ID_WITH_Q_COLUMN
+    class_weight: Optional[str] = "balanced"
+    # Put in place of EVERY NaN in the feature matrix, as in the logistic regression.
     fill_value: float = 0.0
+    predict_with: Literal["fixed", "known_levels"] = "fixed"
+    # "intercept": (1 | g). "slopes": an uncorrelated random slope for every feature as
+    # well, zerocorr(1 + <features> | g). "none": no random effect for that grouping.
+    participant_effects_mode: Literal["intercept", "slopes", "none"] = "intercept"
+    text_effects_mode: Literal["intercept", "slopes", "none"] = "intercept"
 
     model: object = field(default=None, init=False)
-    scaler_: Optional[StandardScaler] = field(default=None, init=False)
-
-    feature_cols_raw_: List[str] = field(default_factory=list, init=False)
-    feature_cols_: List[str] = field(default_factory=list, init=False)
-
+    prep_: Optional[TrialLevelLogRegModel] = field(default=None, init=False)
+    target_col_: Optional[str] = field(default=None, init=False)
     formula_: Optional[str] = field(default=None, init=False)
+    intercept_: Optional[float] = field(default=None, init=False)
+    coef_: Optional[pd.Series] = field(default=None, init=False)        # per feature
+    stderr_: Optional[pd.Series] = field(default=None, init=False)      # incl. "(Intercept)"
+    ranef_: Dict[str, pd.DataFrame] = field(default_factory=dict, init=False)
+    optimizer_returnvalue_: Optional[str] = field(default=None, init=False)
+    converged_: Optional[bool] = field(default=None, init=False)
+    is_singular_: Optional[bool] = field(default=None, init=False)
+    n_train_: Optional[int] = field(default=None, init=False)
 
-    rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
-    reverse_rename_map_: Dict[str, str] = field(default_factory=dict, init=False)
+    # The preparation's bookkeeping lives on `prep_`; these make it readable from here, under
+    # the same names as on the logistic regression.
+    @property
+    def feature_cols_(self) -> List[str]:
+        return [] if self.prep_ is None else list(self.prep_.feature_cols_)
 
-    target_col_model_: Optional[str] = field(default=None, init=False)
-    participant_col_model_: Optional[str] = field(default=None, init=False)
-    text_col_model_: Optional[str] = field(default=None, init=False)
+    @property
+    def scaler_(self) -> Optional[StandardScaler]:
+        return None if self.prep_ is None else self.prep_.scaler_
 
-    participant_effects_mode: str = "slopes"  # "intercept" | "slopes"
-    text_effects_mode: str = "slopes"  # "intercept" | "slopes"
+    @property
+    def imputed_counts_(self) -> Optional[pd.Series]:
+        return None if self.prep_ is None else self.prep_.imputed_counts_
 
-    _julia_ready: bool = field(default=False, init=False)
+    @property
+    def imputed_mask_(self) -> Optional[pd.DataFrame]:
+        return None if self.prep_ is None else self.prep_.imputed_mask_
+
+    @property
+    def unexpected_imputed_(self) -> Optional[pd.Series]:
+        return None if self.prep_ is None else self.prep_.unexpected_imputed_
 
     # ------------------------------------------------------------------
-    # Julia setup
+    # Data
     # ------------------------------------------------------------------
-    def _setup_julia(self) -> None:
-        if self._julia_ready:
-            return
-
-        jl.seval("using DataFrames")
-        jl.seval("using StatsModels")
-        jl.seval("using MixedModels")
-        jl.seval("using Distributions")
-        jl.seval("using PythonCall")
-        jl.seval("using StatsBase")
-
-        jl.seval("""
-        function pycols_to_df(colnames, cols)
-            d = DataFrame()
-            for (nm, col) in zip(colnames, cols)
-                d[!, Symbol(nm)] = pyconvert(Vector, col)
-            end
-            return d
-        end
-        """)
-
-        jl.seval("""
-        function table_to_py(x)
-            PythonCall.Compat.pytable(x)
-        end
-        """)
-
-        jl.seval("""
-        function fit_glmm_binomial(formula_obj, df; wcol=nothing)
-            if isnothing(wcol)
-                return fit(MixedModel, formula_obj, df, Bernoulli(); progress=false)
-            else
-                w = Vector{Float64}(df[!, Symbol(wcol)])
-                return fit(MixedModel, formula_obj, df, Bernoulli(), wts=w; progress=false)
-            end
-        end
-        """)
-
-        jl.seval("""
-        function predict_glmm_prob(model, newdf; use_rfx=false)
-            if use_rfx
-                return Vector{Float64}(predict(model, newdf; type=:response))
-            else
-                return Vector{Float64}(predict(model, newdf; type=:response, new_re_levels=:population))
-            end
-        end
-        """)
-
-        jl.seval("""
-        function fixef_table(model)
-            return DataFrame(
-                feature = String.(fixefnames(model)),
-                coef = collect(fixef(model)),
+    def _groups(self, df: pd.DataFrame) -> pd.DataFrame:
+        """The two grouping columns as text. A missing id stops the fit: as text it would
+        become a level called "nan", pooling every trial with no id into one participant."""
+        groups = df[[self.participant_col, self.text_col]]
+        n_missing = groups.isna().sum()
+        if n_missing.any():
+            raise ValueError(
+                f"Missing grouping ids: {n_missing[n_missing > 0].to_dict()}. Every trial "
+                f"needs a participant and a text for the random intercepts."
             )
-        end
-        """)
+        return groups.astype(str)
 
-        jl.seval("""
-        function ranef_tables_dict(model)
-            tabs = raneftables(model)
-            out = Dict{String,Any}()
-            for (k, v) in pairs(tabs)
-                out[string(k)] = DataFrame(v)
-            end
-            return out
-        end
-        """)
-
-        jl.seval("""
-        function varcorr_text(model)
-            io = IOBuffer()
-            show(io, MIME"text/plain"(), VarCorr(model))
-            return String(take!(io))
-        end
-        """)
-
-        self._julia_ready = True
-
-    # ------------------------------------------------------------------
-    # Prepare model dataframe
-    # ------------------------------------------------------------------
-    def _prepare_model_df(
-        self,
-        df: pd.DataFrame,
-        *,
-        fit: bool = False,
-        feature_cols: Optional[Sequence[str]] = None,
-        target_col: str = Con.IS_CORRECT_COLUMN,
-        participant_col: str = Con.PARTICIPANT_ID,
-        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
-    ) -> pd.DataFrame:
-        if feature_cols is None:
-            raw_cols = list(self.feature_cols_raw_)
-        else:
-            raw_cols = list(feature_cols)
-
-        model_df = df[[target_col, participant_col, text_col] + raw_cols].copy()
-
-        for c in raw_cols:
-            model_df[c] = pd.to_numeric(model_df[c], errors="coerce")
-        model_df[raw_cols] = model_df[raw_cols].fillna(self.fill_value)
-
-        model_df[target_col] = pd.to_numeric(model_df[target_col], errors="coerce").fillna(0).astype(int)
-        model_df[participant_col] = model_df[participant_col].astype(str)
-        model_df[text_col] = model_df[text_col].astype(str)
-
-        if fit:
-            self.scaler_ = StandardScaler()
-            model_df[raw_cols] = self.scaler_.fit_transform(model_df[raw_cols])
-            self.feature_cols_raw_ = list(raw_cols)
-        else:
-            model_df[raw_cols] = self.scaler_.transform(model_df[raw_cols])
-
-        self.rename_map_ = {c: c for c in [target_col, participant_col, text_col] + raw_cols}
-        self.reverse_rename_map_ = dict(self.rename_map_)
-
-        self.target_col_model_ = target_col
-        self.participant_col_model_ = participant_col
-        self.text_col_model_ = text_col
-
-        self.feature_cols_ = list(raw_cols)
-
-        return model_df
+    def _to_julia_df(self, y: np.ndarray, groups: pd.DataFrame, X: pd.DataFrame):
+        names = [self.target_col_, self.participant_col, self.text_col] + list(X.columns)
+        cols = (
+            [y.astype(int).tolist()]
+            + [groups[c].tolist() for c in (self.participant_col, self.text_col)]
+            + [X[c].astype(float).tolist() for c in X.columns]
+        )
+        return jl.pycols_to_df(names, cols)
 
     # ------------------------------------------------------------------
     # Formula
     # ------------------------------------------------------------------
+    def _random_term(self, mode: str, group: str, fixed: str) -> Optional[str]:
+        if mode == "intercept":
+            return f"(1 | {group})"
+        if mode == "slopes":
+            return f"zerocorr(1 + {fixed} | {group})"
+        if mode == "none":
+            return None
+        raise ValueError(f"Unknown random-effects mode {mode!r}.")
+
     def _build_formula(self) -> str:
+        names = [self.target_col_, self.participant_col, self.text_col] + self.feature_cols_
+        bad = [n for n in names if not _JULIA_IDENTIFIER.match(n)]
+        if bad:
+            raise ValueError(f"Not usable as names in a Julia @formula: {bad}")
+
         fixed = " + ".join(self.feature_cols_)
-
-        terms = [f"{self.target_col_model_} ~ 1 + {fixed}"]
-
-        if self.participant_effects_mode == "intercept":
-            terms.append(f"(1 | {self.participant_col_model_})")
-        elif self.participant_effects_mode == "slopes":
-            terms.append(
-                f"zerocorr(1 + {fixed} | {self.participant_col_model_})"
-            )
-
-        if self.text_effects_mode == "intercept":
-            terms.append(f"(1 | {self.text_col_model_})")
-        elif self.text_effects_mode == "slopes":
-            terms.append(
-                f"zerocorr(1 + {fixed} | {self.text_col_model_})"
-            )
-
-        formula = " + ".join(terms)
-
-        self.formula_ = formula
-        print(f"Built formula: {formula}")
-        return formula
-
-    # ------------------------------------------------------------------
-    # Pandas -> Julia DataFrame
-    # ------------------------------------------------------------------
-    def _to_julia_df(self, df: pd.DataFrame):
-        self._setup_julia()
-
-        tmp = df.copy()
-
-        for c in tmp.columns:
-            if c in self.feature_cols_:
-                tmp[c] = tmp[c].astype(float)
-            elif c == self.target_col_model_:
-                tmp[c] = tmp[c].astype(int)
-            elif c == self.participant_col_model_:
-                tmp[c] = tmp[c].astype(str)
-            elif c == self.text_col_model_:
-                tmp[c] = tmp[c].astype(str)
-            elif c == "obs_weight":
-                tmp[c] = tmp[c].astype(float)
-
-        colnames = list(tmp.columns)
-        cols = [tmp[c].tolist() for c in colnames]
-
-        jl.colnames_py = colnames
-        jl.cols_py = cols
-        return jl.seval("pycols_to_df(colnames_py, cols_py)")
+        terms = [f"{self.target_col_} ~ 1 + {fixed}"]
+        for mode, group in (
+            (self.participant_effects_mode, self.participant_col),
+            (self.text_effects_mode, self.text_col),
+        ):
+            term = self._random_term(mode, group, fixed)
+            if term is not None:
+                terms.append(term)
+        return " + ".join(terms)
 
     # ------------------------------------------------------------------
     # Fit
@@ -250,193 +278,214 @@ class TrialLevelJuliaGLMERModel:
     def fit(
         self,
         train_df: pd.DataFrame,
-        target_col: str = Con.IS_CORRECT_COLUMN,
-        feature_cols: Optional[Sequence[str]] = None,
-        participant_col: str = Con.PARTICIPANT_ID,
-        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
+        target_col: str,
+        feature_cols: Sequence[str],
     ) -> None:
-        model_df = self._prepare_model_df(
-            train_df,
-            fit=True,
-            feature_cols=feature_cols,
-            target_col=target_col,
-            participant_col=participant_col,
-            text_col=text_col,
+        _setup_julia()
+
+        self.prep_ = TrialLevelLogRegModel(fill_value=self.fill_value)
+        X = self.prep_._prepare_X(train_df, fit=True, feature_cols=feature_cols)
+        y = train_df[target_col].astype(int).to_numpy()
+        groups = self._groups(train_df)
+        self.target_col_ = target_col
+        self.formula_ = self._build_formula()
+
+        weights = (
+            compute_sample_weight(self.class_weight, y).tolist()
+            if self.class_weight is not None
+            else []
         )
 
-        formula = self._build_formula()
+        j_df = self._to_julia_df(y, groups, X)
+        j_formula = jl.seval(f"@formula({self.formula_})")
+        self.model = jl.fit_bernoulli_glmm(j_formula, j_df, weights)
+        self.n_train_ = len(y)
 
-        counts = model_df[self.target_col_model_].value_counts()
-        w0 = 1.0 / counts[0]
-        w1 = 1.0 / counts[1]
-        model_df["obs_weight"] = np.where(model_df[self.target_col_model_] == 0, w0, w1)
-        model_df["obs_weight"] = model_df["obs_weight"] / model_df["obs_weight"].mean()
+        self._read_fit()
 
-        j_df = self._to_julia_df(model_df)
+    def _read_fit(self) -> None:
+        """Copy what prediction and the summaries need out of the Julia model."""
+        m = self.model
+        names = [str(n) for n in jl.seval("m -> String.(fixefnames(m))")(m)]
+        beta = np.asarray(jl.seval("m -> collect(fixef(m))")(m), dtype=float)
+        se = np.asarray(jl.seval("m -> collect(stderror(m))")(m), dtype=float)
 
-        jl.j_df_train = j_df
-        jl.seval(f"j_formula = @formula({formula})")
+        # MixedModels drops a column it finds collinear with the others, and fixef then
+        # leaves it out. The model would no longer be the one asked for, so stop.
+        expected = ["(Intercept)"] + self.feature_cols_
+        if names != expected:
+            raise RuntimeError(
+                f"Fixed effects came back as {names}, expected {expected}. A missing name "
+                f"was dropped by MixedModels as collinear with the other columns."
+            )
 
-        self.model = jl.seval(
-            'fit_glmm_binomial(j_formula, j_df_train; wcol="obs_weight")'
-        )
-        # self.model = jl.seval(
-        #     'fit_glmm_binomial(j_formula, j_df_train; wcol=nothing)'
-        # )
+        self.intercept_ = float(beta[0])
+        self.coef_ = pd.Series(beta[1:], index=self.feature_cols_)
+        self.stderr_ = pd.Series(se, index=names)
+
+        self.ranef_ = {}
+        for group, cols in dict(jl.ranef_columns(m)).items():
+            cols = dict(cols)
+            frame = pd.DataFrame({
+                str(k): (
+                    [str(v) for v in cols[k]] if str(k) == group
+                    else np.asarray(cols[k], dtype=float)
+                )
+                for k in cols
+            })
+            self.ranef_[str(group)] = frame.set_index(group)
+
+        self.optimizer_returnvalue_ = str(jl.seval("m -> string(m.optsum.returnvalue)")(m))
+        self.converged_ = self.optimizer_returnvalue_ in _CONVERGED_RETURNVALUES
+        self.is_singular_ = bool(jl.seval("issingular")(m))
+
+        if not self.converged_:
+            warnings.warn(
+                f"{self.name}: the optimiser stopped with {self.optimizer_returnvalue_}, "
+                f"not a convergence code. The estimates may not be the maximum.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        if self.is_singular_:
+            warnings.warn(
+                f"{self.name}: singular fit -- at least one random-effect variance is "
+                f"estimated at (or next to) 0. See get_variance_components().",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
     # ------------------------------------------------------------------
-    # Predict probabilities
+    # Predict
     # ------------------------------------------------------------------
+    def _linear_predictor(self, df: pd.DataFrame, feature_cols: Optional[Sequence[str]]) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Model has not been fitted yet.")
+        X = self.prep_._prepare_X(df, fit=False, feature_cols=feature_cols)
+        eta = self.intercept_ + X[self.feature_cols_].to_numpy() @ self.coef_.to_numpy()
+
+        if self.predict_with == "fixed":
+            return eta
+        if self.predict_with != "known_levels":
+            raise ValueError(f"Unknown predict_with {self.predict_with!r}.")
+
+        # Each grouping factor adds its estimated effects for levels it has seen and
+        # nothing for new ones. "(Intercept)" multiplies 1; a random slope multiplies
+        # its feature, on the same standardised scale as the fixed effect.
+        groups = self._groups(df)
+        design = X.assign(**{"(Intercept)": 1.0})
+        for group, table in self.ranef_.items():
+            effects = table.reindex(groups[group].to_numpy()).fillna(0.0)
+            eta = eta + (effects.to_numpy() * design[list(table.columns)].to_numpy()).sum(axis=1)
+        return eta
+
     def predict_proba(
         self,
         df: pd.DataFrame,
-        target_col: str = Con.IS_CORRECT_COLUMN,
         feature_cols: Optional[Sequence[str]] = None,
-        participant_col: str = Con.PARTICIPANT_ID,
-        text_col: str = Con.TEXT_ID_WITH_Q_COLUMN,
-        use_rfx: bool = False,
     ) -> np.ndarray:
-        model_df = self._prepare_model_df(
-            df,
-            fit=False,
-            feature_cols=feature_cols,
-            target_col=target_col,
-            participant_col=participant_col,
-            text_col=text_col,
-        )
+        return expit(self._linear_predictor(df, feature_cols))
 
-        j_new = self._to_julia_df(model_df)
-        jl.model_py = self.model
-        jl.j_new = j_new
-
-        preds = jl.seval(
-            f"predict_glmm_prob(model_py, j_new; use_rfx={str(use_rfx).lower()})"
-        )
-        return np.asarray(preds).reshape(-1).astype(float)
-
-    # ------------------------------------------------------------------
-    # Predict classes
-    # ------------------------------------------------------------------
     def predict(
         self,
         df: pd.DataFrame,
-        threshold: float = 0.5,
-        **kwargs,
+        feature_cols: Optional[Sequence[str]] = None,
     ) -> np.ndarray:
-        p = self.predict_proba(df, **kwargs)
-        return (p >= threshold).astype(int)
+        # Strictly greater, as sklearn's LogisticRegression.predict.
+        return (self.predict_proba(df, feature_cols=feature_cols) > 0.5).astype(int)
 
+    # ------------------------------------------------------------------
+    # Summaries
+    # ------------------------------------------------------------------
     def get_coef_summary(
-            self,
-            train_df: Optional[pd.DataFrame] = None,
-            top_k: Optional[int] = None,
-            ci_method: Literal["bootstrap", "wald", "none"] = "wald",
-            ci_cluster: Literal["cluster", "row", "auto"] = "auto",
-            ci: float = 0.95,
-            n_boot: int = 5000,
-            seed: int = 42,
-            feature_cols: Optional[Sequence[str]] = None,
-            target_col: str = Con.IS_CORRECT_COLUMN,
+        self,
+        train_df: Optional[pd.DataFrame] = None,
+        top_k: Optional[int] = None,
+        ci_method: Literal["wald", "none"] = "wald",
+        ci_cluster: Literal["cluster"] = "cluster",
+        ci: float = 0.95,
+        n_boot: int = 5000,
+        seed: int = 42,
+        feature_cols: Optional[Sequence[str]] = None,
+        target_col: str = Con.IS_CORRECT_COLUMN,
     ) -> pd.DataFrame:
+        """Fixed-effect coefficients with Wald intervals, in the logistic regression's
+        columns (feature, coef, odds_ratio, abs_coef, se, ci_low, ci_high, or_ci_low,
+        or_ci_high, sig_ci) plus `z` and `p_value`. Largest |coef| first, intercept left
+        out as there.
+
+        The signature is the logistic regression's, so `crossval.py` and `evaluate.py`
+        can call either model. `train_df`, `feature_cols`, `target_col`, `n_boot` and
+        `seed` are not needed and not used: the standard errors come with the fit.
+
+        `ci_cluster` must be "cluster": the grouping of trials is in the model itself, as
+        the random intercepts, and there is no version of these intervals that treats
+        trials as independent. `ci_method="bootstrap"` is not available: MixedModels'
+        parametric bootstrap is for linear mixed models only, and a participant bootstrap
+        would mean thousands of mixed-model fits.
+        """
         if self.model is None:
             raise RuntimeError("Model has not been fitted yet.")
-
-        jl.model_py = self.model
-        coef_tbl = jl.table_to_py(jl.seval("coeftable(model_py)"))
-        out = pd.DataFrame(coef_tbl)
-
-        if "Name" in out.columns:
-            out = out.rename(columns={"Name": "feature"})
-        elif "Coef." in out.columns:
-            out = out.reset_index().rename(columns={"index": "feature"})
-        else:
-            out = out.reset_index().rename(columns={"index": "feature"})
-
-        out["feature_raw"] = out["feature"]
-
-        if "Coef." in out.columns:
-            out["coef"] = pd.to_numeric(out["Coef."], errors="coerce")
-        elif "Estimate" in out.columns:
-            out["coef"] = pd.to_numeric(out["Estimate"], errors="coerce")
-        else:
-            out["coef"] = np.nan
-
-        if "Std. Error" in out.columns:
-            se = pd.to_numeric(out["Std. Error"], errors="coerce")
-            out["se"] = se
-            out["ci_low"] = out["coef"] - 1.96 * se
-            out["ci_high"] = out["coef"] + 1.96 * se
-        else:
-            out["se"] = np.nan
-            out["ci_low"] = np.nan
-            out["ci_high"] = np.nan
-
-        out["abs_coef"] = out["coef"].abs()
-        out["or"] = np.exp(out["coef"])
-        out["or_ci_low"] = np.exp(out["ci_low"])
-        out["or_ci_high"] = np.exp(out["ci_high"])
-
-        if "Pr(>|z|)" in out.columns:
-            pvals = pd.to_numeric(out["Pr(>|z|)"], errors="coerce")
-            out["sig_ci"] = pvals < 0.05
-        elif "p" in out.columns:
-            pvals = pd.to_numeric(out["p"], errors="coerce")
-            out["sig_ci"] = pvals < 0.05
-        else:
-            out["sig_ci"] = (
-                    pd.notna(out["ci_low"])
-                    & pd.notna(out["ci_high"])
-                    & ((out["ci_low"] > 0) | (out["ci_high"] < 0))
+        if ci_cluster != "cluster":
+            raise ValueError(
+                f"ci_cluster={ci_cluster!r}: a mixed model's intervals already account for "
+                f"the grouping, through its random effects. Use 'cluster'."
+            )
+        if ci_method not in ("wald", "none"):
+            raise NotImplementedError(
+                f"ci_method={ci_method!r} is not available for the mixed model; use 'wald'."
             )
 
+        out = pd.DataFrame({
+            "feature": self.feature_cols_,
+            "coef": self.coef_.to_numpy(),
+        })
+        out["odds_ratio"] = np.exp(out["coef"])
+        out["abs_coef"] = out["coef"].abs()
+
+        if ci_method == "wald":
+            z = norm.ppf(1 - (1 - float(ci)) / 2)
+            se = self.stderr_[self.feature_cols_].to_numpy()
+            out["se"] = se
+            out["z"] = out["coef"] / se
+            out["p_value"] = 2 * norm.sf(np.abs(out["z"]))
+            out["ci_low"] = out["coef"] - z * se
+            out["ci_high"] = out["coef"] + z * se
+            out["or_ci_low"] = np.exp(out["ci_low"])
+            out["or_ci_high"] = np.exp(out["ci_high"])
+            out["sig_ci"] = (out["ci_low"] > 0) | (out["ci_high"] < 0)
+
+        out = out.sort_values("abs_coef", ascending=False)
         if top_k is not None:
-            out = out.sort_values("abs_coef", ascending=False).head(int(top_k))
-
+            out = out.head(int(top_k))
         return out.reset_index(drop=True)
-
-
 
     def get_formula(self) -> str:
         return self.formula_
 
-    def get_fixef_table(self) -> pd.DataFrame:
-        jl.model_py = self.model
-        tbl = jl.table_to_py(jl.seval("fixef_table(model_py)"))
-        out = pd.DataFrame(tbl)
-
-        out["feature_raw"] = out["feature"]
-        out["coef"] = pd.to_numeric(out["coef"], errors="coerce")
-        out["or"] = np.exp(out["coef"])
-        out["abs_coef"] = out["coef"].abs()
-
-        return out.sort_values("abs_coef", ascending=False).reset_index(drop=True)
-
     def get_random_effects(self) -> Dict[str, pd.DataFrame]:
-        jl.model_py = self.model
-        out = jl.seval("ranef_tables_dict(model_py)")
+        """Per grouping factor, one row per level: the level, then `random_intercept` (and
+        a column per random slope). Keyed by the grouping column's name."""
+        return {
+            group: table.rename(columns={"(Intercept)": "random_intercept"}).reset_index()
+            for group, table in self.ranef_.items()
+        }
 
-        py_out: Dict[str, pd.DataFrame] = {}
-        for group_name, table_obj in out.items():
-            df = pd.DataFrame(jl.table_to_py(table_obj)).copy()
-
-            df = df.rename(columns={
-                "(Intercept)": "random_intercept",
-                "Intercept": "random_intercept",
-            })
-
-            cols = list(df.columns)
-            if cols:
-                first = cols[0]
-                other_cols = [c for c in cols if c != first]
-                df = df[[first] + other_cols]
-
-            py_out[str(group_name)] = df
-
-        return py_out
+    def get_variance_components(self) -> pd.DataFrame:
+        """The estimated standard deviation of each random effect, one row per group and term."""
+        vc = dict(jl.variance_components(self.model))
+        return pd.DataFrame({
+            "group": [str(g) for g in vc["group"]],
+            "term": [str(t) for t in vc["term"]],
+            "sd": np.asarray(vc["sd"], dtype=float),
+        }).assign(variance=lambda d: d["sd"] ** 2)
 
     def get_random_effect_variance_summary(self) -> str:
-        jl.model_py = self.model
-        return str(jl.seval("varcorr_text(model_py)"))
+        """MixedModels' own printout of the variance components."""
+        return str(jl.model_text(jl.seval("VarCorr")(self.model)))
+
+    def summary_text(self) -> str:
+        """MixedModels' full printout of the fitted model."""
+        return str(jl.model_text(self.model))
 
 
 # ==========================================================================
@@ -501,6 +550,8 @@ class TrialLevelGLMERModel:
 
     @staticmethod
     def _to_model_df(df: pd.DataFrame) -> pl.DataFrame:
+        # Imported here, with pymer4 below, so the Julia model above does not need R.
+        import polars as pl
         return pl.from_pandas(df.reset_index(drop=True))
 
     def _prepare_model_df(
@@ -606,6 +657,8 @@ class TrialLevelGLMERModel:
             w1,
         )
         model_df["obs_weight"] = model_df["obs_weight"] / model_df["obs_weight"].mean()
+
+        from pymer4.models import glmer
 
         self.model = glmer(
             formula=formula,

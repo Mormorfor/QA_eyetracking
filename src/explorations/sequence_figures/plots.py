@@ -1,13 +1,11 @@
 """
-sequence_visualisations.py
-
-Utilities for visualising fixation sequences (by label or by screen location)
-using the processed eyetracking data produced by data_csv_generation.py.
+Utilities for visualising fixation sequences (by label or by screen location),
+one trial per row, from the word-level table.
 
 Typical usage in a notebook
 ---------------------------
 import pandas as pd
-import sequence_visualisations as SV
+from src.explorations.sequence_figures import plots as SV
 
 # 1) Load processed hunters / gatherers
 from src.config.datasets import dataset as get_dataset

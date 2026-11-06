@@ -35,7 +35,7 @@ import src.config.columns as Con
 from src.features.build import build_trial_level_model_df
 from src.modeling.evaluate import (
     _aggregate_cv_summary,
-    evaluate_single_model_on_prepared_split,
+    score_fitted_model,
 )
 from src.modeling.feature_sets import get_full_feature_cols
 from src.modeling.folds import (
@@ -84,8 +84,8 @@ class CrossValidationRunResult:
 # Coefficient intervals inside cross-validation are Wald intervals, clustered by
 # participant (`inference.wald_logreg_coef_cis`, which accounts for the L2
 # penalty and the class weights). They are used here because they need no
-# refitting: this runs once per fold and regime, where thousands of bootstrap
-# refits each time would be far too slow. 
+# refitting: this runs once per fold and model, where thousands of bootstrap
+# refits each time would be far too slow.
 def evaluate_one_fold_on_regimes(
     df: pd.DataFrame,
     *,
@@ -138,27 +138,31 @@ def evaluate_one_fold_on_regimes(
 
     feat_cols = list(feature_cols) if feature_cols is not None else list(get_full_feature_cols(train_df))
 
+    # One fit per fold: every regime is scored by the same model, fitted on the
+    # same training trials, so its coefficients are shared by all of them.
+    model = model_builder()
+    model.fit(train_df=train_df, target_col=target_col, feature_cols=feat_cols)
+    coef_summary = model.get_coef_summary(
+        train_df=train_df,
+        feature_cols=feat_cols,
+        top_k=coef_top_k,
+        ci_method=coef_ci_method,
+        ci_cluster=coef_ci_cluster,
+        ci=coef_ci,
+        n_boot=coef_n_boot,
+        seed=coef_seed,
+    )
+
     results: Dict[str, FoldRegimeEvaluationResult] = {}
 
     for regime in eval_regimes:
         eval_df = _regime_frame(regime)
 
-        model = model_builder()
-
-        eval_res = evaluate_single_model_on_prepared_split(
-            model=model,
-            train_df=train_df,
-            test_df=eval_df,
+        y_true, y_pred, y_prob = score_fitted_model(
+            model,
+            eval_df,
             target_col=target_col,
             feature_cols=feat_cols,
-            coef_kwargs={
-                "top_k": coef_top_k,
-                "ci_method": coef_ci_method,
-                "ci_cluster": coef_ci_cluster,
-                "ci": coef_ci,
-                "n_boot": coef_n_boot,
-                "seed": coef_seed,
-            },
         )
 
         results[regime] = FoldRegimeEvaluationResult(
@@ -166,15 +170,15 @@ def evaluate_one_fold_on_regimes(
             regime=regime,
             train_df=train_df,
             eval_df=eval_df,
-            y_true=eval_res.y_true,
-            y_pred=eval_res.y_pred,
-            y_prob=eval_res.y_prob,
-            accuracy=eval_res.accuracy,
-            balanced_accuracy=float(balanced_accuracy_score(eval_res.y_true, eval_res.y_pred)),
-            n_eval=eval_res.n_test,
-            n_positive=eval_res.n_positive,
-            n_negative=eval_res.n_negative,
-            coef_summary=eval_res.coef_summary,
+            y_true=y_true,
+            y_pred=y_pred,
+            y_prob=y_prob,
+            accuracy=float((y_true == y_pred).mean()),
+            balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred)),
+            n_eval=len(eval_df),
+            n_positive=int((y_true == 1).sum()),
+            n_negative=int((y_true == 0).sum()),
+            coef_summary=coef_summary,
         )
 
     return results
