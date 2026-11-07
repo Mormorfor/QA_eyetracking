@@ -51,7 +51,7 @@ human-correct responses.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -110,6 +110,7 @@ def run_crossval_predictions(
     feature_cols: Optional[Sequence[str]] = None,
     model_name: str = DEFAULT_MODEL_NAME,
     n_folds: int = 10,
+    model_builder: Optional[Callable[[], Any]] = None,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Cross-validate the general model and return its held-out predictions.
@@ -120,6 +121,9 @@ def run_crossval_predictions(
 
     Gives one row per held-out trial, fold and regime, with `y_true`, `y_pred`
     and `y_prob`.
+
+    `model_builder` makes the unfitted model; `None` is the logistic regression. Pass
+    the mixed model's (`modeling/models/glmm_model.py`) to see its mistakes instead.
 
     `trial_df` is the ready-made trial table, loaded if not given. Passing it is
     the quick path, and fine here: all twelve features are measured per trial,
@@ -136,6 +140,8 @@ def run_crossval_predictions(
     from src.modeling.models.logreg_model import TrialLevelLogRegModel
 
     cols = list(feature_cols) if feature_cols is not None else default_feature_cols()
+    if model_builder is None:
+        model_builder = TrialLevelLogRegModel
     if trial_df is None:
         trial_df = load_model_ready()
 
@@ -145,7 +151,7 @@ def run_crossval_predictions(
     cv_out = run_cross_validation_on_combined_folds(
         df=all_participants,
         fold_dirs=[HUNTERS_REFOLDED_DIR, GATHERERS_REFOLDED_DIR],
-        model_builders={model_name: (lambda: TrialLevelLogRegModel())},
+        model_builders={model_name: model_builder},
         target_col=Con.IS_CORRECT_COLUMN,
         n_folds=n_folds,
         df_participant_col=Con.PARTICIPANT_ID,

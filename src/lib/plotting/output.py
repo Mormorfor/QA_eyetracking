@@ -97,6 +97,7 @@ ANALYSES: Dict[str, str] = {
     # --- explorations: kept, but not used in the paper --------------------
     "explorations/answer_reading_times": "Predicting reading time on each answer",
     "explorations/answer_location": "Predicting which screen position was chosen",
+    "explorations/answer_hidden": "The correctness model without knowing which answer is correct",
     "explorations/participant_clustering": "Participant clustering and similarity",
     "explorations/feature_search": "Feature selection and column-set generation",
     "explorations/text_answer_effects": "Mixed-effects models of paragraph parts against answer dwell",

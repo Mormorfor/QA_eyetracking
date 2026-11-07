@@ -9,7 +9,7 @@ each answer's mean, and every pair of answers is tested, Holm-corrected.
 group, and saves a significance heatmap (drawn in `plots.py`) with its tables.
 
 This only compares the answers with each other. Predicting correctness with a
-mixed model is a separate thing, kept in `explorations/mixed_models/`.
+mixed model is a separate thing, in `analyses/correctness_prediction/mixed_model/`.
 """
 
 from __future__ import annotations

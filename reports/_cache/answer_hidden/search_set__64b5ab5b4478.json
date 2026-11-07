@@ -1,0 +1,12 @@
+{
+ "features": [
+  "area_dwell_proportion__question",
+  "mean_fixations_count__question",
+  "RT_normalized_question"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "tables": {
+  "knowqa_hidden": "ee39159ac90db81e",
+  "l1_hidden": "b366695c35c16b9d"
+ }
+}

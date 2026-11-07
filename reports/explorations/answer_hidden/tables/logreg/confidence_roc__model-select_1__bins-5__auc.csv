@@ -1,0 +1,16 @@
+regime,curve,model,auc,n,n_correct,model_family
+no knowledge,known,select_1,0.8094674037027287,625,232,logreg
+no knowledge,position,select_1_position,0.5645619461261736,625,232,logreg
+no knowledge,selected,select_1_selected,0.5778384662630517,625,232,logreg
+no knowledge,spread,select_1_spread,0.5776629814863561,625,232,logreg
+no knowledge,self-report,self-report,0.5173565411950514,625,232,logreg
+partial knowledge,known,select_1,0.7992569588969823,620,496,logreg
+partial knowledge,position,select_1_position,0.6440394120707595,620,496,logreg
+partial knowledge,selected,select_1_selected,0.6676395031217481,620,496,logreg
+partial knowledge,spread,select_1_spread,0.6490959937565036,620,496,logreg
+partial knowledge,self-report,self-report,0.7774128511966701,620,496,logreg
+full knowledge,known,select_1,0.8951322115384615,640,624,logreg
+full knowledge,position,select_1_position,0.7415865384615385,640,624,logreg
+full knowledge,selected,select_1_selected,0.7179487179487178,640,624,logreg
+full knowledge,spread,select_1_spread,0.7177483974358974,640,624,logreg
+full knowledge,self-report,self-report,0.7568609775641026,640,624,logreg

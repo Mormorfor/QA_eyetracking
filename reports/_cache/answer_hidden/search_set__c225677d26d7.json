@@ -1,0 +1,25 @@
+{
+ "features": [
+  "area_dwell_proportion__selected",
+  "area_dwell_proportion__question",
+  "skip_rate__selected",
+  "has_xyx",
+  "ANSWER_PRESS_NUMBER",
+  "num_label_visits__selected",
+  "num_label_visits__selected_contrast",
+  "mean_fixations_count__question",
+  "mean_fixations_count__unselected_mean",
+  "mean_max_fix_pupil_size_z__selected",
+  "last_before_confirm_selected",
+  "last_before_confirm_question",
+  "seq_len",
+  "num_label_visits__unselected_mean",
+  "num_label_visits__question",
+  "RT_normalized_question"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "tables": {
+  "knowqa_hidden": "7b42f2ae5ae833e4",
+  "l1_hidden": "d2089a1c08d7f3a5"
+ }
+}

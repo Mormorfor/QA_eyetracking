@@ -220,9 +220,11 @@ def run_regime_split_comparison(
 
     Each regime's trials of `new_features`, and all of them pooled (`all`, with
     `include_pooled`), go through `run_cross_dataset_correctness_bundle` in turn: the
-    model (`TrialLevelLogRegModel`) is fitted on every trial of `train_df` and scored on
-    that subset. Every run fits the same model on the same data, so the runs differ only
-    in the trials they are scored on. A regime with no trials is skipped, with a message.
+    model is fitted on every trial of `train_df` and scored on that subset. Every run fits
+    the same model on the same data, so the runs differ only in the trials they are scored
+    on. A regime with no trials is skipped, with a message. The model is the logistic
+    regression unless `model_builder` is passed (it goes to the bundle with the other
+    `bundle_kwargs`); the mixed model also needs `coef_ci_cluster="cluster"` there.
 
     `new_features` and `regime_source` default to the first pilot; see the module
     docstring. `regime_source` is read only when `new_features` has no `regime` column.

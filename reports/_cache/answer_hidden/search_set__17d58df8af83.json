@@ -1,0 +1,16 @@
+{
+ "features": [
+  "longest_alt_answer_run",
+  "has_xyx",
+  "has_xyxy",
+  "ANSWER_PRESS_NUMBER",
+  "last_before_select_selected",
+  "last_before_confirm_selected",
+  "last_before_confirm_question"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "tables": {
+  "knowqa_hidden": "7b42f2ae5ae833e4",
+  "l1_hidden": "d2089a1c08d7f3a5"
+ }
+}

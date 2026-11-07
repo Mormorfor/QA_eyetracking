@@ -11,8 +11,10 @@ columns -- and scores every one twice:
   knowledge regime on its own, and all of them together (`all`). One fit and one test
   set, so there is no interval.
 
-Every model is the project's logistic regression; only the features differ. The score is
-balanced accuracy, so chance is 0.5 whatever the share of correct answers.
+By default every model is the project's logistic regression and only the features
+differ; `model_builder` swaps in another model class for all of them, such as the mixed
+model (`modeling/models/glmm_model.py`). The score is balanced accuracy, so chance is 0.5
+whatever the share of correct answers.
 
 **A model that uses paragraph features is not tested on KnowQA**, because KnowQA has no
 paragraph screen. It keeps its KnowQA rows, with no score and a note saying why. It is not
@@ -29,7 +31,7 @@ not use them.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -42,6 +44,7 @@ from src.modeling.crossval import run_cross_validation_on_combined_folds
 from src.modeling.evaluate import AVERAGE_NOVELTY, summarize_cv_results_by_novelty
 from src.modeling.folds import NOVELTY_BY_CELL
 from src.modeling.models.logreg_model import TrialLevelLogRegModel
+from src.modeling.provenance import MODEL_FAMILY_COL
 from src.analyses.correctness_prediction.knowledge_regimes import descriptives as D
 
 # The paper's model comparison: these sets from `configs/feature_sets/`, by name. Named
@@ -73,7 +76,7 @@ PERSON_LEVEL_COLS = frozenset(
 
 SCORE_COLS = [
     "dataset", "test", "model", "n_features", "balanced_accuracy",
-    "ci_low", "ci_high", "n_folds", "n_scored", "note",
+    "ci_low", "ci_high", "n_folds", "n_scored", "note", MODEL_FAMILY_COL,
 ]
 
 
@@ -124,6 +127,7 @@ def run_model_comparison(
     knowqa_df: Optional[pd.DataFrame] = None,
     n_folds: int = 10,
     ci: float = 0.95,
+    model_builder: Callable[[], Any] = TrialLevelLogRegModel,
     verbose: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """Score every model in `models` on Study 1 and on Study 2.
@@ -140,11 +144,16 @@ def run_model_comparison(
     * `scores` -- one row per dataset, test and model: the balanced accuracy, its
       interval (Study 1 only), and `n_scored`, how many trials were scored. For Study 1
       that is summed over the folds, so a trial held out in several folds counts each
-      time. `note` says why a model has no score.
+      time. `note` says why a model has no score, and `model_family` which model class
+      made the scores.
     * `folds` -- Study 1's cross-validation rows, one per model, fold and held-out half:
       the scores the Study 1 rows are built from.
 
-    Study 1 takes about seven seconds per model, Study 2 about one.
+    `model_builder` makes each unfitted model, for both studies; the default is the
+    logistic regression.
+
+    With the logistic regression, Study 1 takes about seven seconds per model, Study 2
+    about one. The mixed model takes about two minutes per model.
     """
     names = list(models)
     for name in names:
@@ -172,7 +181,7 @@ def run_model_comparison(
     cv_out = run_cross_validation_on_combined_folds(
         trial_ids,
         fold_dirs=[HUNTERS_REFOLDED_DIR, GATHERERS_REFOLDED_DIR],  # both groups, pooled
-        model_builders={name: TrialLevelLogRegModel for name in names},
+        model_builders={name: model_builder for name in names},
         feature_cols_by_model={name: list(models[name]) for name in names},
         target_col=Con.IS_CORRECT_COLUMN,
         n_folds=n_folds,
@@ -208,7 +217,7 @@ def run_model_comparison(
 
         if verbose:
             print(f"Study 2: {name}")
-        model = D.fit_l1_model(trial_df, feature_cols=cols, verbose=False)
+        model = D.fit_l1_model(trial_df, feature_cols=cols, model_builder=model_builder, verbose=False)
         scored = D.attach_predictions(knowqa_df, model, feature_cols=cols, verbose=verbose)
         metrics = D.prediction_metrics_by_regime(scored).set_index(D.REGIME_COL)
 
@@ -226,4 +235,7 @@ def run_model_comparison(
             ))
 
     scores = pd.concat([l1_scores, pd.DataFrame(knowqa_rows)], ignore_index=True)
+    # Which model made these scores, so a saved table and figure say so
+    # (`modeling/provenance.py`). One builder makes every model here.
+    scores[MODEL_FAMILY_COL] = model_builder().family
     return {"scores": scores[SCORE_COLS], "folds": cv_out.summary_df}

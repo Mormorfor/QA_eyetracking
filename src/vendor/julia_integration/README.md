@@ -1,9 +1,9 @@
 # src/vendor/julia_integration
 
 `julia_test.ipynb` sets up Julia for this project and checks that Python can talk to it. The
-only code that needs Julia is the parked mixed-model backend,
-`src/explorations/mixed_models/models.py`, which fits its models with Julia's MixedModels
-through `juliacall`. Nothing the paper uses needs it.
+only code that needs Julia is the mixed model, `src/modeling/models/glmm_model.py`, which fits
+with Julia's MixedModels through `juliacall`, and what runs it
+(`src/analyses/correctness_prediction/mixed_model/`). The logistic regression does not need it.
 
 The notebook, top to bottom:
 
@@ -17,16 +17,16 @@ The notebook, top to bottom:
    coefficient table back into Python, to show that a fit runs end to end.
 4. Tries ways of handing a pandas table to Julia. `jlconvert(jl.PyTable, df)` fails;
    wrapping it as `PythonCall.PyPandasDataFrame(df)` and building a Julia `DataFrame` from
-   that works. `models.py` uses neither: it passes the columns across one at a time
+   that works. `glmm_model.py` uses neither: it passes the columns across one at a time
    (`pycols_to_df`).
 
-Run it once on a new machine before using the mixed-model backend. `juliacall` itself is
+Run it once on a new machine before using the mixed model. `juliacall` itself is
 pinned in `environment.yml`.
 
 **Where the Julia packages live.** `juliapkg` keeps them in `<conda env>/julia_env/`, but it
 finds the env through `CONDA_PREFIX`, which is set only when the env is *activated*. Run the
 env's `python.exe` directly, or a Jupyter started from another env, and it would use
 `~/.julia/environments/pyjuliapkg/` instead: a different, empty project, where it installs a
-fresh Julia and then fails with `Package DataFrames not found`. `models.py` and the first
+fresh Julia and then fails with `Package DataFrames not found`. `glmm_model.py` and the first
 cell of the notebook both set `PYTHON_JULIAPKG_PROJECT` to `<this Python's env>/julia_env`
 before `juliacall` is imported, so the folder follows the interpreter.

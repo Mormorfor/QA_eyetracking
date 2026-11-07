@@ -1,0 +1,10 @@
+regime,curve,auc,n,model_family
+no knowledge,answer revealed,0.8604292796349916,625,logreg
+no knowledge,answer hidden,0.5634706501710978,625,logreg
+no knowledge,self-report,0.5173565411950514,625,logreg
+partial knowledge,answer revealed,0.8545866935483871,620,logreg
+partial knowledge,answer hidden,0.6575507284079084,620,logreg
+partial knowledge,self-report,0.7774128511966701,620,logreg
+full knowledge,answer revealed,0.9060997596153847,640,logreg
+full knowledge,answer hidden,0.7486979166666666,640,logreg
+full knowledge,self-report,0.7568609775641026,640,logreg

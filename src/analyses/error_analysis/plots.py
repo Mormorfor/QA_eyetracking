@@ -21,7 +21,9 @@ here rather than in `lib.plotting.confusion` because that one names its axes by
 class value (`true_1`, `pred_0`), and what matters here is which cell is which
 and that "positive" means the participant got it right.
 
-Every figure saves its numbers beside it; see `conventions.md`.
+Every figure saves its numbers beside it; see `conventions.md`. Each is saved in the
+folder of the model whose predictions it shows (`logreg/`, `glmm/`), read from the
+predictions themselves (`modeling/provenance.py`).
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ import numpy as np
 import pandas as pd
 
 from src.lib.plotting.output import save_output
+from src.modeling.provenance import model_folder
 from src.modeling.confusion import (
     QUAD_COLORS,
     QUAD_LABELS,
@@ -102,6 +105,7 @@ def plot_confusion_quadrants(
         fig,
         analysis=ANALYSIS,
         plot="confusion_quadrants",
+        subdir=model_folder(trials),
         tables={"counts": counts_to_frame(counts)},
         save=save,
         to_paper=to_paper,
@@ -151,6 +155,7 @@ def plot_confusion_quadrants_by_regime(
         fig,
         analysis=ANALYSIS,
         plot="confusion_quadrants_by_regime",
+        subdir=model_folder(preds),
         tables={"counts": summary},
         save=save,
         to_paper=to_paper,
@@ -242,6 +247,7 @@ def plot_confusion_matrix(
         fig,
         analysis=ANALYSIS,
         plot="confusion_matrix",
+        subdir=model_folder(trials),
         tables={"counts": table},
         save=save,
         to_paper=to_paper,
@@ -325,6 +331,7 @@ def plot_guessing_scenarios(
         fig,
         analysis=ANALYSIS,
         plot="guessing_scenarios",
+        subdir=model_folder(counts),
         tables={"scenarios": table},
         save=save,
         to_paper=to_paper,
@@ -392,6 +399,7 @@ def plot_guessing_scenarios_by_regime(
         fig,
         analysis=ANALYSIS,
         plot="guessing_scenarios_by_regime",
+        subdir=model_folder(preds),
         tables={"scenarios": table},
         save=save,
         to_paper=to_paper,
@@ -481,6 +489,7 @@ def plot_guessing_balance(
         fig,
         analysis=ANALYSIS,
         plot="guessing_balance",
+        subdir=model_folder(counts),
         tables={"curve": curve, "balance": pd.DataFrame([bal])},
         save=save,
         to_paper=to_paper,

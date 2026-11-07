@@ -1,0 +1,20 @@
+{
+ "features": [
+  "longest_alt_answer_run",
+  "has_xyx",
+  "has_xyxy",
+  "seq_len",
+  "num_label_visits__selected",
+  "num_label_visits__unselected_mean",
+  "num_label_visits__question",
+  "RT_normalized_selected",
+  "RT_normalized_unselected_mean",
+  "TimeSinceOffset_normalized_selected",
+  "TimeSinceOffset_normalized_unselected_mean"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "tables": {
+  "knowqa_hidden": "7b42f2ae5ae833e4",
+  "l1_hidden": "d2089a1c08d7f3a5"
+ }
+}

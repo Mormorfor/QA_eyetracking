@@ -1,0 +1,27 @@
+{
+ "ci_cluster": "cluster",
+ "ci_method": "bootstrap",
+ "features": [
+  "area_dwell_proportion__answer_max",
+  "area_dwell_proportion__answer_min",
+  "area_dwell_proportion__question",
+  "skip_rate__answer_max",
+  "skip_rate__answer_mean",
+  "skip_rate__answer_min",
+  "has_xyx",
+  "ANSWER_PRESS_NUMBER",
+  "num_label_visits__answer_max",
+  "num_label_visits__answer_mean",
+  "num_label_visits__answer_min",
+  "mean_fixations_count__question",
+  "mean_fixations_count__answer_max",
+  "mean_fixations_count__answer_mean",
+  "mean_fixations_count__answer_min",
+  "mean_max_fix_pupil_size_z__answer_max",
+  "mean_max_fix_pupil_size_z__answer_mean",
+  "mean_max_fix_pupil_size_z__answer_min",
+  "last_before_confirm_question"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "table": "d2089a1c08d7f3a5"
+}

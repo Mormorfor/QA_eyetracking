@@ -237,8 +237,8 @@ it were yours; do note that it fills missing values with zero very liberally. Tw
 `eyebench/` are ours, the adapter `paragraph_trial_features.py` and the driver `runner.py`;
 `eyebench/__init__.py` has a table of whose file is whose. Only exploration code uses any of it.
 Beside it, `cv_folds/` holds the notebooks that made the cross-validation folds (its README says
-which cells are the lab's), and `julia_integration/` a notebook that sets up Julia for the parked
-mixed-model backend.
+which cells are the lab's), and `julia_integration/` a notebook that sets up Julia for the mixed
+model (`modeling/models/glmm_model.py`).
 
 ---
 

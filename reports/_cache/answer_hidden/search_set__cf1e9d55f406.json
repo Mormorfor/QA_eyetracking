@@ -1,0 +1,41 @@
+{
+ "features": [
+  "longest_alt_answer_run",
+  "has_xyx",
+  "has_xyxy",
+  "seq_len",
+  "num_label_visits__selected",
+  "num_label_visits__unselected_mean",
+  "num_label_visits__question",
+  "total_answering_RT_normalized",
+  "RT_normalized_selected",
+  "RT_normalized_unselected_mean",
+  "TimeSinceOffset_normalized_selected",
+  "TimeSinceOffset_normalized_unselected_mean",
+  "mean_dwell_time__matching_polarity",
+  "mean_fixations_count__matching_polarity",
+  "mean_first_fixation_duration__matching_polarity",
+  "skip_rate__matching_polarity",
+  "area_dwell_proportion__matching_polarity",
+  "mean_avg_fix_pupil_size_z__matching_polarity",
+  "mean_max_fix_pupil_size_z__matching_polarity",
+  "mean_min_fix_pupil_size_z__matching_polarity",
+  "first_encounter_avg_pupil_size_z__matching_polarity",
+  "num_label_visits__matching_polarity",
+  "mean_dwell_time__matching_relative",
+  "mean_fixations_count__matching_relative",
+  "mean_first_fixation_duration__matching_relative",
+  "skip_rate__matching_relative",
+  "area_dwell_proportion__matching_relative",
+  "mean_avg_fix_pupil_size_z__matching_relative",
+  "mean_max_fix_pupil_size_z__matching_relative",
+  "mean_min_fix_pupil_size_z__matching_relative",
+  "first_encounter_avg_pupil_size_z__matching_relative",
+  "num_label_visits__matching_relative"
+ ],
+ "model": "TrialLevelLogRegModel(name='trial_level_log_reg', max_iter=100000, class_weight='balanced', fill_value=0.0, model=None, scaler_=None, feature_cols_=[], imputed_counts_=None, imputed_mask_=None, unexpected_imputed_=None)",
+ "tables": {
+  "knowqa_hidden": "883a081a915279fc",
+  "l1_hidden": "e659a2679d7fe296"
+ }
+}

@@ -47,6 +47,198 @@
     "source": null,
     "saved_at": "2026-09-26T16:01:34"
   },
+  "corr_by_dwell_cont__group-all_P__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "all_participants",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "corr_by_dwell_cont__group-all_P__bw-10__minn-10.png",
+    "subdir": "corr_by_dwell_cont",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:57"
+  },
+  "corr_by_dwell_cont__group-gatherers__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "gatherers",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "corr_by_dwell_cont__group-gatherers__bw-10__minn-10.png",
+    "subdir": "corr_by_dwell_cont",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:56"
+  },
+  "corr_by_dwell_cont__group-hunters__bw-10__minn-10": {
+    "plot": "correctness_by_trial_mean_dwell_continuous",
+    "facets": {
+      "group": "hunters",
+      "bw": 10.0,
+      "minn": 10
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
+    "figure": "corr_by_dwell_cont__group-hunters__bw-10__minn-10.png",
+    "subdir": "corr_by_dwell_cont",
+    "tables": [
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-20T16:24:56"
+  },
+  "corr_by_dwell_thresh__group-all_P__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-all_P__threshold-100.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:55"
+  },
+  "corr_by_dwell_thresh__group-all_P__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-all_P__threshold-50.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:54"
+  },
+  "corr_by_dwell_thresh__group-all_P__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "all_participants",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-all_P__threshold-75.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:55"
+  },
+  "corr_by_dwell_thresh__group-gatherers__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-100.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:54"
+  },
+  "corr_by_dwell_thresh__group-gatherers__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-50.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:53"
+  },
+  "corr_by_dwell_thresh__group-gatherers__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "gatherers",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-75.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:54"
+  },
+  "corr_by_dwell_thresh__group-hunters__threshold-100": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 100.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-hunters__threshold-100.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:53"
+  },
+  "corr_by_dwell_thresh__group-hunters__threshold-50": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 50.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-hunters__threshold-50.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:53"
+  },
+  "corr_by_dwell_thresh__group-hunters__threshold-75": {
+    "plot": "correctness_by_trial_mean_dwell_threshold",
+    "facets": {
+      "group": "hunters",
+      "threshold": 75.0
+    },
+    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
+    "figure": "corr_by_dwell_thresh__group-hunters__threshold-75.png",
+    "subdir": "corr_by_dwell_thresh",
+    "tables": [
+      "fisher",
+      "summary"
+    ],
+    "source": null,
+    "saved_at": "2026-09-26T16:01:53"
+  },
   "corr_by_matching__group-all_P__mode-polarity__metric-dwell_prop": {
     "plot": "correctness_by_matching",
     "facets": {
@@ -54,14 +246,14 @@
       "mode": "polarity",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:06"
+    "saved_at": "2026-11-07T09:41:23"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -70,14 +262,14 @@
       "mode": "polarity",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:07"
+    "saved_at": "2026-11-07T09:41:25"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -86,14 +278,14 @@
       "mode": "polarity",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:06"
+    "saved_at": "2026-11-07T09:41:24"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -102,14 +294,14 @@
       "mode": "polarity",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:04"
+    "saved_at": "2026-11-07T09:41:22"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -118,14 +310,14 @@
       "mode": "polarity",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:05"
+    "saved_at": "2026-11-07T09:41:23"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -134,14 +326,14 @@
       "mode": "polarity",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:05"
+    "saved_at": "2026-11-07T09:41:22"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -150,14 +342,14 @@
       "mode": "polarity",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:06"
+    "saved_at": "2026-11-07T09:41:24"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -166,14 +358,14 @@
       "mode": "polarity",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:07"
+    "saved_at": "2026-11-07T09:41:24"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -182,14 +374,14 @@
       "mode": "polarity",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:07"
+    "saved_at": "2026-11-07T09:41:25"
   },
   "corr_by_matching__group-all_P__mode-polarity__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -198,14 +390,14 @@
       "mode": "polarity",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-polarity__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:05"
+    "saved_at": "2026-11-07T09:41:23"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-dwell_prop": {
     "plot": "correctness_by_matching",
@@ -214,14 +406,14 @@
       "mode": "relative",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:15"
+    "saved_at": "2026-11-07T09:41:32"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -230,14 +422,14 @@
       "mode": "relative",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:16"
+    "saved_at": "2026-11-07T09:41:34"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -246,14 +438,14 @@
       "mode": "relative",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:15"
+    "saved_at": "2026-11-07T09:41:33"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -262,14 +454,14 @@
       "mode": "relative",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:13"
+    "saved_at": "2026-11-07T09:41:31"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -278,14 +470,14 @@
       "mode": "relative",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:14"
+    "saved_at": "2026-11-07T09:41:32"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -294,14 +486,14 @@
       "mode": "relative",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:14"
+    "saved_at": "2026-11-07T09:41:31"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -310,14 +502,14 @@
       "mode": "relative",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:15"
+    "saved_at": "2026-11-07T09:41:33"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -326,14 +518,14 @@
       "mode": "relative",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:16"
+    "saved_at": "2026-11-07T09:41:34"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -342,14 +534,14 @@
       "mode": "relative",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:17"
+    "saved_at": "2026-11-07T09:41:34"
   },
   "corr_by_matching__group-all_P__mode-relative__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -358,14 +550,14 @@
       "mode": "relative",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-all_P__mode-relative__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:14"
+    "saved_at": "2026-11-07T09:41:32"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-dwell_prop": {
     "plot": "correctness_by_matching",
@@ -374,14 +566,14 @@
       "mode": "polarity",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:02"
+    "saved_at": "2026-11-07T09:41:20"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -390,14 +582,14 @@
       "mode": "polarity",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:04"
+    "saved_at": "2026-11-07T09:41:21"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -406,14 +598,14 @@
       "mode": "polarity",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:03"
+    "saved_at": "2026-11-07T09:41:20"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -422,14 +614,14 @@
       "mode": "polarity",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:01"
+    "saved_at": "2026-11-07T09:41:19"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -438,14 +630,14 @@
       "mode": "polarity",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:02"
+    "saved_at": "2026-11-07T09:41:19"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -454,14 +646,14 @@
       "mode": "polarity",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:02"
+    "saved_at": "2026-11-07T09:41:19"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -470,14 +662,14 @@
       "mode": "polarity",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:03"
+    "saved_at": "2026-11-07T09:41:20"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -486,14 +678,14 @@
       "mode": "polarity",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:03"
+    "saved_at": "2026-11-07T09:41:21"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -502,14 +694,14 @@
       "mode": "polarity",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:04"
+    "saved_at": "2026-11-07T09:41:21"
   },
   "corr_by_matching__group-gatherers__mode-polarity__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -518,14 +710,14 @@
       "mode": "polarity",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-polarity__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:02"
+    "saved_at": "2026-11-07T09:41:20"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-dwell_prop": {
     "plot": "correctness_by_matching",
@@ -534,14 +726,14 @@
       "mode": "relative",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:12"
+    "saved_at": "2026-11-07T09:41:29"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -550,14 +742,14 @@
       "mode": "relative",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:13"
+    "saved_at": "2026-11-07T09:41:30"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -566,14 +758,14 @@
       "mode": "relative",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:12"
+    "saved_at": "2026-11-07T09:41:29"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -582,14 +774,14 @@
       "mode": "relative",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:11"
+    "saved_at": "2026-11-07T09:41:28"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -598,14 +790,14 @@
       "mode": "relative",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:11"
+    "saved_at": "2026-11-07T09:41:29"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -614,14 +806,14 @@
       "mode": "relative",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:11"
+    "saved_at": "2026-11-07T09:41:28"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -630,14 +822,14 @@
       "mode": "relative",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:12"
+    "saved_at": "2026-11-07T09:41:30"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -646,14 +838,14 @@
       "mode": "relative",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:13"
+    "saved_at": "2026-11-07T09:41:30"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -662,14 +854,14 @@
       "mode": "relative",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:13"
+    "saved_at": "2026-11-07T09:41:30"
   },
   "corr_by_matching__group-gatherers__mode-relative__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -678,14 +870,14 @@
       "mode": "relative",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-gatherers__mode-relative__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:11"
+    "saved_at": "2026-11-07T09:41:29"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-dwell_prop": {
     "plot": "correctness_by_matching",
@@ -694,14 +886,14 @@
       "mode": "polarity",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:00"
+    "saved_at": "2026-11-07T09:41:17"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -710,14 +902,14 @@
       "mode": "polarity",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:01"
+    "saved_at": "2026-11-07T09:41:18"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -726,14 +918,14 @@
       "mode": "polarity",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:00"
+    "saved_at": "2026-11-07T09:41:17"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -742,14 +934,14 @@
       "mode": "polarity",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:59"
+    "saved_at": "2026-11-07T09:41:16"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -758,14 +950,14 @@
       "mode": "polarity",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:59"
+    "saved_at": "2026-11-07T09:41:17"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -774,14 +966,14 @@
       "mode": "polarity",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:59"
+    "saved_at": "2026-11-07T09:41:16"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -790,14 +982,14 @@
       "mode": "polarity",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:00"
+    "saved_at": "2026-11-07T09:41:18"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -806,14 +998,14 @@
       "mode": "polarity",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:01"
+    "saved_at": "2026-11-07T09:41:18"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -822,14 +1014,14 @@
       "mode": "polarity",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:01"
+    "saved_at": "2026-11-07T09:41:19"
   },
   "corr_by_matching__group-hunters__mode-polarity__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -838,14 +1030,14 @@
       "mode": "polarity",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-polarity__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:24:59"
+    "saved_at": "2026-11-07T09:41:17"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-dwell_prop": {
     "plot": "correctness_by_matching",
@@ -854,14 +1046,14 @@
       "mode": "relative",
       "metric": "area_dwell_proportion"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-dwell_prop.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:09"
+    "saved_at": "2026-11-07T09:41:26"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-first_enc_pupil": {
     "plot": "correctness_by_matching",
@@ -870,14 +1062,14 @@
       "mode": "relative",
       "metric": "first_encounter_avg_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-first_enc_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:10"
+    "saved_at": "2026-11-07T09:41:28"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_avg_pupil": {
     "plot": "correctness_by_matching",
@@ -886,14 +1078,14 @@
       "mode": "relative",
       "metric": "mean_avg_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_avg_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:09"
+    "saved_at": "2026-11-07T09:41:27"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_dwell": {
     "plot": "correctness_by_matching",
@@ -902,14 +1094,14 @@
       "mode": "relative",
       "metric": "mean_dwell_time"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_dwell.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:08"
+    "saved_at": "2026-11-07T09:41:25"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_first_fix_dur": {
     "plot": "correctness_by_matching",
@@ -918,14 +1110,14 @@
       "mode": "relative",
       "metric": "mean_first_fixation_duration"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_first_fix_dur.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:08"
+    "saved_at": "2026-11-07T09:41:26"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_fix_count": {
     "plot": "correctness_by_matching",
@@ -934,14 +1126,14 @@
       "mode": "relative",
       "metric": "mean_fixations_count"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_fix_count.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:08"
+    "saved_at": "2026-11-07T09:41:26"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_max_pupil": {
     "plot": "correctness_by_matching",
@@ -950,14 +1142,14 @@
       "mode": "relative",
       "metric": "mean_max_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_max_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:09"
+    "saved_at": "2026-11-07T09:41:27"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-mean_min_pupil": {
     "plot": "correctness_by_matching",
@@ -966,14 +1158,14 @@
       "mode": "relative",
       "metric": "mean_min_fix_pupil_size"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-mean_min_pupil.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:10"
+    "saved_at": "2026-11-07T09:41:27"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-n_lbl_visits": {
     "plot": "correctness_by_matching",
@@ -982,14 +1174,14 @@
       "mode": "relative",
       "metric": "num_label_visits"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-n_lbl_visits.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:10"
+    "saved_at": "2026-11-07T09:41:28"
   },
   "corr_by_matching__group-hunters__mode-relative__metric-skip_rate": {
     "plot": "correctness_by_matching",
@@ -998,14 +1190,14 @@
       "mode": "relative",
       "metric": "skip_rate"
     },
-    "produced_by": "src.viz.visualisations_preference_correctness.plot_correctness_by_matching",
+    "produced_by": "src.analyses.correctness_associations.plots.plot_correctness_by_matching",
     "figure": "corr_by_matching__group-hunters__mode-relative__metric-skip_rate.png",
     "subdir": "corr_by_matching",
     "tables": [
       "summary"
     ],
     "source": null,
-    "saved_at": "2026-09-20T16:25:08"
+    "saved_at": "2026-11-07T09:41:26"
   },
   "corr_by_seq_len_cont__group-all_P__maxlen-all__minn-5": {
     "plot": "correctness_by_seq_len_continuous",
@@ -1297,197 +1489,5 @@
     ],
     "source": null,
     "saved_at": "2026-09-20T16:38:24"
-  },
-  "corr_by_dwell_cont__group-all_P__bw-10__minn-10": {
-    "plot": "correctness_by_trial_mean_dwell_continuous",
-    "facets": {
-      "group": "all_participants",
-      "bw": 10.0,
-      "minn": 10
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
-    "figure": "corr_by_dwell_cont__group-all_P__bw-10__minn-10.png",
-    "subdir": "corr_by_dwell_cont",
-    "tables": [
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-20T16:24:57"
-  },
-  "corr_by_dwell_cont__group-gatherers__bw-10__minn-10": {
-    "plot": "correctness_by_trial_mean_dwell_continuous",
-    "facets": {
-      "group": "gatherers",
-      "bw": 10.0,
-      "minn": 10
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
-    "figure": "corr_by_dwell_cont__group-gatherers__bw-10__minn-10.png",
-    "subdir": "corr_by_dwell_cont",
-    "tables": [
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-20T16:24:56"
-  },
-  "corr_by_dwell_cont__group-hunters__bw-10__minn-10": {
-    "plot": "correctness_by_trial_mean_dwell_continuous",
-    "facets": {
-      "group": "hunters",
-      "bw": 10.0,
-      "minn": 10
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_continuous",
-    "figure": "corr_by_dwell_cont__group-hunters__bw-10__minn-10.png",
-    "subdir": "corr_by_dwell_cont",
-    "tables": [
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-20T16:24:56"
-  },
-  "corr_by_dwell_thresh__group-all_P__threshold-100": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "all_participants",
-      "threshold": 100.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-all_P__threshold-100.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:55"
-  },
-  "corr_by_dwell_thresh__group-all_P__threshold-50": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "all_participants",
-      "threshold": 50.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-all_P__threshold-50.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:54"
-  },
-  "corr_by_dwell_thresh__group-all_P__threshold-75": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "all_participants",
-      "threshold": 75.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-all_P__threshold-75.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:55"
-  },
-  "corr_by_dwell_thresh__group-gatherers__threshold-100": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "gatherers",
-      "threshold": 100.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-100.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:54"
-  },
-  "corr_by_dwell_thresh__group-gatherers__threshold-50": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "gatherers",
-      "threshold": 50.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-50.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:53"
-  },
-  "corr_by_dwell_thresh__group-gatherers__threshold-75": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "gatherers",
-      "threshold": 75.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-gatherers__threshold-75.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:54"
-  },
-  "corr_by_dwell_thresh__group-hunters__threshold-100": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "hunters",
-      "threshold": 100.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-hunters__threshold-100.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:53"
-  },
-  "corr_by_dwell_thresh__group-hunters__threshold-50": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "hunters",
-      "threshold": 50.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-hunters__threshold-50.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:53"
-  },
-  "corr_by_dwell_thresh__group-hunters__threshold-75": {
-    "plot": "correctness_by_trial_mean_dwell_threshold",
-    "facets": {
-      "group": "hunters",
-      "threshold": 75.0
-    },
-    "produced_by": "src.viz.visualisations_correctness_measures.plot_correctness_by_trial_mean_dwell_threshold",
-    "figure": "corr_by_dwell_thresh__group-hunters__threshold-75.png",
-    "subdir": "corr_by_dwell_thresh",
-    "tables": [
-      "fisher",
-      "summary"
-    ],
-    "source": null,
-    "saved_at": "2026-09-26T16:01:53"
   }
 }

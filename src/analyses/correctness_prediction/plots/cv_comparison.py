@@ -20,6 +20,7 @@ import pandas as pd
 from IPython.display import display
 
 from src.modeling.evaluate import summarize_cv_results_by_regime
+from src.modeling.provenance import MODEL_FAMILY_COL, model_folder
 from src.lib.plotting.output import save_output
 
 
@@ -136,8 +137,11 @@ def plot_cv_metric_by_regime(
     one half of the held-out trials.
 
     The figure and the summary table are saved as `cv_metric_by_regime`, named by
-    model and metric. Returns the summary table, the figure and the axes.
+    model and metric, in the folder of the model family that made the predictions
+    (`<family>/<subdir>`, see `modeling/provenance.py`). Returns the summary table, the
+    figure and the axes.
     """
+    folder = model_folder(cv_out.summary_df[cv_out.summary_df["model"] == model_name], subdir)
     summary = summarize_cv_results_by_regime(
         cv_out=cv_out,
         model_name=model_name,
@@ -174,10 +178,10 @@ def plot_cv_metric_by_regime(
         fig,
         analysis="correctness_prediction",
         plot="cv_metric_by_regime",
-        tables={"summary": summary},
+        tables={"summary": summary.assign(**{MODEL_FAMILY_COL: folder.split("/")[0]})},
         save=save,
         to_paper=to_paper,
-        subdir=subdir,
+        subdir=folder,
         model=model_name,
         metric=metric_col,
     )

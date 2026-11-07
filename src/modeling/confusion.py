@@ -27,6 +27,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from src.modeling.provenance import MODEL_FAMILY_COL, model_folder
+
 # The order used by every table, bar chart and legend. Hits first, so the two
 # kinds of error sit together at the end.
 QUAD_ORDER = ["TP", "TN", "FP", "FN"]
@@ -93,14 +95,21 @@ def confusion_counts(trials: pd.DataFrame, *, quadrant_col: str = "quadrant") ->
 
     A quadrant with no trials gives 0 rather than being left out: the model made
     no error of that kind, which is a number worth keeping.
+
+    When `trials` say which model made them (`model_family`), the counts carry it in
+    `counts.attrs["model_family"]`, so figures saved from them go in that model's folder
+    (`modeling/provenance.py`).
     """
-    return (
+    counts = (
         trials[quadrant_col]
         .value_counts()
         .reindex(QUAD_ORDER)
         .fillna(0)
         .astype(int)
     )
+    if MODEL_FAMILY_COL in trials.columns:
+        counts.attrs[MODEL_FAMILY_COL] = model_folder(trials)
+    return counts
 
 
 def counts_to_frame(counts: pd.Series) -> pd.DataFrame:

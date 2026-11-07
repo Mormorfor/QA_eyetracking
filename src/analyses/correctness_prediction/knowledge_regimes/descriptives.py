@@ -31,7 +31,7 @@ only returns its figure.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Mapping, Sequence, Union
+from typing import Optional, Any, Callable, Dict, List, Mapping, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -45,6 +45,7 @@ from src.config.datasets import (
 )
 from src.lib.stats.proportions import wilson_ci
 from src.features.build import load_model_ready
+from src.modeling.provenance import MODEL_FAMILY_COL, model_folder
 from src.modeling.models.logreg_model import (
     TrialLevelLogRegModel,
     imputed_cell_counts,
@@ -294,12 +295,14 @@ def fit_l1_model(
     train_df: DataFrameOrPath = READY_ALL_FEATURES_PATH,
     feature_cols: Sequence[str] = SHOWCASE_FEATURE_COLS,
     *,
+    model_builder: Callable[[], Any] = TrialLevelLogRegModel,
     verbose: bool = True,
-) -> TrialLevelLogRegModel:
+) -> Any:
     """Fit the correctness model on every L1 trial, with nothing held out: the model that
-    is then applied to Study 2."""
+    is then applied to Study 2. `model_builder` makes the unfitted model: the logistic
+    regression by default, or the mixed model (`modeling/models/glmm_model.py`)."""
     l1 = _resolve(train_df)
-    model = TrialLevelLogRegModel()
+    model = model_builder()
     model.fit(l1, target_col=Con.IS_CORRECT_COLUMN, feature_cols=list(feature_cols))
 
     if verbose:
@@ -318,8 +321,8 @@ def attach_predictions(
     *,
     verbose: bool = True,
 ) -> pd.DataFrame:
-    """Add the model's predicted probability (`pred_prob`) and predicted label
-    (`pred_is_correct`) to a KnowQA frame.
+    """Add the model's predicted probability (`pred_prob`), its predicted label
+    (`pred_is_correct`) and which model made them (`model_family`) to a KnowQA frame.
 
     With `verbose`, first prints how many feature cells the model fills with
     `fill_value`, in total and per column. The fill is a modelling choice, not a
@@ -342,7 +345,25 @@ def attach_predictions(
     out = df.copy()
     out[PROB_COL] = model.predict_proba(out, feature_cols=cols)
     out[PRED_COL] = model.predict(out, feature_cols=cols)
+    # Which model made these predictions; everything saved from them goes in its
+    # folder (`modeling/provenance.py`).
+    out[MODEL_FAMILY_COL] = model.family
     return out
+
+
+def _with_family(out: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
+    """`out`, a table made from `df`, with `df`'s `model_family` when `df` holds a model's
+    predictions, so the table still says which model it comes from."""
+    if MODEL_FAMILY_COL in df.columns:
+        out[MODEL_FAMILY_COL] = model_folder(df)
+    return out
+
+
+def _folder(frame: pd.DataFrame) -> Optional[str]:
+    """Where a figure that may or may not include model output is saved: the model's
+    folder when `frame` holds predictions, the top folder when it is data alone."""
+    shows_model = any(c in frame.columns for c in (PROB_COL, PRED_COL, "mean_pred_prob", "auc_model"))
+    return model_folder(frame) if shows_model else None
 
 
 def _confusion_row(sub: pd.DataFrame) -> Dict[str, Any]:
@@ -383,7 +404,7 @@ def prediction_metrics_by_regime(df: pd.DataFrame) -> pd.DataFrame:
         (r, df[df[REGIME_COL] == r]) for r in _ordered_regimes(df)
     ]:
         rows.append({REGIME_COL: label, **_confusion_row(sub)})
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), df)
 
 
 def probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
@@ -410,7 +431,7 @@ def probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
             row[f"n_{tag}"] = len(part)
             row[f"mean_prob_{tag}"] = part[PROB_COL].mean()
         rows.append(row)
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), df)
 
 
 def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
@@ -445,11 +466,15 @@ def decompose_probability_by_regime(df: pd.DataFrame) -> pd.DataFrame:
         )
     out = pd.DataFrame(rows)
     out["explained_by_composition"] = out["mean_prob"] - out["counterfactual_mean"]
-    return out
+    return _with_family(out, df)
 
 
 # ---------------------------------------------------------------------------
 # Figures. Each returns its Figure; `save` decides whether it is also written to disk.
+#
+# A figure that shows a model's predictions is saved in that model's folder,
+# `<family>/` (`modeling/provenance.py`), so two models never share a file. A figure of
+# the data alone stays at the top of the analysis's folder.
 # ---------------------------------------------------------------------------
 
 import matplotlib.pyplot as plt
@@ -638,6 +663,7 @@ def plot_probability_by_regime(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="probability_by_regime",
+        subdir=model_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -667,7 +693,7 @@ def item_correctness(df: pd.DataFrame, *, regime: Optional[str] = None) -> pd.Da
     )
     if PROB_COL in sub.columns:
         agg["mean_pred_prob"] = sub.groupby(Con.TEXT_ID_WITH_Q_COLUMN)[PROB_COL].mean()
-    return agg.sort_values("accuracy").reset_index()
+    return _with_family(agg.sort_values("accuracy").reset_index(), df)
 
 
 def shared_item_structure(df: pd.DataFrame, regime: str) -> pd.DataFrame:
@@ -847,6 +873,7 @@ def to_prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
         PRED_COL,
         SESSION_COL,
         REGIME_COL,
+        MODEL_FAMILY_COL,
     ]
     base = df[cols].copy()
 
@@ -899,7 +926,7 @@ def discrimination_comparison(df: pd.DataFrame) -> pd.DataFrame:
         )
     out = pd.DataFrame(rows)
     out["model_minus_confidence"] = out["auc_model"] - out["auc_confidence"]
-    return out
+    return _with_family(out, df)
 
 
 def _bin_probability(prob: pd.Series, n_bins: int) -> pd.Series:
@@ -999,9 +1026,8 @@ def discrimination_bootstrap(
                 "n_boot_ok": len(diffs),
             }
         )
-    return pd.DataFrame(rows).assign(
-        model_bins=model_bins, n_boot=n_boot, ci=ci, seed=seed
-    )
+    out = pd.DataFrame(rows).assign(model_bins=model_bins, n_boot=n_boot, ci=ci, seed=seed)
+    return _with_family(out, df)
 
 
 # ---------------------------------------------------------------------------
@@ -1061,7 +1087,7 @@ def participant_profile(
                 }
             )
         rows.append(row)
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), df)
 
 
 def plot_confusion_by_regime(
@@ -1143,6 +1169,7 @@ def plot_confusion_by_regime(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="confusion_by_regime",
+        subdir=model_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -1200,6 +1227,7 @@ def plot_probability_histograms(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="probability_histograms",
+        subdir=model_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -1258,6 +1286,7 @@ def plot_participant_profiles(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="participant_profiles",
+        subdir=_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -1345,6 +1374,7 @@ def plot_correlations_by_run(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="correlations_by_run",
+        subdir=model_folder(corr_df),
         tables={"data": corr_df},
         save=save,
         to_paper=to_paper,
@@ -1504,6 +1534,7 @@ def plot_participant_correlation_forest(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="participant_correlation_forest",
+        subdir=model_folder(by_model),
         tables={"data": table},
         save=save,
         to_paper=to_paper,
@@ -1574,6 +1605,7 @@ def plot_discrimination_roc(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="discrimination_roc",
+        subdir=model_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -1648,6 +1680,7 @@ def plot_discrimination_bootstrap(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="discrimination_bootstrap",
+        subdir=model_folder(boot),
         tables={"summary": boot},
         save=save,
         to_paper=to_paper,
@@ -1716,6 +1749,7 @@ def plot_transfer_metrics(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="transfer_metrics",
+        subdir=model_folder(metrics),
         tables={"data": metrics},
         save=save,
         to_paper=to_paper,
@@ -1781,6 +1815,7 @@ def plot_probability_decomposition(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="probability_decomposition",
+        subdir=model_folder(dec),
         tables={"data": dec},
         save=save,
         to_paper=to_paper,
@@ -1950,6 +1985,7 @@ def plot_participant_regime_heatmap(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="participant_regime_heatmap",
+        subdir=_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -2064,6 +2100,7 @@ def plot_item_difficulty(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="item_difficulty",
+        subdir=_folder(items),
         tables={"data": items},
         save=save,
         to_paper=to_paper,
@@ -2192,6 +2229,7 @@ def plot_session_trajectories(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="session_trajectories",
+        subdir=_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,
@@ -2419,7 +2457,7 @@ def session_summary(df: pd.DataFrame) -> pd.DataFrame:
                 }
             )
         rows.append(row)
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), df)
 
 
 def session_trend_tests(df: pd.DataFrame) -> pd.DataFrame:
@@ -2595,6 +2633,7 @@ def plot_session_trend(
         fig,
         analysis="correctness_prediction/knowledge_regimes",
         plot="session_trend",
+        subdir=_folder(df),
         tables={"data": df},
         save=save,
         to_paper=to_paper,

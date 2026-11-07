@@ -1,0 +1,25 @@
+dataset,test,model,n_features,balanced_accuracy,ci_low,ci_high,n_folds,n_scored,note,model_family
+knowqa,no knowledge,base,12,0.5350092129507765,,,,625.0,,logreg
+knowqa,no knowledge,time,5,0.555442221637273,,,,625.0,,logreg
+knowqa,no knowledge,base+time,17,0.5515486531543389,,,,625.0,,logreg
+knowqa,no knowledge,back_and_forth+visits+time,12,0.555650609809599,,,,625.0,,logreg
+knowqa,no knowledge,back_and_forth+choice+time,12,0.5375263227165044,,,,625.0,,logreg
+knowqa,no knowledge,base+back_and_forth+visits+choice+time+question,24,0.5476276651750461,,,,625.0,,logreg
+knowqa,partial knowledge,base,12,0.6461693548387097,,,,620.0,,logreg
+knowqa,partial knowledge,time,5,0.6300403225806452,,,,620.0,,logreg
+knowqa,partial knowledge,base+time,17,0.6451612903225806,,,,620.0,,logreg
+knowqa,partial knowledge,back_and_forth+visits+time,12,0.655241935483871,,,,620.0,,logreg
+knowqa,partial knowledge,back_and_forth+choice+time,12,0.6391129032258065,,,,620.0,,logreg
+knowqa,partial knowledge,base+back_and_forth+visits+choice+time+question,24,0.654233870967742,,,,620.0,,logreg
+knowqa,full knowledge,base,12,0.6650641025641026,,,,640.0,,logreg
+knowqa,full knowledge,time,5,0.7387820512820513,,,,640.0,,logreg
+knowqa,full knowledge,base+time,17,0.7043269230769231,,,,640.0,,logreg
+knowqa,full knowledge,back_and_forth+visits+time,12,0.7131410256410257,,,,640.0,,logreg
+knowqa,full knowledge,back_and_forth+choice+time,12,0.7091346153846154,,,,640.0,,logreg
+knowqa,full knowledge,base+back_and_forth+visits+choice+time+question,24,0.7019230769230769,,,,640.0,,logreg
+knowqa,all,base,12,0.6714172319237985,,,,1885.0,,logreg
+knowqa,all,time,5,0.6992711791023236,,,,1885.0,,logreg
+knowqa,all,base+time,17,0.6862552316351566,,,,1885.0,,logreg
+knowqa,all,back_and_forth+visits+time,12,0.7030054841968538,,,,1885.0,,logreg
+knowqa,all,back_and_forth+choice+time,12,0.6928488959445808,,,,1885.0,,logreg
+knowqa,all,base+back_and_forth+visits+choice+time+question,24,0.6886996680617694,,,,1885.0,,logreg

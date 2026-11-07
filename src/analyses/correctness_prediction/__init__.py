@@ -11,6 +11,8 @@ picks the correct answer.
 * `participant_level.py` -- the same model fitted on one participant at a time.
 * `person_variance/` -- what those per-participant models show.
 * `knowledge_regimes/` -- Study 2 (KnowQA).
+* `mixed_model/` -- the same model with random intercepts per participant and item,
+  run through all of the above (`model_builder`), plus what only it has.
 
 The general machinery -- folds, cross-validation, the model, coefficient intervals --
 is in `modeling/`. What is here is how this analysis uses it. Outputs go to

@@ -1,0 +1,37 @@
+model,answers,test,model_family,outcome,n,mean_prob
+all_features,known,no knowledge,logreg,was wrong,393,0.19263397366472046
+all_features,known,no knowledge,logreg,was correct,232,0.7205392103128101
+all_features,known,no knowledge,logreg,all,625,0.3885923975084914
+all_features,known,partial knowledge,logreg,was wrong,124,0.17434718524350623
+all_features,known,partial knowledge,logreg,was correct,496,0.7540753654598736
+all_features,known,partial knowledge,logreg,all,620,0.6381297294166002
+all_features,known,full knowledge,logreg,was wrong,16,0.1827165306534391
+all_features,known,full knowledge,logreg,was correct,624,0.8148948026893985
+all_features,known,full knowledge,logreg,all,640,0.7990903458884996
+all_features_position,position,no knowledge,logreg,was wrong,393,0.36240596165596073
+all_features_position,position,no knowledge,logreg,was correct,232,0.40311417610994443
+all_features_position,position,no knowledge,logreg,all,625,0.37751685086127956
+all_features_position,position,partial knowledge,logreg,was wrong,124,0.36434881369833755
+all_features_position,position,partial knowledge,logreg,was correct,496,0.4729164254672679
+all_features_position,position,partial knowledge,logreg,all,620,0.4512029031134819
+all_features_position,position,full knowledge,logreg,was wrong,16,0.3722576254244023
+all_features_position,position,full knowledge,logreg,was correct,624,0.5776715294642627
+all_features_position,position,full knowledge,logreg,all,640,0.5725361818632663
+all_features_selected,selected,no knowledge,logreg,was wrong,393,0.36639336440679904
+all_features_selected,selected,no knowledge,logreg,was correct,232,0.4065189787712704
+all_features_selected,selected,no knowledge,logreg,all,625,0.38128799245889083
+all_features_selected,selected,partial knowledge,logreg,was wrong,124,0.3722934470602889
+all_features_selected,selected,partial knowledge,logreg,was correct,496,0.4833218372188018
+all_features_selected,selected,partial knowledge,logreg,all,620,0.4611161591870992
+all_features_selected,selected,full knowledge,logreg,was wrong,16,0.34541698063424914
+all_features_selected,selected,full knowledge,logreg,was correct,624,0.5833290335841385
+all_features_selected,selected,full knowledge,logreg,all,640,0.5773812322603912
+all_features_spread,spread,no knowledge,logreg,was wrong,393,0.3573943050072184
+all_features_spread,spread,no knowledge,logreg,was correct,232,0.39902891194416684
+all_features_spread,spread,no knowledge,logreg,all,625,0.37284907110221366
+all_features_spread,spread,partial knowledge,logreg,was wrong,124,0.3581532762316188
+all_features_spread,spread,partial knowledge,logreg,was correct,496,0.4729298452243092
+all_features_spread,spread,partial knowledge,logreg,all,620,0.4499745314257712
+all_features_spread,spread,full knowledge,logreg,was wrong,16,0.3664206053946698
+all_features_spread,spread,full knowledge,logreg,was correct,624,0.5831482684684616
+all_features_spread,spread,full knowledge,logreg,all,640,0.5777300768916168

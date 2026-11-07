@@ -40,6 +40,7 @@ from scipy import stats
 from src.config import columns as Con
 from src.config.datasets import NEW_EXP_IA_ANSWERS_PATH
 from src.lib.plotting.output import save_output
+from src.modeling.provenance import MODEL_FAMILY_COL, model_folder
 
 from src.analyses.correctness_prediction.knowledge_regimes.comparison_runs import (
     POOLED_LABEL,
@@ -163,8 +164,8 @@ def collect_prediction_frame(
     and trial.
 
     Columns: `run` (the regime, or `all` for the pooled run), the trial keys, `y_true`,
-    `y_pred`, `pred_prob` (the model's P(correct)) and `is_correct` (a copy of
-    `y_true`). The pooled run repeats every regime's trials on purpose: it is analysed as
+    `y_pred`, `pred_prob` (the model's P(correct)), `model_family` (which model made it)
+    and `is_correct` (a copy of `y_true`). The pooled run repeats every regime's trials on purpose: it is analysed as
     a group of its own.
 
     Predictions are matched to trials by position. That is safe because the bundle
@@ -185,6 +186,7 @@ def collect_prediction_frame(
                 "y_true": np.asarray(res.y_true).reshape(-1),
                 "y_pred": np.asarray(res.y_pred).reshape(-1),
                 PRED_PROB_COL: np.asarray(res.y_prob, dtype=float).reshape(-1),
+                MODEL_FAMILY_COL: out["model_family"],
             }
         )
         if target_col not in frame.columns:
@@ -195,6 +197,12 @@ def collect_prediction_frame(
         raise ValueError("regime_result['outputs'] is empty — nothing to analyse.")
 
     return pd.concat(frames, ignore_index=True)
+
+
+def _with_family(out: pd.DataFrame, pred_df: pd.DataFrame) -> pd.DataFrame:
+    """`out`, a table made from `pred_df`, with the model that made the predictions."""
+    out[MODEL_FAMILY_COL] = model_folder(pred_df)
+    return out
 
 
 def _run_order(runs: Sequence[str]) -> List[str]:
@@ -290,7 +298,7 @@ def correlations_by_run(
             )
         )
 
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 def correlations_by_participant(
@@ -320,7 +328,7 @@ def correlations_by_participant(
         )
         for pid, part in sub.groupby(participant_col, sort=True)
     ]
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 def _partial_correlate(x: np.ndarray, y: np.ndarray, z: np.ndarray, method: str):
@@ -414,7 +422,7 @@ def partial_correlations_by_participant(
         )
         for pid, part in sub.groupby(participant_col, sort=True)
     ]
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 def model_vs_correctness_by_run(
@@ -443,7 +451,7 @@ def model_vs_correctness_by_run(
         )
         for run in _run_order(pred_df["run"].unique().tolist())
     ]
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 def partial_correlations_by_run(
@@ -472,7 +480,7 @@ def partial_correlations_by_run(
         )
         for run in _run_order(pred_df["run"].unique().tolist())
     ]
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 def summarize_by_confidence_level(
@@ -508,7 +516,7 @@ def summarize_by_confidence_level(
                 }
             )
 
-    return pd.DataFrame(rows)
+    return _with_family(pd.DataFrame(rows), pred_df)
 
 
 # ---------------------------------------------------------------------------
@@ -603,7 +611,7 @@ def plot_confidence_vs_prob_scatter(
         to_paper=to_paper,
         dpi=dpi,
         close=close,
-        subdir=subdir,
+        subdir=model_folder(pred_df, subdir),
     ).paths
     return fig, saved
 
@@ -658,7 +666,7 @@ def plot_prob_by_confidence_level(
         to_paper=to_paper,
         dpi=dpi,
         close=close,
-        subdir=subdir,
+        subdir=model_folder(level_df, subdir),
     ).paths
     return fig, saved
 
@@ -714,7 +722,7 @@ def plot_prob_boxplot_by_confidence(
         to_paper=to_paper,
         dpi=dpi,
         close=close,
-        subdir=subdir,
+        subdir=model_folder(pred_df, subdir),
     ).paths
     return fig, saved
 
@@ -757,7 +765,8 @@ def run_confidence_correlation(
 
     With `save`, the figures and tables go to
     `reports/correctness_prediction/knowledge_regimes/`, in the subfolder
-    `<split_tag>/logreg/<subdir>`.
+    `<model family>/<split_tag>/<subdir>`, the family being the model that made the
+    predictions (`logreg`, `glmm`).
 
     Returns a dict: `correlations` (per run, `pred_prob ~ confidence` and the
     `is_correct ~ confidence` reference), `by_confidence` (per run and rating: trials,
@@ -809,7 +818,8 @@ def run_confidence_correlation(
             if col in part_df.columns:
                 print(f"  mean within-participant {method}: {part_df[col].mean():.3f}")
 
-    base_dir = "/".join(x for x in (split_tag or "full_fit", "logreg", subdir) if x)
+    # The figures add the model's folder in front (`model_folder`); the tables here too.
+    base_dir = "/".join(x for x in (split_tag or "full_fit", subdir) if x)
 
     fig_scatter, scatter_paths = plot_confidence_vs_prob_scatter(
         pred_df, confidence_col=confidence_col, save=save,
@@ -836,7 +846,7 @@ def run_confidence_correlation(
         },
         save=save,
         to_paper=to_paper,
-        subdir=base_dir,
+        subdir=model_folder(pred_df, base_dir),
     ).tables
 
     return {

@@ -440,7 +440,7 @@ AREA_METRIC_COLUMNS_VIZES = [
 
 
 # For each measurement, whether a high or a low value means the participant
-# favoured an answer. Not used by any code.
+# favoured an answer.
 PREF_SPECS = [
     (MEAN_DWELL_TIME, "high"),
     (MEAN_FIXATIONS_COUNT, "high"),

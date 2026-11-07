@@ -59,11 +59,11 @@ dependencies:
   - ipython=8.18.1
   - notebook=7.5.5
 
-  # --- parked strands ----------------------------------------------------
-  # Needed only by explorations/. `juliacall` and `pymer4` are imported only
-  # by `explorations/mixed_models/`; the paper's logistic regression needs
-  # neither Julia nor R. The Julia packages themselves are installed by
-  # `src/vendor/julia_integration/julia_test.ipynb`.
+  # --- optional strands --------------------------------------------------
+  # Not needed by the logistic regression. `juliacall` is imported only by
+  # the mixed model (`modeling/models/glmm_model.py`); its Julia packages are
+  # installed by `src/vendor/julia_integration/julia_test.ipynb`. `pymer4`
+  # (and R) only by the parked R backend in `explorations/mixed_models/`.
   - umap-learn=0.5.11      # participant clustering (explorations/)
   - loguru=0.7.3           # used by the vendored EyeBench extractor
   - polars=1.38.1          # read by the R glmer backend
@@ -71,5 +71,5 @@ dependencies:
   - pip
   - pip:
       # Not on conda-forge for this platform, or easier to pin here.
-      - juliacall==0.9.31  # Julia GLMER backend -- see the note above
+      - juliacall==0.9.31  # the mixed model -- see the note above
       - pymer4==0.9.0      # R glmer backend; needs a working R install

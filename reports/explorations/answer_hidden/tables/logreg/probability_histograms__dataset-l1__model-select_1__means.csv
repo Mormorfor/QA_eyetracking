@@ -1,0 +1,37 @@
+model,answers,test,model_family,outcome,n,mean_prob
+select_1,known,new_item,logreg,was wrong,4946,0.3063912645016771
+select_1,known,new_item,logreg,was correct,26150,0.6934986217967217
+select_1,known,new_item,logreg,all,31096,0.6319269408994589
+select_1,known,new_subject,logreg,was wrong,4946,0.3064695698466227
+select_1,known,new_subject,logreg,was correct,26150,0.6939668337638026
+select_1,known,new_subject,logreg,all,31096,0.632333135946258
+select_1,known,both,logreg,was wrong,1248,0.30684595144177484
+select_1,known,both,logreg,was correct,6528,0.6971402844687172
+select_1,known,both,logreg,all,7776,0.634500453242171
+select_1_position,position,new_item,logreg,was wrong,4946,0.44807706514554024
+select_1_position,position,new_item,logreg,was correct,26150,0.5539178623788642
+select_1_position,position,new_item,logreg,all,31096,0.5370832668322981
+select_1_position,position,new_subject,logreg,was wrong,4946,0.4485795164468137
+select_1_position,position,new_subject,logreg,was correct,26150,0.5545252969840235
+select_1_position,position,new_subject,logreg,all,31096,0.5376740032312246
+select_1_position,position,both,logreg,was wrong,1248,0.4522852000813963
+select_1_position,position,both,logreg,was correct,6528,0.553940283308698
+select_1_position,position,both,logreg,all,7776,0.53762526995123
+select_1_selected,selected,new_item,logreg,was wrong,4946,0.44793883592225137
+select_1_selected,selected,new_item,logreg,was correct,26150,0.5532720265910492
+select_1_selected,selected,new_item,logreg,all,31096,0.5365181688264533
+select_1_selected,selected,new_subject,logreg,was wrong,4946,0.44819491755344865
+select_1_selected,selected,new_subject,logreg,was correct,26150,0.5539498730296096
+select_1_selected,selected,new_subject,logreg,all,31096,0.5371289311147301
+select_1_selected,selected,both,logreg,was wrong,1248,0.4509631169298642
+select_1_selected,selected,both,logreg,was correct,6528,0.5518550662531393
+select_1_selected,selected,both,logreg,all,7776,0.5356625311765644
+select_1_spread,spread,new_item,logreg,was wrong,4946,0.44730751159901216
+select_1_spread,spread,new_item,logreg,was correct,26150,0.5546854822527895
+select_1_spread,spread,new_item,logreg,all,31096,0.5376063903164124
+select_1_spread,spread,new_subject,logreg,was wrong,4946,0.4473882285944935
+select_1_spread,spread,new_subject,logreg,was correct,26150,0.5552619741664512
+select_1_spread,spread,new_subject,logreg,all,31096,0.5381040263403994
+select_1_spread,spread,both,logreg,was wrong,1248,0.45209565460608847
+select_1_spread,spread,both,logreg,was correct,6528,0.5535443842649392
+select_1_spread,spread,both,logreg,all,7776,0.53726248938142

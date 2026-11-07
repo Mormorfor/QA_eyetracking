@@ -274,6 +274,32 @@ with collect_tables("attention_allocation", plots=["area_bars"]):
 This is what makes T4.0's "`findings.md` regenerates from saved CSVs" realistic: a groupby over
 one long table, rather than a glob over several hundred.
 
+### Every model's outputs go in that model's folder
+
+Added 2026-11-06 (Diana's ruling), when the mixed model joined the logistic regression. Anything
+saved from a model's predictions goes under a folder named after the model, first thing below
+`figures/` or `tables/`:
+
+```
+reports/correctness_prediction/figures/logreg/both/...        the logistic regression
+reports/correctness_prediction/figures/glmm/both/...          the mixed model, fixed effects only
+reports/correctness_prediction/figures/glmm_known/both/...    the mixed model, known intercepts
+reports/error_analysis/figures/logreg/...
+reports/correctness_prediction/knowledge_regimes/figures/glmm/...
+```
+
+- **The caller does not choose the folder; the predictions do.** Every model class has a
+  `family`; whatever makes predictions writes it into its tables as `model_family`
+  (cross-validation, the model comparison, `attach_predictions`, the error analysis), and the
+  plot functions read it back through `modeling/provenance.py::model_folder`. A table with no
+  `model_family` stops the save instead of being filed under a guess.
+- **Two models never share a file**, even when given the same name, and the two scoring rules
+  of the mixed model count as two models, since they give different predictions.
+- **Figures of the data alone stay at the top** (accuracy, pace or confidence by regime). A
+  figure that can show either (Study 2's sessions, profiles) goes in the model's folder only
+  when predictions are in it.
+- Old files saved before this rule sit at the old paths until removed; nothing moves them.
+
 Overleaf mirroring is a single switch (`to_paper`, gated by `PAPER_MIRROR_ENABLED`) and is
 currently **off** — see `pitfalls.md` §8.
 

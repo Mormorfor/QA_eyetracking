@@ -287,16 +287,14 @@ def fit_julia_mixed_model_on_prepared_full_data(
     and the variance summary -- how much of the correctness signal sits with
     the person and how much with the item.
 
-    Only for the Julia mixed-effects model
-    (`explorations/mixed_models/models.py::TrialLevelJuliaGLMERModel`): it
+    Only for the mixed model
+    (`modeling/models/glmm_model.py::TrialLevelJuliaGLMERModel`): it
     calls `get_random_effects()` and `get_random_effect_variance_summary()`,
     which only that model has. Passing the logistic regression raises
     `AttributeError`, on purpose -- a model with no random effects has nothing
     to return here. For a full-data fit of the logistic regression, use
-    `collect_logreg_coef_summaries` above.
-
-    Mixed effects are not part of the current paper (`research-context.md` §6);
-    this is exploration code.
+    `collect_logreg_coef_summaries` above; it also takes the mixed model, for its
+    coefficients alone, given `ci_method="wald"` and `ci_cluster="cluster"`.
     """
     feat_cols = None if feature_cols is None else list(feature_cols)
     fit_kwargs = dict(fit_kwargs or {})

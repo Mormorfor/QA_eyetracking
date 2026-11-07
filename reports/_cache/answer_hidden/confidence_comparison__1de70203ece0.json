@@ -1,0 +1,11 @@
+{
+ "knowqa": "3d73866bf8cf7620",
+ "model_bins": 5,
+ "models": [
+  "select_1_plus_last_confirm",
+  "selected_deliberation"
+ ],
+ "n_boot": 2000,
+ "predictions": "ef02f48ea733e590",
+ "seed": 0
+}

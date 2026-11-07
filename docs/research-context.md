@@ -419,7 +419,7 @@ code. Paths are under `src/`.
 | | Why |
 |---|---|
 | `answer_reading_times/` | predicting answer reading times from the paragraph text — not working at present. This is why draft2's "Paragraph associations" heading under Methods is empty |
-| `mixed_models/` | the Julia and R mixed-model backends: mixed effects have their own problems and were judged not important enough to pursue for this paper |
+| `mixed_models/` | the R backend (lme4) for the correctness model as a mixed model; not maintained. The Julia mixed model is in `analyses/correctness_prediction/mixed_model/` |
 | `text_answer_effects/` | the older mixed-model Text Associations analysis (§3.6) |
 | `time_course/` | before / during / after the first look at the chosen answer; unfinished, its split does not follow time yet |
 | `unlikely_analysis/` | the error-analysis subsection is served by `analyses/error_analysis/` instead |

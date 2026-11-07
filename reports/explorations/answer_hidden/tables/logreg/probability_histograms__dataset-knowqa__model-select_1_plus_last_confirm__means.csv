@@ -1,0 +1,37 @@
+model,answers,test,model_family,outcome,n,mean_prob
+select_1_plus_last_confirm,known,no knowledge,logreg,was wrong,393,0.2034468116417186
+select_1_plus_last_confirm,known,no knowledge,logreg,was correct,232,0.6516201781406158
+select_1_plus_last_confirm,known,no knowledge,logreg,all,625,0.36980876528610923
+select_1_plus_last_confirm,known,partial knowledge,logreg,was wrong,124,0.22615855177757904
+select_1_plus_last_confirm,known,partial knowledge,logreg,was correct,496,0.6683717965767395
+select_1_plus_last_confirm,known,partial knowledge,logreg,all,620,0.5799291476169074
+select_1_plus_last_confirm,known,full knowledge,logreg,was wrong,16,0.18363349517288596
+select_1_plus_last_confirm,known,full knowledge,logreg,was correct,624,0.7483781778042342
+select_1_plus_last_confirm,known,full knowledge,logreg,all,640,0.7342595607384506
+select_1_plus_last_confirm_position,position,no knowledge,logreg,was wrong,393,0.36095470442192445
+select_1_plus_last_confirm_position,position,no knowledge,logreg,was correct,232,0.4071276416214112
+select_1_plus_last_confirm_position,position,no knowledge,logreg,all,625,0.3780940987103739
+select_1_plus_last_confirm_position,position,partial knowledge,logreg,was wrong,124,0.3618082673193184
+select_1_plus_last_confirm_position,position,partial knowledge,logreg,was correct,496,0.4714399546172736
+select_1_plus_last_confirm_position,position,partial knowledge,logreg,all,620,0.4495136171576825
+select_1_plus_last_confirm_position,position,full knowledge,logreg,was wrong,16,0.36835594110416864
+select_1_plus_last_confirm_position,position,full knowledge,logreg,was correct,624,0.5619528938966268
+select_1_plus_last_confirm_position,position,full knowledge,logreg,all,640,0.5571129700768154
+select_1_plus_last_confirm_selected,selected,no knowledge,logreg,was wrong,393,0.3569152871835304
+select_1_plus_last_confirm_selected,selected,no knowledge,logreg,was correct,232,0.40636669303382367
+select_1_plus_last_confirm_selected,selected,no knowledge,logreg,all,625,0.37527164903515925
+select_1_plus_last_confirm_selected,selected,partial knowledge,logreg,was wrong,124,0.36457364077891424
+select_1_plus_last_confirm_selected,selected,partial knowledge,logreg,was correct,496,0.48369770822035635
+select_1_plus_last_confirm_selected,selected,partial knowledge,logreg,all,620,0.4598728947320679
+select_1_plus_last_confirm_selected,selected,full knowledge,logreg,was wrong,16,0.36998109147095637
+select_1_plus_last_confirm_selected,selected,full knowledge,logreg,was correct,624,0.5635247355545666
+select_1_plus_last_confirm_selected,selected,full knowledge,logreg,all,640,0.5586861444524764
+select_1_plus_last_confirm_spread,spread,no knowledge,logreg,was wrong,393,0.351128811543628
+select_1_plus_last_confirm_spread,spread,no knowledge,logreg,was correct,232,0.4022267507843874
+select_1_plus_last_confirm_spread,spread,no knowledge,logreg,all,625,0.3700963665897979
+select_1_plus_last_confirm_spread,spread,partial knowledge,logreg,was wrong,124,0.3602488907316662
+select_1_plus_last_confirm_spread,spread,partial knowledge,logreg,was correct,496,0.4705519064100679
+select_1_plus_last_confirm_spread,spread,partial knowledge,logreg,all,620,0.44849130327438763
+select_1_plus_last_confirm_spread,spread,full knowledge,logreg,was wrong,16,0.3672254901871299
+select_1_plus_last_confirm_spread,spread,full knowledge,logreg,was correct,624,0.564691826317561
+select_1_plus_last_confirm_spread,spread,full knowledge,logreg,all,640,0.5597551679143002

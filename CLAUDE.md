@@ -113,7 +113,7 @@ archive/        superseded work, kept deliberately
 1. **Imports only point downwards** — `lib` → `config` → `ingest` → `features` → `modeling` →
    `analyses`. Nothing imports `analyses`, and `lib` imports nothing from the project.
 
-   **Two standing exceptions, both deliberate and both load-bearing:**
+   **Three standing exceptions, all deliberate and all load-bearing:**
 
    - **`ingest/` may import `features/`.** This is not drift — it is how the pipeline is built.
      `ingest/build.py` is the composition root and `ingest/registry.py` is the recipe, and
@@ -124,10 +124,18 @@ archive/        superseded work, kept deliberately
      modules reach down — `build.py`, `registry.py`, `knowqa.py` — while the five primitives
      (`readers`, `geometry`, `clicks`, `base_features`, `__init__`) do not, and **no `features/`
      module imports `ingest/` at all.** Verified 2026-10-13.
-   - **`explorations/` imports `analyses/correctness_prediction/run.py`** — two parked modules
-     want its *run* half and get the *plot* half with it. Noted where it lives; the fix is to
+   - **`explorations/` imports `analyses/correctness_prediction/run.py`** — one parked module
+     (`feature_search/column_options.py`) wants its *run* half and gets the *plot* half with it. Noted where it lives; the fix is to
      split run from plot, which is a signature change on the paper's main run path and so was
      flagged rather than done.
+   - **`explorations/answer_hidden/` imports `analyses/correctness_prediction/`** — the model
+     comparison, the Study 2 helpers (loading, prediction, the discrimination test against
+     the confidence rating) and the paper's figure functions.
+     It scores the paper's models with
+     the correct answer hidden from them, so it must score them exactly as the paper does; a
+     copy could drift. Agreed with Diana 2026-11-06. The paper's plot functions are called
+     with `save=False` and the figures saved under `explorations/answer_hidden`, so nothing
+     lands in the paper's report folders.
 2. **`analyses/` is paper code, `explorations/` is not**, and the path says which.
 
 **Entry points.** `python scripts/run_analysis.py --list` says what can be run without Jupyter.

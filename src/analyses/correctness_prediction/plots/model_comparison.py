@@ -15,15 +15,17 @@ Every figure saves its numbers beside it; see `conventions.md`.
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from src.lib.plotting.output import save_output
+from src.modeling.provenance import model_folder
 from src.modeling.evaluate import AVERAGE_NOVELTY
 from src.modeling.feature_sets import load_feature_sets
+from src.modeling.models.logreg_model import TrialLevelLogRegModel
 from src.analyses.correctness_prediction.comparison import (
     PAPER_MODELS,
     POOLED,
@@ -93,7 +95,8 @@ def plot_model_comparison(
     its bar.
 
     Saved with the scores it shows and, for Study 1, the cross-validation rows behind
-    them. `**facets` go into the file name, e.g. `models="paper"`, so figures of
+    them, in the folder of the model class that made the scores (`logreg/`, `glmm/`;
+    `glmm+logreg/` for a comparison that mixes them). `**facets` go into the file name, e.g. `models="paper"`, so figures of
     different model sets do not overwrite each other.
 
     Returns the figure and the scores it shows.
@@ -218,6 +221,8 @@ def plot_model_comparison(
         folds = comparison["folds"]
         tables["folds"] = folds[folds["model"].isin(shown)]
 
+    # In the folder of the model class(es) the scores came from (`modeling/provenance.py`).
+    subdir = model_folder(plotted, facets.pop("subdir", None))
     save_output(
         fig,
         analysis=ANALYSIS,
@@ -226,6 +231,7 @@ def plot_model_comparison(
         save=save,
         to_paper=to_paper,
         close=close,
+        subdir=subdir,
         dataset=dataset,
         **facets,
     )
@@ -235,16 +241,18 @@ def plot_model_comparison(
 def run_model_comparison_figures(
     word_df: pd.DataFrame,
     *,
+    model_builder: Callable[[], Any] = TrialLevelLogRegModel,
     save: Optional[bool] = None,
     to_paper=None,
     verbose: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """The paper's model comparison: the sets in `PAPER_MODELS`, from
     `configs/feature_sets/`, scored on Study 1 and Study 2, one figure each. Returns
-    the comparison."""
+    the comparison. `model_builder` as in `run_model_comparison`: the logistic regression
+    by default."""
     saved = load_feature_sets()
     models = {name: saved[name] for name in PAPER_MODELS}
-    comparison = run_model_comparison(word_df, models, verbose=verbose)
+    comparison = run_model_comparison(word_df, models, model_builder=model_builder, verbose=verbose)
     for dataset in TESTS:
         plot_model_comparison(comparison, dataset=dataset, save=save, to_paper=to_paper, close=True)
     return comparison

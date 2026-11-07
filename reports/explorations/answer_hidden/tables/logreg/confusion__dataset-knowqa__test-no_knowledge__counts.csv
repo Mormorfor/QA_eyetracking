@@ -1,0 +1,13 @@
+dataset,test,model,paper_model,answers,TP,TN,FP,FN,n,sensitivity,specificity,balanced_accuracy,model_family
+knowqa,no knowledge,select_1,select_1,known,155,340,53,77,625,0.6681034482758621,0.8651399491094147,0.7666216986926384,logreg
+knowqa,no knowledge,select_1_plus_last_confirm,select_1_plus_last_confirm,known,155,348,45,77,625,0.6681034482758621,0.8854961832061069,0.7767998157409846,logreg
+knowqa,no knowledge,all_features,all_features,known,176,343,50,56,625,0.7586206896551724,0.8727735368956743,0.8156971132754234,logreg
+knowqa,no knowledge,select_1_position,select_1,position,80,292,101,152,625,0.3448275862068966,0.7430025445292621,0.5439150653680793,logreg
+knowqa,no knowledge,select_1_selected,select_1,selected,78,292,101,154,625,0.33620689655172414,0.7430025445292621,0.5396047205404931,logreg
+knowqa,no knowledge,select_1_spread,select_1,spread,79,300,93,153,625,0.34051724137931033,0.7633587786259542,0.5519380100026323,logreg
+knowqa,no knowledge,select_1_plus_last_confirm_position,select_1_plus_last_confirm,position,81,287,106,151,625,0.34913793103448276,0.7302798982188295,0.5397089146266562,logreg
+knowqa,no knowledge,select_1_plus_last_confirm_selected,select_1_plus_last_confirm,selected,80,285,108,152,625,0.3448275862068966,0.7251908396946565,0.5350092129507765,logreg
+knowqa,no knowledge,select_1_plus_last_confirm_spread,select_1_plus_last_confirm,spread,79,297,96,153,625,0.34051724137931033,0.7557251908396947,0.5481212161095025,logreg
+knowqa,no knowledge,all_features_position,all_features,position,72,295,98,160,625,0.3103448275862069,0.7506361323155216,0.5304904799508643,logreg
+knowqa,no knowledge,all_features_selected,all_features,selected,76,293,100,156,625,0.3275862068965517,0.7455470737913485,0.5365666403439502,logreg
+knowqa,no knowledge,all_features_spread,all_features,spread,69,300,93,163,625,0.2974137931034483,0.7633587786259542,0.5303862858647013,logreg

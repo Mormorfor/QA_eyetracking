@@ -37,12 +37,20 @@ def compute_trial_matching(
                                in either direction (`direction` is ignored)
 
     `out_col` is "matching" if the chosen answer is the preferred one, else
-    "not_matching". Also returns the four answers' values, and `is_correct` if
-    the frame has it.
+    "not_matching". Also returns the four answers' values, `n_preferred`, and
+    `is_correct` if the frame has it.
 
-    A tie goes to the earlier letter (A before B before C before D). Answers
-    with no value are skipped; a trial where all four have no value stops with
-    an error.
+    **A tie is not broken.** Every answer tied for the extreme is preferred:
+    `pred_label` lists them ("A/C"), `n_preferred` counts them, and the trial is
+    "matching" if the chosen answer is among them. Breaking the tie by letter
+    would leak the answer key, since answer A is always the correct one: on a
+    tied trial "matching" would then mean exactly "correct". Ties are common on
+    the counted measures (on Study 1, `num_label_visits` ties at its top on 45%
+    of trials, `skip_rate` at its bottom on 18%).
+
+    Answers with no value are skipped. A trial where none of the four has a
+    value has no preferred answer: its `pred_label` and `out_col` are missing,
+    and the summaries and the test leave it out.
     """
 
     required = [
@@ -88,31 +96,40 @@ def compute_trial_matching(
         C.ANSWER_PREFIX, "", regex=False
     )
 
-    wide = area.pivot_table(
+    # `pivot`, not `pivot_table`: pivot_table drops a trial whose four values are
+    # all missing, and such a trial is kept here, with no preferred answer.
+    wide = area.pivot(
         index=[C.TRIAL_ID, C.PARTICIPANT_ID],
         columns="answer_label",
         values="metric_value",
-        aggfunc="first",
     ).reset_index()
+    wide.columns.name = None
 
     for lab in C.ANSWER_LABELS:
         if lab not in wide.columns:
             wide[lab] = np.nan
 
     M = wide[C.ANSWER_LABELS].to_numpy(dtype=float)
+    missing = np.isnan(M)
 
+    # How far each answer stands out; the preferred answers are those with the top
+    # score. An answer with no value cannot be preferred.
     if extreme_mode == "polarity":
-        idx = (
-            np.nanargmax(M, axis=1) if direction == "high" else np.nanargmin(M, axis=1)
-        )
+        score = M if direction == "high" else -M
     elif extreme_mode == "relative":
-        mu = np.nanmean(M, axis=1)
-        dev = np.abs(M - mu[:, None])
-        idx = np.nanargmax(dev, axis=1)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mu = np.where(missing, 0.0, M).sum(axis=1) / (~missing).sum(axis=1)
+        score = np.abs(M - mu[:, None])
     else:
         raise ValueError("extreme_mode must be 'polarity' or 'relative'")
+    score = np.where(missing, -np.inf, score)
+    preferred = (score == score.max(axis=1)[:, None]) & ~missing
 
-    wide["pred_label"] = np.array([C.ANSWER_LABELS[i] for i in idx], dtype=object)
+    labels = np.array(C.ANSWER_LABELS, dtype=object)
+    wide["pred_label"] = [
+        "/".join(labels[row]) if row.any() else np.nan for row in preferred
+    ]
+    wide["n_preferred"] = preferred.sum(axis=1)
 
     meta_cols = [C.TRIAL_ID, C.PARTICIPANT_ID, "selected_label"]
     if has_correct:
@@ -121,12 +138,19 @@ def compute_trial_matching(
     meta = area[meta_cols].drop_duplicates(subset=[C.TRIAL_ID, C.PARTICIPANT_ID])
 
     out = wide.merge(meta, on=[C.TRIAL_ID, C.PARTICIPANT_ID], how="left")
+    # A left merge keeps `wide`'s rows in order, so `preferred` still lines up.
+    assert len(out) == len(wide), "a trial has more than one selected answer"
 
-    out[out_col] = np.where(
-        out["selected_label"] == out["pred_label"], "matching", "not_matching"
+    chosen = out["selected_label"].map({lab: i for i, lab in enumerate(C.ANSWER_LABELS)})
+    assert chosen.notna().all(), (
+        f"selected answers outside {C.ANSWER_LABELS}: "
+        f"{sorted(out.loc[chosen.isna(), 'selected_label'].unique())}"
     )
+    is_preferred = preferred[np.arange(len(out)), chosen.to_numpy(int)]
+    out[out_col] = np.where(is_preferred, "matching", "not_matching").astype(object)
+    out.loc[~preferred.any(axis=1), out_col] = np.nan
 
-    core = [C.TRIAL_ID, C.PARTICIPANT_ID, "selected_label", "pred_label", out_col]
+    core = [C.TRIAL_ID, C.PARTICIPANT_ID, "selected_label", "pred_label", "n_preferred", out_col]
     if has_correct:
         core.append(C.IS_CORRECT_COLUMN)
 

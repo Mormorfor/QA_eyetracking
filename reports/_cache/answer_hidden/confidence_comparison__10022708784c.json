@@ -1,0 +1,21 @@
+{
+ "knowqa": "3d73866bf8cf7620",
+ "model_bins": null,
+ "models": [
+  "select_1",
+  "select_1_position",
+  "select_1_selected",
+  "select_1_spread",
+  "select_1_plus_last_confirm",
+  "select_1_plus_last_confirm_position",
+  "select_1_plus_last_confirm_selected",
+  "select_1_plus_last_confirm_spread",
+  "all_features",
+  "all_features_position",
+  "all_features_selected",
+  "all_features_spread"
+ ],
+ "n_boot": 2000,
+ "predictions": "36b2ea830e6cbe01",
+ "seed": 0
+}

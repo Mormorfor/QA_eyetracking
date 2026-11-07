@@ -1,0 +1,665 @@
+{
+  "coefficients__model-select_1_plus_last_confirm_position": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_plus_last_confirm_position"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_plus_last_confirm_position.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:54"
+  },
+  "coefficients__model-select_1_plus_last_confirm_selected": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_plus_last_confirm_selected"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_plus_last_confirm_selected.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:55"
+  },
+  "coefficients__model-select_1_plus_last_confirm_spread": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_plus_last_confirm_spread"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_plus_last_confirm_spread.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:55"
+  },
+  "coefficients__model-select_1_position": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_position"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_position.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:53"
+  },
+  "coefficients__model-select_1_selected": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_selected"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_selected.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:53"
+  },
+  "coefficients__model-select_1_spread": {
+    "plot": "coefficients",
+    "facets": {
+      "model": "select_1_spread"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_coefficients",
+    "figure": "coefficients__model-select_1_spread.png",
+    "subdir": "logreg",
+    "tables": [
+      "coefficients"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:50:54"
+  },
+  "confidence_roc__model-all_features__bins-5": {
+    "plot": "confidence_roc",
+    "facets": {
+      "model": "all_features",
+      "bins": 5
+    },
+    "produced_by": "src.explorations.answer_hidden.discrimination.plot_confidence_roc",
+    "figure": "confidence_roc__model-all_features__bins-5.png",
+    "subdir": "logreg",
+    "tables": [
+      "auc",
+      "curves"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:12:04"
+  },
+  "confidence_roc__model-select_1__bins-5": {
+    "plot": "confidence_roc",
+    "facets": {
+      "model": "select_1",
+      "bins": 5
+    },
+    "produced_by": "src.explorations.answer_hidden.discrimination.plot_confidence_roc",
+    "figure": "confidence_roc__model-select_1__bins-5.png",
+    "subdir": "logreg",
+    "tables": [
+      "auc",
+      "curves"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:12:03"
+  },
+  "confidence_roc__model-select_1_plus_last_confirm__bins-5": {
+    "plot": "confidence_roc",
+    "facets": {
+      "model": "select_1_plus_last_confirm",
+      "bins": 5
+    },
+    "produced_by": "src.explorations.answer_hidden.discrimination.plot_confidence_roc",
+    "figure": "confidence_roc__model-select_1_plus_last_confirm__bins-5.png",
+    "subdir": "logreg",
+    "tables": [
+      "auc",
+      "curves"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:12:03"
+  },
+  "confusion__dataset-knowqa__test-all": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "knowqa",
+      "test": "all"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-knowqa__test-all.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:13"
+  },
+  "confusion__dataset-knowqa__test-full_knowledge": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "knowqa",
+      "test": "full knowledge"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-knowqa__test-full_knowledge.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:12"
+  },
+  "confusion__dataset-knowqa__test-no_knowledge": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "knowqa",
+      "test": "no knowledge"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-knowqa__test-no_knowledge.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:09"
+  },
+  "confusion__dataset-knowqa__test-partial_knowledge": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "knowqa",
+      "test": "partial knowledge"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-knowqa__test-partial_knowledge.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:11"
+  },
+  "confusion__dataset-l1__test-both": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "l1",
+      "test": "both"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-l1__test-both.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:02"
+  },
+  "confusion__dataset-l1__test-new_item": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "l1",
+      "test": "new_item"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-l1__test-new_item.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:00"
+  },
+  "confusion__dataset-l1__test-new_subject": {
+    "plot": "confusion",
+    "facets": {
+      "dataset": "l1",
+      "test": "new_subject"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_confusion_grid",
+    "figure": "confusion__dataset-l1__test-new_subject.png",
+    "subdir": "logreg",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:01"
+  },
+  "deliberation_search": {
+    "plot": "deliberation_search",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.deliberation.plot_search_heatmap",
+    "figure": "deliberation_search.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T13:20:06"
+  },
+  "deliberation_search__search-groups": {
+    "plot": "deliberation_search",
+    "facets": {
+      "search": "groups"
+    },
+    "produced_by": "src.explorations.answer_hidden.deliberation.plot_search_heatmap",
+    "figure": "deliberation_search__search-groups.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:55:09"
+  },
+  "deliberation_search__search-matching": {
+    "plot": "deliberation_search",
+    "facets": {
+      "search": "matching"
+    },
+    "produced_by": "src.explorations.answer_hidden.deliberation.plot_search_heatmap",
+    "figure": "deliberation_search__search-matching.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-07T09:35:37"
+  },
+  "deliberation_search__search-selected": {
+    "plot": "deliberation_search",
+    "facets": {
+      "search": "selected"
+    },
+    "produced_by": "src.explorations.answer_hidden.deliberation.plot_search_heatmap",
+    "figure": "deliberation_search__search-selected.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:56:23"
+  },
+  "deliberation_search__search-tracker": {
+    "plot": "deliberation_search",
+    "facets": {
+      "search": "tracker"
+    },
+    "produced_by": "src.explorations.answer_hidden.deliberation.plot_search_heatmap",
+    "figure": "deliberation_search__search-tracker.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-07T09:57:56"
+  },
+  "discrimination__dataset-knowqa": {
+    "plot": "discrimination",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.answer_hidden.discrimination.plot_discrimination",
+    "figure": "discrimination__dataset-knowqa.png",
+    "subdir": "logreg",
+    "tables": [
+      "discrimination"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:01:34"
+  },
+  "discrimination__dataset-l1": {
+    "plot": "discrimination",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.answer_hidden.discrimination.plot_discrimination",
+    "figure": "discrimination__dataset-l1.png",
+    "subdir": "logreg",
+    "tables": [
+      "discrimination"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:01:33"
+  },
+  "model_comparison__dataset-knowqa": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_comparison",
+    "figure": "model_comparison__dataset-knowqa.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:43:52"
+  },
+  "model_comparison__dataset-knowqa__models_shown-deliberation": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "knowqa",
+      "models_shown": "deliberation"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_comparison",
+    "figure": "model_comparison__dataset-knowqa__models_shown-deliberation.png",
+    "subdir": "logreg",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:55:10"
+  },
+  "model_comparison__dataset-l1": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_comparison",
+    "figure": "model_comparison__dataset-l1.png",
+    "subdir": "logreg",
+    "tables": [
+      "folds",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:43:51"
+  },
+  "model_comparison__dataset-l1__models_shown-deliberation": {
+    "plot": "model_comparison",
+    "facets": {
+      "dataset": "l1",
+      "models_shown": "deliberation"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_answer_hidden_comparison",
+    "figure": "model_comparison__dataset-l1__models_shown-deliberation.png",
+    "subdir": "logreg",
+    "tables": [
+      "folds",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:55:09"
+  },
+  "probability_boxes__dataset-knowqa__model-all_features": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "all_features"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-knowqa__model-all_features.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:59"
+  },
+  "probability_boxes__dataset-knowqa__model-select_1": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "select_1"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-knowqa__model-select_1.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:58"
+  },
+  "probability_boxes__dataset-knowqa__model-select_1_plus_last_confirm": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "select_1_plus_last_confirm"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-knowqa__model-select_1_plus_last_confirm.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:58"
+  },
+  "probability_boxes__dataset-l1__model-all_features": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "l1",
+      "model": "all_features"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-l1__model-all_features.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:57"
+  },
+  "probability_boxes__dataset-l1__model-select_1": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "l1",
+      "model": "select_1"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-l1__model-select_1.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:56"
+  },
+  "probability_boxes__dataset-l1__model-select_1_plus_last_confirm": {
+    "plot": "probability_boxes",
+    "facets": {
+      "dataset": "l1",
+      "model": "select_1_plus_last_confirm"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_boxes",
+    "figure": "probability_boxes__dataset-l1__model-select_1_plus_last_confirm.png",
+    "subdir": "logreg",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:03:57"
+  },
+  "probability_histograms__dataset-knowqa__model-all_features": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "all_features"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-knowqa__model-all_features.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:19"
+  },
+  "probability_histograms__dataset-knowqa__model-select_1": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "select_1"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-knowqa__model-select_1.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:15"
+  },
+  "probability_histograms__dataset-knowqa__model-select_1_plus_last_confirm": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "knowqa",
+      "model": "select_1_plus_last_confirm"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-knowqa__model-select_1_plus_last_confirm.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:17"
+  },
+  "probability_histograms__dataset-l1__model-all_features": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "l1",
+      "model": "all_features"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-l1__model-all_features.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:08"
+  },
+  "probability_histograms__dataset-l1__model-select_1": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "l1",
+      "model": "select_1"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-l1__model-select_1.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:04"
+  },
+  "probability_histograms__dataset-l1__model-select_1_plus_last_confirm": {
+    "plot": "probability_histograms",
+    "facets": {
+      "dataset": "l1",
+      "model": "select_1_plus_last_confirm"
+    },
+    "produced_by": "src.explorations.answer_hidden.run.plot_probability_grid",
+    "figure": "probability_histograms__dataset-l1__model-select_1_plus_last_confirm.png",
+    "subdir": "logreg",
+    "tables": [
+      "bins",
+      "means"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T14:45:06"
+  },
+  "showcase_accuracy": {
+    "plot": "showcase_accuracy",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_accuracy.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:36:52"
+  },
+  "showcase_confusion": {
+    "plot": "showcase_confusion",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_confusion.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "counts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:36:53"
+  },
+  "showcase_discrimination": {
+    "plot": "showcase_discrimination",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_discrimination.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "discrimination"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:36:54"
+  },
+  "showcase_histograms": {
+    "plot": "showcase_histograms",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_histograms.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "bins"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:40:28"
+  },
+  "showcase_probabilities": {
+    "plot": "showcase_probabilities",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_probabilities.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "boxes"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:36:53"
+  },
+  "showcase_vs_confidence": {
+    "plot": "showcase_vs_confidence",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.showcase._save",
+    "figure": "showcase_vs_confidence.png",
+    "subdir": "logreg\\showcase",
+    "tables": [
+      "auc"
+    ],
+    "source": null,
+    "saved_at": "2026-11-06T15:36:54"
+  },
+  "tracker_added_value": {
+    "plot": "tracker_added_value",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.tracker.plot_added_value",
+    "figure": "tracker_added_value.png",
+    "subdir": "logreg",
+    "tables": [
+      "differences"
+    ],
+    "source": null,
+    "saved_at": "2026-11-07T09:59:15"
+  }
+}

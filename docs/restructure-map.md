@@ -280,7 +280,8 @@ QA_eyetracking_workspace/
 │   │   │   ├── run.py · report.py
 │   │   │   ├── plots/                the 55 KB viz module, split up
 │   │   │   ├── person_variance/
-│   │   │   └── knowledge_regimes/
+│   │   │   ├── knowledge_regimes/
+│   │   │   └── mixed_model/          the same model with random intercepts (Julia)
 │   │   └── text_qa_relationship/     was stats/RT_correlations/
 │   │
 │   ├── explorations/     parked. Same shape; not paper code.

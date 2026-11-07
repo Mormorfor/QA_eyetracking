@@ -38,6 +38,7 @@ from src.modeling.evaluate import (
     score_fitted_model,
 )
 from src.modeling.feature_sets import get_full_feature_cols
+from src.modeling.provenance import MODEL_FAMILY_COL
 from src.modeling.folds import (
     REGIME_COL,
     attach_fold_regimes,
@@ -67,6 +68,8 @@ class FoldRegimeEvaluationResult:
     n_positive: int
     n_negative: int
     coef_summary: Optional[pd.DataFrame] = None
+    # Which model made these predictions ("logreg", "glmm"); see modeling/provenance.py.
+    model_family: Optional[str] = None
 
 
 @dataclass
@@ -179,6 +182,7 @@ def evaluate_one_fold_on_regimes(
             n_positive=int((y_true == 1).sum()),
             n_negative=int((y_true == 0).sum()),
             coef_summary=coef_summary,
+            model_family=model.family,
         )
 
     return results
@@ -304,6 +308,7 @@ def run_cross_validation_on_predefined_folds(
                         "n_eval": res.n_eval,
                         "n_positive": res.n_positive,
                         "n_negative": res.n_negative,
+                        MODEL_FAMILY_COL: res.model_family,
                     }
                 )
 
@@ -429,6 +434,7 @@ def run_cross_validation_on_combined_folds(
                         "n_eval": res.n_eval,
                         "n_positive": res.n_positive,
                         "n_negative": res.n_negative,
+                        MODEL_FAMILY_COL: res.model_family,
                     }
                 )
 
@@ -670,7 +676,8 @@ def crossval_predictions_to_df(
 ) -> pd.DataFrame:
     """
     One row per held-out trial, fold and regime: the true label, the predicted
-    label and the predicted probability. Needs a run that was not reloaded from
+    label, the predicted probability, and which model made them (`model_family`,
+    see `modeling/provenance.py`). Needs a run that was not reloaded from
     disk, since a reloaded run has no per-fold results.
     """
     rows = []
@@ -690,6 +697,7 @@ def crossval_predictions_to_df(
                         "y_true": int(res.y_true[i]),
                         "y_pred": int(res.y_pred[i]),
                         "y_prob": None if y_prob[i] is None else float(y_prob[i]),
+                        MODEL_FAMILY_COL: res.model_family,
                     }
                 )
 

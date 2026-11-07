@@ -1,0 +1,20 @@
+{
+ "ci": 0.95,
+ "n_boot": 2000,
+ "pairs": [
+  [
+   "no_tracker",
+   "gaze_wide_no_time+no_tracker"
+  ],
+  [
+   "no_tracker",
+   "chosen"
+  ],
+  [
+   "gaze_wide_no_time",
+   "gaze_wide_no_time+no_tracker"
+  ]
+ ],
+ "predictions": "9002545407ad5389",
+ "seed": 0
+}

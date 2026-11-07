@@ -7,20 +7,24 @@ matrix, the predicted probabilities, the coefficients and the correlations betwe
 the features. `run_cross_dataset_correctness_bundle` does the same with a training
 table and a separate test table, e.g. trained on Study 1 and tested on Study 2.
 
+Both take `model_builder`, so the same runs work for the mixed model
+(`modeling/models/glmm_model.py`); the default is the logistic regression.
+
 This is one split, not cross-validation. The accuracy the paper reports comes from
 all ten folds (`modeling/crossval.py`), and its coefficients from one fit on all the
 data (`modeling/evaluate.py::collect_logreg_coef_summaries`).
 
 Everything is saved under `reports/correctness_prediction/{figures,tables}/`, in
-`<held-out regimes>/logreg/<subdir>/`.
+`<model family>/<held-out regimes>/<subdir>/`, where the family is `logreg` or `glmm`:
+the model that made the outputs is always the first folder.
 
-Two modules in `explorations/` import from this one: `feature_search/column_options.py`
-and `mixed_models/run.py`.
+`mixed_model/run.py` and `explorations/feature_search/column_options.py` import from
+this module.
 """
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Optional, Sequence, Tuple, List, Dict, Any
+from typing import Callable, Optional, Sequence, Tuple, List, Dict, Any
 import pandas as pd
 from src.config import columns as Con
 from src.config.datasets import READY_ALL_FEATURES_PATH
@@ -48,6 +52,7 @@ from src.analyses.correctness_prediction.plots.results import (
 )
 from src.lib.plotting.confusion import plot_confusion_heatmap
 from src.lib.plotting.output import save_output
+from src.modeling.provenance import MODEL_FAMILY_COL
 
 
 def _split_tag(test_regimes: Sequence[str]) -> str:
@@ -187,6 +192,7 @@ def _save_summary_csv(
     run_identifier: str,
     to_paper,
     formula: Optional[str] = None,
+    model_family: str,
 ):
     """Save the summary table as `model_summary`; always writes, so callers check `save`."""
     summary_df = correctness_results_to_summary_df(
@@ -194,6 +200,7 @@ def _save_summary_csv(
         run_identifier=run_identifier,
         trained_feature_cols_by_model={model_name: list(trained_feature_cols)},
     )
+    summary_df[MODEL_FAMILY_COL] = model_family
 
     if formula is not None:
         summary_df["formula"] = formula
@@ -387,6 +394,7 @@ def run_full_features_correctness_bundle(
     feature_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
+    model_builder: Callable[[], Any] = TrialLevelLogRegModel,
     save: Optional[bool] = None,
     to_paper=None,
     dpi: int = 300,
@@ -420,18 +428,22 @@ def run_full_features_correctness_bundle(
     (`coef_ci_method="wald"`, `coef_ci_cluster="row"`): quick, and not the paper's
     coefficients.
 
+    `model_builder` makes the unfitted model; the default is the logistic regression.
+    For the mixed model pass `coef_ci_cluster="cluster"`: its intervals come from its
+    own standard errors, which account for the grouping, and it has no per-trial version.
+
     `title_prefix` goes in front of every figure title. Returns a dict with the
     results, the training, test and full trial tables, the split's details, the
     output folder and the saved paths.
     """
-    model = TrialLevelLogRegModel()
+    model = model_builder()
     model_name = model.name
-    model_family = "logreg"
+    model_family = model.family
 
     split_tag = _split_tag(test_regimes)
     # The output folder under reports/correctness_prediction/. The held-out regimes
     # are named only here, not in the file names.
-    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
+    base_dir = "/".join(x for x in (model_family, split_tag or "full_fit", subdir) if x)
 
     train_df, test_df, split_info = build_train_test_trial_dfs(
         df=df,
@@ -471,7 +483,8 @@ def run_full_features_correctness_bundle(
             base_dir=base_dir,
             run_identifier=run_identifier,
             to_paper=to_paper,
-            formula=None,
+            formula=getattr(model, "formula_", None),
+            model_family=model.family,
         )
 
     cm_paths, cm_paths2 = _plot_confusions(
@@ -527,6 +540,7 @@ def run_full_features_correctness_bundle(
 
     return {
         "results": results,
+        "model_family": model.family,
         "train_df": train_df,
         "test_df": test_df,
         "trial_df": trial_df,
@@ -552,6 +566,7 @@ def run_cross_dataset_correctness_bundle(
     feature_cols: Optional[Sequence[str]] = None,
     coef_ci_method: str = "wald",
     coef_ci_cluster: str = "row",
+    model_builder: Callable[[], Any] = TrialLevelLogRegModel,
     save: Optional[bool] = None,
     to_paper=None,
     dpi: int = 300,
@@ -573,15 +588,17 @@ def run_cross_dataset_correctness_bundle(
     features).
 
     Scores, figures and saving as in `run_full_features_correctness_bundle`, in
-    `<split_tag>/logreg/<subdir>/`; the feature correlations are over `train_df`.
+    `<model family>/<split_tag>/<subdir>/`; the feature correlations are over
+    `train_df`. `model_builder` as there: the logistic regression by default, and the
+    mixed model needs `coef_ci_cluster="cluster"`.
     """
-    model = TrialLevelLogRegModel()
+    model = model_builder()
     model_name = model.name
-    model_family = "logreg"
+    model_family = model.family
 
     # The output folder under reports/correctness_prediction/. `split_tag` is named
     # only here, not in the file names.
-    base_dir = "/".join(x for x in (split_tag or "full_fit", model_family, subdir) if x)
+    base_dir = "/".join(x for x in (model_family, split_tag or "full_fit", subdir) if x)
 
     # Keep only the features the test table also has: the model stops if one is
     # missing.
@@ -620,7 +637,8 @@ def run_cross_dataset_correctness_bundle(
             base_dir=base_dir,
             run_identifier=run_identifier,
             to_paper=to_paper,
-            formula=None,
+            formula=getattr(model, "formula_", None),
+            model_family=model.family,
         )
 
     cm_paths, cm_paths2 = _plot_confusions(
@@ -672,6 +690,7 @@ def run_cross_dataset_correctness_bundle(
 
     return {
         "results": results,
+        "model_family": model.family,
         "train_df": train_df,
         "test_df": test_df,
         "feature_cols": list(model.feature_cols_),

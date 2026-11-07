@@ -1,7 +1,7 @@
 """The paper's model: logistic regression on one row per trial."""
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Literal
+from typing import ClassVar, Optional, Sequence, Literal
 import warnings
 import numpy as np
 import pandas as pd
@@ -67,6 +67,9 @@ class TrialLevelLogRegModel:
     correct and wrong answers count equally although most answers are correct.
     The coefficients are therefore per standard deviation of each feature.
     """
+
+    # The folder under reports/correctness_prediction/<split>/ that this model's outputs go in.
+    family: ClassVar[str] = "logreg"
 
     name: str = "trial_level_log_reg"
     max_iter: int = 100000
