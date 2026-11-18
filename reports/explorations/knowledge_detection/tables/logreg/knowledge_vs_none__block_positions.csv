@@ -1,0 +1,4 @@
+regime,block_1,block_2,block_3
+no knowledge,12,12,15
+partial knowledge,12,15,12
+full knowledge,15,12,12

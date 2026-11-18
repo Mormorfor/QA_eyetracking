@@ -1,0 +1,9 @@
+{
+ "ci": 0.95,
+ "n_boot": 2000,
+ "seed": 0,
+ "trials": {
+  "knowqa": "244aa0cd8d9f9c89",
+  "l1": "830fa09e20aa2aab"
+ }
+}

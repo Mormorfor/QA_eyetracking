@@ -1,0 +1,28 @@
+level,n_correct,n_rows,accuracy,participant_mean,n_participants,se,subset,by
+bottom,46,158,0.2911392405063291,0.29408262677493446,13,0.03242376174239343,no knowledge,position of the correct answer
+left,59,152,0.3881578947368421,0.3826982846213615,13,0.04271864418947691,no knowledge,position of the correct answer
+right,45,144,0.3125,0.30937545360622287,13,0.047237083453514184,no knowledge,position of the correct answer
+top,82,171,0.47953216374269003,0.4714473560627407,13,0.050202840470720184,no knowledge,position of the correct answer
+not reached,0,17,0.0,0.0,7,0.0,no knowledge,when the correct answer was first reached
+1st,83,170,0.48823529411764705,0.4809042641621827,13,0.04928382620019507,no knowledge,when the correct answer was first reached
+2nd,50,150,0.3333333333333333,0.31539326058556827,13,0.03023942172838386,no knowledge,when the correct answer was first reached
+3rd,44,153,0.2875816993464052,0.27777490232241364,13,0.028462383297478237,no knowledge,when the correct answer was first reached
+4th,55,135,0.4074074074074074,0.40951548451548453,13,0.047718114156518804,no knowledge,when the correct answer was first reached
+bottom,117,142,0.823943661971831,0.8468566689720536,13,0.038958222349562935,partial knowledge,position of the correct answer
+left,147,185,0.7945945945945946,0.8033627135347783,13,0.019260866368065042,partial knowledge,position of the correct answer
+right,116,142,0.8169014084507042,0.8286265017034248,13,0.03681283518511894,partial knowledge,position of the correct answer
+top,116,151,0.7682119205298014,0.7733616810539888,13,0.02170318643659442,partial knowledge,position of the correct answer
+not reached,1,9,0.1111111111111111,0.16666666666666666,6,0.16666666666666669,partial knowledge,when the correct answer was first reached
+1st,127,160,0.79375,0.7925445000343786,13,0.022423618843360506,partial knowledge,when the correct answer was first reached
+2nd,129,161,0.8012422360248447,0.8160017772574334,13,0.03243020812551894,partial knowledge,when the correct answer was first reached
+3rd,121,147,0.8231292517006803,0.8486682246863242,13,0.04038539908411244,partial knowledge,when the correct answer was first reached
+4th,118,143,0.8251748251748252,0.8249972249972249,13,0.026975535493147355,partial knowledge,when the correct answer was first reached
+bottom,167,171,0.9766081871345029,0.9734146195684658,13,0.011816864888863679,full knowledge,position of the correct answer
+left,152,154,0.987012987012987,0.9881656804733728,13,0.011834319526627222,full knowledge,position of the correct answer
+right,169,174,0.9712643678160919,0.9732827373295602,13,0.013317698242489353,full knowledge,position of the correct answer
+top,136,141,0.9645390070921985,0.9616550116550117,13,0.02031151220224982,full knowledge,position of the correct answer
+not reached,7,7,1.0,1.0,2,0.0,full knowledge,when the correct answer was first reached
+1st,144,147,0.9795918367346939,0.9808857808857809,13,0.010197968696609485,full knowledge,when the correct answer was first reached
+2nd,160,167,0.9580838323353293,0.9542540792540793,13,0.018657880308117054,full knowledge,when the correct answer was first reached
+3rd,190,195,0.9743589743589743,0.9761446886446887,13,0.011601850946547814,full knowledge,when the correct answer was first reached
+4th,123,124,0.9919354838709677,0.9923076923076923,13,0.007692307692307693,full knowledge,when the correct answer was first reached

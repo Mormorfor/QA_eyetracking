@@ -113,7 +113,7 @@ archive/        superseded work, kept deliberately
 1. **Imports only point downwards** — `lib` → `config` → `ingest` → `features` → `modeling` →
    `analyses`. Nothing imports `analyses`, and `lib` imports nothing from the project.
 
-   **Three standing exceptions, all deliberate and all load-bearing:**
+   **Four standing exceptions, all deliberate and all load-bearing:**
 
    - **`ingest/` may import `features/`.** This is not drift — it is how the pipeline is built.
      `ingest/build.py` is the composition root and `ingest/registry.py` is the recipe, and
@@ -136,6 +136,13 @@ archive/        superseded work, kept deliberately
      copy could drift. Agreed with Diana 2026-11-06. The paper's plot functions are called
      with `save=False` and the figures saved under `explorations/answer_hidden`, so nothing
      lands in the paper's report folders.
+   - **`explorations/guessability/no_knowledge.py` imports
+     `analyses/correctness_prediction/knowledge_regimes/descriptives.py`** — the Study 2
+     loading, the L1 model fit and its predictions, the metrics and the figure functions. It
+     scores that model on the no-knowledge trials without the most guessable questions, so the
+     model and predictions must be the Study 2 analysis's own; a copy could drift. Agreed with
+     Diana 2026-11-16. Same arrangement as `answer_hidden`: the figure functions are called with
+     `save=False` and the figures saved under `explorations/guessability`.
 2. **`analyses/` is paper code, `explorations/` is not**, and the path says which.
 
 **Entry points.** `python scripts/run_analysis.py --list` says what can be run without Jupyter.

@@ -1,0 +1,16 @@
+{
+  "prob_on_correct_by_regime": {
+    "plot": "prob_on_correct_by_regime",
+    "facets": {},
+    "produced_by": "__main__.plot_correct_by_regime",
+    "figure": "prob_on_correct_by_regime.png",
+    "subdir": "logreg",
+    "tables": [
+      "means",
+      "per_person",
+      "tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-08T12:59:49"
+  }
+}

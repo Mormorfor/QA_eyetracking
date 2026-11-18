@@ -1,0 +1,7 @@
+subset,test,n_trials,n_participants,statistic,p
+no knowledge,confidence: the same whether or not the top answer was chosen,625,13,37.0,0.587890625
+no knowledge,confidence: the same whether or not the first reached answer was chosen,625,13,33.0,0.414306640625
+partial knowledge,confidence: the same whether or not the top answer was chosen,620,13,36.0,0.541748046875
+partial knowledge,confidence: the same whether or not the first reached answer was chosen,620,13,41.0,0.786865234375
+full knowledge,confidence: the same whether or not the top answer was chosen,640,13,35.0,0.497314453125
+full knowledge,confidence: the same whether or not the first reached answer was chosen,640,13,23.0,0.2333984375

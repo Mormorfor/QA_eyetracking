@@ -1,0 +1,25 @@
+subset,test,n_trials,value,statistic,p,n_draws,seed
+all participants,chosen answer: at each position equally often,19436,,3.7155793373122044,0.5266473352664733,10000,0
+all participants,chosen answer: at the top one time in four,19436,0.2535501131920148,0.0035501131920148143,0.38476152384761525,10000,0
+all participants,wrong answer chosen: at each position equally often,3097,,0.5692605747497579,0.9165083491650835,10000,0
+all participants,wrong answer chosen: at the top one time in four,3097,0.2541168873103003,0.004116887310300299,0.6212378762123788,10000,0
+all participants,accuracy: the same wherever the correct answer sat,19436,0.8406565136859436,5.235613283378969,0.196980301969803,10000,0
+all participants,accuracy: the same with the correct answer at the top as elsewhere,19436,0.005483814117652752,0.005483814117652752,0.3905609439056094,10000,0
+all participants,chosen answer: at the participant's usual first look one time in four,19436,0.25154352747478903,0.0015435274747890304,0.704029597040296,10000,0
+all participants,first look: on each kind of answer equally often,19411,,0.926639534284684,0.914008599140086,10000,0
+hunters,chosen answer: at each position equally often,9719,,1.6161127688033747,0.6613338666133387,10000,0
+hunters,chosen answer: at the top one time in four,9719,0.25095174400658504,0.0009517440065850424,0.8402159784021598,10000,0
+hunters,wrong answer chosen: at each position equally often,1270,,4.009448818897638,0.2586741325867413,10000,0
+hunters,wrong answer chosen: at the top one time in four,1270,0.2377952755905512,0.012204724409448808,0.33466653334666535,10000,0
+hunters,accuracy: the same wherever the correct answer sat,9719,0.8693281201769729,4.883850533280824,0.1882811718828117,10000,0
+hunters,accuracy: the same with the correct answer at the top as elsewhere,9719,0.003424522961548826,0.003424522961548826,0.6641335866413358,10000,0
+hunters,chosen answer: at the participant's usual first look one time in four,9719,0.24992283156703365,7.716843296634579e-05,0.9907009299070093,10000,0
+hunters,first look: on each kind of answer equally often,9709,,0.10330621073231022,0.9899010098990101,10000,0
+gatherers,chosen answer: at each position equally often,9717,,4.087990120407533,0.24747525247475252,10000,0
+gatherers,chosen answer: at the top one time in four,9717,0.2561490171863744,0.006149017186374395,0.17118288171182883,10000,0
+gatherers,wrong answer chosen: at each position equally often,1827,,2.9091406677613576,0.40815918408159185,10000,0
+gatherers,wrong answer chosen: at the top one time in four,1827,0.2654625068418172,0.015462506841817214,0.12588741125887412,10000,0
+gatherers,accuracy: the same wherever the correct answer sat,9717,0.811979005866008,3.4698978243329575,0.32156784321567844,10000,0
+gatherers,accuracy: the same with the correct answer at the top as elsewhere,9717,0.0075511402514890635,0.0075511402514890635,0.40245975402459755,10000,0
+gatherers,chosen answer: at the participant's usual first look one time in four,9717,0.25316455696202533,0.0031645569620253333,0.46995300469953005,10000,0
+gatherers,first look: on each kind of answer equally often,9702,,1.2191300762729333,0.7531246875312468,10000,0

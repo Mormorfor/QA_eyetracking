@@ -661,5 +661,17 @@
     ],
     "source": null,
     "saved_at": "2026-11-07T09:59:15"
+  },
+  "wrong_trials_correct_vs_passed_over": {
+    "plot": "wrong_trials_correct_vs_passed_over",
+    "facets": {},
+    "produced_by": "src.explorations.answer_hidden.wrong_trials.plot_differences",
+    "figure": "wrong_trials_correct_vs_passed_over.png",
+    "subdir": null,
+    "tables": [
+      "differences"
+    ],
+    "source": null,
+    "saved_at": "2026-11-07T10:56:18"
   }
 }

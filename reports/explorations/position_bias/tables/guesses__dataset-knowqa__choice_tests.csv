@@ -1,0 +1,9 @@
+subset,test,n_trials,value,statistic,p,n_draws,seed
+no knowledge,chosen answer: at each position equally often,625,,15.5952,0.0008999100089991,10000,0
+no knowledge,chosen answer: at the top one time in four,625,0.3168,0.06680000000000003,9.999000099990002e-05,10000,0
+no knowledge,wrong answer chosen: at each position equally often,393,,4.628498727735369,0.19938006199380062,10000,0
+no knowledge,wrong answer chosen: at the top one time in four,393,0.2951653944020356,0.0451653944020356,0.04079592040795921,10000,0
+no knowledge,accuracy: the same wherever the correct answer sat,625,0.3712,15.249773959093401,0.0017998200179982,10000,0
+no knowledge,accuracy: the same with the correct answer at the top as elsewhere,625,0.1491356879717649,0.1491356879717649,0.0006999300069993001,10000,0
+no knowledge,chosen answer: at the participant's usual first look one time in four,625,0.3184,0.06840000000000002,0.00029997000299970003,10000,0
+no knowledge,first look: on each kind of answer equally often,625,,4.497599999999999,0.2216778322167783,10000,0

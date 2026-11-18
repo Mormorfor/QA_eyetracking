@@ -1,0 +1,262 @@
+{
+  "decision_times__dataset-knowqa": {
+    "plot": "decision_times",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_decision_times",
+    "figure": "decision_times__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "quantiles"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:29"
+  },
+  "decision_times__dataset-l1": {
+    "plot": "decision_times",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_decision_times",
+    "figure": "decision_times__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "quantiles"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:56"
+  },
+  "ez_diffusion__dataset-knowqa": {
+    "plot": "ez_diffusion",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.ez.plot_ez",
+    "figure": "ez_diffusion__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "fits",
+      "medians"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:30"
+  },
+  "ez_diffusion__dataset-l1": {
+    "plot": "ez_diffusion",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.ez.plot_ez",
+    "figure": "ez_diffusion__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "fits",
+      "medians"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:56"
+  },
+  "first_last_look__dataset-knowqa": {
+    "plot": "first_last_look",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_first_last",
+    "figure": "first_last_look__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "rates"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:28"
+  },
+  "first_last_look__dataset-l1": {
+    "plot": "first_last_look",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_first_last",
+    "figure": "first_last_look__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "rates"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:54"
+  },
+  "gaze_bias__dataset-knowqa": {
+    "plot": "gaze_bias",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_gaze_bias",
+    "figure": "gaze_bias__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "binned"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:27"
+  },
+  "gaze_bias__dataset-l1": {
+    "plot": "gaze_bias",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_gaze_bias",
+    "figure": "gaze_bias__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "binned"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:53"
+  },
+  "gaze_cascade__dataset-knowqa": {
+    "plot": "gaze_cascade",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_gaze_cascade",
+    "figure": "gaze_cascade__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "decision",
+      "onset"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:25"
+  },
+  "gaze_cascade__dataset-l1": {
+    "plot": "gaze_cascade",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_gaze_cascade",
+    "figure": "gaze_cascade__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "decision",
+      "onset"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:50"
+  },
+  "gaze_cascade_by_condition__dataset-knowqa": {
+    "plot": "gaze_cascade_by_condition",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_cascade_by_condition",
+    "figure": "gaze_cascade_by_condition__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "chosen"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:26"
+  },
+  "gaze_cascade_by_condition__dataset-l1": {
+    "plot": "gaze_cascade_by_condition",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_cascade_by_condition",
+    "figure": "gaze_cascade_by_condition__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "chosen"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:53"
+  },
+  "glam_check__dataset-knowqa": {
+    "plot": "glam_check",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.glam.plot_glam_check",
+    "figure": "glam_check__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "fits",
+      "gaze_bias",
+      "rt_quantiles"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:40"
+  },
+  "glam_check__dataset-l1": {
+    "plot": "glam_check",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.glam.plot_glam_check",
+    "figure": "glam_check__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "fits",
+      "gaze_bias",
+      "rt_quantiles"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:03:03"
+  },
+  "glam_parameters__dataset-knowqa": {
+    "plot": "glam_parameters",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.glam.plot_glam_parameters",
+    "figure": "glam_parameters__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "parameters"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:41"
+  },
+  "glam_parameters__dataset-l1": {
+    "plot": "glam_parameters",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.glam.plot_glam_parameters",
+    "figure": "glam_parameters__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "parameters"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:03:04"
+  },
+  "visit_durations__dataset-knowqa": {
+    "plot": "visit_durations",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_visit_durations",
+    "figure": "visit_durations__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "durations"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:00:28"
+  },
+  "visit_durations__dataset-l1": {
+    "plot": "visit_durations",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.drift_diffusion.signatures.plot_visit_durations",
+    "figure": "visit_durations__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "durations"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T14:01:55"
+  }
+}

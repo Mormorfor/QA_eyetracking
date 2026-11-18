@@ -1,0 +1,973 @@
+article,difficulty,question,source,n_guesses,n_correct,share_correct,chose_A,chose_B,chose_C,chose_D,max_wrong_n
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What is true of most of the people who came into the clinic where Bets works?,Onestop,22,21,0.9545454545454546,21,0,0,1,1
+Japan Calls Time on Long Hours Work Culture,Adv,What are Japanese workers likely to think about taking a two-week summer holiday?,Onestop,19,18,0.9473684210526315,18,0,0,1,1
+Bright Future for Astrotourism,Adv,Why do tourists go to Northumberland in autumn and winter?,Onestop,17,16,0.9411764705882353,16,0,1,0,1
+Japan Calls Time on Long Hours Work Culture,Ele,Why is Japan's population declining?,Onestop,17,16,0.9411764705882353,16,1,0,0,1
+Google Introduces its Driverless Car,Ele,What will Google do now?,Onestop,16,15,0.9375,15,0,1,0,1
+Why You Should Start Work at 10AM,Adv,"According to Kelley, how would staggered starting times benefit workplaces?",Onestop,16,15,0.9375,15,1,0,0,1
+Why You Should Start Work at 10AM,Adv,Why does Kelley say that going to bed earlier is not the solution to waking up earlier?,Onestop,16,15,0.9375,15,1,0,0,1
+Why You Should Start Work at 10AM,Ele,"According to Kelley, what creates difficulties for parents in the morning?",Onestop,16,15,0.9375,15,1,0,0,1
+Love Hormone Helps Autistic Children Bond with Others,Ele,What were the two different groups in the experiment?,Onestop,15,14,0.9333333333333333,14,0,0,1,1
+The Greek Island Where Time Is Running Out,Ele,"What is the upcoming ""bigger crisis""?",Onestop,15,14,0.9333333333333333,14,1,0,0,1
+The Secrets of the Mystery Shopper,Adv,What kind of information are mystery shoppers collecting?,Onestop,15,14,0.9333333333333333,14,0,0,1,1
+The Secrets of the Mystery Shopper,Ele,What kind of information are mystery shoppers collecting?,Onestop,14,13,0.9285714285714286,13,0,0,1,1
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,Why do Zhorna's brothers both work instead of attending school?,Onestop,26,24,0.9230769230769231,24,0,0,2,2
+Japan Calls Time on Long Hours Work Culture,Adv,Why is Japan's population declining?,Onestop,17,15,0.8823529411764706,15,2,0,0,2
+Japan Calls Time on Long Hours Work Culture,Ele,What is one reason for the increase in stress-related illnesses in Japan?,Onestop,17,15,0.8823529411764706,15,0,0,2,2
+A New Form of Lie Detector Test,Adv,What does Anderson say can be measured now?,Onestop,16,14,0.875,14,1,0,1,1
+Google Introduces its Driverless Car,Adv,How will Volvo's cars contrast with Google's cars?,Onestop,16,14,0.875,14,1,1,0,1
+Love Hormone Helps Autistic Children Bond with Others,Ele,How were the social aspects of autism effectively treated before the time this article was written?,Onestop,16,14,0.875,14,1,1,0,1
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What is true about Carle's underpants prior to their replacement?,Onestop,16,14,0.875,14,0,0,2,2
+Spain's Robin Hood,Adv,How did Duran obtain a lot of money in 2007?,Onestop,16,14,0.875,14,1,1,0,1
+Why You Should Start Work at 10AM,Adv,What does Kelley say about the relationship between working hours and natural rhythms?,Onestop,16,14,0.875,14,2,0,0,2
+Why You Should Start Work at 10AM,Ele,"According to Kelley, how will staggered starting times affect employees?",Onestop,16,14,0.875,14,2,0,0,2
+Why You Should Start Work at 10AM,Ele,"How might staggered starting times for work affect traffic, according to Kelley?",Onestop,16,14,0.875,14,2,0,0,2
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,Why do Zhorna's brothers both work instead of attending school?,Onestop,23,20,0.8695652173913043,20,0,1,2,2
+Japan Calls Time on Long Hours Work Culture,Adv,Who is scared of disapproval from their colleagues?,Onestop,23,20,0.8695652173913043,20,2,0,1,2
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What does Russia believe the exemption will result in?,Onestop,15,13,0.8666666666666667,13,0,0,2,2
+Bolivians Demand the Right to Chew Coca Leaves,Adv,Why do some people support Bolivia's position?,Onestop,15,13,0.8666666666666667,13,0,2,0,2
+Love Hormone Helps Autistic Children Bond with Others,Adv,Why does Firth advocate for demonstrating behavioral effects of oxytocin?,Onestop,15,13,0.8666666666666667,13,0,0,2,2
+Morocco Poised to Become a Solar Superpower,Adv,What is true of wind and hydro energy sources in Morocco?,Onestop,21,18,0.8571428571428571,18,1,2,0,2
+A New Form of Lie Detector Test,Adv,Motions in the whole body can directly show ...,Onestop,14,12,0.8571428571428571,12,1,0,1,1
+The Secrets of the Mystery Shopper,Adv,"For the mystery shopper to earn around PS300 a day, a hidden camera needs to be ...",Onestop,14,12,0.8571428571428571,12,0,1,1,1
+Why is Sweden Closing its Prisons?,Adv,What does Oberg hope is the reason for the reduction in the number of prisoners in Sweden?,Onestop,14,12,0.8571428571428571,12,0,2,0,2
+Can the US Electric Bike Market Get a Jump Start?,Adv,Postal workers in Germany ...,Onestop,20,17,0.85,17,0,2,1,2
+Japan Calls Time on Long Hours Work Culture,Adv,What is a reason Japanese couples do not start families?,Onestop,20,17,0.85,17,1,0,2,2
+Can the US Electric Bike Market Get a Jump Start?,Ele,"What is one reason Pizzi calls the ""cargo bike"" a ""minivan alternative""?",Onestop,19,16,0.8421052631578947,16,1,0,2,2
+Japan Calls Time on Long Hours Work Culture,Ele,What are Japanese workers likely to think about taking a two-week summer holiday?,Onestop,23,19,0.8260869565217391,19,3,1,0,3
+Bright Future for Astrotourism,Ele,Why do tourists go to Northumberland in autumn and winter?,Onestop,17,14,0.8235294117647058,14,0,2,1,2
+Japan Calls Time on Long Hours Work Culture,Ele,What does the government hope will happen by 2020?,Onestop,17,14,0.8235294117647058,14,0,2,1,2
+Love Hormone Helps Autistic Children Bond with Others,Adv,Who or what claims that oxytocin could be helpful for social motivation in autism?,Onestop,16,13,0.8125,13,3,0,0,3
+Love Hormone Helps Autistic Children Bond with Others,Ele,What is currently known about the benefits and side effects of oxytocin?,Onestop,16,13,0.8125,13,0,1,2,2
+The Greek Island Where Time Is Running Out,Ele,Why does Provatas Costas mention milk and bread when describing Agios Efstratios?,Onestop,16,13,0.8125,13,2,1,0,2
+Why You Should Start Work at 10AM,Adv,"How might staggered starting times for work affect traffic, according to Kelley?",Onestop,16,13,0.8125,13,1,0,2,2
+Why You Should Start Work at 10AM,Adv,"How would later start times affect families, according to the article?",Onestop,16,13,0.8125,13,3,0,0,3
+Why You Should Start Work at 10AM,Ele,"According to Kelley, how would staggered starting times benefit workplaces?",Onestop,16,13,0.8125,13,2,1,0,2
+Why You Should Start Work at 10AM,Ele,"How would later start times affect families, according to the article?",Onestop,16,13,0.8125,13,2,1,0,2
+101-Year-Old Bottle Message,Adv,How did the visitor know the message in the bottle was written by Angela's grandfather?,Onestop,21,17,0.8095238095238095,17,0,0,4,4
+Man Falls Just Short in Patriot Game to be 100% French,Ele,Why was listening to Celine Dion allowed?,Onestop,20,16,0.8,16,2,0,2,2
+A New Form of Lie Detector Test,Ele,Motions in the whole body can directly show ...,Onestop,15,12,0.8,12,2,0,1,2
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Who had all the shares of cooperative 18 months after the opening?,Onestop,15,12,0.8,12,1,1,1,1
+The Secrets of the Mystery Shopper,Ele,Why can Hanna's job be difficult?,Onestop,15,12,0.8,12,1,2,0,2
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is true of e-bike prices?,Onestop,19,15,0.7894736842105263,15,0,2,2,2
+Japan Calls Time on Long Hours Work Culture,Ele,What is a reason Japanese couples do not start families?,Onestop,19,15,0.7894736842105263,15,1,0,3,3
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What is true about Carle's jeans prior to the arrival of the removal men?,Onestop,19,15,0.7894736842105263,15,2,0,2,2
+Man Falls Just Short in Patriot Game to be 100% French,Adv,Why was listening to Celine Dion allowed?,Onestop,19,15,0.7894736842105263,15,0,2,2,2
+Insects Could be the Planets Next Food Source,Adv,What is one health benefit of eating insects?,Onestop,14,11,0.7857142857142857,11,3,0,0,3
+Rwandan Women Whip up Popular Ice Cream Business,Ele,"What can customers buy at the ice cream shop, other than ice cream?",Onestop,14,11,0.7857142857142857,11,2,0,1,2
+The Secrets of the Mystery Shopper,Adv,What does Laura find satisfying when returning to some of the stores she visited while mystery shopping? ?,Onestop,14,11,0.7857142857142857,11,1,0,2,2
+Wealth Therapy for the Rich,Adv,What does Cockrell say is true if someone is part of the 1%?,Onestop,14,11,0.7857142857142857,11,0,2,1,2
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What does Pullman think about pirating?,Onestop,18,14,0.7777777777777778,14,0,2,2,2
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is true of the e-bike market in China?,Onestop,20,15,0.75,15,1,0,4,4
+A New Form of Lie Detector Test,Ele,What does Anderson say can be measured now?,Onestop,16,12,0.75,12,2,2,0,2
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is true of e-bike prices?,Onestop,16,12,0.75,12,3,0,1,3
+Google Introduces its Driverless Car,Adv,"Why are detailed, high-quality scans of the road needed?",Onestop,16,12,0.75,12,2,2,0,2
+Love Hormone Helps Autistic Children Bond with Others,Adv,What is currently known about the benefits and side effects of oxytocin?,Onestop,16,12,0.75,12,0,2,2,2
+Love Hormone Helps Autistic Children Bond with Others,Adv,What were the two different groups in the experiment?,Onestop,16,12,0.75,12,0,1,3,3
+Man Falls Just Short in Patriot Game to be 100% French,Adv,"What was the experiment trying to show, according to Carle?",Onestop,16,12,0.75,12,0,3,1,3
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What was the main premise of Carle's television documentary?,Onestop,16,12,0.75,12,1,1,2,2
+Spain's Robin Hood,Adv,How much prison time would Duran have to serve if he hadn't fled Spain?,Onestop,16,12,0.75,12,0,1,3,3
+Spain's Robin Hood,Ele,How much prison time would Duran have to serve if he hadn't fled Spain?,Onestop,16,12,0.75,12,2,0,2,2
+The Greek Island Where Time Is Running Out,Adv,"Why are things generally more expensive in Agios Efstratios, according to Provatas Costas?",Onestop,16,12,0.75,12,2,2,0,2
+The Greek Island Where Time Is Running Out,Adv,Why does Provatas Costas mention milk and bread when describing Agios Efstratios?,Onestop,16,12,0.75,12,1,2,1,2
+The Greek Island Where Time Is Running Out,Ele,Who has said islands will stop getting their current tax breaks?,Onestop,16,12,0.75,12,2,2,0,2
+Why You Should Start Work at 10AM,Adv,Who would arrive to work earliest if workplaces introduce the staggered starting times described in the passage?,Onestop,16,12,0.75,12,2,1,1,2
+Why You Should Start Work at 10AM,Ele,What is one role of eye cells in humans?,Onestop,16,12,0.75,12,2,0,2,2
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,Why does Sanjiv mention GPS systems?,Onestop,16,12,0.75,12,0,2,2,2
+Bright Future for Astrotourism,Ele,What did apps like Stellarium contribute to?,Onestop,23,17,0.7391304347826086,17,3,1,2,3
+Can the US Electric Bike Market Get a Jump Start?,Ele,Postal workers in Germany ...,Onestop,19,14,0.7368421052631579,14,3,1,1,3
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is one difference between e-bikes and mopeds with regard to their motors?,Onestop,19,14,0.7368421052631579,14,2,3,0,3
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,What does the old man receive from the girl?,Onestop,19,14,0.7368421052631579,14,0,1,4,4
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What is Carle not sure of when it comes to T-shirts produced in Asia and Morocco?,Onestop,19,14,0.7368421052631579,14,3,0,2,3
+Bolivians Demand the Right to Chew Coca Leaves,Adv,"According the Nancie Prud'homme, why should Bolivia's efforts be aided?",Onestop,15,11,0.7333333333333333,11,0,0,4,4
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What does Russia believe the exemption will result in?,Onestop,15,11,0.7333333333333333,11,0,1,3,3
+Insects Could be the Planets Next Food Source,Adv,What is one environmental benefit of replacing pork and beef with insects in a diet?,Onestop,15,11,0.7333333333333333,11,3,1,0,3
+On the Trail of the Wolf,Adv,What is one method scientists use to keep track of the wolves?,Onestop,15,11,0.7333333333333333,11,2,1,1,2
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,Where does Philip Pullman hold a senior position?,Onestop,15,11,0.7333333333333333,11,1,2,1,2
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Who had all the shares of cooperative 18 months after the opening?,Onestop,15,11,0.7333333333333333,11,1,2,1,2
+101-Year-Old Bottle Message,Ele,How did the visitor know the message in the bottle was written by Angela's grandfather?,Onestop,18,13,0.7222222222222222,13,0,1,4,4
+Morocco Poised to Become a Solar Superpower,Ele,What will the energy-storing capacity of Noor 2 and 3 allow?,Onestop,18,13,0.7222222222222222,13,2,3,0,3
+On the Trail of the Wolf,Ele,"Why do conservation scientists from Britain, Germany and the Netherlands come to Poland?",Onestop,14,10,0.7142857142857143,10,1,2,1,2
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What would some of the money Ingabire is making be used for?,Onestop,14,10,0.7142857142857143,10,0,4,0,4
+The Secrets of the Mystery Shopper,Adv,Why do retailers hire the services of Marketforce?,Onestop,14,10,0.7142857142857143,10,2,1,1,2
+The Secrets of the Mystery Shopper,Ele,What does Laura find satisfying when returning to some of the stores she visited while mystery shopping? ?,Onestop,14,10,0.7142857142857143,10,3,0,1,3
+Wealth Therapy for the Rich,Adv,"How does the media affect rich people, according to Traeger-Muney?",Onestop,14,10,0.7142857142857143,10,1,1,2,2
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is one limitation of e-bikes?,Onestop,20,14,0.7,14,3,1,2,3
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What is true of most of the people who came into the clinic where Bets works?,Onestop,20,14,0.7,14,2,0,4,4
+Japan Calls Time on Long Hours Work Culture,Ele,Who is scared of disapproval from their colleagues?,Onestop,20,14,0.7,14,3,0,3,3
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What is true about Carle's underpants prior to their replacement?,Onestop,20,14,0.7,14,2,0,4,4
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What possible consequence of the exemption is the UK worried about most?,Onestop,13,9,0.6923076923076923,9,3,1,0,3
+Autumn-Born Children Better at Sports Says Study,Adv,"What does Steele say is ""a major factor"" in the development of a child's athletic abilities?",Onestop,16,11,0.6875,11,3,0,2,3
+Autumn-Born Children Better at Sports Says Study,Ele,Where does Dunamn believe the athletic abilities of adults are derived from?,Onestop,16,11,0.6875,11,1,0,4,4
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What did SOHAY do in 2015?,Onestop,16,11,0.6875,11,1,1,3,3
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What possible consequence of the exemption is the UK worried about most?,Onestop,16,11,0.6875,11,2,3,0,3
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is one limitation of e-bikes?,Onestop,16,11,0.6875,11,2,1,2,2
+Google Introduces its Driverless Car,Adv,What is unique about the controls of the car that Google just released?,Onestop,16,11,0.6875,11,0,2,3,3
+Google Introduces its Driverless Car,Adv,What will Google do now?,Onestop,16,11,0.6875,11,1,2,2,2
+Spain's Robin Hood,Adv,How did Duran learn about the Spanish banking system?,Onestop,16,11,0.6875,11,3,1,1,3
+Swarthy Blue-Eyed Caveman Revealed,Adv,"How will the discovery impact how artists should portray Mesolithic hunter-gatherers, according to Lalueza-Fox?",Onestop,16,11,0.6875,11,2,1,2,2
+The Greek Island Where Time Is Running Out,Adv,Where do island residents have to travel to get cash?,Onestop,16,11,0.6875,11,2,1,2,2
+The Greek Island Where Time Is Running Out,Adv,Who has said islands will stop getting their current tax breaks?,Onestop,16,11,0.6875,11,3,0,2,3
+The Greek Island Where Time Is Running Out,Ele,"Why are things generally more expensive in Agios Efstratios, according to Provatas Costas?",Onestop,16,11,0.6875,11,2,3,0,3
+Why You Should Start Work at 10AM,Ele,What are some of the effects of following Dr. Kelley's suggestion?,Onestop,16,11,0.6875,11,1,3,1,3
+Why You Should Start Work at 10AM,Ele,Who has a greater average sleep loss than a 24 year old person?,Onestop,16,11,0.6875,11,1,2,2,2
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,"According to Singh, why do passenger airplanes often return to the gate?",Onestop,16,11,0.6875,11,0,1,4,4
+Can the US Electric Bike Market Get a Jump Start?,Adv,"What do the bicycle brands Trek, Raleigh, and Specialized think will happen?",Onestop,19,13,0.6842105263157895,13,3,1,2,3
+Can the US Electric Bike Market Get a Jump Start?,Adv,What does ElectroBike hope to accomplish within a year of opening its store in Venice Beach?,Onestop,19,13,0.6842105263157895,13,2,1,3,3
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is one reason e-bikes vary in price?,Onestop,19,13,0.6842105263157895,13,2,2,2,2
+Japan Calls Time on Long Hours Work Culture,Ele,"What makes around ""200 people die every year""?",Onestop,19,13,0.6842105263157895,13,1,4,1,4
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What was Carle shocked to find out at the beginning of the experiment?,Onestop,19,13,0.6842105263157895,13,2,4,0,4
+Morocco Poised to Become a Solar Superpower,Adv,What is Europe's relation to Morocco's solar energy program?,Onestop,19,13,0.6842105263157895,13,1,2,3,3
+101-Year-Old Bottle Message,Adv,Which of the following best describes Erdmann's immediate feelings upon receiving the bottle?,Onestop,21,14,0.6666666666666666,14,0,1,6,6
+Morocco Poised to Become a Solar Superpower,Adv,"According to Maha el-Kadiri, why does Morocco not export energy to Europe?",Onestop,18,12,0.6666666666666666,12,1,2,3,3
+A New Form of Lie Detector Test,Ele,What is one possible alternative to the body suit?,Onestop,15,10,0.6666666666666666,10,1,2,2,2
+Four New Elements Find a Place on Periodic Table,Adv,Why was the symbol Cp not accepted for copernicium?,Onestop,15,10,0.6666666666666666,10,4,0,1,4
+Four New Elements Find a Place on Periodic Table,Ele,Who did IUPAC credit the discovery of element 113 to?,Onestop,15,10,0.6666666666666666,10,3,2,0,3
+Google Introduces its Driverless Car,Ele,What kind of accidents does Google pride itself in having managed to avoid during the testing phase of the car?,Onestop,15,10,0.6666666666666666,10,0,2,3,3
+Love Hormone Helps Autistic Children Bond with Others,Adv,How were the social aspects of autism effectively treated before the time this article was written?,Onestop,15,10,0.6666666666666666,10,2,3,0,3
+On the Trail of the Wolf,Ele,What is one method scientists use to keep track of the wolves?,Onestop,15,10,0.6666666666666666,10,3,1,1,3
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Why does Louise Ingabire say there is still work to be done?,Onestop,15,10,0.6666666666666666,10,1,3,1,3
+The Secrets of the Mystery Shopper,Adv,What is one perk of Laura's job?,Onestop,15,10,0.6666666666666666,10,0,4,1,4
+Wealth Therapy for the Rich,Adv,What does Traeger-Muney say often happens when wealthy people talk about their problems?,Onestop,15,10,0.6666666666666666,10,1,4,0,4
+Wealth Therapy for the Rich,Ele,"How have things changed for the wealthy since the 2008 financial crisis, according to Cockrell?",Onestop,15,10,0.6666666666666666,10,1,1,3,3
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What did SOHAY do in 2015?,Onestop,26,17,0.6538461538461539,17,3,2,4,4
+Can the US Electric Bike Market Get a Jump Start?,Adv,"According to Don DiCostanza, most of the customers of Pedego are ...",Onestop,20,13,0.65,13,1,2,4,4
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is one difference between e-bikes and mopeds with regard to their motors?,Onestop,20,13,0.65,13,1,5,1,5
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is one reason e-bikes vary in price?,Onestop,20,13,0.65,13,1,2,4,4
+Japan Calls Time on Long Hours Work Culture,Adv,What does the government hope will happen by 2020?,Onestop,20,13,0.65,13,3,4,0,4
+Japan Calls Time on Long Hours Work Culture,Adv,"What makes around ""200 people die every year""?",Onestop,20,13,0.65,13,1,2,4,4
+Bright Future for Astrotourism,Adv,Why does Wise believe Northumberland needs more observatories?,Onestop,17,11,0.6470588235294118,11,0,2,4,4
+Japan Calls Time on Long Hours Work Culture,Adv,What is one reason for the increase in stress-related illnesses in Japan?,Onestop,17,11,0.6470588235294118,11,4,0,2,4
+Nepal's Tiger Population on the Rise,Ele,"What happened to the tiger population of Bangladesh, India and Nepal in the past hundred years?",Onestop,17,11,0.6470588235294118,11,2,2,2,2
+A New Form of Lie Detector Test,Adv,What is one possible alternative to the body suit?,Onestop,14,9,0.6428571428571429,9,0,2,3,3
+Bolivians Demand the Right to Chew Coca Leaves,Ele,"According the Nancie Prud'homme, why should Bolivia's efforts be aided?",Onestop,14,9,0.6428571428571429,9,1,1,3,3
+On the Trail of the Wolf,Adv,How are mud and snow useful for the scientists?,Onestop,14,9,0.6428571428571429,9,1,4,0,4
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What is the name of Rob and Lisa Fruchtman's film?,Onestop,14,9,0.6428571428571429,9,2,2,1,2
+The Secrets of the Mystery Shopper,Ele,"For the mystery shopper to earn around PS300 a day, a hidden camera needs to be ...",Onestop,14,9,0.6428571428571429,9,2,1,2,2
+The Secrets of the Mystery Shopper,Ele,What is one perk of Laura's job?,Onestop,14,9,0.6428571428571429,9,1,2,2,2
+Vienna Named World's Top City for Quality of Life,Ele,What does Eichtinger say about business in Vienna?,Onestop,14,9,0.6428571428571429,9,1,2,2,2
+Wealth Therapy for the Rich,Adv,What is Traeger-Muney sometimes shocked by?,Onestop,14,9,0.6428571428571429,9,4,0,1,4
+Wealth Therapy for the Rich,Ele,What does Traeger-Muney say often happens when wealthy people talk about their problems?,Onestop,14,9,0.6428571428571429,9,0,4,1,4
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,How is the girl able to make contact with the old man?,Onestop,24,15,0.625,15,5,2,2,5
+A New Form of Lie Detector Test,Adv,What does the new method of lie detection monitor that the polygraph does not?,Onestop,16,10,0.625,10,0,2,4,4
+Autumn-Born Children Better at Sports Says Study,Ele,"Why did the study measure stamina, handgrip strength and lower-body power?",Onestop,16,10,0.625,10,5,0,1,5
+Four New Elements Find a Place on Periodic Table,Ele,Why does the article mention Japan?,Onestop,16,10,0.625,10,0,3,3,3
+Google Introduces its Driverless Car,Adv,Could Google's cars be purchased at the time that the article was written?,Onestop,16,10,0.625,10,3,0,3,3
+Google Introduces its Driverless Car,Ele,Could Google's cars be purchased at the time that the article was written?,Onestop,16,10,0.625,10,5,0,1,5
+Google Introduces its Driverless Car,Ele,"Why are detailed, high-quality scans of the road needed?",Onestop,16,10,0.625,10,4,1,1,4
+Insects Could be the Planets Next Food Source,Ele,What is one environmental benefit of replacing pork and beef with insects in a diet?,Onestop,16,10,0.625,10,4,1,1,4
+Love Hormone Helps Autistic Children Bond with Others,Ele,What is the normal response of reward circuits in children's brains?,Onestop,16,10,0.625,10,1,1,4,4
+On the Trail of the Wolf,Adv,What does Myslajek think of fairy tales such as Little Red Riding Hood?,Onestop,16,10,0.625,10,3,0,3,3
+Swarthy Blue-Eyed Caveman Revealed,Ele,"How will the discovery impact how artists should portray Mesolithic hunter-gatherers, according to Lalueza-Fox?",Onestop,16,10,0.625,10,1,4,1,4
+Swarthy Blue-Eyed Caveman Revealed,Ele,Which of these foods would the Mesolithic man find difficult to digest?,Onestop,16,10,0.625,10,0,0,6,6
+The Greek Island Where Time Is Running Out,Ele,What is among the primary attractions of Lemnos?,Onestop,16,10,0.625,10,2,0,4,4
+Wealth Therapy for the Rich,Ele,What does Cockrell say is true if someone is part of the 1%?,Onestop,16,10,0.625,10,4,2,0,4
+Why You Should Start Work at 10AM,Adv,"According to Kelley, what creates difficulties for parents in the morning?",Onestop,16,10,0.625,10,0,1,5,5
+Why You Should Start Work at 10AM,Adv,What are some of the effects of following Dr. Kelley's suggestion?,Onestop,16,10,0.625,10,3,1,2,3
+Why You Should Start Work at 10AM,Adv,Who has a greater average sleep loss than a 24 year old person?,Onestop,16,10,0.625,10,1,2,3,3
+Why You Should Start Work at 10AM,Adv,Why does Kelley mention teachers in their 50s?,Onestop,16,10,0.625,10,5,0,1,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,Why does Singh bring up the example of passenger airplanes?,Onestop,16,10,0.625,10,2,2,2,2
+Vienna Named World's Top City for Quality of Life,Adv,What did going abroad make Hartlauer realize?,Onestop,13,8,0.6153846153846154,8,0,0,5,5
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,How is the girl able to make contact with the old man?,Onestop,18,11,0.6111111111111112,11,1,1,5,5
+Morocco Poised to Become a Solar Superpower,Adv,How does the mirror technology used in the power plant differ from familiar roof panels?,Onestop,18,11,0.6111111111111112,11,1,5,1,5
+Morocco Poised to Become a Solar Superpower,Ele,What is true of wind and hydro energy sources in Morocco?,Onestop,18,11,0.6111111111111112,11,3,1,3,3
+Bright Future for Astrotourism,Adv,What did apps like Stellarium contribute to?,Onestop,23,14,0.6086956521739131,14,6,2,1,6
+101-Year-Old Bottle Message,Adv,What does Erdmann want to happen to the bottle after the exhibit?,Onestop,20,12,0.6,12,6,1,1,6
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What was Carle shocked to find out at the beginning of the experiment?,Onestop,20,12,0.6,12,3,4,1,4
+Nepal's Tiger Population on the Rise,Adv,"According to conservation experts, what is one reason for the increase in the tiger population in Nepal?",Onestop,20,12,0.6,12,3,1,4,4
+Autumn-Born Children Better at Sports Says Study,Ele,Who is Gavin Sandercock?,Onestop,15,9,0.6,9,3,3,0,3
+On the Trail of the Wolf,Ele,What does the Polish government do when a wolf kills a farm animal?,Onestop,15,9,0.6,9,1,2,3,3
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What does Pullman find outrageous?,Onestop,15,9,0.6,9,3,3,0,3
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Why does Louise Ingabire say there is still work to be done?,Onestop,15,9,0.6,9,0,4,2,4
+The Secrets of the Mystery Shopper,Adv,How many stores do mystery shoppers visit per day?,Onestop,15,9,0.6,9,2,4,0,4
+The Secrets of the Mystery Shopper,Ele,What is Laura's opinion of her income from being a full-time mystery shopper?,Onestop,15,9,0.6,9,2,2,2,2
+Hundreds Hurt after Meteorite Falls to Earth,Adv,Who arrived at the hospital?,Onestop,22,13,0.5909090909090909,13,8,0,1,8
+Bright Future for Astrotourism,Adv,What is one criteria the International Dark-Sky Association looks for when awarding Dark Sky Park status to a park?,Onestop,17,10,0.5882352941176471,10,0,4,3,4
+Bright Future for Astrotourism,Ele,What will PS14 million be used for?,Onestop,17,10,0.5882352941176471,10,2,0,5,5
+Can the US Electric Bike Market Get a Jump Start?,Adv,Who is Larry Pizzi?,Onestop,17,10,0.5882352941176471,10,3,1,3,3
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What do Zhorna's brothers do?,Onestop,19,11,0.5789473684210527,11,3,2,3,3
+Can the US Electric Bike Market Get a Jump Start?,Adv,"What is one reason Pizzi calls the ""cargo bike"" a ""minivan alternative""?",Onestop,19,11,0.5789473684210527,11,3,3,2,3
+Man Falls Just Short in Patriot Game to be 100% French,Ele,"What was the experiment trying to show, according to Carle?",Onestop,19,11,0.5789473684210527,11,1,4,3,4
+Morocco Poised to Become a Solar Superpower,Adv,Where will 580 mega-watts of electricity be produced?,Onestop,21,12,0.5714285714285714,12,2,5,2,5
+Four New Elements Find a Place on Periodic Table,Adv,Why does the article mention Japan?,Onestop,14,8,0.5714285714285714,8,1,4,1,4
+Four New Elements Find a Place on Periodic Table,Ele,What does the RIKEN research team plan to do now?,Onestop,14,8,0.5714285714285714,8,4,0,2,4
+Insects Could be the Planets Next Food Source,Ele,What is one health benefit of eating insects?,Onestop,14,8,0.5714285714285714,8,4,1,1,4
+Rwandan Women Whip up Popular Ice Cream Business,Adv,"What can customers buy at the ice cream shop, other than ice cream?",Onestop,14,8,0.5714285714285714,8,2,1,3,3
+Why is Sweden Closing its Prisons?,Ele,What does Oberg hope is the reason for the reduction in the number of prisoners in Sweden?,Onestop,14,8,0.5714285714285714,8,0,3,3,3
+Bright Future for Astrotourism,Ele,What is Fildes' ambition?,Onestop,23,13,0.5652173913043478,13,2,3,5,5
+A New Form of Lie Detector Test,Adv,What is one reason Anderson is looking for alternatives to body suits?,Onestop,16,9,0.5625,9,0,6,1,6
+Can the US Electric Bike Market Get a Jump Start?,Ele,What does ElectroBike hope to accomplish within a year of opening its store in Venice Beach?,Onestop,16,9,0.5625,9,3,1,3,3
+Love Hormone Helps Autistic Children Bond with Others,Adv,What can be said about the effectiveness of existing treatments for social problems caused by autism?,Onestop,16,9,0.5625,9,2,3,2,3
+Love Hormone Helps Autistic Children Bond with Others,Ele,What is one reason Pelphrey warns against buying oxytocin online?,Onestop,16,9,0.5625,9,0,1,6,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,Why did the scientists have autistic children look at both people and cars?,Onestop,16,9,0.5625,9,4,1,2,4
+Love Hormone Helps Autistic Children Bond with Others,Ele,Why does Firth advocate for demonstrating behavioral effects of oxytocin?,Onestop,16,9,0.5625,9,0,1,6,6
+Spain's Robin Hood,Adv,How much money is Duran willing to return to the banks?,Onestop,16,9,0.5625,9,6,1,0,6
+Spain's Robin Hood,Adv,Why did Duran leave Spain?,Onestop,16,9,0.5625,9,1,2,4,4
+Spain's Robin Hood,Ele,How did Duran obtain a lot of money in 2007?,Onestop,16,9,0.5625,9,3,2,2,3
+Spain's Robin Hood,Ele,What effect did Duran's actions before his arrest have?,Onestop,16,9,0.5625,9,1,4,2,4
+Swarthy Blue-Eyed Caveman Revealed,Ele,What did scientists assume about the human immune system before testing the hunter-gatherer's DNA?,Onestop,16,9,0.5625,9,2,4,1,4
+The Greek Island Where Time Is Running Out,Adv,What event dramatically reduced the quality of life for residents in Agios Efstratios?,Onestop,16,9,0.5625,9,4,1,2,4
+The Greek Island Where Time Is Running Out,Adv,What is among the primary attractions of Lemnos?,Onestop,16,9,0.5625,9,5,0,2,5
+The Greek Island Where Time Is Running Out,Adv,Why did people consider the islands as remote and obscure?,Onestop,16,9,0.5625,9,1,5,1,5
+The Greek Island Where Time Is Running Out,Ele,"According to Kakali, what will happen in Agios Efstratios once the tax break ends?",Onestop,16,9,0.5625,9,1,6,0,6
+Wealth Therapy for the Rich,Adv,"How have things changed for the wealthy since the 2008 financial crisis, according to Cockrell?",Onestop,16,9,0.5625,9,4,1,2,4
+Why You Should Start Work at 10AM,Adv,"According to Kelley, how will staggered starting times affect employees?",Onestop,16,9,0.5625,9,3,4,0,4
+Why You Should Start Work at 10AM,Adv,What does Kelly say about the wake-up time of 18-year-olds?,Onestop,16,9,0.5625,9,0,0,7,7
+Why You Should Start Work at 10AM,Ele,What does Kelley say about the relationship between working hours and natural rhythms?,Onestop,16,9,0.5625,9,1,6,0,6
+Why You Should Start Work at 10AM,Ele,What does Kelly say about the wake-up time of 18-year-olds?,Onestop,16,9,0.5625,9,0,0,7,7
+Why You Should Start Work at 10AM,Ele,Who would arrive to work earliest if workplaces introduce the staggered starting times described in the passage?,Onestop,16,9,0.5625,9,3,2,2,3
+Why You Should Start Work at 10AM,Ele,Why does Kelley say that going to bed earlier is not the solution to waking up earlier?,Onestop,16,9,0.5625,9,1,3,3,3
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What is Huber working on to improve drone technology?,Onestop,16,9,0.5625,9,3,1,3,3
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What is true about Carle's jeans prior to the arrival of the removal men?,Onestop,18,10,0.5555555555555556,10,3,3,2,3
+Can the US Electric Bike Market Get a Jump Start?,Ele,"What do the bicycle brands Trek, Raleigh, and Specialized think will happen?",Onestop,20,11,0.55,11,7,0,2,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,What does the old man receive from the girl?,Onestop,20,11,0.55,11,3,2,4,4
+Nepal's Tiger Population on the Rise,Adv,"What happened to the tiger population of Bangladesh, India and Nepal in the past hundred years?",Onestop,20,11,0.55,11,8,1,0,8
+Nepal's Tiger Population on the Rise,Ele,"According to conservation experts, what is one reason for the increase in the tiger population in Nepal?",Onestop,20,11,0.55,11,0,1,8,8
+Nepal's Tiger Population on the Rise,Ele,What happened in a recent tiger incident in a village?,Onestop,20,11,0.55,11,3,2,4,4
+101-Year-Old Bottle Message,Adv,What did Holger von Neuhoff say about the bottled message?,Onestop,22,12,0.5454545454545454,12,4,2,4,4
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,When was the hashtag,Onestop,24,13,0.5416666666666666,13,5,3,3,5
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What happened in 2011?,Onestop,13,7,0.5384615384615384,7,1,0,5,5
+Bolivians Demand the Right to Chew Coca Leaves,Ele,How could Bolivia's return to the convention be blocked?,Onestop,13,7,0.5384615384615384,7,1,2,3,3
+A New Form of Lie Detector Test,Ele,What were some people supposed to do with the wallet?,Onestop,15,8,0.5333333333333333,8,0,1,6,6
+Inky the Octopus Escapes from Aquarium,Ele,How was Inky before coming to the aquarium?,Onestop,15,8,0.5333333333333333,8,1,5,1,5
+Insects Could be the Planets Next Food Source,Adv,"According to experts, what will be an effect of eating insects?",Onestop,15,8,0.5333333333333333,8,0,2,5,5
+Insects Could be the Planets Next Food Source,Ele,What will result from an increase in human population in the future?,Onestop,15,8,0.5333333333333333,8,5,2,0,5
+On the Trail of the Wolf,Adv,"Why do conservation scientists from Britain, Germany and the Netherlands come to Poland?",Onestop,15,8,0.5333333333333333,8,2,2,3,3
+On the Trail of the Wolf,Adv,Why were there fewer than 100 wolves in Poland in 1975?,Onestop,15,8,0.5333333333333333,8,0,3,4,4
+On the Trail of the Wolf,Ele,How are mud and snow useful for the scientists?,Onestop,15,8,0.5333333333333333,8,1,6,0,6
+The Secrets of the Mystery Shopper,Adv,What is Laura's opinion of her income from being a full-time mystery shopper?,Onestop,15,8,0.5333333333333333,8,0,1,6,6
+The Secrets of the Mystery Shopper,Adv,Why can Hanna's job be difficult?,Onestop,15,8,0.5333333333333333,8,3,3,1,3
+Vienna Named World's Top City for Quality of Life,Adv,What does Eichtinger say about business in Vienna?,Onestop,15,8,0.5333333333333333,8,3,3,1,3
+Vienna Named World's Top City for Quality of Life,Ele,What did going abroad make Hartlauer realize?,Onestop,15,8,0.5333333333333333,8,1,2,4,4
+Wealth Therapy for the Rich,Adv,What is the quote 'I have a ton of money' an example of?,Onestop,15,8,0.5333333333333333,8,2,3,2,3
+Why is Sweden Closing its Prisons?,Adv,Which measure has been effective in preventing criminals from reoffending,Onestop,15,8,0.5333333333333333,8,0,5,2,5
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is true of the e-bike market in China?,Onestop,19,10,0.5263157894736842,10,5,0,4,5
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Who had the UK's second most popular advertisement in 2014?,Onestop,19,10,0.5263157894736842,10,5,3,1,5
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What did Arnaud Montebourgh do?,Onestop,19,10,0.5263157894736842,10,6,1,2,6
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What is Carle not sure of when it comes to T-shirts produced in Asia and Morocco?,Onestop,19,10,0.5263157894736842,10,3,0,6,6
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What was the main premise of Carle's television documentary?,Onestop,19,10,0.5263157894736842,10,4,0,5,5
+Morocco Poised to Become a Solar Superpower,Adv,Where will almost half of Morocco's electricity will come from by 2020?,Onestop,19,10,0.5263157894736842,10,8,0,1,8
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What is true of one of the craters?,Onestop,21,11,0.5238095238095238,11,7,0,3,7
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What took place in the first few hours after the incident?,Onestop,21,11,0.5238095238095238,11,0,3,7,7
+Morocco Poised to Become a Solar Superpower,Ele,Where will almost half of Morocco's electricity will come from by 2020?,Onestop,21,11,0.5238095238095238,11,9,0,1,9
+101-Year-Old Bottle Message,Ele,What did Holger von Neuhoff say about the bottled message?,Onestop,23,12,0.5217391304347826,12,7,2,2,7
+101-Year-Old Bottle Message,Ele,Which of the following best describes Erdmann's immediate feelings upon receiving the bottle?,Onestop,23,12,0.5217391304347826,12,2,1,8,8
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,When was the hashtag,Onestop,24,12,0.5,12,7,2,3,7
+Can the US Electric Bike Market Get a Jump Start?,Ele,Who is Larry Pizzi?,Onestop,20,10,0.5,10,4,2,4,4
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What is true of one of the craters?,Onestop,18,9,0.5,9,6,1,2,6
+Autumn-Born Children Better at Sports Says Study,Adv,"According to Sandercock, what does selection into elite sports often depend on?",Onestop,16,8,0.5,8,0,7,1,7
+Autumn-Born Children Better at Sports Says Study,Adv,"Why did the study measure stamina, handgrip strength and lower-body power?",Onestop,16,8,0.5,8,6,0,2,6
+Autumn-Born Children Better at Sports Says Study,Ele,What are percentages used for in the passage?,Onestop,16,8,0.5,8,3,2,3,3
+Autumn-Born Children Better at Sports Says Study,Ele,What does the study say about vitamin D?,Onestop,16,8,0.5,8,3,5,0,5
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,"What children are referred to as ""lucky""?",Onestop,16,8,0.5,8,2,0,6,6
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What was the purpose of the 1961 Convention on Drugs?,Onestop,16,8,0.5,8,2,2,4,4
+Bolivians Demand the Right to Chew Coca Leaves,Ele,Why do some people support Bolivia's position?,Onestop,16,8,0.5,8,1,6,1,6
+Google Introduces its Driverless Car,Adv,What kind of accidents does Google pride itself in having managed to avoid during the testing phase of the car?,Onestop,16,8,0.5,8,0,3,5,5
+Google Introduces its Driverless Car,Ele,Getting where you want to go with Google's new car will ...,Onestop,16,8,0.5,8,3,0,5,5
+Inky the Octopus Escapes from Aquarium,Ele,Why does the article mention Ozymandias?,Onestop,16,8,0.5,8,1,5,2,5
+Love Hormone Helps Autistic Children Bond with Others,Ele,What does Pelphrey think about buying oxytocin online?,Onestop,16,8,0.5,8,2,5,1,5
+Love Hormone Helps Autistic Children Bond with Others,Ele,What is one of the reasons scientists are uncertain about using oxytocin in real life?,Onestop,16,8,0.5,8,0,8,0,8
+Man Falls Just Short in Patriot Game to be 100% French,Adv,Who set the three rules of experiment?,Onestop,16,8,0.5,8,2,4,2,4
+Man Falls Just Short in Patriot Game to be 100% French,Adv,Why was listening to Daft Punk forbidden?,Onestop,16,8,0.5,8,8,0,0,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What do the statistics in the paragraph convey?,Onestop,16,8,0.5,8,2,0,6,6
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What does Pullman find outrageous?,Onestop,16,8,0.5,8,1,3,4,4
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What does Pullman think about pirating?,Onestop,16,8,0.5,8,2,4,2,4
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,Who does Pullman criticize?,Onestop,16,8,0.5,8,2,2,4,4
+Spain's Robin Hood,Adv,How much money did Duran manage to take out in loans?,Onestop,16,8,0.5,8,3,0,5,5
+Spain's Robin Hood,Ele,Why did Duran leave Spain?,Onestop,16,8,0.5,8,2,4,2,4
+Swarthy Blue-Eyed Caveman Revealed,Adv,What does carbon dating tell us about the skeletons?,Onestop,16,8,0.5,8,1,1,6,6
+Swarthy Blue-Eyed Caveman Revealed,Adv,What was unusual about the Mesolithic man?,Onestop,16,8,0.5,8,2,1,5,5
+Swarthy Blue-Eyed Caveman Revealed,Ele,What was unusual about the Mesolithic man?,Onestop,16,8,0.5,8,2,0,6,6
+The Greek Island Where Time Is Running Out,Adv,What improvement made the islands more popular for tourists?,Onestop,16,8,0.5,8,5,0,3,5
+The Greek Island Where Time Is Running Out,Adv,"What is the upcoming ""bigger crisis""?",Onestop,16,8,0.5,8,3,2,3,3
+The Greek Island Where Time Is Running Out,Adv,Why wasn't Agios Efstratios one of the first islands to pay taxes?,Onestop,16,8,0.5,8,3,0,5,5
+The Greek Island Where Time Is Running Out,Ele,How many tourists will likely visit the island this season compared to previous years?,Onestop,16,8,0.5,8,3,4,1,4
+The Greek Island Where Time Is Running Out,Ele,What improvement made the islands more popular for tourists?,Onestop,16,8,0.5,8,3,2,3,3
+Why You Should Start Work at 10AM,Adv,What does Dr. Kelley suggest about the current starting time for schools?,Onestop,16,8,0.5,8,1,2,5,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,"According to Singh, why do passenger airplanes often return to the gate?",Onestop,16,8,0.5,8,1,1,6,6
+A New Form of Lie Detector Test,Adv,What position does Ross Anderson hold?,Onestop,14,7,0.5,7,3,1,3,3
+A New Form of Lie Detector Test,Adv,When is the new lie detection method expected to work with over 70% accuracy?,Onestop,14,7,0.5,7,1,4,2,4
+A New Form of Lie Detector Test,Ele,Who first stated that the polygraph might not be reliable?,Onestop,14,7,0.5,7,0,5,2,5
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What was the purpose of the 1961 Convention on Drugs?,Onestop,14,7,0.5,7,5,1,1,5
+Four New Elements Find a Place on Periodic Table,Adv,What is the International Union of Pure and Applied Chemistry?,Onestop,14,7,0.5,7,3,3,1,3
+Four New Elements Find a Place on Periodic Table,Adv,What may happen once people understand radioactive decay better?,Onestop,14,7,0.5,7,5,1,1,5
+Insects Could be the Planets Next Food Source,Ele,What is an advantage in producing food from insects rather than sheep?,Onestop,14,7,0.5,7,3,1,3,3
+On the Trail of the Wolf,Ele,What was true about Poland in 1975?,Onestop,14,7,0.5,7,3,0,4,4
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What would some of the money Ingabire is making be used for?,Onestop,14,7,0.5,7,2,4,1,4
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What is the name of Rob and Lisa Fruchtman's film?,Onestop,14,7,0.5,7,4,2,1,4
+The Secrets of the Mystery Shopper,Adv,What items can Laura purchase at stores?,Onestop,14,7,0.5,7,2,5,0,5
+The Secrets of the Mystery Shopper,Ele,Why do retailers hire the services of Marketforce?,Onestop,14,7,0.5,7,3,2,2,3
+Wealth Therapy for the Rich,Adv,What does Cockrell say is a common mistake that his wealthy clients make?,Onestop,14,7,0.5,7,2,0,5,5
+Bright Future for Astrotourism,Ele,What did the 2013 Star Count find?,Onestop,23,11,0.4782608695652174,11,3,4,5,5
+Bright Future for Astrotourism,Ele,Why does Wise believe Northumberland needs more observatories?,Onestop,23,11,0.4782608695652174,11,4,3,5,5
+101-Year-Old Bottle Message,Ele,Where is the bottle now?,Onestop,21,10,0.47619047619047616,10,3,4,4,4
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What does Bets say about the students of a nearby college?,Onestop,21,10,0.47619047619047616,10,4,4,3,4
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What does Bets say about the students of a nearby college?,Onestop,21,10,0.47619047619047616,10,6,3,2,6
+Morocco Poised to Become a Solar Superpower,Adv,What will the energy-storing capacity of Noor 2 and 3 allow?,Onestop,21,10,0.47619047619047616,10,5,6,0,6
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What statistic does UNICEF provide about children in Bangladesh?,Onestop,19,9,0.47368421052631576,9,5,3,2,5
+Can the US Electric Bike Market Get a Jump Start?,Ele,"According to Don DiCostanza, most of the customers of Pedego are ...",Onestop,19,9,0.47368421052631576,9,1,3,6,6
+Can the US Electric Bike Market Get a Jump Start?,Ele,When can you ride e-bikes on bike lanes?,Onestop,19,9,0.47368421052631576,9,5,5,0,5
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What did Carle say about the possibility of living with products 100% 'made in France'?,Onestop,19,9,0.47368421052631576,9,3,5,2,5
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What do the classes at the center do?,Onestop,17,8,0.47058823529411764,8,1,1,7,7
+Bright Future for Astrotourism,Adv,What will PS14 million be used for?,Onestop,17,8,0.47058823529411764,8,5,1,3,5
+Bright Future for Astrotourism,Ele,"How does the ""Dark Sky Park"" status differ from the ""Dark Sky Reserve"" status?",Onestop,17,8,0.47058823529411764,8,5,0,4,5
+Spain's Robin Hood,Ele,What was the money Duran took from the banks used for?,Onestop,17,8,0.47058823529411764,8,1,7,1,7
+A New Form of Lie Detector Test,Adv,Which of the following is true about body suits?,Onestop,15,7,0.4666666666666667,7,0,6,2,6
+Autumn-Born Children Better at Sports Says Study,Adv,What does the study say about vitamin D?,Onestop,15,7,0.4666666666666667,7,0,8,0,8
+Bolivians Demand the Right to Chew Coca Leaves,Ele,Who is currently permitted to consume coca in Bolivia?,Onestop,15,7,0.4666666666666667,7,3,5,0,5
+Four New Elements Find a Place on Periodic Table,Adv,"113, 115, 117, and 118 are ...",Onestop,15,7,0.4666666666666667,7,2,1,5,5
+Google Introduces its Driverless Car,Ele,What is unique about the controls of the car that Google just released?,Onestop,15,7,0.4666666666666667,7,1,1,6,6
+On the Trail of the Wolf,Adv,What does the Polish government do when a wolf kills a farm animal?,Onestop,15,7,0.4666666666666667,7,3,1,4,4
+On the Trail of the Wolf,Adv,What is a consequence of the wolf-hunting ban?,Onestop,15,7,0.4666666666666667,7,2,1,5,5
+On the Trail of the Wolf,Adv,Who is Jan Szyszko?,Onestop,15,7,0.4666666666666667,7,7,0,1,7
+On the Trail of the Wolf,Ele,"Why does Myslajek mention Russia, Lithuania, Belarus, Ukraine and Slovakia?",Onestop,15,7,0.4666666666666667,7,2,0,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Who appears in the film Sweet Dreams?,Onestop,15,7,0.4666666666666667,7,0,7,1,7
+Swarthy Blue-Eyed Caveman Revealed,Adv,Which of these foods would the Mesolithic man find difficult to digest?,Onestop,15,7,0.4666666666666667,7,3,0,5,5
+The Secrets of the Mystery Shopper,Adv,Who are the clients of Marketforce?,Onestop,15,7,0.4666666666666667,7,3,2,3,3
+Vienna Named World's Top City for Quality of Life,Ele,What does Hartlauer think about safety in Vienna?,Onestop,15,7,0.4666666666666667,7,4,0,4,4
+Why is Sweden Closing its Prisons?,Adv,What is true of young offenders in many countries that is not true in Sweden?,Onestop,15,7,0.4666666666666667,7,3,3,2,3
+Why is Sweden Closing its Prisons?,Ele,Who runs the treatment programs for prisoners?,Onestop,15,7,0.4666666666666667,7,4,2,2,4
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What is Professor Singh worried will happen when the drone is unable to access GPS signals?,Onestop,15,7,0.4666666666666667,7,0,0,8,8
+Bolivians Demand the Right to Chew Coca Leaves,Adv,Who is Danny Kushlick?,Onestop,13,6,0.46153846153846156,6,3,0,4,4
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Where does the lonely old man appear in John Lewis's advert?,Onestop,22,10,0.45454545454545453,10,6,3,3,6
+Nepal's Tiger Population on the Rise,Adv,What happened in a recent tiger incident in a village?,Onestop,22,10,0.45454545454545453,10,6,2,4,6
+Can the US Electric Bike Market Get a Jump Start?,Ele,Why don't some bike sellers want to put motors on bikes?,Onestop,20,9,0.45,9,5,4,2,5
+Hundreds Hurt after Meteorite Falls to Earth,Adv,Where do one million people live?,Onestop,20,9,0.45,9,1,8,2,8
+Hundreds Hurt after Meteorite Falls to Earth,Ele,"What happened to almost 1,200 people?",Onestop,20,9,0.45,9,1,2,8,8
+Japan Calls Time on Long Hours Work Culture,Ele,What do are British workers likely to think about a four-night vacation in Hawaii?,Onestop,20,9,0.45,9,1,0,10,10
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Who used the,Onestop,20,9,0.45,9,8,1,2,8
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What statistic does UNICEF provide about children in Bangladesh?,Onestop,18,8,0.4444444444444444,8,5,1,4,5
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What do Zhorna's brothers do?,Onestop,18,8,0.4444444444444444,8,5,5,0,5
+A New Form of Lie Detector Test,Ele,When is the new lie detection method expected to work with over 70% accuracy?,Onestop,16,7,0.4375,7,2,4,3,4
+A New Form of Lie Detector Test,Ele,Which of the following is true about body suits?,Onestop,16,7,0.4375,7,3,5,1,5
+Autumn-Born Children Better at Sports Says Study,Ele,What can small differences in physical performance determine?,Onestop,16,7,0.4375,7,4,0,5,5
+Autumn-Born Children Better at Sports Says Study,Ele,"What does Steele say is ""a major factor"" in the development of a child's athletic abilities?",Onestop,16,7,0.4375,7,5,2,2,5
+Autumn-Born Children Better at Sports Says Study,Ele,Who does the article suggest to be the weakest in comparison with children born in October and November?,Onestop,16,7,0.4375,7,6,3,0,6
+Google Introduces its Driverless Car,Adv,How does the car passenger's phone interact with the car?,Onestop,16,7,0.4375,7,2,1,6,6
+Google Introduces its Driverless Car,Ele,How does the car passenger's phone interact with the car?,Onestop,16,7,0.4375,7,6,1,2,6
+Google Introduces its Driverless Car,Ele,Why can't the driverless cars currently drive on all roads?,Onestop,16,7,0.4375,7,0,7,2,7
+Inky the Octopus Escapes from Aquarium,Adv,"Why did Inky escape, according to Napier?",Onestop,16,7,0.4375,7,2,5,2,5
+Inky the Octopus Escapes from Aquarium,Adv,Why does the article mention Ozymandias?,Onestop,16,7,0.4375,7,1,7,1,7
+Love Hormone Helps Autistic Children Bond with Others,Adv,Do the researchers expect oxytocin to interact well with other treatments?,Onestop,16,7,0.4375,7,0,3,6,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,Who or what claims that oxytocin could be helpful for social motivation in autism?,Onestop,16,7,0.4375,7,7,1,1,7
+On the Trail of the Wolf,Ele,Why were there fewer than 100 wolves in Poland in 1975?,Onestop,16,7,0.4375,7,1,4,4,4
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What does Pullman say about authors and musicians?,Onestop,16,7,0.4375,7,4,1,4,4
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What does Pullman say about authors and musicians?,Onestop,16,7,0.4375,7,2,0,7,7
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,Where does Philip Pullman hold a senior position?,Onestop,16,7,0.4375,7,2,5,2,5
+Spain's Robin Hood,Adv,What was the money Duran took from the banks used for?,Onestop,16,7,0.4375,7,2,6,1,6
+Spain's Robin Hood,Ele,How much money is Duran willing to return to the banks?,Onestop,16,7,0.4375,7,6,2,1,6
+Swarthy Blue-Eyed Caveman Revealed,Adv,What did scientists assume about the human immune system before testing the hunter-gatherer's DNA?,Onestop,16,7,0.4375,7,7,1,1,7
+Swarthy Blue-Eyed Caveman Revealed,Adv,Where were reindeer teeth found?,Onestop,16,7,0.4375,7,4,4,1,4
+Swarthy Blue-Eyed Caveman Revealed,Ele,What does carbon dating tell us about the skeletons?,Onestop,16,7,0.4375,7,4,2,3,4
+Swarthy Blue-Eyed Caveman Revealed,Ele,Where were reindeer teeth found?,Onestop,16,7,0.4375,7,2,6,1,6
+The Greek Island Where Time Is Running Out,Adv,Are there many hotels in Agios Efstratios?,Onestop,16,7,0.4375,7,2,1,6,6
+The Greek Island Where Time Is Running Out,Adv,Why does Lemnos have to pay the first round of tax increases?,Onestop,16,7,0.4375,7,3,3,3,3
+The Greek Island Where Time Is Running Out,Ele,What event dramatically reduced the quality of life for residents in Agios Efstratios?,Onestop,16,7,0.4375,7,6,1,2,6
+The Greek Island Where Time Is Running Out,Ele,Why did people consider the islands as remote and obscure?,Onestop,16,7,0.4375,7,5,4,0,5
+Vienna Named World's Top City for Quality of Life,Ele,Why is Vienna a cheap place to live compared to other cities?,Onestop,16,7,0.4375,7,4,1,4,4
+Wealth Therapy for the Rich,Ele,"According to Cockrell, why do the wealthy tend to spend more time with other wealthy people?",Onestop,16,7,0.4375,7,2,3,4,4
+Why You Should Start Work at 10AM,Adv,What does Kelley say is critical to people's sleep rhythms?,Onestop,16,7,0.4375,7,3,0,6,6
+Why You Should Start Work at 10AM,Ele,What does Kelley say is critical to people's sleep rhythms?,Onestop,16,7,0.4375,7,4,0,5,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What is Huber working on to improve drone technology?,Onestop,16,7,0.4375,7,0,7,2,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,Why does Sanjiv mention GPS systems?,Onestop,16,7,0.4375,7,2,6,1,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,Why does Singh bring up the example of passenger airplanes?,Onestop,16,7,0.4375,7,5,0,4,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What is Professor Singh worried will happen when the drone is unable to access GPS signals?,Onestop,16,7,0.4375,7,0,4,5,5
+Bright Future for Astrotourism,Ele,What is one criteria the International Dark-Sky Association looks for when awarding Dark Sky Park status to a park?,Onestop,23,10,0.43478260869565216,10,2,8,3,8
+101-Year-Old Bottle Message,Adv,Where is the bottle now?,Onestop,21,9,0.42857142857142855,9,2,1,9,9
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What was notable about the vapor trail left behind by the meteorite?,Onestop,21,9,0.42857142857142855,9,0,8,4,8
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Who had the UK's second most popular advertisement in 2014?,Onestop,21,9,0.42857142857142855,9,5,3,4,5
+Morocco Poised to Become a Solar Superpower,Ele,What is Europe's relation to Morocco's solar energy program?,Onestop,21,9,0.42857142857142855,9,4,1,7,7
+A New Form of Lie Detector Test,Ele,What position does Ross Anderson hold?,Onestop,14,6,0.42857142857142855,6,1,2,5,5
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What does Nancie Prud'homme say is the norm across the globe?,Onestop,14,6,0.42857142857142855,6,0,4,4,4
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What is the UK worried about?,Onestop,14,6,0.42857142857142855,6,1,6,1,6
+Love Hormone Helps Autistic Children Bond with Others,Adv,Why did the scientists have autistic children look at both people and cars?,Onestop,14,6,0.42857142857142855,6,3,1,4,4
+On the Trail of the Wolf,Adv,Why are wolves not a big tourist attraction?,Onestop,14,6,0.42857142857142855,6,7,0,1,7
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What happened in 2010?,Onestop,14,6,0.42857142857142855,6,1,2,5,5
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Who founded Blue Marble Ice Cream?,Onestop,14,6,0.42857142857142855,6,5,3,0,5
+The Secrets of the Mystery Shopper,Ele,Who does Hanna visit as part of her mystery shopping job?,Onestop,14,6,0.42857142857142855,6,2,0,6,6
+Vienna Named World's Top City for Quality of Life,Adv,What does Hartlauer think about safety in Vienna?,Onestop,14,6,0.42857142857142855,6,6,1,1,6
+Wealth Therapy for the Rich,Adv,"According to Cockrell, why do the wealthy tend to spend more time with other wealthy people?",Onestop,14,6,0.42857142857142855,6,3,4,1,4
+Wealth Therapy for the Rich,Adv,What is something that got worse for the wealthy since the 2008 financial crisis?,Onestop,14,6,0.42857142857142855,6,2,3,3,3
+Wealth Therapy for the Rich,Ele,"How does the media affect rich people, according to Traeger-Muney?",Onestop,14,6,0.42857142857142855,6,4,3,1,4
+Wealth Therapy for the Rich,Ele,What is something that got worse for the wealthy since the 2008 financial crisis?,Onestop,14,6,0.42857142857142855,6,2,4,2,4
+Wealth Therapy for the Rich,Ele,What is the quote 'I have a ton of money' an example of?,Onestop,14,6,0.42857142857142855,6,5,0,3,5
+Why is Sweden Closing its Prisons?,Adv,What caused prisons to reevaluate their security in 2004?,Onestop,14,6,0.42857142857142855,6,0,3,5,5
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,Why are the people in the room lucky?,Onestop,26,11,0.4230769230769231,11,4,7,4,7
+101-Year-Old Bottle Message,Adv,What did Erdmann's visitor deliver?,Onestop,19,8,0.42105263157894735,8,6,5,0,6
+Can the US Electric Bike Market Get a Jump Start?,Ele,What does DiCostanza say about e-bike batteries?,Onestop,19,8,0.42105263157894735,8,7,0,4,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Who performs a song for the campaign?,Onestop,19,8,0.42105263157894735,8,3,0,8,8
+Man Falls Just Short in Patriot Game to be 100% French,Ele,Who set the three rules of experiment?,Onestop,19,8,0.42105263157894735,8,2,3,6,6
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,"What children are referred to as ""lucky""?",Onestop,17,7,0.4117647058823529,7,2,2,6,6
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,"What is a challenge working children face in regards to attending school, according to al-Mamun?",Onestop,17,7,0.4117647058823529,7,1,2,7,7
+Can the US Electric Bike Market Get a Jump Start?,Ele,What was true about the e-bike market in 2014?,Onestop,17,7,0.4117647058823529,7,8,1,1,8
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What did Carle say about the possibility of living with products 100% 'made in France'?,Onestop,17,7,0.4117647058823529,7,5,5,0,5
+Nepal's Tiger Population on the Rise,Adv,What is one consequence of the increase in the number of tigers in Nepal?,Onestop,17,7,0.4117647058823529,7,4,5,1,5
+101-Year-Old Bottle Message,Ele,What does Erdmann want to happen to the bottle after the exhibit?,Onestop,22,9,0.4090909090909091,9,6,2,5,6
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What does Dmitry Medvedev say the incident shows?,Onestop,22,9,0.4090909090909091,9,2,1,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,Where do one million people live?,Onestop,22,9,0.4090909090909091,9,5,5,3,5
+Nepal's Tiger Population on the Rise,Ele,What do conservation experts say has changed with respect to tiger habitats?,Onestop,22,9,0.4090909090909091,9,3,9,1,9
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What does Dmitry Medvedev say the incident shows?,Onestop,20,8,0.4,8,1,2,9,9
+A New Form of Lie Detector Test,Ele,What can an all-body suit be used for?,Onestop,15,6,0.4,6,0,9,0,9
+Autumn-Born Children Better at Sports Says Study,Ele,What does Natalie Dunman note is a limitation to the study?,Onestop,15,6,0.4,6,0,2,7,7
+Four New Elements Find a Place on Periodic Table,Ele,"113, 115, 117, and 118 are ...",Onestop,15,6,0.4,6,5,1,3,5
+Four New Elements Find a Place on Periodic Table,Ele,What must the scientists who found the new elements do now?,Onestop,15,6,0.4,6,1,1,7,7
+Four New Elements Find a Place on Periodic Table,Ele,Why was the symbol Cp not accepted for copernicium?,Onestop,15,6,0.4,6,5,3,1,5
+Google Introduces its Driverless Car,Ele,Approximately how many taxi drivers are there in the UK?,Onestop,15,6,0.4,6,1,7,1,7
+Insects Could be the Planets Next Food Source,Ele,"According to experts, what will be an effect of eating insects?",Onestop,15,6,0.4,6,0,1,8,8
+Love Hormone Helps Autistic Children Bond with Others,Adv,What is one reason Pelphrey warns against buying oxytocin online?,Onestop,15,6,0.4,6,4,1,4,4
+On the Trail of the Wolf,Ele,Why are wolves not a big tourist attraction?,Onestop,15,6,0.4,6,6,2,1,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Who appears in the film Sweet Dreams?,Onestop,15,6,0.4,6,1,3,5,5
+Bright Future for Astrotourism,Adv,What is Fildes' ambition?,Onestop,23,9,0.391304347826087,9,2,2,10,10
+101-Year-Old Bottle Message,Adv,How was the bottle discovered?,Onestop,18,7,0.3888888888888889,7,0,3,8,8
+101-Year-Old Bottle Message,Adv,What does Erdmann's quote reveal about her?,Onestop,18,7,0.3888888888888889,7,0,4,7,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Who does Rachel Swift work for?,Onestop,18,7,0.3888888888888889,7,2,7,2,7
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What do experts believe about Bolivia?,Onestop,13,5,0.38461538461538464,5,4,0,4,4
+Can the US Electric Bike Market Get a Jump Start?,Adv,"According to Pizzi, what is one benefit of the ""cargo bike""?",Onestop,21,8,0.38095238095238093,8,2,1,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Adv,"What happened to almost 1,200 people?",Onestop,21,8,0.38095238095238093,8,3,2,8,8
+Morocco Poised to Become a Solar Superpower,Ele,"According to Maha el-Kadiri, why does Morocco not export energy to Europe?",Onestop,21,8,0.38095238095238093,8,5,7,1,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Where does the lonely old man appear in John Lewis's advert?,Onestop,24,9,0.375,9,6,5,4,6
+Autumn-Born Children Better at Sports Says Study,Adv,What can small differences in physical performance determine?,Onestop,16,6,0.375,6,8,1,1,8
+Autumn-Born Children Better at Sports Says Study,Adv,What does Natalie Dunman note is a limitation to the study?,Onestop,16,6,0.375,6,2,1,7,7
+Autumn-Born Children Better at Sports Says Study,Adv,"What were the study's conclusions concerning the stamina, power, and strength of November children compared to other children?",Onestop,16,6,0.375,6,9,1,0,9
+Autumn-Born Children Better at Sports Says Study,Adv,Who does the article suggest to be the weakest in comparison with children born in October and November?,Onestop,16,6,0.375,6,4,2,4,4
+Autumn-Born Children Better at Sports Says Study,Ele,What does the study say about the fitness of children born in April or June?,Onestop,16,6,0.375,6,3,4,3,4
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What did Russia warn will happen?,Onestop,16,6,0.375,6,2,3,5,5
+Four New Elements Find a Place on Periodic Table,Ele,What may happen once people understand radioactive decay better?,Onestop,16,6,0.375,6,2,2,6,6
+Google Introduces its Driverless Car,Adv,The number of taxi drivers in London is ...,Onestop,16,6,0.375,6,3,7,0,7
+Google Introduces its Driverless Car,Ele,How will Volvo's cars contrast with Google's cars?,Onestop,16,6,0.375,6,2,5,3,5
+Google Introduces its Driverless Car,Ele,Who does Brin say the car will benefit?,Onestop,16,6,0.375,6,4,5,1,5
+Inky the Octopus Escapes from Aquarium,Ele,"Why did Inky escape, according to Napier?",Onestop,16,6,0.375,6,2,6,2,6
+Love Hormone Helps Autistic Children Bond with Others,Adv,"What difference did oxytocin make to the brains of autistic children, as shown in brain scans?",Onestop,16,6,0.375,6,5,5,0,5
+Love Hormone Helps Autistic Children Bond with Others,Adv,What does Frith say is a result of the oxytocin study?,Onestop,16,6,0.375,6,1,9,0,9
+Love Hormone Helps Autistic Children Bond with Others,Adv,What is the normal response of reward circuits in children's brains?,Onestop,16,6,0.375,6,1,3,6,6
+On the Trail of the Wolf,Adv,What was true about Poland in 1975?,Onestop,16,6,0.375,6,1,3,6,6
+On the Trail of the Wolf,Ele,What is a consequence of the wolf-hunting ban?,Onestop,16,6,0.375,6,6,2,2,6
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What does Casserly recommend that artists do?,Onestop,16,6,0.375,6,5,4,1,5
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,Who states that copyright is meant to protect artists and producers?,Onestop,16,6,0.375,6,3,2,5,5
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What does Casserly recommend that artists do?,Onestop,16,6,0.375,6,5,5,0,5
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What does Pullman imply about artists?,Onestop,16,6,0.375,6,2,4,4,4
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Where is one place where people come to the ice cream shop from?,Onestop,16,6,0.375,6,2,5,3,5
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Where is the National University of Rwanda located?,Onestop,16,6,0.375,6,3,4,3,4
+Spain's Robin Hood,Ele,What did Enric Duran do with the money he took from the banks?,Onestop,16,6,0.375,6,2,2,6,6
+Spain's Robin Hood,Ele,What was Duran's relationship to anti-capitalist projects?,Onestop,16,6,0.375,6,1,6,3,6
+Spain's Robin Hood,Ele,Why did the banks reject Duran's loan applications at first?,Onestop,16,6,0.375,6,5,4,1,5
+Swarthy Blue-Eyed Caveman Revealed,Adv,What is the purpose of Lalueza-Fox's quote?,Onestop,16,6,0.375,6,1,3,6,6
+The Greek Island Where Time Is Running Out,Adv,"According to Kakali, what will happen in Agios Efstratios once the tax break ends?",Onestop,16,6,0.375,6,3,7,0,7
+The Greek Island Where Time Is Running Out,Adv,What caused this tourism season to be the worst in 30 years?,Onestop,16,6,0.375,6,2,5,3,5
+The Greek Island Where Time Is Running Out,Adv,What does Kakali hope will happen by 2017?,Onestop,16,6,0.375,6,0,8,2,8
+The Greek Island Where Time Is Running Out,Adv,What was true about tourism in Agios Efstratios before the recent financial crisis?,Onestop,16,6,0.375,6,4,5,1,5
+The Greek Island Where Time Is Running Out,Adv,Why do Greek visitors no longer come to the island?,Onestop,16,6,0.375,6,3,4,3,4
+The Greek Island Where Time Is Running Out,Ele,How has the closure of Greek banks affected the local residents of the island?,Onestop,16,6,0.375,6,9,1,0,9
+Vienna Named World's Top City for Quality of Life,Adv,What is the ranking of Paris in the 18th Mercer Quality of Life study?,Onestop,16,6,0.375,6,7,2,1,7
+Why You Should Start Work at 10AM,Adv,What does Kelley state about people's natural wake-up times?,Onestop,16,6,0.375,6,0,6,4,6
+Why You Should Start Work at 10AM,Ele,Why does Kelley mention teachers in their 50s?,Onestop,16,6,0.375,6,7,0,3,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What does Professor Singh think about fixing current drone delivery problems?,Onestop,16,6,0.375,6,1,4,5,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,"What is one way to increase drone safety, according to Huber?",Onestop,16,6,0.375,6,8,0,2,8
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What does Professor Singh think about fixing current drone delivery problems?,Onestop,16,6,0.375,6,3,3,4,4
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,"What is one way to increase drone safety, according to Huber?",Onestop,16,6,0.375,6,7,0,3,7
+Can the US Electric Bike Market Get a Jump Start?,Adv,When can you ride e-bikes on bike lanes?,Onestop,19,7,0.3684210526315789,7,6,4,2,6
+Can the US Electric Bike Market Get a Jump Start?,Adv,Why don't some bike sellers want to put motors on bikes?,Onestop,19,7,0.3684210526315789,7,4,5,3,5
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What is true of Carle's Ikea forks,Onestop,19,7,0.3684210526315789,7,5,4,3,5
+Morocco Poised to Become a Solar Superpower,Adv,What will happen by 2020?,Onestop,19,7,0.3684210526315789,7,9,1,2,9
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What did rumours say about the Russian military and air defense?,Onestop,22,8,0.36363636363636365,8,0,6,8,8
+A New Form of Lie Detector Test,Adv,What did participants lie about in the Never End game experiment?,Onestop,14,5,0.35714285714285715,5,2,0,7,7
+A New Form of Lie Detector Test,Adv,Who was John Larson?,Onestop,14,5,0.35714285714285715,5,4,1,4,4
+A New Form of Lie Detector Test,Ele,What is one reason Anderson is looking for alternatives to body suits?,Onestop,14,5,0.35714285714285715,5,1,6,2,6
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What did Russia warn will happen?,Onestop,14,5,0.35714285714285715,5,5,1,3,5
+Bolivians Demand the Right to Chew Coca Leaves,Ele,Who is Danny Kushlick?,Onestop,14,5,0.35714285714285715,5,3,1,5,5
+Four New Elements Find a Place on Periodic Table,Adv,How did researchers discover the elements?,Onestop,14,5,0.35714285714285715,5,4,0,5,5
+Four New Elements Find a Place on Periodic Table,Ele,What is the International Union of Pure and Applied Chemistry?,Onestop,14,5,0.35714285714285715,5,4,3,2,4
+Insects Could be the Planets Next Food Source,Adv,Which of these is mentioned as a cost of meat?,Onestop,14,5,0.35714285714285715,5,4,1,4,4
+Insects Could be the Planets Next Food Source,Ele,Why are rainforests being destroyed?,Onestop,14,5,0.35714285714285715,5,1,6,2,6
+Insects Could be the Planets Next Food Source,Ele,Why does the author mention the Danish restaurant Noma?,Onestop,14,5,0.35714285714285715,5,3,6,0,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,What are the results of Oxytocin experiments so far?,Onestop,14,5,0.35714285714285715,5,2,5,2,5
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What is one of the things Lisa Fruchtman feels the film is about?,Onestop,14,5,0.35714285714285715,5,3,3,3,3
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Who founded Blue Marble Ice Cream?,Onestop,14,5,0.35714285714285715,5,3,4,2,4
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What is common to all the members of Ingoma Nshya?,Onestop,14,5,0.35714285714285715,5,2,5,2,5
+Vienna Named World's Top City for Quality of Life,Ele,What is one thing Hartlauer lists as a desirable aspect of her apartment?,Onestop,14,5,0.35714285714285715,5,1,1,7,7
+Wealth Therapy for the Rich,Adv,What was Cockrell's occupation before taking on his current job?,Onestop,14,5,0.35714285714285715,5,2,4,3,4
+Bright Future for Astrotourism,Ele,Who mentions that it might be possible to see the northern lights?,Onestop,17,6,0.35294117647058826,6,4,1,6,6
+Japan Calls Time on Long Hours Work Culture,Ele,What does the Japanese government want workers to do now?,Onestop,17,6,0.35294117647058826,6,3,3,5,5
+Spain's Robin Hood,Adv,What did Enric Duran do with the money he took from the banks?,Onestop,17,6,0.35294117647058826,6,5,3,3,5
+Can the US Electric Bike Market Get a Jump Start?,Ele,"According to Pizzi, which population is now using e-bikes?",Onestop,20,7,0.35,7,8,0,5,8
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What was notable about the vapor trail left behind by the meteorite?,Onestop,20,7,0.35,7,1,7,5,7
+Hundreds Hurt after Meteorite Falls to Earth,Ele,Who arrived at the hospital?,Onestop,20,7,0.35,7,8,2,3,8
+Japan Calls Time on Long Hours Work Culture,Ele,Why would someone be considered disloyal to their company in Japan?,Onestop,20,7,0.35,7,0,6,7,7
+Nepal's Tiger Population on the Rise,Ele,What is one problem with some of the senior officials in Nepal which hinders the reduction of the tiger trade?,Onestop,20,7,0.35,7,1,5,7,7
+101-Year-Old Bottle Message,Ele,Who threw the bottle into the Baltic Sea?,Onestop,23,8,0.34782608695652173,8,4,1,10,10
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,Who is Alamin?,Onestop,23,8,0.34782608695652173,8,5,6,4,6
+Bright Future for Astrotourism,Ele,How does Duncan Wise define 'landscape'?,Onestop,23,8,0.34782608695652173,8,6,2,7,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Who does Swift hope will like John Lewis' 2015 advertisement?,Onestop,24,8,0.3333333333333333,8,0,9,7,9
+Morocco Poised to Become a Solar Superpower,Adv,How could solar energy be used in the future?,Onestop,21,7,0.3333333333333333,7,3,4,7,7
+101-Year-Old Bottle Message,Ele,What is true about the postcard's content?,Onestop,18,6,0.3333333333333333,6,0,7,5,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Who does Swift hope will like John Lewis' 2015 advertisement?,Onestop,18,6,0.3333333333333333,6,0,3,9,9
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,Who performs a song for the campaign?,Onestop,18,6,0.3333333333333333,6,3,0,9,9
+Morocco Poised to Become a Solar Superpower,Ele,Where will 580 mega-watts of electricity be produced?,Onestop,18,6,0.3333333333333333,6,1,9,2,9
+A New Form of Lie Detector Test,Adv,What happened in 1998?,Onestop,15,5,0.3333333333333333,5,1,5,4,5
+Autumn-Born Children Better at Sports Says Study,Adv,Who is Gavin Sandercock?,Onestop,15,5,0.3333333333333333,5,5,1,4,5
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What is the UK worried about?,Onestop,15,5,0.3333333333333333,5,8,1,1,8
+Four New Elements Find a Place on Periodic Table,Adv,Who did IUPAC credit the discovery of element 113 to?,Onestop,15,5,0.3333333333333333,5,5,4,1,5
+Four New Elements Find a Place on Periodic Table,Ele,What does Paul Karol say about the new elements?,Onestop,15,5,0.3333333333333333,5,1,1,8,8
+Google Introduces its Driverless Car,Adv,When will Google allow other car companies to use their technology?,Onestop,15,5,0.3333333333333333,5,2,6,2,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,Do the researchers expect oxytocin to interact well with other treatments?,Onestop,15,5,0.3333333333333333,5,3,1,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What happened in 2010?,Onestop,15,5,0.3333333333333333,5,1,2,7,7
+The Secrets of the Mystery Shopper,Ele,"What does Laura say is ""satisfying""?",Onestop,15,5,0.3333333333333333,5,1,2,7,7
+Vienna Named World's Top City for Quality of Life,Adv,How do the Viennese say their city compares to Zurich?,Onestop,15,5,0.3333333333333333,5,7,0,3,7
+Vienna Named World's Top City for Quality of Life,Adv,Why is Vienna a cheap place to live compared to other cities?,Onestop,15,5,0.3333333333333333,5,6,2,2,6
+Why is Sweden Closing its Prisons?,Adv,What changed between 2011 and 2012?,Onestop,15,5,0.3333333333333333,5,6,4,0,6
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,Who is Alamin?,Onestop,19,6,0.3157894736842105,6,6,7,0,7
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What do the classes at the center do?,Onestop,19,6,0.3157894736842105,6,0,7,6,7
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What is true about Carle's new French-made washing machine?,Onestop,19,6,0.3157894736842105,6,2,2,9,9
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What is true of Carle's Ikea forks,Onestop,19,6,0.3157894736842105,6,9,1,3,9
+Man Falls Just Short in Patriot Game to be 100% French,Ele,Why was listening to Daft Punk forbidden?,Onestop,19,6,0.3157894736842105,6,9,2,2,9
+A New Form of Lie Detector Test,Ele,What happened in 1998?,Onestop,16,5,0.3125,5,2,2,7,7
+Autumn-Born Children Better at Sports Says Study,Adv,What are percentages used for in the passage?,Onestop,16,5,0.3125,5,1,3,7,7
+Autumn-Born Children Better at Sports Says Study,Adv,"What is one effect of a high-quality first sports experience, according to Steele?",Onestop,16,5,0.3125,5,2,4,5,5
+Bolivians Demand the Right to Chew Coca Leaves,Adv,How could Bolivia's return to the convention be blocked?,Onestop,16,5,0.3125,5,5,4,2,5
+Bolivians Demand the Right to Chew Coca Leaves,Ele,"According to Danny Kushlick, why was the Bolivian move significant?",Onestop,16,5,0.3125,5,5,6,0,6
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What was decided based on the 1950 report?,Onestop,16,5,0.3125,5,9,1,1,9
+Google Introduces its Driverless Car,Adv,Why can't the driverless cars currently drive on all roads?,Onestop,16,5,0.3125,5,3,5,3,5
+Google Introduces its Driverless Car,Ele,How do Google driverless cars perform?,Onestop,16,5,0.3125,5,0,9,2,9
+Google Introduces its Driverless Car,Ele,Why is Conyon worried about driverless cars?,Onestop,16,5,0.3125,5,8,1,2,8
+Inky the Octopus Escapes from Aquarium,Adv,"According to Inky's keeper, why is it likely Inky wasn't stolen?",Onestop,16,5,0.3125,5,8,0,3,8
+Inky the Octopus Escapes from Aquarium,Ele,"According to Inky's keeper, why is it likely Inky wasn't stolen?",Onestop,16,5,0.3125,5,4,1,6,6
+Love Hormone Helps Autistic Children Bond with Others,Adv,What does Pelphrey think about buying oxytocin online?,Onestop,16,5,0.3125,5,0,7,4,7
+Love Hormone Helps Autistic Children Bond with Others,Ele,What can be said about the effectiveness of existing treatments for social problems caused by autism?,Onestop,16,5,0.3125,5,4,6,1,6
+Nepal's Tiger Population on the Rise,Adv,What happened in May?,Onestop,16,5,0.3125,5,1,4,6,6
+Nepal's Tiger Population on the Rise,Ele,What is one consequence of the increase in the number of tigers in Nepal?,Onestop,16,5,0.3125,5,8,2,1,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What does Pullman imply about artists?,Onestop,16,5,0.3125,5,2,6,3,6
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,Who does Pullman criticize?,Onestop,16,5,0.3125,5,1,4,6,6
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What do the statistics in the paragraph convey?,Onestop,16,5,0.3125,5,7,1,3,7
+Spain's Robin Hood,Ele,How did Duran learn about the Spanish banking system?,Onestop,16,5,0.3125,5,2,7,2,7
+Spain's Robin Hood,Ele,What does Duran believe was wrong with Spain's economic system?,Onestop,16,5,0.3125,5,5,0,6,6
+The Greek Island Where Time Is Running Out,Ele,How does Lemnos compare in size to other islands in Greece?,Onestop,16,5,0.3125,5,1,5,5,5
+The Greek Island Where Time Is Running Out,Ele,What caused this tourism season to be the worst in 30 years?,Onestop,16,5,0.3125,5,10,0,1,10
+The Greek Island Where Time Is Running Out,Ele,Where do island residents have to travel to get cash?,Onestop,16,5,0.3125,5,1,0,10,10
+The Greek Island Where Time Is Running Out,Ele,Why do Greek visitors no longer come to the island?,Onestop,16,5,0.3125,5,1,9,1,9
+Why You Should Start Work at 10AM,Adv,How did Dr. Paul Kelley convey his opinion on staggering school starting times?,Onestop,16,5,0.3125,5,2,1,8,8
+Why You Should Start Work at 10AM,Adv,"How does a person's average sleep loss per night change as they age, according to Kelley?",Onestop,16,5,0.3125,5,3,4,4,4
+Why You Should Start Work at 10AM,Adv,What is one role of eye cells in humans?,Onestop,16,5,0.3125,5,8,1,2,8
+Why You Should Start Work at 10AM,Ele,"How does a person's average sleep loss per night change as they age, according to Kelley?",Onestop,16,5,0.3125,5,6,1,4,6
+Why You Should Start Work at 10AM,Ele,What does Dr. Kelley suggest about the current starting time for schools?,Onestop,16,5,0.3125,5,2,3,6,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What does Singh say drones should do to improve safety?,Onestop,16,5,0.3125,5,5,2,4,5
+Vienna Named World's Top City for Quality of Life,Ele,How much rent does Helena Hartlauer pay for her apartment?,Onestop,13,4,0.3076923076923077,4,0,7,2,7
+Vienna Named World's Top City for Quality of Life,Ele,What is the ranking of Paris in the 18th Mercer Quality of Life study?,Onestop,13,4,0.3076923076923077,4,6,2,1,6
+Bright Future for Astrotourism,Adv,"How does the ""Dark Sky Park"" status differ from the ""Dark Sky Reserve"" status?",Onestop,23,7,0.30434782608695654,7,14,0,2,14
+Bright Future for Astrotourism,Adv,What did the 2013 Star Count find?,Onestop,23,7,0.30434782608695654,7,4,9,3,9
+Bright Future for Astrotourism,Ele,What does Fildes' team decide to do?,Onestop,23,7,0.30434782608695654,7,5,5,6,6
+Japan Calls Time on Long Hours Work Culture,Adv,What is increasingly happening to Japanese employees because of work?,Onestop,23,7,0.30434782608695654,7,3,7,6,7
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What is true of the asteroid 2012 DA14?,Onestop,20,6,0.3,6,2,1,11,11
+Hundreds Hurt after Meteorite Falls to Earth,Adv,Where is Chelyabinsk located?,Onestop,20,6,0.3,6,4,2,8,8
+Japan Calls Time on Long Hours Work Culture,Adv,Who or what is driving the change in Japanese work habits?,Onestop,20,6,0.3,6,9,2,3,9
+Nepal's Tiger Population on the Rise,Ele,What happened in May?,Onestop,20,6,0.3,6,2,6,6,6
+Japan Calls Time on Long Hours Work Culture,Adv,What does the Japanese government want workers to do now?,Onestop,17,5,0.29411764705882354,5,1,3,8,8
+Nepal's Tiger Population on the Rise,Ele,What do international gangs do?,Onestop,17,5,0.29411764705882354,5,5,3,4,5
+101-Year-Old Bottle Message,Adv,What is true about the postcard's content?,Onestop,21,6,0.2857142857142857,6,4,5,6,6
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What happened in the room Tatyana Bets worked in?,Onestop,21,6,0.2857142857142857,6,4,4,7,7
+A New Form of Lie Detector Test,Ele,What does the new method of lie detection monitor that the polygraph does not?,Onestop,14,4,0.2857142857142857,4,2,2,6,6
+Bolivians Demand the Right to Chew Coca Leaves,Adv,"What stance are countries like the UK, the US, and Italy taking on Bolivia's request?",Onestop,14,4,0.2857142857142857,4,5,1,4,5
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What do experts believe about Bolivia?,Onestop,14,4,0.2857142857142857,4,4,5,1,5
+Four New Elements Find a Place on Periodic Table,Adv,What does the RIKEN research team plan to do now?,Onestop,14,4,0.2857142857142857,4,3,2,5,5
+Four New Elements Find a Place on Periodic Table,Ele,"Who discovered elements 115, 117, and 118?",Onestop,14,4,0.2857142857142857,4,3,6,1,6
+Four New Elements Find a Place on Periodic Table,Ele,Why is the public involved in the element symbol-naming process?,Onestop,14,4,0.2857142857142857,4,0,2,8,8
+Insects Could be the Planets Next Food Source,Adv,What will result from an increase in human population in the future?,Onestop,14,4,0.2857142857142857,4,5,5,0,5
+Insects Could be the Planets Next Food Source,Adv,Which of the following will be featured at Pestival 2013?,Onestop,14,4,0.2857142857142857,4,4,2,4,4
+Insects Could be the Planets Next Food Source,Ele,What is happening in spring 2013?,Onestop,14,4,0.2857142857142857,4,0,1,9,9
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What is common to all the members of Ingoma Nshya?,Onestop,14,4,0.2857142857142857,4,3,4,3,4
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Where does the ice cream shop's milk come from?,Onestop,14,4,0.2857142857142857,4,0,1,9,9
+The Secrets of the Mystery Shopper,Ele,Who are the clients of Marketforce?,Onestop,14,4,0.2857142857142857,4,4,2,4,4
+Wealth Therapy for the Rich,Ele,What do wealthy people feel guilty about?,Onestop,14,4,0.2857142857142857,4,4,4,2,4
+Wealth Therapy for the Rich,Ele,What is Traeger-Muney sometimes shocked by?,Onestop,14,4,0.2857142857142857,4,8,2,0,8
+101-Year-Old Bottle Message,Ele,What does Erdmann want to add to the exhibit?,Onestop,18,5,0.2777777777777778,5,1,3,9,9
+Hundreds Hurt after Meteorite Falls to Earth,Ele,How did some people react to the meteorite crash?,Onestop,18,5,0.2777777777777778,5,2,6,5,6
+Hundreds Hurt after Meteorite Falls to Earth,Ele,Where is Chelyabinsk located?,Onestop,18,5,0.2777777777777778,5,1,3,9,9
+Man Falls Just Short in Patriot Game to be 100% French,Adv,Why was driving a Peugeot car not possible?,Onestop,18,5,0.2777777777777778,5,10,2,1,10
+101-Year-Old Bottle Message,Ele,What did Platz request from the person who finds the bottle?,Onestop,22,6,0.2727272727272727,6,3,2,11,11
+Nepal's Tiger Population on the Rise,Ele,What was done as part of the tiger population study?,Onestop,22,6,0.2727272727272727,6,5,5,6,6
+A New Form of Lie Detector Test,Adv,What can an all-body suit be used for?,Onestop,15,4,0.26666666666666666,4,1,9,1,9
+A New Form of Lie Detector Test,Adv,What were some people supposed to do with the wallet?,Onestop,15,4,0.26666666666666666,4,1,3,7,7
+Autumn-Born Children Better at Sports Says Study,Ele,"According to Sandercock, what does selection into elite sports often depend on?",Onestop,15,4,0.26666666666666666,4,0,10,1,10
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What did some people say about the UN report?,Onestop,15,4,0.26666666666666666,4,4,1,6,6
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What did some people say about the UN report?,Onestop,15,4,0.26666666666666666,4,3,0,8,8
+Four New Elements Find a Place on Periodic Table,Adv,Who discovered the new elements?,Onestop,15,4,0.26666666666666666,4,6,4,1,6
+Inky the Octopus Escapes from Aquarium,Adv,"How good is the security of the aquarium, according to Jenkinson?",Onestop,15,4,0.26666666666666666,4,2,4,5,5
+Love Hormone Helps Autistic Children Bond with Others,Adv,"How can oxytocin be used for people with autism, according to the researchers?",Onestop,15,4,0.26666666666666666,4,1,1,9,9
+On the Trail of the Wolf,Adv,"Why does Myslajek mention Russia, Lithuania, Belarus, Ukraine and Slovakia?",Onestop,15,4,0.26666666666666666,4,0,1,10,10
+On the Trail of the Wolf,Ele,"What can help in scaring off wolves, according to Myslajek?",Onestop,15,4,0.26666666666666666,4,5,3,3,5
+On the Trail of the Wolf,Ele,What does Myslajek think of fairy tales such as Little Red Riding Hood?,Onestop,15,4,0.26666666666666666,4,7,2,2,7
+On the Trail of the Wolf,Ele,Who is Jan Szyszko?,Onestop,15,4,0.26666666666666666,4,6,0,5,6
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What is Ingoma Nshya?,Onestop,15,4,0.26666666666666666,4,5,2,4,5
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Where do the ice cream shop's ingredients come from?,Onestop,15,4,0.26666666666666666,4,6,4,1,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Where is the National University of Rwanda located?,Onestop,15,4,0.26666666666666666,4,6,1,4,6
+Spain's Robin Hood,Adv,Why did the banks reject Duran's loan applications at first?,Onestop,15,4,0.26666666666666666,4,4,5,2,5
+Swarthy Blue-Eyed Caveman Revealed,Ele,What is the purpose of Lalueza-Fox's quote?,Onestop,15,4,0.26666666666666666,4,2,3,6,6
+The Secrets of the Mystery Shopper,Adv,"What does Laura say is ""satisfying""?",Onestop,15,4,0.26666666666666666,4,3,3,5,5
+The Secrets of the Mystery Shopper,Ele,How many hours do mystery shoppers spend visiting stores per day?,Onestop,15,4,0.26666666666666666,4,3,4,4,4
+The Secrets of the Mystery Shopper,Ele,What is one thing Hannah must do when eating at a restaurant as a mystery diner,Onestop,15,4,0.26666666666666666,4,4,3,4,4
+The Secrets of the Mystery Shopper,Ele,What items can Laura purchase at stores?,Onestop,15,4,0.26666666666666666,4,1,6,4,6
+Vienna Named World's Top City for Quality of Life,Adv,What is one thing Hartlauer lists as a desirable aspect of her apartment?,Onestop,15,4,0.26666666666666666,4,3,1,7,7
+Vienna Named World's Top City for Quality of Life,Ele,What factor can influence where big companies will open new offices and factories?,Onestop,15,4,0.26666666666666666,4,0,2,9,9
+Wealth Therapy for the Rich,Adv,What do wealthy people feel guilty about?,Onestop,15,4,0.26666666666666666,4,6,5,0,6
+Wealth Therapy for the Rich,Ele,What does Traeger-Muney imply people say about the wealthy?,Onestop,15,4,0.26666666666666666,4,3,5,3,5
+Why is Sweden Closing its Prisons?,Adv,"What does ""below 70 per 100,000"" refer to?",Onestop,15,4,0.26666666666666666,4,6,3,2,6
+Why is Sweden Closing its Prisons?,Adv,What kind of programs are run by the Swedish government?,Onestop,15,4,0.26666666666666666,4,0,3,8,8
+Why is Sweden Closing its Prisons?,Ele,Did Oberg anticipate falling number of prisoners in Swedish prisons?,Onestop,15,4,0.26666666666666666,4,8,1,2,8
+Why is Sweden Closing its Prisons?,Ele,"What does ""below 70 per 100,000"" refer to?",Onestop,15,4,0.26666666666666666,4,4,6,1,6
+101-Year-Old Bottle Message,Ele,How was the bottle discovered?,Onestop,19,5,0.2631578947368421,5,1,6,7,7
+Can the US Electric Bike Market Get a Jump Start?,Adv,What was true about the e-bike market in 2014?,Onestop,19,5,0.2631578947368421,5,9,4,1,9
+Can the US Electric Bike Market Get a Jump Start?,Ele,"According to Pizzi, what is one benefit of the ""cargo bike""?",Onestop,19,5,0.2631578947368421,5,3,1,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What is true of the asteroid 2012 DA14?,Onestop,19,5,0.2631578947368421,5,2,2,10,10
+Man Falls Just Short in Patriot Game to be 100% French,Ele,Why was driving a Peugeot car not possible?,Onestop,19,5,0.2631578947368421,5,10,3,1,10
+Morocco Poised to Become a Solar Superpower,Ele,What is true of Tunisia?,Onestop,19,5,0.2631578947368421,5,1,1,12,12
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,Why are the people in the room lucky?,Onestop,23,6,0.2608695652173913,6,1,11,5,11
+Bright Future for Astrotourism,Adv,How does Duncan Wise define 'landscape'?,Onestop,23,6,0.2608695652173913,6,9,1,7,9
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Who does Rachel Swift work for?,Onestop,23,6,0.2608695652173913,6,3,10,4,10
+101-Year-Old Bottle Message,Adv,What did Platz request from the person who finds the bottle?,Onestop,20,5,0.25,5,2,2,11,11
+101-Year-Old Bottle Message,Ele,What does Erdmann's quote reveal about her?,Onestop,20,5,0.25,5,3,5,7,7
+Can the US Electric Bike Market Get a Jump Start?,Adv,Why has bicycle commuting become more popular?,Onestop,20,5,0.25,5,0,5,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What happened in the room Tatyana Bets worked in?,Onestop,20,5,0.25,5,3,7,5,7
+Japan Calls Time on Long Hours Work Culture,Ele,What is increasingly happening to Japanese employees because of work?,Onestop,20,5,0.25,5,4,9,2,9
+Nepal's Tiger Population on the Rise,Adv,What do international gangs do?,Onestop,20,5,0.25,5,12,2,1,12
+A New Form of Lie Detector Test,Ele,What did some participants do for seven minutes?,Onestop,16,4,0.25,4,3,3,6,6
+Autumn-Born Children Better at Sports Says Study,Adv,What does the study say about the fitness of children born in April or June?,Onestop,16,4,0.25,4,1,7,4,7
+Autumn-Born Children Better at Sports Says Study,Ele,"What is one effect of a high-quality first sports experience, according to Steele?",Onestop,16,4,0.25,4,5,3,4,5
+Autumn-Born Children Better at Sports Says Study,Ele,"What were the study's conclusions concerning the stamina, power, and strength of November children compared to other children?",Onestop,16,4,0.25,4,8,1,3,8
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,"What is a challenge working children face in regards to attending school, according to al-Mamun?",Onestop,16,4,0.25,4,2,0,10,10
+Four New Elements Find a Place on Periodic Table,Adv,What is true about the new elements?,Onestop,16,4,0.25,4,5,2,5,5
+Four New Elements Find a Place on Periodic Table,Adv,What must the scientists who found the new elements do now?,Onestop,16,4,0.25,4,7,2,3,7
+Google Introduces its Driverless Car,Adv,Approximately how many taxi drivers are there in the UK?,Onestop,16,4,0.25,4,5,7,0,7
+Google Introduces its Driverless Car,Adv,How do Google driverless cars perform?,Onestop,16,4,0.25,4,1,8,3,8
+Google Introduces its Driverless Car,Ele,"According to the company's co-founder, the experience of riding in the car was ...",Onestop,16,4,0.25,4,0,9,3,9
+Google Introduces its Driverless Car,Ele,What does Brin say his company's motivation is for making this car?,Onestop,16,4,0.25,4,5,5,2,5
+Google Introduces its Driverless Car,Ele,When will Google allow other car companies to use their technology?,Onestop,16,4,0.25,4,2,5,5,5
+Google Introduces its Driverless Car,Ele,Why did Google remove the steering wheel from their driverless car prototypes?,Onestop,16,4,0.25,4,4,0,8,8
+Inky the Octopus Escapes from Aquarium,Ele,Why does Napier mention that octopuses live alone?,Onestop,16,4,0.25,4,1,0,11,11
+Love Hormone Helps Autistic Children Bond with Others,Adv,What is one of the reasons scientists are uncertain about using oxytocin in real life?,Onestop,16,4,0.25,4,3,7,2,7
+Love Hormone Helps Autistic Children Bond with Others,Ele,"How can oxytocin be used for people with autism, according to the researchers?",Onestop,16,4,0.25,4,0,1,11,11
+Love Hormone Helps Autistic Children Bond with Others,Ele,"What difference did oxytocin make to the brains of autistic children, as shown in brain scans?",Onestop,16,4,0.25,4,6,3,3,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,What does Frith say is a result of the oxytocin study?,Onestop,16,4,0.25,4,4,7,1,7
+On the Trail of the Wolf,Adv,Why is it hard to support wolves in Poland's new government?,Onestop,16,4,0.25,4,1,3,8,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What is the purpose of Pullman's quote?,Onestop,16,4,0.25,4,1,1,10,10
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,Who states that copyright is meant to protect artists and producers?,Onestop,16,4,0.25,4,2,2,8,8
+Spain's Robin Hood,Adv,How did Enric feel about taking money from banks?,Onestop,16,4,0.25,4,1,4,7,7
+Spain's Robin Hood,Adv,What does Duran believe was wrong with Spain's economic system?,Onestop,16,4,0.25,4,4,0,8,8
+Spain's Robin Hood,Adv,What effect did Duran's actions before his arrest have?,Onestop,16,4,0.25,4,4,3,5,5
+Spain's Robin Hood,Ele,How much money did Duran manage to take out in loans?,Onestop,16,4,0.25,4,8,1,3,8
+Swarthy Blue-Eyed Caveman Revealed,Ele,Which of these nationalities has DNA most closely related to Mesolithic hunter-gatherers?,Onestop,16,4,0.25,4,3,8,1,8
+The Greek Island Where Time Is Running Out,Adv,How many tourists will likely visit the island this season compared to previous years?,Onestop,16,4,0.25,4,1,11,0,11
+Vienna Named World's Top City for Quality of Life,Adv,"What is one reason why the Viennese public transport system is good, according to Hartlauer?",Onestop,16,4,0.25,4,6,5,1,6
+Wealth Therapy for the Rich,Ele,Who thinks that the problems of the wealthy are not real?,Onestop,16,4,0.25,4,5,4,3,5
+Why You Should Start Work at 10AM,Ele,What does Kelley state about people's natural wake-up times?,Onestop,16,4,0.25,4,0,8,4,8
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What currently happens to a typical drone if it loses contact with its human operator?,Onestop,16,4,0.25,4,3,2,7,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What happens as you increase the distance a drone travels to deliver a package?,Onestop,16,4,0.25,4,6,2,4,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What will Huber's program enable drones to do?,Onestop,16,4,0.25,4,8,3,1,8
+Can the US Electric Bike Market Get a Jump Start?,Ele,"According to Craig Anderson, what is one goal of ElectroBike?",Onestop,21,5,0.23809523809523808,5,6,0,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What did Vladimir Zhirinovsky say?,Onestop,21,5,0.23809523809523808,5,1,6,9,9
+Morocco Poised to Become a Solar Superpower,Ele,"By 2020, two-thirds of Morocco's renewable energy will be ...",Onestop,21,5,0.23809523809523808,5,12,2,2,12
+Morocco Poised to Become a Solar Superpower,Ele,How does the mirror technology used in the power plant differ from familiar roof panels?,Onestop,21,5,0.23809523809523808,5,7,5,4,7
+Bright Future for Astrotourism,Adv,Who mentions that it might be possible to see the northern lights?,Onestop,17,4,0.23529411764705882,4,7,3,3,7
+Bright Future for Astrotourism,Ele,What does the International Dark-Sky Association (IDA) do?,Onestop,17,4,0.23529411764705882,4,8,3,2,8
+Japan Calls Time on Long Hours Work Culture,Adv,What do are British workers likely to think about a four-night vacation in Hawaii?,Onestop,17,4,0.23529411764705882,4,3,0,10,10
+Japan Calls Time on Long Hours Work Culture,Adv,Who says that Japanese workers don't use their vacation days?,Onestop,17,4,0.23529411764705882,4,1,1,11,11
+Japan Calls Time on Long Hours Work Culture,Ele,What does Yuu Wakebe's quote convey about working in Japan?,Onestop,17,4,0.23529411764705882,4,5,0,8,8
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What did Arnaud Montebourgh do?,Onestop,17,4,0.23529411764705882,4,8,2,3,8
+Vienna Named World's Top City for Quality of Life,Adv,How much rent does Helena Hartlauer pay for her apartment?,Onestop,13,3,0.23076923076923078,3,2,2,6,6
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What took place in the first few hours after the incident?,Onestop,18,4,0.2222222222222222,4,3,5,6,6
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,What is one component of John Lewis's campaign?,Onestop,18,4,0.2222222222222222,4,3,5,6,6
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,Who used the,Onestop,18,4,0.2222222222222222,4,11,3,0,11
+Man Falls Just Short in Patriot Game to be 100% French,Ele,"What is true of the English word ""cool""?",Onestop,18,4,0.2222222222222222,4,5,4,5,5
+Morocco Poised to Become a Solar Superpower,Adv,What does the form of the mirrors resemble?,Onestop,18,4,0.2222222222222222,4,6,4,4,6
+101-Year-Old Bottle Message,Adv,Who threw the bottle into the Baltic Sea?,Onestop,23,5,0.21739130434782608,5,5,5,8,8
+Bright Future for Astrotourism,Adv,What does Fildes' team decide to do?,Onestop,23,5,0.21739130434782608,5,14,2,2,14
+Bright Future for Astrotourism,Adv,What is located next to the Kielder Observatory?,Onestop,23,5,0.21739130434782608,5,1,2,15,15
+Nepal's Tiger Population on the Rise,Ele,"What happened in India in 2013, according to Dhakal?",Onestop,23,5,0.21739130434782608,5,3,7,8,8
+A New Form of Lie Detector Test,Ele,What did participants lie about in the Never End game experiment?,Onestop,14,3,0.21428571428571427,3,3,2,6,6
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What happened in 2011?,Onestop,14,3,0.21428571428571427,3,1,3,7,7
+Four New Elements Find a Place on Periodic Table,Adv,What happened in 2011?,Onestop,14,3,0.21428571428571427,3,8,1,2,8
+Four New Elements Find a Place on Periodic Table,Ele,What would lead to great improvements in technology?,Onestop,14,3,0.21428571428571427,3,7,1,3,7
+Insects Could be the Planets Next Food Source,Adv,What is an advantage in producing food from insects rather than sheep?,Onestop,14,3,0.21428571428571427,3,4,2,5,5
+Insects Could be the Planets Next Food Source,Adv,Why does the FAO fund projects in south-east Asia and Africa?,Onestop,14,3,0.21428571428571427,3,2,2,7,7
+Insects Could be the Planets Next Food Source,Ele,Why does the FAO fund projects in south-east Asia and Africa?,Onestop,14,3,0.21428571428571427,3,6,2,3,6
+The Secrets of the Mystery Shopper,Adv,Who does Hanna visit as part of her mystery shopping job?,Onestop,14,3,0.21428571428571427,3,1,1,9,9
+The Secrets of the Mystery Shopper,Ele,What kind of expenses does Marketforce sometimes cover?,Onestop,14,3,0.21428571428571427,3,7,3,1,7
+Vienna Named World's Top City for Quality of Life,Ele,"What is one reason why the Viennese public transport system is good, according to Hartlauer?",Onestop,14,3,0.21428571428571427,3,8,1,2,8
+Wealth Therapy for the Rich,Adv,What is the quote 'I am broke. Things are hard' an example of?,Onestop,14,3,0.21428571428571427,3,2,6,3,6
+Wealth Therapy for the Rich,Ele,What does Cockrell say is a common mistake that his wealthy clients make?,Onestop,14,3,0.21428571428571427,3,2,1,8,8
+Wealth Therapy for the Rich,Ele,What is excluded from the presented wealth estimates in the US?,Onestop,14,3,0.21428571428571427,3,0,1,10,10
+Wealth Therapy for the Rich,Ele,What was Cockrell's occupation before taking on his current job?,Onestop,14,3,0.21428571428571427,3,2,1,8,8
+Why is Sweden Closing its Prisons?,Adv,Who runs the treatment programs for prisoners?,Onestop,14,3,0.21428571428571427,3,7,3,1,7
+Why is Sweden Closing its Prisons?,Ele,Which measure has been effective in preventing criminals from reoffending,Onestop,14,3,0.21428571428571427,3,0,7,4,7
+Can the US Electric Bike Market Get a Jump Start?,Adv,What does DiCostanza say about e-bike batteries?,Onestop,19,4,0.21052631578947367,4,7,3,5,7
+Can the US Electric Bike Market Get a Jump Start?,Ele,Why has bicycle commuting become more popular?,Onestop,19,4,0.21052631578947367,4,1,4,10,10
+Japan Calls Time on Long Hours Work Culture,Ele,Who or what is driving the change in Japanese work habits?,Onestop,19,4,0.21052631578947367,4,10,3,2,10
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What does Carle say about French workers who manufacture T-shirts?,Onestop,19,4,0.21052631578947367,4,12,1,2,12
+Man Falls Just Short in Patriot Game to be 100% French,Adv,"What is true of the English word ""cool""?",Onestop,19,4,0.21052631578947367,4,9,3,3,9
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What is true about Carle's new French-made washing machine?,Onestop,19,4,0.21052631578947367,4,3,2,10,10
+Morocco Poised to Become a Solar Superpower,Ele,What does the form of the mirrors resemble?,Onestop,19,4,0.21052631578947367,4,8,0,7,8
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,What was featured in UK's second most popular advertisement in 2014?,Onestop,24,5,0.20833333333333334,5,14,5,0,14
+Can the US Electric Bike Market Get a Jump Start?,Ele,Who or what is DiCostanza?,Onestop,20,4,0.2,4,11,0,5,11
+Hundreds Hurt after Meteorite Falls to Earth,Adv,How did some people react to the meteorite crash?,Onestop,20,4,0.2,4,3,10,3,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,"What was Tatyana Bets doing as the noticed the wind, light and smoke?",Onestop,20,4,0.2,4,3,3,10,10
+Japan Calls Time on Long Hours Work Culture,Ele,Who says that Japanese workers don't use their vacation days?,Onestop,20,4,0.2,4,3,5,8,8
+Nepal's Tiger Population on the Rise,Adv,What did kings used to do in Nepal?,Onestop,20,4,0.2,4,4,8,4,8
+Nepal's Tiger Population on the Rise,Adv,What was done as part of the tiger population study?,Onestop,20,4,0.2,4,8,1,7,8
+Nepal's Tiger Population on the Rise,Ele,What did kings used to do in Nepal?,Onestop,20,4,0.2,4,2,2,12,12
+Autumn-Born Children Better at Sports Says Study,Adv,What was one measure the scientists used to assess the children's fitness?,Onestop,15,3,0.2,3,3,1,8,8
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What does Nancie Prud'homme say is the norm across the globe?,Onestop,15,3,0.2,3,1,2,9,9
+Bolivians Demand the Right to Chew Coca Leaves,Ele,"What stance are countries like the UK, the US, and Italy taking on Bolivia's request?",Onestop,15,3,0.2,3,8,1,3,8
+Four New Elements Find a Place on Periodic Table,Adv,"Who discovered elements 115, 117, and 118?",Onestop,15,3,0.2,3,4,6,2,6
+Four New Elements Find a Place on Periodic Table,Ele,What happens once IUPAC receives a suggested symbol for an element?,Onestop,15,3,0.2,3,8,4,0,8
+Four New Elements Find a Place on Periodic Table,Ele,What is true about the new elements?,Onestop,15,3,0.2,3,6,2,4,6
+Four New Elements Find a Place on Periodic Table,Ele,Who is Kosuke Morita?,Onestop,15,3,0.2,3,3,4,5,5
+Google Introduces its Driverless Car,Adv,What does Brin say his company's motivation is for making this car?,Onestop,15,3,0.2,3,4,6,2,6
+Insects Could be the Planets Next Food Source,Adv,What is happening in spring 2013?,Onestop,15,3,0.2,3,4,1,7,7
+Insects Could be the Planets Next Food Source,Ele,Which of the following will be featured at Pestival 2013?,Onestop,15,3,0.2,3,6,5,1,6
+Love Hormone Helps Autistic Children Bond with Others,Ele,The duration of oxytocin effects indicates that ...,Onestop,15,3,0.2,3,6,1,5,6
+On the Trail of the Wolf,Adv,What is a result of the predatory habits of wolves?,Onestop,15,3,0.2,3,1,1,10,10
+On the Trail of the Wolf,Adv,"Why was it ""a good day"" for Myslajek?",Onestop,15,3,0.2,3,3,5,4,5
+On the Trail of the Wolf,Ele,What is common to red flags and the Tatra Mountain Sheepdog?,Onestop,15,3,0.2,3,2,4,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What is one of the things Lisa Fruchtman feels the film is about?,Onestop,15,3,0.2,3,9,2,1,9
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Where is one place where people come to the ice cream shop from?,Onestop,15,3,0.2,3,0,8,4,8
+Spain's Robin Hood,Adv,What was Duran's relationship to anti-capitalist projects?,Onestop,15,3,0.2,3,2,3,7,7
+Why is Sweden Closing its Prisons?,Adv,What is something Gustafsson says about prisoners' behavior?,Onestop,15,3,0.2,3,6,4,2,6
+Why is Sweden Closing its Prisons?,Ele,What caused prisons to reevaluate their security in 2004?,Onestop,15,3,0.2,3,2,4,6,6
+Why is Sweden Closing its Prisons?,Ele,What changed between 2011 and 2012?,Onestop,15,3,0.2,3,8,4,0,8
+Why is Sweden Closing its Prisons?,Ele,What is something Gustafsson says about prisoners' behavior?,Onestop,15,3,0.2,3,10,1,1,10
+Why is Sweden Closing its Prisons?,Ele,What is true of young offenders in many countries that is not true in Sweden?,Onestop,15,3,0.2,3,5,4,3,5
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What does Alamin currently do?,Onestop,26,5,0.19230769230769232,5,5,4,12,12
+101-Year-Old Bottle Message,Adv,Does the museum have older messages than the one recently discovered?,Onestop,21,4,0.19047619047619047,4,8,8,1,8
+101-Year-Old Bottle Message,Adv,What does Erdmann think about bottled messages?,Onestop,21,4,0.19047619047619047,4,9,2,6,9
+Morocco Poised to Become a Solar Superpower,Adv,What did Gerhard Knies say?,Onestop,21,4,0.19047619047619047,4,1,8,8,8
+Morocco Poised to Become a Solar Superpower,Adv,What is true of the south of Morocco and Mauritania?,Onestop,21,4,0.19047619047619047,4,8,3,6,8
+Morocco Poised to Become a Solar Superpower,Ele,What will happen by 2020?,Onestop,21,4,0.19047619047619047,4,12,3,2,12
+Autumn-Born Children Better at Sports Says Study,Adv,"According to Dunman, when it comes to adult athletes ...",Onestop,16,3,0.1875,3,7,5,1,7
+Autumn-Born Children Better at Sports Says Study,Adv,Where does Dunamn believe the athletic abilities of adults are derived from?,Onestop,16,3,0.1875,3,6,2,5,6
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What does Alamin currently do?,Onestop,16,3,0.1875,3,6,2,5,6
+Can the US Electric Bike Market Get a Jump Start?,Adv,Who or what is DiCostanza?,Onestop,16,3,0.1875,3,6,1,6,6
+Google Introduces its Driverless Car,Adv,"According to the company's co-founder, the experience of riding in the car was ...",Onestop,16,3,0.1875,3,1,7,5,7
+Google Introduces its Driverless Car,Adv,Getting where you want to go with Google's new car will ...,Onestop,16,3,0.1875,3,5,2,6,6
+Google Introduces its Driverless Car,Adv,What kind of reaction did Google's new driverless car draw from the automobile industry?,Onestop,16,3,0.1875,3,2,3,8,8
+Google Introduces its Driverless Car,Adv,Why did Google remove the steering wheel from their driverless car prototypes?,Onestop,16,3,0.1875,3,7,1,5,7
+Google Introduces its Driverless Car,Ele,What kind of reaction did Google's new driverless car draw from the automobile industry?,Onestop,16,3,0.1875,3,0,5,8,8
+Inky the Octopus Escapes from Aquarium,Adv,How did Inky escape?,Onestop,16,3,0.1875,3,11,1,1,11
+Inky the Octopus Escapes from Aquarium,Adv,How was Inky before coming to the aquarium?,Onestop,16,3,0.1875,3,2,9,2,9
+Inky the Octopus Escapes from Aquarium,Adv,What was the staff's reaction to Inky's disappearance?,Onestop,16,3,0.1875,3,6,4,3,6
+Inky the Octopus Escapes from Aquarium,Adv,What will be the next steps of the aquarium?,Onestop,16,3,0.1875,3,2,4,7,7
+Inky the Octopus Escapes from Aquarium,Adv,Why does Napier mention that octopuses live alone?,Onestop,16,3,0.1875,3,4,0,9,9
+Inky the Octopus Escapes from Aquarium,Adv,Why was Inky in poor shape before coming to the aquarium?,Onestop,16,3,0.1875,3,3,3,7,7
+Inky the Octopus Escapes from Aquarium,Ele,What was the staff's reaction to Inky's disappearance?,Onestop,16,3,0.1875,3,7,3,3,7
+Inky the Octopus Escapes from Aquarium,Ele,What will be the next steps of the aquarium?,Onestop,16,3,0.1875,3,6,1,6,6
+Insects Could be the Planets Next Food Source,Adv,Why are rainforests being destroyed?,Onestop,16,3,0.1875,3,3,7,3,7
+Love Hormone Helps Autistic Children Bond with Others,Adv,The duration of oxytocin effects indicates that ...,Onestop,16,3,0.1875,3,11,0,2,11
+Love Hormone Helps Autistic Children Bond with Others,Adv,What are the results of Oxytocin experiments so far?,Onestop,16,3,0.1875,3,1,11,1,11
+Nepal's Tiger Population on the Rise,Adv,What is one problem with some of the senior officials in Nepal which hinders the reduction of the tiger trade?,Onestop,16,3,0.1875,3,0,7,6,7
+Nepal's Tiger Population on the Rise,Ele,What has happened to Nepal's royal bengal tiger population over the past five years?,Onestop,16,3,0.1875,3,1,3,9,9
+On the Trail of the Wolf,Adv,What is common to red flags and the Tatra Mountain Sheepdog?,Onestop,16,3,0.1875,3,2,3,8,8
+On the Trail of the Wolf,Ele,Why is it hard to support wolves in Poland's new government?,Onestop,16,3,0.1875,3,0,1,12,12
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What is the purpose of Pullman's quote?,Onestop,16,3,0.1875,3,1,2,10,10
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,Who is Mike Weatherly and what is his relation to the BPI?,Onestop,16,3,0.1875,3,5,1,7,7
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,"According to Casserly, what does the current copyright law prevent artists from doing? a,b,c,d",Onestop,16,3,0.1875,3,3,4,6,6
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,Who is Mike Weatherly and what is his relation to the BPI?,Onestop,16,3,0.1875,3,5,2,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Why did Ingabire previously stay at home?,Onestop,16,3,0.1875,3,2,0,11,11
+Spain's Robin Hood,Ele,How did Enric feel about taking money from banks?,Onestop,16,3,0.1875,3,3,5,5,5
+Swarthy Blue-Eyed Caveman Revealed,Ele,What did the DNA test reveal about human immune systems?,Onestop,16,3,0.1875,3,5,2,6,6
+The Greek Island Where Time Is Running Out,Adv,How has the closure of Greek banks affected the local residents of the island?,Onestop,16,3,0.1875,3,6,2,5,6
+The Greek Island Where Time Is Running Out,Ele,What does Kakali hope will happen by 2017?,Onestop,16,3,0.1875,3,0,10,3,10
+The Greek Island Where Time Is Running Out,Ele,Why does Lemnos have to pay the first round of tax increases?,Onestop,16,3,0.1875,3,5,5,3,5
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What currently happens to a typical drone if it loses contact with its human operator?,Onestop,16,3,0.1875,3,6,2,5,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What happens as you increase the distance a drone travels to deliver a package?,Onestop,16,3,0.1875,3,7,5,1,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What will be included in FAA's new drone rules regarding radio frequencies?,Onestop,16,3,0.1875,3,2,2,9,9
+Bright Future for Astrotourism,Adv,What does the International Dark-Sky Association (IDA) do?,Onestop,17,3,0.17647058823529413,3,8,5,1,8
+Bright Future for Astrotourism,Adv,What was created in 2011?,Onestop,17,3,0.17647058823529413,3,5,7,2,7
+Can the US Electric Bike Market Get a Jump Start?,Adv,"According to Pizzi, which population is now using e-bikes?",Onestop,17,3,0.17647058823529413,3,9,0,5,9
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,What will be introduced in 11 John Lewis stores?,Onestop,17,3,0.17647058823529413,3,3,10,1,10
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What do the rules for the experiment allow Carle to do?,Onestop,17,3,0.17647058823529413,3,4,3,7,7
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,How many children did SOHAY help leave work in 2015?,Onestop,23,4,0.17391304347826086,4,7,1,11,11
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,How many children did SOHAY help leave work in 2015?,Onestop,18,3,0.16666666666666666,3,8,2,5,8
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What does Carle say about French workers who manufacture T-shirts?,Onestop,18,3,0.16666666666666666,3,10,3,2,10
+Morocco Poised to Become a Solar Superpower,Adv,"By 2020, two-thirds of Morocco's renewable energy will be ...",Onestop,18,3,0.16666666666666666,3,11,1,3,11
+Morocco Poised to Become a Solar Superpower,Adv,What is true of Tunisia?,Onestop,18,3,0.16666666666666666,3,3,5,7,7
+Can the US Electric Bike Market Get a Jump Start?,Ele,What is Currie Technologies?,Onestop,19,3,0.15789473684210525,3,8,5,3,8
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What happened at the end of the experiment?,Onestop,19,3,0.15789473684210525,3,12,3,1,12
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What do the rules for the experiment allow Carle to do?,Onestop,19,3,0.15789473684210525,3,2,9,5,9
+Vienna Named World's Top City for Quality of Life,Ele,Where is the embassy at which Martin Eichtinger works located?,Onestop,13,2,0.15384615384615385,2,2,5,4,5
+Can the US Electric Bike Market Get a Jump Start?,Adv,What is Currie Technologies?,Onestop,20,3,0.15,3,12,1,4,12
+Nepal's Tiger Population on the Rise,Adv,"What happened in India in 2013, according to Dhakal?",Onestop,20,3,0.15,3,5,7,5,7
+Nepal's Tiger Population on the Rise,Ele,What is true of conservationists and wildlife experts working on the survey?,Onestop,20,3,0.15,3,1,8,8,8
+101-Year-Old Bottle Message,Ele,Does the museum have older messages than the one recently discovered?,Onestop,21,3,0.14285714285714285,3,9,7,2,9
+101-Year-Old Bottle Message,Ele,Where did Platz want the postcard to end up?,Onestop,21,3,0.14285714285714285,3,10,1,7,10
+Morocco Poised to Become a Solar Superpower,Ele,What is true of the south of Morocco and Mauritania?,Onestop,21,3,0.14285714285714285,3,6,5,7,7
+Morocco Poised to Become a Solar Superpower,Ele,What will happen once the four plants are finished?,Onestop,21,3,0.14285714285714285,3,1,5,12,12
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What was decided based on the 1950 report?,Onestop,14,2,0.14285714285714285,2,7,2,3,7
+Bolivians Demand the Right to Chew Coca Leaves,Adv,Who is currently permitted to consume coca in Bolivia?,Onestop,14,2,0.14285714285714285,2,7,3,2,7
+Four New Elements Find a Place on Periodic Table,Adv,Why is the public involved in the element symbol-naming process?,Onestop,14,2,0.14285714285714285,2,3,0,9,9
+Insects Could be the Planets Next Food Source,Adv,What is true about south-east Asia and Africa?,Onestop,14,2,0.14285714285714285,2,1,4,7,7
+Insects Could be the Planets Next Food Source,Adv,Why does the author mention the Danish restaurant Noma?,Onestop,14,2,0.14285714285714285,2,3,9,0,9
+Insects Could be the Planets Next Food Source,Ele,What is true about south-east Asia and Africa?,Onestop,14,2,0.14285714285714285,2,1,5,6,6
+Insects Could be the Planets Next Food Source,Ele,Which of these is mentioned as a cost of meat?,Onestop,14,2,0.14285714285714285,2,5,4,3,5
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Why did Ingabire previously stay at home?,Onestop,14,2,0.14285714285714285,2,1,2,9,9
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What is Ingoma Nshya?,Onestop,14,2,0.14285714285714285,2,6,2,4,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Where does the ice cream shop's milk come from?,Onestop,14,2,0.14285714285714285,2,2,2,8,8
+Wealth Therapy for the Rich,Adv,What do the wealthy feel is not real?,Onestop,14,2,0.14285714285714285,2,4,5,3,5
+Wealth Therapy for the Rich,Adv,What is excluded from the presented wealth estimates in the US?,Onestop,14,2,0.14285714285714285,2,2,2,8,8
+Wealth Therapy for the Rich,Adv,What is opposite Cockrell's office?,Onestop,14,2,0.14285714285714285,2,3,6,3,6
+Wealth Therapy for the Rich,Adv,Who thinks that the problems of the wealthy are not real?,Onestop,14,2,0.14285714285714285,2,5,4,3,5
+Wealth Therapy for the Rich,Ele,What do the wealthy feel is not real?,Onestop,14,2,0.14285714285714285,2,1,10,1,10
+Wealth Therapy for the Rich,Ele,What is the quote 'I am broke. Things are hard' an example of?,Onestop,14,2,0.14285714285714285,2,2,4,6,6
+Why is Sweden Closing its Prisons?,Ele,What kind of programs are run by the Swedish government?,Onestop,14,2,0.14285714285714285,2,4,2,6,6
+Nepal's Tiger Population on the Rise,Adv,How are poor locals involved in the tiger trade?,Onestop,22,3,0.13636363636363635,3,11,6,2,11
+A New Form of Lie Detector Test,Ele,Who was John Larson?,Onestop,15,2,0.13333333333333333,2,7,4,2,7
+Four New Elements Find a Place on Periodic Table,Adv,How were the formal names for elements 114 and 116 chosen?,Onestop,15,2,0.13333333333333333,2,4,4,5,5
+Four New Elements Find a Place on Periodic Table,Adv,What does Paul Karol say about the new elements?,Onestop,15,2,0.13333333333333333,2,3,0,10,10
+Four New Elements Find a Place on Periodic Table,Adv,What does Polly Arnold say about the work that is being done?,Onestop,15,2,0.13333333333333333,2,2,7,4,7
+Four New Elements Find a Place on Periodic Table,Adv,Why did researchers look for radioactive decays?,Onestop,15,2,0.13333333333333333,2,1,5,7,7
+Four New Elements Find a Place on Periodic Table,Ele,What does Polly Arnold say about the work that is being done?,Onestop,15,2,0.13333333333333333,2,2,2,9,9
+Google Introduces its Driverless Car,Adv,Who is planning on implementing driver controls in self-driving cars?,Onestop,15,2,0.13333333333333333,2,10,2,1,10
+Inky the Octopus Escapes from Aquarium,Adv,How does Napier describe Inky's personality?,Onestop,15,2,0.13333333333333333,2,0,0,13,13
+Inky the Octopus Escapes from Aquarium,Ele,Why does Inky's escape make sense to Yarrell?,Onestop,15,2,0.13333333333333333,2,0,3,10,10
+Rwandan Women Whip up Popular Ice Cream Business,Adv,What does drumming do for Ingabire?,Onestop,15,2,0.13333333333333333,2,1,6,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Adv,Where is the ice cream shop located?,Onestop,15,2,0.13333333333333333,2,3,7,3,7
+Rwandan Women Whip up Popular Ice Cream Business,Ele,What does drumming do for Ingabire?,Onestop,15,2,0.13333333333333333,2,1,7,5,7
+The Secrets of the Mystery Shopper,Ele,How many stores do mystery shoppers visit per day?,Onestop,15,2,0.13333333333333333,2,4,8,1,8
+The Secrets of the Mystery Shopper,Ele,Who is Val?,Onestop,15,2,0.13333333333333333,2,2,8,3,8
+Vienna Named World's Top City for Quality of Life,Ele,What is one way in which big companies use the results of the Mercer Quality of Life study?,Onestop,15,2,0.13333333333333333,2,2,6,5,6
+Why is Sweden Closing its Prisons?,Adv,What changed in Swedish prisons since 2004?,Onestop,15,2,0.13333333333333333,2,0,9,4,9
+101-Year-Old Bottle Message,Ele,What did Erdmann's visitor deliver?,Onestop,23,3,0.13043478260869565,3,13,5,2,13
+Japan Calls Time on Long Hours Work Culture,Adv,Why would someone be considered disloyal to their company in Japan?,Onestop,23,3,0.13043478260869565,3,1,9,10,10
+Japan Calls Time on Long Hours Work Culture,Ele,What does Yuu Wakebe say about Japanese employees?,Onestop,23,3,0.13043478260869565,3,0,13,7,13
+A New Form of Lie Detector Test,Adv,What did some participants do for seven minutes?,Onestop,16,2,0.125,2,2,2,10,10
+Autumn-Born Children Better at Sports Says Study,Ele,"According to Dunman, when it comes to adult athletes ...",Onestop,16,2,0.125,2,6,8,0,8
+Bolivians Demand the Right to Chew Coca Leaves,Adv,What does Bolivia's constitution say?,Onestop,16,2,0.125,2,5,5,4,5
+Four New Elements Find a Place on Periodic Table,Adv,Who is Kosuke Morita?,Onestop,16,2,0.125,2,10,3,1,10
+Four New Elements Find a Place on Periodic Table,Ele,How did researchers discover the elements?,Onestop,16,2,0.125,2,9,1,4,9
+Four New Elements Find a Place on Periodic Table,Ele,What happened in 2011?,Onestop,16,2,0.125,2,11,1,2,11
+Google Introduces its Driverless Car,Adv,Who does Brin say the car will benefit?,Onestop,16,2,0.125,2,3,9,2,9
+Google Introduces its Driverless Car,Adv,Why is Conyon worried about driverless cars?,Onestop,16,2,0.125,2,6,4,4,6
+Google Introduces its Driverless Car,Ele,The number of taxi drivers in London is ...,Onestop,16,2,0.125,2,8,6,0,8
+Inky the Octopus Escapes from Aquarium,Ele,How did Inky escape?,Onestop,16,2,0.125,2,12,0,2,12
+Inky the Octopus Escapes from Aquarium,Ele,How does Napier describe Inky's personality?,Onestop,16,2,0.125,2,0,1,13,13
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What did Carle's guests do?,Onestop,16,2,0.125,2,3,7,4,7
+Man Falls Just Short in Patriot Game to be 100% French,Ele,Why does Carle's girlfriend ask him if he is crazy?,Onestop,16,2,0.125,2,1,12,1,12
+On the Trail of the Wolf,Ele,How does Myslajek react to what he sees between the two paw prints?,Onestop,16,2,0.125,2,5,1,8,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,"According to Casserly, what does the current copyright law prevent artists from doing? a,b,c,d",Onestop,16,2,0.125,2,4,5,5,5
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,What is Casserly's position on current copyright law?,Onestop,16,2,0.125,2,7,0,7,7
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,"Which type of digital media is pirated the least, according to the statistics presented in the passage?",Onestop,16,2,0.125,2,3,4,7,7
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,What is Casserly's position on current copyright law?,Onestop,16,2,0.125,2,13,0,1,13
+Swarthy Blue-Eyed Caveman Revealed,Ele,What can be inferred about the Mesolithic cavemen based on items found in the cave?,Onestop,16,2,0.125,2,1,3,10,10
+Swarthy Blue-Eyed Caveman Revealed,Ele,Where did the Mesolithic man live?,Onestop,16,2,0.125,2,8,2,4,8
+The Greek Island Where Time Is Running Out,Ele,Are there many hotels in Agios Efstratios?,Onestop,16,2,0.125,2,3,4,7,7
+The Greek Island Where Time Is Running Out,Ele,What was true about tourism in Agios Efstratios before the recent financial crisis?,Onestop,16,2,0.125,2,6,4,4,6
+The Greek Island Where Time Is Running Out,Ele,Why wasn't Agios Efstratios one of the first islands to pay taxes?,Onestop,16,2,0.125,2,11,1,2,11
+Wealth Therapy for the Rich,Adv,What does Traeger-Muney imply people say about the wealthy?,Onestop,16,2,0.125,2,3,4,7,7
+Wealth Therapy for the Rich,Adv,Where does Clay Cockrell hold his therapy sessions?,Onestop,16,2,0.125,2,7,4,3,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What determines if a passenger plane is allowed to operate?,Onestop,16,2,0.125,2,1,5,8,8
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,What will Huber's program enable drones to do?,Onestop,16,2,0.125,2,10,4,0,10
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What does Singh say drones should do to improve safety?,Onestop,16,2,0.125,2,5,3,6,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,When does Amazon claim it will be ready to deliver packages using drones?,Onestop,16,2,0.125,2,6,4,4,6
+Bright Future for Astrotourism,Ele,What was created in 2011?,Onestop,17,2,0.11764705882352941,2,8,4,3,8
+101-Year-Old Bottle Message,Adv,How did Angela Erdmann find out about the bottle?,Onestop,18,2,0.1111111111111111,2,6,6,4,6
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What happened in Galina's apartment because of the explosion?,Onestop,18,2,0.1111111111111111,2,8,3,5,8
+Hundreds Hurt after Meteorite Falls to Earth,Ele,"Who was in shock, according to Bets?",Onestop,18,2,0.1111111111111111,2,0,7,9,9
+Morocco Poised to Become a Solar Superpower,Ele,What did Gerhard Knies say?,Onestop,18,2,0.1111111111111111,2,2,9,5,9
+101-Year-Old Bottle Message,Ele,How did Angela Erdmann find out about the bottle?,Onestop,19,2,0.10526315789473684,2,5,7,5,7
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What happened at the end of the experiment?,Onestop,19,2,0.10526315789473684,2,10,4,3,10
+Hundreds Hurt after Meteorite Falls to Earth,Adv,What did Vladimir Zhirinovsky say?,Onestop,20,2,0.1,2,0,4,14,14
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What did rumours say about the Russian military and air defense?,Onestop,20,2,0.1,2,1,7,10,10
+Japan Calls Time on Long Hours Work Culture,Adv,What does Yuu Wakebe's quote convey about working in Japan?,Onestop,20,2,0.1,2,6,5,7,7
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,What is one component of John Lewis's campaign?,Onestop,20,2,0.1,2,6,7,5,7
+Nepal's Tiger Population on the Rise,Adv,What do conservation experts say has changed with respect to tiger habitats?,Onestop,20,2,0.1,2,6,11,1,11
+Nepal's Tiger Population on the Rise,Adv,What is true of conservationists and wildlife experts working on the survey?,Onestop,20,2,0.1,2,1,9,8,9
+101-Year-Old Bottle Message,Adv,What does Erdmann want to add to the exhibit?,Onestop,21,2,0.09523809523809523,2,2,0,17,17
+101-Year-Old Bottle Message,Ele,What will happen to the bottle after the experts finish examining the text?,Onestop,21,2,0.09523809523809523,2,10,6,3,10
+Hundreds Hurt after Meteorite Falls to Earth,Ele,What happened in Galina's apartment because of the explosion?,Onestop,21,2,0.09523809523809523,2,7,5,7,7
+Hundreds Hurt after Meteorite Falls to Earth,Adv,"What was Tatyana Bets doing as the noticed the wind, light and smoke?",Onestop,22,2,0.09090909090909091,2,2,3,15,15
+101-Year-Old Bottle Message,Adv,What will happen to the bottle after the experts finish examining the text?,Onestop,23,2,0.08695652173913043,2,15,1,5,15
+101-Year-Old Bottle Message,Adv,Where did Platz want the postcard to end up?,Onestop,23,2,0.08695652173913043,2,8,3,10,10
+Bolivians Demand the Right to Chew Coca Leaves,Ele,What does Bolivia's constitution say?,Onestop,13,1,0.07692307692307693,1,5,3,4,5
+Vienna Named World's Top City for Quality of Life,Adv,What is one way in which big companies use the results of the Mercer Quality of Life study?,Onestop,13,1,0.07692307692307693,1,1,6,5,6
+Bolivians Demand the Right to Chew Coca Leaves,Adv,"According to Danny Kushlick, why was the Bolivian move significant?",Onestop,14,1,0.07142857142857142,1,3,8,2,8
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Where is the ice cream shop located?,Onestop,14,1,0.07142857142857142,1,2,7,4,7
+The Secrets of the Mystery Shopper,Adv,How many hours do mystery shoppers spend visiting stores per day?,Onestop,14,1,0.07142857142857142,1,0,9,4,9
+The Secrets of the Mystery Shopper,Adv,Who is Val?,Onestop,14,1,0.07142857142857142,1,4,6,3,6
+The Secrets of the Mystery Shopper,Ele,What does Laura get between PS5 and PS20 for?,Onestop,14,1,0.07142857142857142,1,5,3,5,5
+Vienna Named World's Top City for Quality of Life,Adv,Where is the embassy at which Martin Eichtinger works located?,Onestop,14,1,0.07142857142857142,1,6,5,2,6
+Wealth Therapy for the Rich,Ele,What is opposite Cockrell's office?,Onestop,14,1,0.07142857142857142,1,7,3,3,7
+Four New Elements Find a Place on Periodic Table,Adv,What would lead to great improvements in technology?,Onestop,15,1,0.06666666666666667,1,7,1,6,7
+Four New Elements Find a Place on Periodic Table,Ele,How were the formal names for elements 114 and 116 chosen?,Onestop,15,1,0.06666666666666667,1,7,1,6,7
+Four New Elements Find a Place on Periodic Table,Ele,Who discovered the new elements?,Onestop,15,1,0.06666666666666667,1,7,2,5,7
+Google Introduces its Driverless Car,Ele,"According to the article, what has Google done to improve safety?",Onestop,15,1,0.06666666666666667,1,6,4,4,6
+On the Trail of the Wolf,Adv,How does Myslajek react to what he sees between the two paw prints?,Onestop,15,1,0.06666666666666667,1,5,2,7,7
+On the Trail of the Wolf,Adv,"What can help in scaring off wolves, according to Myslajek?",Onestop,15,1,0.06666666666666667,1,7,1,6,7
+On the Trail of the Wolf,Ele,"Why was it ""a good day"" for Myslajek?",Onestop,15,1,0.06666666666666667,1,5,5,4,5
+Swarthy Blue-Eyed Caveman Revealed,Adv,What can be inferred about the Mesolithic cavemen based on items found in the cave?,Onestop,15,1,0.06666666666666667,1,1,3,10,10
+Swarthy Blue-Eyed Caveman Revealed,Ele,How are Mesolithic hunter-gatherers currently portrayed through art?,Onestop,15,1,0.06666666666666667,1,7,5,2,7
+The Secrets of the Mystery Shopper,Adv,What is the typical amount Marketforce pays mystery shoppers for one store visit?,Onestop,15,1,0.06666666666666667,1,12,1,1,12
+The Secrets of the Mystery Shopper,Adv,What kind of expenses does Marketforce sometimes cover?,Onestop,15,1,0.06666666666666667,1,11,3,0,11
+The Secrets of the Mystery Shopper,Ele,What is the typical amount Marketforce pays mystery shoppers for one store visit?,Onestop,15,1,0.06666666666666667,1,10,1,3,10
+Wealth Therapy for the Rich,Ele,Where does Clay Cockrell hold his therapy sessions?,Onestop,15,1,0.06666666666666667,1,7,1,6,7
+A New Form of Lie Detector Test,Adv,Who first stated that the polygraph might not be reliable?,Onestop,16,1,0.0625,1,2,6,7,7
+Autumn-Born Children Better at Sports Says Study,Ele,What was one measure the scientists used to assess the children's fitness?,Onestop,16,1,0.0625,1,3,5,7,7
+Four New Elements Find a Place on Periodic Table,Adv,What happens once IUPAC receives a suggested symbol for an element?,Onestop,16,1,0.0625,1,6,9,0,9
+Google Introduces its Driverless Car,Adv,"According to the article, what has Google done to improve safety?",Onestop,16,1,0.0625,1,3,4,8,8
+Inky the Octopus Escapes from Aquarium,Ele,"How good is the security of the aquarium, according to Jenkinson?",Onestop,16,1,0.0625,1,1,3,11,11
+Inky the Octopus Escapes from Aquarium,Ele,Why was Inky in poor shape before coming to the aquarium?,Onestop,16,1,0.0625,1,3,2,10,10
+Love Hormone Helps Autistic Children Bond with Others,Ele,"According to Frith, what would be the crucial piece of evidence needed for showing oxytocin is a valuable treatment for autism?",Onestop,16,1,0.0625,1,2,4,9,9
+Philip Pullman Illegal Downloading Is Moral Squalor,Adv,Who does the BPI expect will drive change in copyright policy?,Onestop,16,1,0.0625,1,1,8,6,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,"Which type of digital media is pirated the least, according to the statistics presented in the passage?",Onestop,16,1,0.0625,1,2,0,13,13
+Spain's Robin Hood,Adv,Who does Duran plan to share the knowledge he gained with?,Onestop,16,1,0.0625,1,8,5,2,8
+Spain's Robin Hood,Ele,Who does Duran plan to share the knowledge he gained with?,Onestop,16,1,0.0625,1,9,4,2,9
+Swarthy Blue-Eyed Caveman Revealed,Adv,Which of these nationalities has DNA most closely related to Mesolithic hunter-gatherers?,Onestop,16,1,0.0625,1,2,11,2,11
+The Greek Island Where Time Is Running Out,Adv,How does Lemnos compare in size to other islands in Greece?,Onestop,16,1,0.0625,1,0,6,9,9
+The Greek Island Where Time Is Running Out,Adv,What will Kakali do if Agios Efstratios has to pay the proposed tax increase?,Onestop,16,1,0.0625,1,4,3,8,8
+The Greek Island Where Time Is Running Out,Ele,What will Kakali do if Agios Efstratios has to pay the proposed tax increase?,Onestop,16,1,0.0625,1,7,1,7,7
+Vienna Named World's Top City for Quality of Life,Ele,How do the Viennese say their city compares to Zurich?,Onestop,16,1,0.0625,1,9,1,5,9
+Why You Should Start Work at 10AM,Ele,How did Dr. Paul Kelley convey his opinion on staggering school starting times?,Onestop,16,1,0.0625,1,5,7,3,7
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,When will the FAA release regulations on drones?,Onestop,16,1,0.0625,1,3,6,6,6
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,When will the FAA release regulations on drones?,Onestop,16,1,0.0625,1,3,9,3,9
+Bright Future for Astrotourism,Ele,What is located next to the Kielder Observatory?,Onestop,17,1,0.058823529411764705,1,1,2,13,13
+Nepal's Tiger Population on the Rise,Adv,What has happened to Nepal's royal bengal tiger population over the past five years?,Onestop,17,1,0.058823529411764705,1,1,1,14,14
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Ele,What was featured in UK's second most popular advertisement in 2014?,Onestop,18,1,0.05555555555555555,1,14,2,1,14
+Morocco Poised to Become a Solar Superpower,Ele,How could solar energy be used in the future?,Onestop,18,1,0.05555555555555555,1,3,1,13,13
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Adv,What is depicted on the walls?,Onestop,19,1,0.05263157894736842,1,1,15,2,15
+Bangladeshi Organization Delivers a Lesson on Ending Child Labor,Ele,What is depicted on the walls?,Onestop,19,1,0.05263157894736842,1,1,11,6,11
+Can the US Electric Bike Market Get a Jump Start?,Adv,"According to Craig Anderson, what is one goal of ElectroBike?",Onestop,19,1,0.05263157894736842,1,5,1,12,12
+Japan Calls Time on Long Hours Work Culture,Adv,What does Yuu Wakebe say about Japanese employees?,Onestop,19,1,0.05263157894736842,1,1,13,4,13
+John Lewis Christmas Advert 2015: Raising Awareness for Age UK,Adv,What will be introduced in 11 John Lewis stores?,Onestop,19,1,0.05263157894736842,1,3,14,1,14
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What does Carle do with his new Tefal saucepan?,Onestop,19,1,0.05263157894736842,1,8,0,10,10
+Man Falls Just Short in Patriot Game to be 100% French,Adv,Why does Carle's girlfriend ask him if he is crazy?,Onestop,19,1,0.05263157894736842,1,1,16,1,16
+Man Falls Just Short in Patriot Game to be 100% French,Ele,What does Carle do with his new Tefal saucepan?,Onestop,19,1,0.05263157894736842,1,5,1,12,12
+Nepal's Tiger Population on the Rise,Ele,How are poor locals involved in the tiger trade?,Onestop,20,1,0.05,1,9,7,3,9
+101-Year-Old Bottle Message,Ele,What does Erdmann think about bottled messages?,Onestop,21,1,0.047619047619047616,1,8,3,9,9
+101-Year-Old Bottle Message,Ele,Who visited Angela?,Onestop,21,1,0.047619047619047616,1,13,6,1,13
+101-Year-Old Bottle Message,Adv,Who visited Angela?,Onestop,23,1,0.043478260869565216,1,17,4,1,17
+Bright Future for Astrotourism,Adv,Who is quoted as saying that hotels benefit from the park's new Dark Sky status?,Onestop,23,0,0.0,0,3,6,14,14
+Morocco Poised to Become a Solar Superpower,Adv,What will happen once the four plants are finished?,Onestop,21,0,0.0,0,2,9,10,10
+Hundreds Hurt after Meteorite Falls to Earth,Adv,"Who was in shock, according to Bets?",Onestop,20,0,0.0,0,3,1,16,16
+Man Falls Just Short in Patriot Game to be 100% French,Adv,What did Carle's guests do?,Onestop,19,0,0.0,0,2,12,5,12
+Bright Future for Astrotourism,Ele,Who is quoted as saying that hotels benefit from the park's new Dark Sky status?,Onestop,17,0,0.0,0,1,6,10,10
+Nepal's Tiger Population on the Rise,Adv,When will India finish its tiger survey?,Onestop,17,0,0.0,0,2,10,5,10
+Swarthy Blue-Eyed Caveman Revealed,Adv,Where did the Mesolithic man live?,Onestop,17,0,0.0,0,2,5,10,10
+Google Introduces its Driverless Car,Ele,Who is planning on implementing driver controls in self-driving cars?,Onestop,16,0,0.0,0,12,1,3,12
+Inky the Octopus Escapes from Aquarium,Adv,Why does Inky's escape make sense to Yarrell?,Onestop,16,0,0.0,0,1,2,13,13
+Love Hormone Helps Autistic Children Bond with Others,Adv,"According to Frith, what would be the crucial piece of evidence needed for showing oxytocin is a valuable treatment for autism?",Onestop,16,0,0.0,0,2,2,12,12
+Nepal's Tiger Population on the Rise,Ele,When will India finish its tiger survey?,Onestop,16,0,0.0,0,8,5,3,8
+Philip Pullman Illegal Downloading Is Moral Squalor,Ele,Who does the BPI expect will drive change in copyright policy?,Onestop,16,0,0.0,0,0,7,9,9
+Spain's Robin Hood,Adv,"How has Spain's economic situation been changing, according to Duran?",Onestop,16,0,0.0,0,3,3,10,10
+Swarthy Blue-Eyed Caveman Revealed,Adv,How are Mesolithic hunter-gatherers currently portrayed through art?,Onestop,16,0,0.0,0,8,4,4,8
+Swarthy Blue-Eyed Caveman Revealed,Adv,What did the DNA test reveal about human immune systems?,Onestop,16,0,0.0,0,9,2,5,9
+Will Drones Soon Be Delivering Packages to Your Doorstep,Adv,When does Amazon claim it will be ready to deliver packages using drones?,Onestop,16,0,0.0,0,10,3,3,10
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What determines if a passenger plane is allowed to operate?,Onestop,16,0,0.0,0,4,6,6,6
+On the Trail of the Wolf,Adv,Where was wolf-hunting banned in 1995?,Onestop,15,0,0.0,0,5,9,1,9
+On the Trail of the Wolf,Ele,What is a result of the predatory habits of wolves?,Onestop,15,0,0.0,0,1,6,8,8
+On the Trail of the Wolf,Ele,Where was wolf-hunting banned in 1995?,Onestop,15,0,0.0,0,10,4,1,10
+Spain's Robin Hood,Ele,"How has Spain's economic situation been changing, according to Duran?",Onestop,15,0,0.0,0,9,3,3,9
+The Secrets of the Mystery Shopper,Adv,What does Laura get between PS5 and PS20 for?,Onestop,15,0,0.0,0,9,1,5,9
+The Secrets of the Mystery Shopper,Adv,What is one thing Hannah must do when eating at a restaurant as a mystery diner,Onestop,15,0,0.0,0,3,7,5,7
+Why is Sweden Closing its Prisons?,Adv,Did Oberg anticipate falling number of prisoners in Swedish prisons?,Onestop,15,0,0.0,0,11,4,0,11
+Why is Sweden Closing its Prisons?,Ele,What changed in Swedish prisons since 2004?,Onestop,15,0,0.0,0,1,10,4,10
+Will Drones Soon Be Delivering Packages to Your Doorstep,Ele,What will be included in FAA's new drone rules regarding radio frequencies?,Onestop,15,0,0.0,0,0,3,12,12
+Four New Elements Find a Place on Periodic Table,Ele,Why did researchers look for radioactive decays?,Onestop,14,0,0.0,0,4,4,6,6
+Rwandan Women Whip up Popular Ice Cream Business,Ele,Where do the ice cream shop's ingredients come from?,Onestop,14,0,0.0,0,7,7,0,7
+Vienna Named World's Top City for Quality of Life,Adv,What factor can influence where big companies will open new offices and factories?,Onestop,14,0,0.0,0,2,2,10,10
+Why is Sweden Closing its Prisons?,Adv,What has kept the rate of reoffending low in Sweden?,Onestop,14,0,0.0,0,5,5,4,5
+Why is Sweden Closing its Prisons?,Ele,What has kept the rate of reoffending low in Sweden?,Onestop,14,0,0.0,0,5,4,5,5

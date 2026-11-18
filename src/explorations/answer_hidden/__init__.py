@@ -19,6 +19,8 @@ but not which of them is right.
   correctness-associations "matching" idea), as features added to the selected version.
 * `tracker.py` -- the chosen set split into what needs no eye tracker, gaze times, and
   where the eyes went, to show what the eye tracker adds.
+* `wrong_trials.py` -- on wrong answers, whether the correct answer got more looking than
+  the wrong answers not chosen, with Study 2's no-knowledge regime as the control.
 * `discrimination.py` -- whether right and wrong answers get different probabilities, and
   the model against the participants' own confidence rating.
 * `showcase.py` -- the paper's model and the chosen answer-hidden set

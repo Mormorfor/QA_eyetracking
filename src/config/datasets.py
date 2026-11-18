@@ -123,6 +123,21 @@ KNOW_QA_IA_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "IA_answers.csv"
 KNOW_QA_FIX_ANSWERS_PATH = KNOW_QA_CLEANED_DIR / "fixations_answers.csv"
 
 # ---------------------------------------------------------------------------
+# Guessing data (data_raw/guess.tsv)
+#
+# Prolific participants guessing the answers to OneStop and RACE questions, one
+# row per answer. Not eye-tracked. Read by src/explorations/guessability/.
+#
+# The pilot batches are an earlier version of the OneStop questions, answered
+# once before reading the paragraph and once after. They sit outside the repo,
+# two levels above it.
+# ---------------------------------------------------------------------------
+
+GUESS_PATH = PROJECT_ROOT / "data_raw" / "guess.tsv"
+GUESS_PILOT_DIR = PROJECT_ROOT.parents[1] / "onestop_pilot_batches"
+GUESS_PILOT_FILES = ["batch1.csv", "batch2.csv", "batch3.csv"]
+
+# ---------------------------------------------------------------------------
 # Processed data (data/)
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,25 @@
+subset,test,n_trials,value,statistic,p,n_draws,seed
+no knowledge,chosen answer: at each position equally often,625,,15.5952,0.0008999100089991,10000,0
+no knowledge,chosen answer: at the top one time in four,625,0.3168,0.06680000000000003,9.999000099990002e-05,10000,0
+no knowledge,wrong answer chosen: at each position equally often,393,,4.628498727735369,0.19938006199380062,10000,0
+no knowledge,wrong answer chosen: at the top one time in four,393,0.2951653944020356,0.0451653944020356,0.04079592040795921,10000,0
+no knowledge,accuracy: the same wherever the correct answer sat,625,0.3712,15.249773959093401,0.0017998200179982,10000,0
+no knowledge,accuracy: the same with the correct answer at the top as elsewhere,625,0.1491356879717649,0.1491356879717649,0.0006999300069993001,10000,0
+no knowledge,chosen answer: at the participant's usual first look one time in four,625,0.3184,0.06840000000000002,0.00029997000299970003,10000,0
+no knowledge,first look: on each kind of answer equally often,625,,4.497599999999999,0.2216778322167783,10000,0
+partial knowledge,chosen answer: at each position equally often,620,,2.0903225806451613,0.5545445455454454,10000,0
+partial knowledge,chosen answer: at the top one time in four,620,0.22580645161290322,0.02419354838709678,0.17568243175682433,10000,0
+partial knowledge,wrong answer chosen: at each position equally often,124,,15.032258064516128,0.001999800019998,10000,0
+partial knowledge,wrong answer chosen: at the top one time in four,124,0.1935483870967742,0.05645161290322581,0.17528247175282471,10000,0
+partial knowledge,accuracy: the same wherever the correct answer sat,620,0.8,1.749750111551716,0.6248375162483751,10000,0
+partial knowledge,accuracy: the same with the correct answer at the top as elsewhere,620,-0.04202262104802379,0.04202262104802379,0.26177382261773824,10000,0
+partial knowledge,chosen answer: at the participant's usual first look one time in four,620,0.2306451612903226,0.019354838709677413,0.2770722927707229,10000,0
+partial knowledge,first look: on each kind of answer equally often,620,,0.6580645161290323,0.8813118688131187,10000,0
+full knowledge,chosen answer: at each position equally often,640,,4.625,0.19808019198080193,10000,0
+full knowledge,chosen answer: at the top one time in four,640,0.2171875,0.032812499999999994,0.062493750624937505,10000,0
+full knowledge,wrong answer chosen: at each position equally often,16,,2.5,0.5415458454154585,10000,0
+full knowledge,wrong answer chosen: at the top one time in four,16,0.1875,0.0625,0.7714228577142286,10000,0
+full knowledge,accuracy: the same wherever the correct answer sat,640,0.975,1.6625396059307325,0.6534346565343465,10000,0
+full knowledge,accuracy: the same with the correct answer at the top as elsewhere,640,-0.013416904731448742,0.013416904731448742,0.36566343365663434,10000,0
+full knowledge,chosen answer: at the participant's usual first look one time in four,640,0.23125,0.01874999999999999,0.29547045295470453,10000,0
+full knowledge,first look: on each kind of answer equally often,640,,4.4625,0.22347765223477653,10000,0

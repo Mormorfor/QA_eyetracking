@@ -1,0 +1,197 @@
+{
+  "choices__dataset-knowqa": {
+    "plot": "choices",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_choices",
+    "figure": "choices__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "choice_accuracy",
+      "choice_positions",
+      "choice_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:03"
+  },
+  "choices__dataset-l1": {
+    "plot": "choices",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_choices",
+    "figure": "choices__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "choice_accuracy",
+      "choice_positions",
+      "choice_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:18"
+  },
+  "guesses__dataset-knowqa": {
+    "plot": "guesses",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_guesses",
+    "figure": "guesses__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "choice_by_participant",
+      "choice_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:03"
+  },
+  "models__dataset-knowqa": {
+    "plot": "models",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_models",
+    "figure": "models__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "models"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:04"
+  },
+  "models__dataset-l1": {
+    "plot": "models",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_models",
+    "figure": "models__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "models"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:18"
+  },
+  "overview": {
+    "plot": "overview",
+    "facets": {},
+    "produced_by": "src.explorations.position_bias.plots.plot_overview",
+    "figure": "overview.png",
+    "subdir": null,
+    "tables": [
+      "overview"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:21"
+  },
+  "placement__dataset-knowqa": {
+    "plot": "placement",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_placement",
+    "figure": "placement__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "placement_expected",
+      "placement_kinds",
+      "placement_length_attractiveness",
+      "placement_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:01"
+  },
+  "placement__dataset-l1": {
+    "plot": "placement",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_placement",
+    "figure": "placement__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "placement_expected",
+      "placement_kinds",
+      "placement_length_attractiveness",
+      "placement_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:16"
+  },
+  "scan__dataset-knowqa": {
+    "plot": "scan",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_scan",
+    "figure": "scan__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "deviation",
+      "first_looks",
+      "gaze_by_position",
+      "returns",
+      "usual_start_choices",
+      "usual_starts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:05"
+  },
+  "scan__dataset-l1": {
+    "plot": "scan",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_scan",
+    "figure": "scan__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "deviation",
+      "first_looks",
+      "gaze_by_position",
+      "returns",
+      "usual_start_choices",
+      "usual_starts"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:19"
+  },
+  "side_findings__dataset-knowqa": {
+    "plot": "side_findings",
+    "facets": {
+      "dataset": "knowqa"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_side",
+    "figure": "side_findings__dataset-knowqa.png",
+    "subdir": null,
+    "tables": [
+      "choice_kinds",
+      "choice_length",
+      "confidence",
+      "confidence_tests",
+      "speed",
+      "speed_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:11:05"
+  },
+  "side_findings__dataset-l1": {
+    "plot": "side_findings",
+    "facets": {
+      "dataset": "l1"
+    },
+    "produced_by": "src.explorations.position_bias.plots.plot_side",
+    "figure": "side_findings__dataset-l1.png",
+    "subdir": null,
+    "tables": [
+      "choice_kinds",
+      "choice_length",
+      "speed",
+      "speed_tests"
+    ],
+    "source": null,
+    "saved_at": "2026-11-10T14:19:20"
+  }
+}

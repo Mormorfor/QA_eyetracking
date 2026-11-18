@@ -1,0 +1,4 @@
+subset,test,n_trials,statistic,df,p
+all participants,choices at the top: the same share in each third of decision times,19411,181.0822912411258,2,4.769579277360013e-40
+hunters,choices at the top: the same share in each third of decision times,9709,138.0679498877832,2,1.0445413044361922e-30
+gatherers,choices at the top: the same share in each third of decision times,9702,53.79399081893041,2,2.0834511103772306e-12

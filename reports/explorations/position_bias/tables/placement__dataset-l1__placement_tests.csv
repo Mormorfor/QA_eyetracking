@@ -1,0 +1,19 @@
+subset,test,statistic,p,n_units,n_units_with_attractiveness,n_draws,seed
+all participants,each kind at each position one time in four,5.883127572016461,0.8856114388561144,9720,9720,10000,0
+all participants,the correct answer at the top one time in four,0.0021604938271604923,0.6368363163683631,9720,9720,10000,0
+all participants,answers equally long at every position,2.5542010397147705,0.026797320267973202,9720,9720,10000,0
+all participants,the top answer as long as the others,0.004297251060796614,0.3585641435856414,9720,9720,10000,0
+all participants,answers others chose equally often at every position,0.28464918306368037,0.6486351364863514,9720,9720,10000,0
+all participants,the top answer chosen by others as often as the rest,1.8491621614370857e-05,0.9968003199680032,9720,9720,10000,0
+hunters,each kind at each position one time in four,5.9384710361148265,0.8747125287471252,9719,9719,10000,0
+hunters,the correct answer at the top one time in four,0.002186438934046686,0.6220377962203779,9719,9719,10000,0
+hunters,answers equally long at every position,2.5544961913333477,0.023797620237976203,9719,9719,10000,0
+hunters,the top answer as long as the others,0.004302064158998214,0.3511648835116488,9719,9719,10000,0
+hunters,answers others chose equally often at every position,0.2783929704107978,0.6542345765423457,9719,9719,10000,0
+hunters,the top answer chosen by others as often as the rest,9.919253910726542e-06,0.9977002299770023,9719,9719,10000,0
+gatherers,each kind at each position one time in four,5.9619224040341665,0.8801119888011198,9717,9717,10000,0
+gatherers,the correct answer at the top one time in four,0.002238345168261824,0.616938306169383,9717,9717,10000,0
+gatherers,answers equally long at every position,2.5668899228440334,0.027197280271972803,9717,9717,10000,0
+gatherers,the top answer as long as the others,0.004228368553826845,0.3695630436956304,9717,9717,10000,0
+gatherers,answers others chose equally often at every position,0.2874103775753491,0.6486351364863514,9717,9717,10000,0
+gatherers,the top answer chosen by others as often as the rest,4.153491522503197e-05,0.9916008399160084,9717,9717,10000,0

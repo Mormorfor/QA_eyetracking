@@ -1,0 +1,16 @@
+study,subset,measure,mean,se,n_participants,p_randomisation
+Study 2,no knowledge,share of choices at the top,0.31663094669305847,0.01630976124162519,13,9.999000099990002e-05
+Study 2,partial knowledge,share of choices at the top,0.2256173640024572,0.01090377971996551,13,0.17568243175682433
+Study 2,full knowledge,share of choices at the top,0.21701180806770876,0.01591259654934914,13,0.062493750624937505
+Study 1,hunters,share of choices at the top,0.2509414550819163,0.004382982190829373,180,0.8402159784021598
+Study 1,gatherers,share of choices at the top,0.25616119263918,0.004862423217600299,180,0.17118288171182883
+Study 2,no knowledge,accuracy: correct answer at the top minus elsewhere,0.14235114642492416,0.053673862534051736,13,0.0006999300069993001
+Study 2,partial knowledge,accuracy: correct answer at the top minus elsewhere,-0.03891225878901516,0.03314574276778502,13,0.26177382261773824
+Study 2,full knowledge,accuracy: correct answer at the top minus elsewhere,-0.015785488932695876,0.02203827205227528,13,0.36566343365663434
+Study 1,hunters,accuracy: correct answer at the top minus elsewhere,0.003582172141568754,0.008982891703702992,180,0.6641335866413358
+Study 1,gatherers,accuracy: correct answer at the top minus elsewhere,0.00852561726177113,0.009465870125700552,180,0.40245975402459755
+Study 2,no knowledge,gaze on answers not chosen: top minus elsewhere,0.07059053696201303,0.01225782416847506,13,
+Study 2,partial knowledge,gaze on answers not chosen: top minus elsewhere,0.06429105839486919,0.019675351779308226,13,
+Study 2,full knowledge,gaze on answers not chosen: top minus elsewhere,0.09409192407710619,0.012861168596767256,13,
+Study 1,hunters,gaze on answers not chosen: top minus elsewhere,0.0811089655632511,0.004005014571503223,180,
+Study 1,gatherers,gaze on answers not chosen: top minus elsewhere,0.06910455603257554,0.004148314215694105,180,

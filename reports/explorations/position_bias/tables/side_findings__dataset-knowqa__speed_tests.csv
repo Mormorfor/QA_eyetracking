@@ -1,0 +1,4 @@
+subset,test,n_trials,statistic,df,p
+no knowledge,choices at the top: the same share in each third of decision times,625,4.630428233465721,2,0.09874503877335036
+partial knowledge,choices at the top: the same share in each third of decision times,620,4.987235638854461,2,0.08261055522206431
+full knowledge,choices at the top: the same share in each third of decision times,640,4.101026192031483,2,0.128668867164648

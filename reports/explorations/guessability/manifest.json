@@ -1,0 +1,141 @@
+{
+  "items_by_share_guessed_right__dataset-guess": {
+    "plot": "items_by_share_guessed_right",
+    "facets": {
+      "dataset": "guess"
+    },
+    "produced_by": "src.explorations.guessability.plots.plot_histogram",
+    "figure": "items_by_share_guessed_right__dataset-guess.png",
+    "subdir": null,
+    "tables": [
+      "histogram",
+      "items"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:00:38"
+  },
+  "items_by_share_guessed_right__dataset-pilot": {
+    "plot": "items_by_share_guessed_right",
+    "facets": {
+      "dataset": "pilot"
+    },
+    "produced_by": "src.explorations.guessability.plots.plot_histogram",
+    "figure": "items_by_share_guessed_right__dataset-pilot.png",
+    "subdir": null,
+    "tables": [
+      "histogram",
+      "items"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:00:39"
+  },
+  "no_knowledge_confusion": {
+    "plot": "no_knowledge_confusion",
+    "facets": {},
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_confusion.png",
+    "subdir": "logreg",
+    "tables": [
+      "metrics"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:00"
+  },
+  "no_knowledge_confusion__pool-final_wording": {
+    "plot": "no_knowledge_confusion",
+    "facets": {
+      "pool": "final_wording"
+    },
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_confusion__pool-final_wording.png",
+    "subdir": "logreg",
+    "tables": [
+      "metrics"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:08"
+  },
+  "no_knowledge_participant_heatmap": {
+    "plot": "no_knowledge_participant_heatmap",
+    "facets": {},
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_participant_heatmap.png",
+    "subdir": "logreg",
+    "tables": [
+      "profile"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:03"
+  },
+  "no_knowledge_participant_heatmap__pool-final_wording": {
+    "plot": "no_knowledge_participant_heatmap",
+    "facets": {
+      "pool": "final_wording"
+    },
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_participant_heatmap__pool-final_wording.png",
+    "subdir": "logreg",
+    "tables": [
+      "profile"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:11"
+  },
+  "no_knowledge_probability_histograms": {
+    "plot": "no_knowledge_probability_histograms",
+    "facets": {},
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_probability_histograms.png",
+    "subdir": "logreg",
+    "tables": [
+      "trials"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:18:59"
+  },
+  "no_knowledge_probability_histograms__pool-final_wording": {
+    "plot": "no_knowledge_probability_histograms",
+    "facets": {
+      "pool": "final_wording"
+    },
+    "produced_by": "src.explorations.guessability.no_knowledge._save_run_figure",
+    "figure": "no_knowledge_probability_histograms__pool-final_wording.png",
+    "subdir": "logreg",
+    "tables": [
+      "trials"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:07"
+  },
+  "no_knowledge_questions_by_guessability__ranked_by-share_correct__top-0.25": {
+    "plot": "no_knowledge_questions_by_guessability",
+    "facets": {
+      "ranked_by": "share_correct",
+      "top": 0.25
+    },
+    "produced_by": "src.explorations.guessability.no_knowledge.plot_guessability",
+    "figure": "no_knowledge_questions_by_guessability__ranked_by-share_correct__top-0.25.png",
+    "subdir": null,
+    "tables": [
+      "questions"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:18:57"
+  },
+  "no_knowledge_questions_by_guessability__ranked_by-share_correct__top-0.25__pool-final_wording": {
+    "plot": "no_knowledge_questions_by_guessability",
+    "facets": {
+      "ranked_by": "share_correct",
+      "top": 0.25,
+      "pool": "final_wording"
+    },
+    "produced_by": "src.explorations.guessability.no_knowledge.plot_guessability",
+    "figure": "no_knowledge_questions_by_guessability__ranked_by-share_correct__top-0.25__pool-final_wording.png",
+    "subdir": null,
+    "tables": [
+      "questions"
+    ],
+    "source": null,
+    "saved_at": "2026-11-16T16:19:05"
+  }
+}

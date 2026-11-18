@@ -1,0 +1,116 @@
+{
+  "answer_free_gaze": {
+    "plot": "answer_free_gaze",
+    "facets": {},
+    "produced_by": "__main__.plot_answer_free",
+    "figure": "answer_free_gaze.png",
+    "subdir": "logreg",
+    "tables": [
+      "columns",
+      "feature_sets",
+      "pairs",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T12:10:40"
+  },
+  "full_vs_none": {
+    "plot": "full_vs_none",
+    "facets": {},
+    "produced_by": "__main__.plot_detection",
+    "figure": "full_vs_none.png",
+    "subdir": "logreg",
+    "tables": [
+      "block_positions",
+      "feature_auc",
+      "feature_sets",
+      "pairs",
+      "probabilities",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:17"
+  },
+  "full_vs_none_confusion": {
+    "plot": "full_vs_none_confusion",
+    "facets": {},
+    "produced_by": "__main__.plot_confusion",
+    "figure": "full_vs_none_confusion.png",
+    "subdir": "logreg",
+    "tables": [
+      "accuracy",
+      "confusion"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:18"
+  },
+  "full_vs_none_guesses": {
+    "plot": "full_vs_none_guesses",
+    "facets": {},
+    "produced_by": "__main__.plot_guesses",
+    "figure": "full_vs_none_guesses.png",
+    "subdir": "logreg",
+    "tables": [
+      "cutoff",
+      "cutoff_pairs",
+      "pairs",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:40"
+  },
+  "full_vs_none_guesses_confusion": {
+    "plot": "full_vs_none_guesses_confusion",
+    "facets": {},
+    "produced_by": "__main__.plot_guess_confusion",
+    "figure": "full_vs_none_guesses_confusion.png",
+    "subdir": "logreg",
+    "tables": [
+      "accuracy",
+      "confusion"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:42"
+  },
+  "full_vs_none_guesses_histograms": {
+    "plot": "full_vs_none_guesses_histograms",
+    "facets": {},
+    "produced_by": "__main__.plot_guess_histograms",
+    "figure": "full_vs_none_guesses_histograms.png",
+    "subdir": "logreg",
+    "tables": [
+      "histogram"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:43"
+  },
+  "full_vs_none_histograms": {
+    "plot": "full_vs_none_histograms",
+    "facets": {},
+    "produced_by": "__main__.plot_histograms",
+    "figure": "full_vs_none_histograms.png",
+    "subdir": "logreg",
+    "tables": [
+      "histogram"
+    ],
+    "source": null,
+    "saved_at": "2026-11-09T11:59:19"
+  },
+  "knowledge_vs_none": {
+    "plot": "knowledge_vs_none",
+    "facets": {},
+    "produced_by": "__main__.plot_detection",
+    "figure": "knowledge_vs_none.png",
+    "subdir": "logreg",
+    "tables": [
+      "block_positions",
+      "feature_auc",
+      "feature_sets",
+      "pairs",
+      "probabilities",
+      "scores"
+    ],
+    "source": null,
+    "saved_at": "2026-11-08T13:04:36"
+  }
+}

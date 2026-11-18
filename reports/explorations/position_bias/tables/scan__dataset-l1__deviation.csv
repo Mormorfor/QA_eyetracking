@@ -1,0 +1,49 @@
+first_position,chosen_position,n,share_of_row,subset
+bottom,top,17,0.265625,all participants
+bottom,left,9,0.140625,all participants
+bottom,right,24,0.375,all participants
+bottom,bottom,14,0.21875,all participants
+left,top,486,0.2607296137339056,all participants
+left,left,463,0.24839055793991416,all participants
+left,right,472,0.2532188841201717,all participants
+left,bottom,443,0.23766094420600858,all participants
+right,top,7,0.2692307692307692,all participants
+right,left,6,0.23076923076923078,all participants
+right,right,5,0.19230769230769232,all participants
+right,bottom,8,0.3076923076923077,all participants
+top,top,4409,0.2525634415993584,all participants
+top,left,4427,0.2535945466002177,all participants
+top,right,4332,0.24815260354012716,all participants
+top,bottom,4289,0.24568940826029673,all participants
+bottom,top,15,0.2727272727272727,hunters
+bottom,left,7,0.12727272727272726,hunters
+bottom,right,22,0.4,hunters
+bottom,bottom,11,0.2,hunters
+left,top,263,0.24834749763928235,hunters
+left,left,264,0.24929178470254956,hunters
+left,right,295,0.2785646836638338,hunters
+left,bottom,237,0.2237960339943343,hunters
+right,top,0,0.0,hunters
+right,left,1,0.2,hunters
+right,right,3,0.6,hunters
+right,bottom,1,0.2,hunters
+top,top,2158,0.2512223515715949,hunters
+top,left,2169,0.25250291036088474,hunters
+top,right,2137,0.24877764842840513,hunters
+top,bottom,2126,0.24749708963911526,hunters
+bottom,top,2,0.2222222222222222,gatherers
+bottom,left,2,0.2222222222222222,gatherers
+bottom,right,2,0.2222222222222222,gatherers
+bottom,bottom,3,0.3333333333333333,gatherers
+left,top,223,0.27701863354037265,gatherers
+left,left,199,0.24720496894409938,gatherers
+left,right,177,0.21987577639751552,gatherers
+left,bottom,206,0.25590062111801243,gatherers
+right,top,7,0.3333333333333333,gatherers
+right,left,5,0.23809523809523808,gatherers
+right,right,2,0.09523809523809523,gatherers
+right,bottom,7,0.3333333333333333,gatherers
+top,top,2251,0.2538626367429796,gatherers
+top,left,2258,0.25465208074884405,gatherers
+top,right,2195,0.24754708469606407,gatherers
+top,bottom,2163,0.24393819781211232,gatherers

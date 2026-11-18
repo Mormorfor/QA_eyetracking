@@ -1,0 +1,13 @@
+subset,position,visits_per_trial,n_returns_from_question,share_of_returns_from_question,n_trials
+no knowledge,top,2.3952,281,0.4418238993710692,625
+no knowledge,left,1.7168,151,0.23742138364779874,625
+no knowledge,right,1.728,120,0.18867924528301888,625
+no knowledge,bottom,1.696,84,0.1320754716981132,625
+partial knowledge,top,1.9370967741935483,127,0.49609375,620
+partial knowledge,left,1.4016129032258065,54,0.2109375,620
+partial knowledge,right,1.4935483870967743,43,0.16796875,620
+partial knowledge,bottom,1.4387096774193548,32,0.125,620
+full knowledge,top,1.3453125,23,0.4423076923076923,640
+full knowledge,left,1.0890625,17,0.3269230769230769,640
+full knowledge,right,1.0015625,6,0.11538461538461539,640
+full knowledge,bottom,1.0359375,6,0.11538461538461539,640

@@ -1,0 +1,105 @@
+participant_id,level,share,by,subset
+4000,bottom,0.2,position,no knowledge
+4000,left,0.28,position,no knowledge
+4000,right,0.22,position,no knowledge
+4000,top,0.3,position,no knowledge
+4001,bottom,0.18,position,no knowledge
+4001,left,0.2,position,no knowledge
+4001,right,0.2,position,no knowledge
+4001,top,0.42,position,no knowledge
+4002,bottom,0.22,position,no knowledge
+4002,left,0.28,position,no knowledge
+4002,right,0.18,position,no knowledge
+4002,top,0.32,position,no knowledge
+4003,bottom,0.1,position,no knowledge
+4003,left,0.18,position,no knowledge
+4003,right,0.34,position,no knowledge
+4003,top,0.38,position,no knowledge
+4004,bottom,0.3,position,no knowledge
+4004,left,0.24,position,no knowledge
+4004,right,0.18,position,no knowledge
+4004,top,0.28,position,no knowledge
+4005,bottom,0.16,position,no knowledge
+4005,left,0.24,position,no knowledge
+4005,right,0.32,position,no knowledge
+4005,top,0.28,position,no knowledge
+4006,bottom,0.30434782608695654,position,no knowledge
+4006,left,0.15217391304347827,position,no knowledge
+4006,right,0.15217391304347827,position,no knowledge
+4006,top,0.391304347826087,position,no knowledge
+4007,bottom,0.2391304347826087,position,no knowledge
+4007,left,0.3695652173913043,position,no knowledge
+4007,right,0.13043478260869565,position,no knowledge
+4007,top,0.2608695652173913,position,no knowledge
+4008,bottom,0.2391304347826087,position,no knowledge
+4008,left,0.32608695652173914,position,no knowledge
+4008,right,0.17391304347826086,position,no knowledge
+4008,top,0.2608695652173913,position,no knowledge
+4009,bottom,0.34782608695652173,position,no knowledge
+4009,left,0.10869565217391304,position,no knowledge
+4009,right,0.2391304347826087,position,no knowledge
+4009,top,0.30434782608695654,position,no knowledge
+4010,bottom,0.21739130434782608,position,no knowledge
+4010,left,0.21739130434782608,position,no knowledge
+4010,right,0.2826086956521739,position,no knowledge
+4010,top,0.2826086956521739,position,no knowledge
+4011,bottom,0.10869565217391304,position,no knowledge
+4011,left,0.2608695652173913,position,no knowledge
+4011,right,0.2391304347826087,position,no knowledge
+4011,top,0.391304347826087,position,no knowledge
+4012,bottom,0.20408163265306123,position,no knowledge
+4012,left,0.2653061224489796,position,no knowledge
+4012,right,0.2857142857142857,position,no knowledge
+4012,top,0.24489795918367346,position,no knowledge
+4000,1st,0.3,"order, complete scans",no knowledge
+4000,2nd,0.28,"order, complete scans",no knowledge
+4000,3rd,0.1,"order, complete scans",no knowledge
+4000,4th,0.32,"order, complete scans",no knowledge
+4001,1st,0.42,"order, complete scans",no knowledge
+4001,2nd,0.2,"order, complete scans",no knowledge
+4001,3rd,0.18,"order, complete scans",no knowledge
+4001,4th,0.2,"order, complete scans",no knowledge
+4002,1st,0.32432432432432434,"order, complete scans",no knowledge
+4002,2nd,0.21621621621621623,"order, complete scans",no knowledge
+4002,3rd,0.24324324324324326,"order, complete scans",no knowledge
+4002,4th,0.21621621621621623,"order, complete scans",no knowledge
+4003,1st,0.32,"order, complete scans",no knowledge
+4003,2nd,0.24,"order, complete scans",no knowledge
+4003,3rd,0.18,"order, complete scans",no knowledge
+4003,4th,0.26,"order, complete scans",no knowledge
+4004,1st,0.2608695652173913,"order, complete scans",no knowledge
+4004,2nd,0.2391304347826087,"order, complete scans",no knowledge
+4004,3rd,0.2608695652173913,"order, complete scans",no knowledge
+4004,4th,0.2391304347826087,"order, complete scans",no knowledge
+4005,1st,0.2978723404255319,"order, complete scans",no knowledge
+4005,2nd,0.1702127659574468,"order, complete scans",no knowledge
+4005,3rd,0.19148936170212766,"order, complete scans",no knowledge
+4005,4th,0.3404255319148936,"order, complete scans",no knowledge
+4006,1st,0.4,"order, complete scans",no knowledge
+4006,2nd,0.17777777777777778,"order, complete scans",no knowledge
+4006,3rd,0.26666666666666666,"order, complete scans",no knowledge
+4006,4th,0.15555555555555556,"order, complete scans",no knowledge
+4007,1st,0.2826086956521739,"order, complete scans",no knowledge
+4007,2nd,0.15217391304347827,"order, complete scans",no knowledge
+4007,3rd,0.2391304347826087,"order, complete scans",no knowledge
+4007,4th,0.32608695652173914,"order, complete scans",no knowledge
+4008,1st,0.2619047619047619,"order, complete scans",no knowledge
+4008,2nd,0.14285714285714285,"order, complete scans",no knowledge
+4008,3rd,0.2857142857142857,"order, complete scans",no knowledge
+4008,4th,0.30952380952380953,"order, complete scans",no knowledge
+4009,1st,0.21621621621621623,"order, complete scans",no knowledge
+4009,2nd,0.10810810810810811,"order, complete scans",no knowledge
+4009,3rd,0.4594594594594595,"order, complete scans",no knowledge
+4009,4th,0.21621621621621623,"order, complete scans",no knowledge
+4010,1st,0.23684210526315788,"order, complete scans",no knowledge
+4010,2nd,0.23684210526315788,"order, complete scans",no knowledge
+4010,3rd,0.23684210526315788,"order, complete scans",no knowledge
+4010,4th,0.2894736842105263,"order, complete scans",no knowledge
+4011,1st,0.4,"order, complete scans",no knowledge
+4011,2nd,0.17777777777777778,"order, complete scans",no knowledge
+4011,3rd,0.13333333333333333,"order, complete scans",no knowledge
+4011,4th,0.28888888888888886,"order, complete scans",no knowledge
+4012,1st,0.2857142857142857,"order, complete scans",no knowledge
+4012,2nd,0.24489795918367346,"order, complete scans",no knowledge
+4012,3rd,0.24489795918367346,"order, complete scans",no knowledge
+4012,4th,0.22448979591836735,"order, complete scans",no knowledge

@@ -1,0 +1,177 @@
+column,fate
+mean_dwell_time__question,kept
+mean_dwell_time__answer_A,spread over the answers
+mean_dwell_time__answer_B,spread over the answers
+mean_dwell_time__answer_C,spread over the answers
+mean_dwell_time__answer_D,spread over the answers
+mean_dwell_time__correct,dropped: uses the key
+mean_dwell_time__wrong_mean,dropped: uses the key
+mean_dwell_time__contrast,dropped: uses the key
+mean_dwell_time__distance_furthest,dropped: uses the key
+mean_dwell_time__distance_closest,dropped: uses the key
+mean_fixations_count__question,kept
+mean_fixations_count__answer_A,spread over the answers
+mean_fixations_count__answer_B,spread over the answers
+mean_fixations_count__answer_C,spread over the answers
+mean_fixations_count__answer_D,spread over the answers
+mean_fixations_count__correct,dropped: uses the key
+mean_fixations_count__wrong_mean,dropped: uses the key
+mean_fixations_count__contrast,dropped: uses the key
+mean_fixations_count__distance_furthest,dropped: uses the key
+mean_fixations_count__distance_closest,dropped: uses the key
+mean_first_fixation_duration__question,kept
+mean_first_fixation_duration__answer_A,spread over the answers
+mean_first_fixation_duration__answer_B,spread over the answers
+mean_first_fixation_duration__answer_C,spread over the answers
+mean_first_fixation_duration__answer_D,spread over the answers
+mean_first_fixation_duration__correct,dropped: uses the key
+mean_first_fixation_duration__wrong_mean,dropped: uses the key
+mean_first_fixation_duration__contrast,dropped: uses the key
+mean_first_fixation_duration__distance_furthest,dropped: uses the key
+mean_first_fixation_duration__distance_closest,dropped: uses the key
+skip_rate__question,kept
+skip_rate__answer_A,spread over the answers
+skip_rate__answer_B,spread over the answers
+skip_rate__answer_C,spread over the answers
+skip_rate__answer_D,spread over the answers
+skip_rate__correct,dropped: uses the key
+skip_rate__wrong_mean,dropped: uses the key
+skip_rate__contrast,dropped: uses the key
+skip_rate__distance_furthest,dropped: uses the key
+skip_rate__distance_closest,dropped: uses the key
+area_dwell_proportion__question,kept
+area_dwell_proportion__answer_A,spread over the answers
+area_dwell_proportion__answer_B,spread over the answers
+area_dwell_proportion__answer_C,spread over the answers
+area_dwell_proportion__answer_D,spread over the answers
+area_dwell_proportion__correct,dropped: uses the key
+area_dwell_proportion__wrong_mean,dropped: uses the key
+area_dwell_proportion__contrast,dropped: uses the key
+area_dwell_proportion__distance_furthest,dropped: uses the key
+area_dwell_proportion__distance_closest,dropped: uses the key
+mean_avg_fix_pupil_size_z__question,kept
+mean_avg_fix_pupil_size_z__answer_A,spread over the answers
+mean_avg_fix_pupil_size_z__answer_B,spread over the answers
+mean_avg_fix_pupil_size_z__answer_C,spread over the answers
+mean_avg_fix_pupil_size_z__answer_D,spread over the answers
+mean_avg_fix_pupil_size_z__correct,dropped: uses the key
+mean_avg_fix_pupil_size_z__wrong_mean,dropped: uses the key
+mean_avg_fix_pupil_size_z__contrast,dropped: uses the key
+mean_avg_fix_pupil_size_z__distance_furthest,dropped: uses the key
+mean_avg_fix_pupil_size_z__distance_closest,dropped: uses the key
+mean_max_fix_pupil_size_z__question,kept
+mean_max_fix_pupil_size_z__answer_A,spread over the answers
+mean_max_fix_pupil_size_z__answer_B,spread over the answers
+mean_max_fix_pupil_size_z__answer_C,spread over the answers
+mean_max_fix_pupil_size_z__answer_D,spread over the answers
+mean_max_fix_pupil_size_z__correct,dropped: uses the key
+mean_max_fix_pupil_size_z__wrong_mean,dropped: uses the key
+mean_max_fix_pupil_size_z__contrast,dropped: uses the key
+mean_max_fix_pupil_size_z__distance_furthest,dropped: uses the key
+mean_max_fix_pupil_size_z__distance_closest,dropped: uses the key
+mean_min_fix_pupil_size_z__question,kept
+mean_min_fix_pupil_size_z__answer_A,spread over the answers
+mean_min_fix_pupil_size_z__answer_B,spread over the answers
+mean_min_fix_pupil_size_z__answer_C,spread over the answers
+mean_min_fix_pupil_size_z__answer_D,spread over the answers
+mean_min_fix_pupil_size_z__correct,dropped: uses the key
+mean_min_fix_pupil_size_z__wrong_mean,dropped: uses the key
+mean_min_fix_pupil_size_z__contrast,dropped: uses the key
+mean_min_fix_pupil_size_z__distance_furthest,dropped: uses the key
+mean_min_fix_pupil_size_z__distance_closest,dropped: uses the key
+first_encounter_avg_pupil_size_z__question,kept
+first_encounter_avg_pupil_size_z__answer_A,spread over the answers
+first_encounter_avg_pupil_size_z__answer_B,spread over the answers
+first_encounter_avg_pupil_size_z__answer_C,spread over the answers
+first_encounter_avg_pupil_size_z__answer_D,spread over the answers
+first_encounter_avg_pupil_size_z__correct,dropped: uses the key
+first_encounter_avg_pupil_size_z__wrong_mean,dropped: uses the key
+first_encounter_avg_pupil_size_z__contrast,dropped: uses the key
+first_encounter_avg_pupil_size_z__distance_furthest,dropped: uses the key
+first_encounter_avg_pupil_size_z__distance_closest,dropped: uses the key
+num_label_visits__question,kept
+num_label_visits__answer_A,spread over the answers
+num_label_visits__answer_B,spread over the answers
+num_label_visits__answer_C,spread over the answers
+num_label_visits__answer_D,spread over the answers
+num_label_visits__correct,dropped: uses the key
+num_label_visits__wrong_mean,dropped: uses the key
+num_label_visits__contrast,dropped: uses the key
+num_label_visits__distance_furthest,dropped: uses the key
+num_label_visits__distance_closest,dropped: uses the key
+seq_len,kept
+has_xyx,kept
+has_xyxy,kept
+longest_alt_answer_run,kept
+trial_mean_dwell,kept
+last_before_confirm_answer_A,dropped: names an answer
+last_before_confirm_answer_B,dropped: names an answer
+last_before_confirm_answer_C,dropped: names an answer
+last_before_confirm_question,kept
+last_before_select_answer_A,dropped: names an answer
+last_before_select_answer_B,dropped: names an answer
+last_before_select_answer_C,dropped: names an answer
+last_before_select_question,kept
+RT_pure_question,kept
+RT_pure_answer_A,spread over the answers
+RT_pure_answer_B,spread over the answers
+RT_pure_answer_C,spread over the answers
+RT_pure_answer_D,spread over the answers
+RT_pure_correct,dropped: uses the key
+RT_pure_wrong_mean,dropped: uses the key
+RT_pure_contrast,dropped: uses the key
+RT_pure_distance_furthest,dropped: uses the key
+RT_pure_distance_closest,dropped: uses the key
+RT_normalized_question,kept
+RT_normalized_answer_A,spread over the answers
+RT_normalized_answer_B,spread over the answers
+RT_normalized_answer_C,spread over the answers
+RT_normalized_answer_D,spread over the answers
+RT_normalized_correct,dropped: uses the key
+RT_normalized_wrong_mean,dropped: uses the key
+RT_normalized_contrast,dropped: uses the key
+RT_normalized_distance_furthest,dropped: uses the key
+RT_normalized_distance_closest,dropped: uses the key
+TFD_pure_question,kept
+TFD_pure_answer_A,spread over the answers
+TFD_pure_answer_B,spread over the answers
+TFD_pure_answer_C,spread over the answers
+TFD_pure_answer_D,spread over the answers
+TFD_pure_correct,dropped: uses the key
+TFD_pure_wrong_mean,dropped: uses the key
+TFD_pure_contrast,dropped: uses the key
+TFD_pure_distance_furthest,dropped: uses the key
+TFD_pure_distance_closest,dropped: uses the key
+TFD_normalized_question,kept
+TFD_normalized_answer_A,spread over the answers
+TFD_normalized_answer_B,spread over the answers
+TFD_normalized_answer_C,spread over the answers
+TFD_normalized_answer_D,spread over the answers
+TFD_normalized_correct,dropped: uses the key
+TFD_normalized_wrong_mean,dropped: uses the key
+TFD_normalized_contrast,dropped: uses the key
+TFD_normalized_distance_furthest,dropped: uses the key
+TFD_normalized_distance_closest,dropped: uses the key
+TimeSinceOffset_pure_question,kept
+TimeSinceOffset_pure_answer_A,spread over the answers
+TimeSinceOffset_pure_answer_B,spread over the answers
+TimeSinceOffset_pure_answer_C,spread over the answers
+TimeSinceOffset_pure_answer_D,spread over the answers
+TimeSinceOffset_pure_correct,dropped: uses the key
+TimeSinceOffset_pure_wrong_mean,dropped: uses the key
+TimeSinceOffset_pure_contrast,dropped: uses the key
+TimeSinceOffset_pure_distance_furthest,dropped: uses the key
+TimeSinceOffset_pure_distance_closest,dropped: uses the key
+TimeSinceOffset_normalized_question,kept
+TimeSinceOffset_normalized_answer_A,spread over the answers
+TimeSinceOffset_normalized_answer_B,spread over the answers
+TimeSinceOffset_normalized_answer_C,spread over the answers
+TimeSinceOffset_normalized_answer_D,spread over the answers
+TimeSinceOffset_normalized_correct,dropped: uses the key
+TimeSinceOffset_normalized_wrong_mean,dropped: uses the key
+TimeSinceOffset_normalized_contrast,dropped: uses the key
+TimeSinceOffset_normalized_distance_furthest,dropped: uses the key
+TimeSinceOffset_normalized_distance_closest,dropped: uses the key
+total_answering_RT,response time
+total_answering_RT_normalized,response time
+ANSWER_PRESS_NUMBER,response time
